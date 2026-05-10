@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>To-do list</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <button type="button" class="sidebar-trigger" id="sidebar-trigger" aria-controls="sidebar" aria-expanded="false">
+      Categories
+    </button>
+    <div class="backdrop" id="sidebar-backdrop" hidden aria-hidden="true"></div>
+
+    <div class="layout">
+      <aside class="sidebar" id="sidebar" aria-label="Categories">
+        <div class="sidebar-inner">
+          <div class="sidebar-heading">Categories</div>
+          <ul class="category-list" id="category-list" role="list"></ul>
+          <div class="sidebar-actions">
+            <button type="button" class="btn btn-sidebar-add" id="toggle-add-category" aria-expanded="false" aria-controls="add-category-panel">
+              + New category
+            </button>
+            <div class="add-category-panel" id="add-category-panel" hidden>
+              <input
+                type="text"
+                id="new-category-name"
+                class="new-category-input"
+                placeholder="Name…"
+                maxlength="48"
+                aria-label="New category name"
+              />
+              <button type="button" class="btn btn-category-submit" id="save-category">Add</button>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <main class="main-area">
+        <div class="app">
+          <section class="hero-illustration" aria-label="Header illustration">
+            <input
+              type="file"
+              id="illustration-upload"
+              accept="image/*"
+              hidden
+              aria-label="Upload illustration"
+            />
+            <img id="illustration-image" class="illustration-image" alt="User illustration" hidden />
+            <div class="illustration-actions">
+              <button type="button" class="btn btn-illustration" id="choose-illustration">Add illustration</button>
+              <button type="button" class="btn btn-ghost" id="remove-illustration" hidden>Remove</button>
+            </div>
+          </section>
+          <header class="header">
+            <h1 class="title">To-do list</h1>
+            <p class="subtitle">Quiet tasks for today—check them off when done.</p>
+          </header>
+
+          <form class="add-form" id="add-form" autocomplete="off">
+            <div class="add-form-row">
+              <input
+                type="text"
+                id="todo-input"
+                class="todo-input"
+                placeholder="Add a task…"
+                maxlength="500"
+                aria-label="New task"
+              />
+              <button type="submit" class="btn btn-primary">Add</button>
+            </div>
+            <div class="add-form-deadline">
+              <span class="deadline-label" id="deadline-label">Due date (optional)</span>
+              <div class="deadline-picker">
+                <input type="hidden" id="todo-deadline" value="" />
+                <div class="deadline-field">
+                  <button
+                    type="button"
+                    class="deadline-trigger"
+                    id="deadline-trigger"
+                    aria-expanded="false"
+                    aria-haspopup="dialog"
+                    aria-controls="calendar-panel"
+                    aria-labelledby="deadline-label"
+                  >
+                    <span class="deadline-trigger-text" id="deadline-display">Pick a date…</span>
+                    <svg
+                      class="deadline-trigger-icon"
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      aria-hidden="true"
+                    >
+                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                      <line x1="16" y1="2" x2="16" y2="6" />
+                      <line x1="8" y1="2" x2="8" y2="6" />
+                      <line x1="3" y1="10" x2="21" y2="10" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    class="deadline-clear-btn"
+                    id="deadline-clear"
+                    hidden
+                    aria-label="Clear due date"
+                  >
+                    ×
+                  </button>
+                </div>
+                <div
+                  class="calendar-popover"
+                  id="calendar-panel"
+                  hidden
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="Pick a due date"
+                >
+                  <div class="calendar-header">
+                    <button type="button" class="calendar-nav" id="cal-prev" aria-label="Previous month">
+                      ‹
+                    </button>
+                    <div class="calendar-title" id="calendar-title"></div>
+                    <button type="button" class="calendar-nav" id="cal-next" aria-label="Next month">›</button>
+                  </div>
+                  <div class="calendar-weekdays">
+                    <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+                  </div>
+                  <div class="calendar-grid" id="calendar-grid"></div>
+                </div>
+              </div>
+            </div>
+          </form>
+
+          <div class="toolbar">
+            <div class="filters" role="tablist" aria-label="Filter tasks">
+              <button type="button" class="filter-btn is-active" data-filter="all" role="tab" aria-selected="true">
+                All
+              </button>
+              <button type="button" class="filter-btn" data-filter="active" role="tab" aria-selected="false">
+                Active
+              </button>
+              <button type="button" class="filter-btn" data-filter="completed" role="tab" aria-selected="false">
+                Done
+              </button>
+            </div>
+            <button type="button" class="btn btn-ghost" id="clear-completed" hidden>Clear completed</button>
+          </div>
+
+          <ul class="todo-list" id="todo-list" aria-live="polite"></ul>
+
+          <p class="empty-state" id="empty-state">No tasks yet—add your first one above.</p>
+
+          <footer class="footer">
+            <span id="count-text">0 tasks left</span>
+          </footer>
+        </div>
+      </main>
+    </div>
+    <script src="app.js"></script>
+  </body>
+</html>
