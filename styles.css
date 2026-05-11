@@ -290,33 +290,31 @@ body {
   margin-bottom: 1.1rem;
 }
 
+.illustration-canvas {
+  width: 100%;
+  min-height: 130px;
+  border: 1px dashed rgba(220, 212, 196, 0.55);
+  border-radius: var(--radius);
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.illustration-canvas:hover {
+  background: transparent;
+  border-color: rgba(79, 99, 104, 0.5);
+}
+
 .illustration-image {
   width: 100%;
   max-height: 220px;
   object-fit: cover;
-  border-radius: var(--radius);
-  border: 1px solid var(--border-soft);
-  box-shadow: var(--shadow);
   display: block;
-  margin-bottom: 0.5rem;
-}
-
-.illustration-actions {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-}
-
-.btn-illustration {
-  background: var(--surface);
-  color: var(--text);
-  border: 1px dashed var(--border);
-  padding: 0.45rem 0.7rem;
-  font-size: 0.72rem;
-}
-
-.btn-illustration:hover {
-  background: var(--surface-muted);
+  background: transparent;
 }
 
 .header {
@@ -824,9 +822,12 @@ body {
     top: 0;
     bottom: 0;
     left: 0;
+    width: 15.5rem;
+    max-width: min(88vw, 17rem);
     transform: translateX(-100%);
     transition: transform 0.22s ease;
-    max-width: min(88vw, 17rem);
+    border-right: 1px solid var(--border-soft);
+    box-shadow: 2px 0 16px rgba(44, 41, 37, 0.04);
   }
 
   .sidebar.is-open {

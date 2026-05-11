@@ -44,7 +44,6 @@
   const saveCatBtn = document.getElementById("save-category");
   const illustrationUpload = document.getElementById("illustration-upload");
   const chooseIllustrationBtn = document.getElementById("choose-illustration");
-  const removeIllustrationBtn = document.getElementById("remove-illustration");
   const illustrationImage = document.getElementById("illustration-image");
 
   /** @type {"all" | "active" | "completed"} */
@@ -56,6 +55,12 @@
     categories = state.categories;
     selectedCategoryKey = state.selectedCategoryKey;
     illustrationsByCategory = state.illustrationsByCategory;
+    if (illustrationsByCategory["__global__"]) {
+      if (!illustrationsByCategory["__all__"]) {
+        illustrationsByCategory["__all__"] = illustrationsByCategory["__global__"];
+      }
+      delete illustrationsByCategory["__global__"];
+    }
     if (!categoryExists(selectedCategoryKey) && selectedCategoryKey !== "__all__") {
       selectedCategoryKey = "__all__";
     }
@@ -194,14 +199,10 @@
     if (!illustrationData) {
       illustrationImage.hidden = true;
       illustrationImage.removeAttribute("src");
-      removeIllustrationBtn.hidden = true;
-      chooseIllustrationBtn.textContent = "Add illustration";
       return;
     }
     illustrationImage.src = illustrationData;
     illustrationImage.hidden = false;
-    removeIllustrationBtn.hidden = false;
-    chooseIllustrationBtn.textContent = "Change illustration";
   }
 
   function id() {
@@ -517,12 +518,6 @@
     reader.readAsDataURL(file);
   });
 
-  removeIllustrationBtn.addEventListener("click", () => {
-    delete illustrationsByCategory[selectedCategoryKey];
-    saveAll();
-    refreshIllustration();
-  });
-
   function closeAddCategoryPanel() {
     addCatPanel.hidden = true;
     toggleAddCatBtn.setAttribute("aria-expanded", "false");
@@ -548,6 +543,7 @@
     selectedCategoryKey = cat.id;
     saveAll();
     renderCategorySidebar();
+    refreshIllustration();
     render();
     closeAddCategoryPanel();
     closeSidebar();
