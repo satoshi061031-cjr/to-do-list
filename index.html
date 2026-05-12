@@ -6,13 +6,6 @@
     <title>To-do list</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
-  <script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/to-do-list/sw.js')
-      .then(() => console.log('SW registered'))
-      .catch((err) => console.log('SW error:', err));
-  }
-</script>
   <body>
     <button type="button" class="sidebar-trigger" id="sidebar-trigger" aria-controls="sidebar" aria-expanded="false">
       Categories
@@ -166,5 +159,12 @@
       </main>
     </div>
     <script src="app.js"></script>
+  <script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/to-do-list/sw.js')
+      .then(() => console.log('SW registered'))
+      .catch((err) => console.log('SW error:', err));
+  }
+</script>
   </body>
 </html>
