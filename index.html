@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
+  <head> <link rel="manifest" href="/to-do-list/manifest.json">
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>To-do list</title>
@@ -195,5 +195,12 @@
     </div>
 
     <script src="app.js"></script>
+  <script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/to-do-list/sw.js')
+      .then(() => console.log('SW registered'))
+      .catch((err) => console.log('SW error:', err));
+  }
+</script>
   </body>
 </html>
