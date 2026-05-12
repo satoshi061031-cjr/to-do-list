@@ -16,6 +16,12 @@
   /** @type {string} */
   let selectedCategoryKey = "__all__";
 
+  /** @type {string | null} ISO YYYY-MM-DD — main calendar day filter */
+  let viewDueDateFilter = null;
+
+  /** @type {string | null} ISO — full-screen “tasks due this day” view */
+  let dueDayPageDate = null;
+
   const form = document.getElementById("add-form");
   const input = document.getElementById("todo-input");
   const deadlineInput = document.getElementById("todo-deadline");
@@ -46,10 +52,29 @@
   const chooseIllustrationBtn = document.getElementById("choose-illustration");
   const illustrationImage = document.getElementById("illustration-image");
 
+  const appCalendarLive = document.getElementById("app-calendar-live");
+  const appCalendarTitle = document.getElementById("app-calendar-title");
+  const appCalendarGrid = document.getElementById("app-calendar-grid");
+  const appCalPrev = document.getElementById("app-cal-prev");
+  const appCalNext = document.getElementById("app-cal-next");
+  const appCalToday = document.getElementById("app-cal-today");
+  const dueDayFilterBar = document.getElementById("due-day-filter-bar");
+  const dueDayFilterLabel = document.getElementById("due-day-filter-label");
+  const dueDayFilterClear = document.getElementById("due-day-filter-clear");
+
+  const dueDayPageRoot = document.getElementById("due-day-page");
+  const dueDayPageBackdrop = document.getElementById("due-day-page-backdrop");
+  const dueDayPageCloseBtn = document.getElementById("due-day-page-close");
+  const dueDayPageTitle = document.getElementById("due-day-page-title");
+  const dueDayPageSub = document.getElementById("due-day-page-sub");
+  const dueDayPageList = document.getElementById("due-day-page-list");
+  const dueDayPageEmpty = document.getElementById("due-day-page-empty");
+
   /** @type {"all" | "active" | "completed"} */
   let filter = "all";
 
   function bootstrap() {
+    migratePlannerFromTodoAppV2();
     const state = loadState();
     todos = state.todos;
     categories = state.categories;
@@ -187,7 +212,12 @@
   }
 
   function saveAll() {
-    const payload = { todos, categories, selectedCategoryKey, illustrationsByCategory };
+    const payload = {
+      todos,
+      categories,
+      selectedCategoryKey,
+      illustrationsByCategory,
+    };
     localStorage.setItem(STORAGE_APP, JSON.stringify(payload));
     if (localStorage.getItem(STORAGE_LEGACY)) {
       localStorage.removeItem(STORAGE_LEGACY);
@@ -207,6 +237,90 @@
 
   function id() {
     return crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random();
+  }
+
+  const STORAGE_PLANNER_KEY = "planner-app-v1";
+
+  /** @param {unknown} raw */
+  function normalizePlannerColumnsForMigrate(raw) {
+    if (!Array.isArray(raw)) return [];
+    /** @type {{ id: string; title: string; emoji: string }[]} */
+    const out = [];
+    for (const c of raw) {
+      if (!c || typeof c !== "object" || typeof /** @type {any} */ (c).id !== "string") continue;
+      const x = /** @type {any} */ (c);
+      out.push({
+        id: x.id,
+        title: typeof x.title === "string" ? x.title.trim().slice(0, 80) || "Untitled" : "Untitled",
+        emoji: typeof x.emoji === "string" && x.emoji.trim() ? String(x.emoji).trim().slice(0, 8) : "📌",
+      });
+    }
+    return out;
+  }
+
+  /**
+   * @param {unknown} raw
+   * @param {string[]} columnIds
+   */
+  function normalizePlannerEntriesForMigrate(raw, columnIds) {
+    if (!Array.isArray(raw)) return [];
+    const set = new Set(columnIds);
+    /** @type {{ id: string; columnId: string; title: string; note: string; completed: boolean; tags: string[] }[]} */
+    const out = [];
+    for (const e of raw) {
+      if (!e || typeof e !== "object" || typeof /** @type {any} */ (e).id !== "string") continue;
+      const x = /** @type {any} */ (e);
+      if (typeof x.columnId !== "string" || !set.has(x.columnId)) continue;
+      const tags = Array.isArray(x.tags)
+        ? x.tags
+            .filter((t) => typeof t === "string")
+            .map((t) => String(t).trim().slice(0, 32))
+            .filter(Boolean)
+            .slice(0, 16)
+        : [];
+      out.push({
+        id: x.id,
+        columnId: x.columnId,
+        title: typeof x.title === "string" ? x.title.slice(0, 200) : "",
+        note: typeof x.note === "string" ? x.note.slice(0, 4000) : "",
+        completed: !!x.completed,
+        tags,
+      });
+    }
+    return out;
+  }
+
+  /** Move planner data from legacy combined `todo-app-v2` into `planner-app-v1`. */
+  function migratePlannerFromTodoAppV2() {
+    try {
+      if (localStorage.getItem(STORAGE_PLANNER_KEY)) return;
+      const raw = localStorage.getItem(STORAGE_APP);
+      if (!raw) return;
+      const p = JSON.parse(raw);
+      if (!p || typeof p !== "object") return;
+      const cols = normalizePlannerColumnsForMigrate(p.plannerColumns);
+      if (cols.length === 0) {
+        const entRaw = p.plannerEntries;
+        if (!Array.isArray(entRaw) || entRaw.length === 0) return;
+      }
+      const entries = normalizePlannerEntriesForMigrate(p.plannerEntries, cols.map((c) => c.id));
+      const plannerId = id();
+      localStorage.setItem(
+        STORAGE_PLANNER_KEY,
+        JSON.stringify({
+          version: 2,
+          planners: [{ id: plannerId, name: "My planner" }],
+          selectedPlannerId: plannerId,
+          boards: { [plannerId]: { columns: cols, entries } },
+        })
+      );
+      delete p.plannerColumns;
+      delete p.plannerEntries;
+      delete p.appView;
+      localStorage.setItem(STORAGE_APP, JSON.stringify(p));
+    } catch (_) {
+      /* ignore */
+    }
   }
 
   function todayIso() {
@@ -248,17 +362,98 @@
   let calYear = new Date().getFullYear();
   let calMonth = new Date().getMonth() + 1;
 
+  let appCalYear = new Date().getFullYear();
+  let appCalMonth = new Date().getMonth() + 1;
+
+  function tickAppCalendarClock() {
+    const now = new Date();
+    appCalendarLive.dateTime = now.toISOString();
+    appCalendarLive.textContent = now.toLocaleString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+  }
+
+  function renderAppCalendar() {
+    appCalendarTitle.textContent = new Date(appCalYear, appCalMonth - 1, 1).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+    });
+
+    const first = new Date(appCalYear, appCalMonth - 1, 1);
+    const pad = mondayIndex(first);
+    const daysInMonth = new Date(appCalYear, appCalMonth, 0).getDate();
+    const selected = deadlineInput.value.trim();
+    const today = todayIso();
+
+    appCalendarGrid.innerHTML = "";
+
+    for (let i = 0; i < pad; i++) {
+      const hole = document.createElement("div");
+      hole.className = "app-cal-pad";
+      hole.setAttribute("aria-hidden", "true");
+      appCalendarGrid.appendChild(hole);
+    }
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const iso = toIsoYmd(appCalYear, appCalMonth, day);
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "app-cal-cell";
+      btn.textContent = String(day);
+      btn.setAttribute("aria-label", `View tasks due ${formatDueDate(iso)}`);
+
+      if (iso === today) btn.classList.add("is-today");
+      if (iso === selected) btn.classList.add("is-selected");
+      if (iso === viewDueDateFilter) btn.classList.add("is-day-selected");
+
+      btn.addEventListener("click", () => {
+        if (selectedCategoryKey !== "__all__") viewDueDateFilter = iso;
+        openDueDayPage(iso);
+      });
+      appCalendarGrid.appendChild(btn);
+    }
+  }
+
+  function shiftAppMonth(delta) {
+    appCalMonth += delta;
+    if (appCalMonth > 12) {
+      appCalMonth = 1;
+      appCalYear += 1;
+    } else if (appCalMonth < 1) {
+      appCalMonth = 12;
+      appCalYear -= 1;
+    }
+    renderAppCalendar();
+  }
+
+  function goAppCalendarThisMonth() {
+    const n = new Date();
+    appCalYear = n.getFullYear();
+    appCalMonth = n.getMonth() + 1;
+    renderAppCalendar();
+  }
+
   function refreshDeadlineChrome() {
     const v = deadlineInput.value.trim();
     if (v && ISO_DATE.test(v)) {
       deadlineDisplay.textContent = formatDueDate(v);
       deadlineDisplay.classList.remove("is-placeholder");
       deadlineClear.hidden = false;
+      const [y, mo] = v.split("-").map(Number);
+      appCalYear = y;
+      appCalMonth = mo;
     } else {
       deadlineDisplay.textContent = "Pick a date…";
       deadlineDisplay.classList.add("is-placeholder");
       deadlineClear.hidden = true;
     }
+    renderAppCalendar();
   }
 
   function closeCalendar() {
@@ -358,6 +553,10 @@
     shiftMonth(1);
   });
 
+  appCalPrev.addEventListener("click", () => shiftAppMonth(-1));
+  appCalNext.addEventListener("click", () => shiftAppMonth(1));
+  appCalToday.addEventListener("click", () => goAppCalendarThisMonth());
+
   document.addEventListener("mousedown", (e) => {
     if (calendarPanel.hidden) return;
     if (deadlinePicker && !deadlinePicker.contains(/** @type {Node} */ (e.target))) {
@@ -366,6 +565,13 @@
   });
 
   refreshDeadlineChrome();
+
+  tickAppCalendarClock();
+  setInterval(tickAppCalendarClock, 1000);
+  setInterval(renderAppCalendar, 60000);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) tickAppCalendarClock();
+  });
 
   function todoMatchesCategory(t) {
     if (selectedCategoryKey === "__all__") return true;
@@ -384,9 +590,11 @@
 
   function setSelectedCategory(next) {
     selectedCategoryKey = next;
+    if (next === "__all__") viewDueDateFilter = null;
     saveAll();
     renderCategorySidebar();
     refreshIllustration();
+    renderAppCalendar();
     render();
     if (window.matchMedia("(max-width: 819px)").matches) closeSidebar();
   }
@@ -396,7 +604,10 @@
     todos = todos.map((t) => (t.categoryId === catId ? { ...t, categoryId: null } : t));
     categories = categories.filter((c) => c.id !== catId);
     delete illustrationsByCategory[catId];
-    if (selectedCategoryKey === catId) selectedCategoryKey = "__all__";
+    if (selectedCategoryKey === catId) {
+      selectedCategoryKey = "__all__";
+      viewDueDateFilter = null;
+    }
     saveAll();
     renderCategorySidebar();
     refreshIllustration();
@@ -562,97 +773,176 @@
 
   function visibleTodosPipeline() {
     let list = todos.filter(todoMatchesCategory);
+    if (viewDueDateFilter && selectedCategoryKey !== "__all__")
+      list = list.filter((t) => t.dueDate === viewDueDateFilter);
     if (filter === "active") list = list.filter((t) => !t.completed);
     if (filter === "completed") list = list.filter((t) => t.completed);
     return list;
   }
 
+  function todosInCategoryAndDayScope() {
+    let list = todos.filter(todoMatchesCategory);
+    if (viewDueDateFilter && selectedCategoryKey !== "__all__")
+      list = list.filter((t) => t.dueDate === viewDueDateFilter);
+    return list;
+  }
+
+  function syncDueDayFilterBar() {
+    if (!viewDueDateFilter || selectedCategoryKey === "__all__") {
+      dueDayFilterBar.hidden = true;
+      return;
+    }
+    dueDayFilterBar.hidden = false;
+    dueDayFilterLabel.textContent = `Tasks due ${formatDueDate(viewDueDateFilter)}`;
+  }
+
+  /**
+   * @param {{ id: string; text: string; completed: boolean; dueDate: string | null; categoryId: string | null }} todo
+   * @param {{ showCategoryPill: boolean; showDueBadge: boolean }} opts
+   */
+  function createTodoListItemEl(todo, opts) {
+    const li = document.createElement("li");
+    li.className = "todo-item" + (todo.completed ? " completed" : "");
+    li.dataset.id = todo.id;
+
+    const check = document.createElement("input");
+    check.type = "checkbox";
+    check.className = "todo-check";
+    check.checked = todo.completed;
+    check.setAttribute("aria-label", todo.completed ? "Mark as active" : "Mark as done");
+    check.addEventListener("change", () => toggle(todo.id));
+
+    const main = document.createElement("div");
+    main.className = "todo-main";
+
+    const label = document.createElement("span");
+    label.className = "todo-label";
+    label.textContent = todo.text;
+    label.addEventListener("click", () => toggle(todo.id));
+
+    main.appendChild(label);
+
+    if (opts.showCategoryPill && todo.categoryId && categoryExists(todo.categoryId)) {
+      const pill = document.createElement("span");
+      pill.className = "todo-category-pill";
+      pill.textContent = categoryLabelById(todo.categoryId);
+      main.appendChild(pill);
+    }
+
+    if (opts.showDueBadge && todo.dueDate) {
+      const dueEl = document.createElement("span");
+      dueEl.className = "todo-due";
+      const overdue = isOverdue(todo.dueDate, todo.completed);
+      if (overdue) dueEl.classList.add("is-overdue");
+      dueEl.textContent = overdue
+        ? `Overdue · ${formatDueDate(todo.dueDate)}`
+        : `Due ${formatDueDate(todo.dueDate)}`;
+      main.appendChild(dueEl);
+    }
+
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "todo-delete";
+    del.setAttribute("aria-label", "Delete task");
+    del.textContent = "×";
+    del.addEventListener("click", () => remove(todo.id));
+
+    li.append(check, main, del);
+    return li;
+  }
+
+  function openDueDayPage(iso) {
+    dueDayPageDate = iso;
+    dueDayPageRoot.hidden = false;
+    document.body.classList.add("due-day-page-open");
+    renderAppCalendar();
+    render();
+    queueMicrotask(() => dueDayPageCloseBtn.focus());
+  }
+
+  function closeDueDayPage() {
+    dueDayPageDate = null;
+    dueDayPageRoot.hidden = true;
+    document.body.classList.remove("due-day-page-open");
+    renderAppCalendar();
+    render();
+  }
+
+  function renderDueDayPage() {
+    if (!dueDayPageDate) return;
+    dueDayPageTitle.textContent = `Tasks due ${formatDueDate(dueDayPageDate)}`;
+    const list = todos.filter((t) => t.dueDate === dueDayPageDate);
+    dueDayPageList.innerHTML = "";
+    list.forEach((todo) => {
+      dueDayPageList.appendChild(
+        createTodoListItemEl(todo, {
+          showCategoryPill: !!(todo.categoryId && categoryExists(todo.categoryId)),
+          showDueBadge: false,
+        })
+      );
+    });
+    const empty = list.length === 0;
+    dueDayPageEmpty.hidden = !empty;
+    dueDayPageList.hidden = empty;
+    dueDayPageEmpty.textContent = `No tasks due on ${formatDueDate(dueDayPageDate)}.`;
+    dueDayPageSub.textContent = empty ? "" : `${list.length} ${list.length === 1 ? "task" : "tasks"}`;
+  }
+
   function render() {
     const visible = visibleTodosPipeline();
     listEl.innerHTML = "";
+    syncDueDayFilterBar();
 
     visible.forEach((todo) => {
-      const li = document.createElement("li");
-      li.className = "todo-item" + (todo.completed ? " completed" : "");
-      li.dataset.id = todo.id;
-
-      const check = document.createElement("input");
-      check.type = "checkbox";
-      check.className = "todo-check";
-      check.checked = todo.completed;
-      check.setAttribute("aria-label", todo.completed ? "Mark as active" : "Mark as done");
-      check.addEventListener("change", () => toggle(todo.id));
-
-      const main = document.createElement("div");
-      main.className = "todo-main";
-
-      const label = document.createElement("span");
-      label.className = "todo-label";
-      label.textContent = todo.text;
-      label.addEventListener("click", () => toggle(todo.id));
-
-      main.appendChild(label);
-
-      if (
-        selectedCategoryKey === "__all__" &&
-        todo.categoryId &&
-        categoryExists(todo.categoryId)
-      ) {
-        const pill = document.createElement("span");
-        pill.className = "todo-category-pill";
-        pill.textContent = categoryLabelById(todo.categoryId);
-        main.appendChild(pill);
-      }
-
-      if (todo.dueDate) {
-        const dueEl = document.createElement("span");
-        dueEl.className = "todo-due";
-        const overdue = isOverdue(todo.dueDate, todo.completed);
-        if (overdue) dueEl.classList.add("is-overdue");
-        dueEl.textContent = overdue
-          ? `Overdue · ${formatDueDate(todo.dueDate)}`
-          : `Due ${formatDueDate(todo.dueDate)}`;
-        main.appendChild(dueEl);
-      }
-
-      const del = document.createElement("button");
-      del.type = "button";
-      del.className = "todo-delete";
-      del.setAttribute("aria-label", "Delete task");
-      del.textContent = "×";
-      del.addEventListener("click", () => remove(todo.id));
-
-      li.append(check, main, del);
-      listEl.appendChild(li);
+      listEl.appendChild(
+        createTodoListItemEl(todo, {
+          showCategoryPill:
+            selectedCategoryKey === "__all__" &&
+            !!todo.categoryId &&
+            categoryExists(todo.categoryId),
+          showDueBadge: !!todo.dueDate,
+        })
+      );
     });
 
-    const activeCountScoped = todos.filter(todoMatchesCategory).filter((t) => !t.completed).length;
+    const inScope = todosInCategoryAndDayScope();
+    const activeCountScoped = inScope.filter((t) => !t.completed).length;
     countEl.textContent =
       activeCountScoped === 0
         ? "All caught up"
         : `${activeCountScoped} ${activeCountScoped === 1 ? "task" : "tasks"} left`;
 
-    const hasCompletedScoped = todos.filter(todoMatchesCategory).some((t) => t.completed);
+    const hasCompletedScoped = inScope.some((t) => t.completed);
     clearBtn.hidden = !hasCompletedScoped;
 
     const showEmpty = visible.length === 0;
     emptyEl.classList.toggle("is-visible", showEmpty);
     if (showEmpty) {
-      const scopedTodos = todos.filter(todoMatchesCategory);
-      if (scopedTodos.length === 0 && selectedCategoryKey !== "__all__") {
-        emptyEl.textContent = categories.find((c) => c.id === selectedCategoryKey)
-          ? `No tasks in "${categoryLabelById(selectedCategoryKey)}" yet.`
-          : "Nothing in this category.";
-      } else if (todos.length === 0) {
-        emptyEl.textContent = "No tasks yet—add your first one above.";
-      } else if (filter === "active") {
-        emptyEl.textContent = "Nothing active right now.";
-      } else if (filter === "completed") {
-        emptyEl.textContent = "No completed tasks yet.";
+      if (viewDueDateFilter && selectedCategoryKey !== "__all__") {
+        const onDay = todos.filter((t) => todoMatchesCategory(t) && t.dueDate === viewDueDateFilter);
+        emptyEl.textContent =
+          onDay.length === 0
+            ? `No tasks due on ${formatDueDate(viewDueDateFilter)}.`
+            : `No tasks match this view for ${formatDueDate(viewDueDateFilter)}.`;
       } else {
-        emptyEl.textContent = "Nothing to show.";
+        const scopedTodos = todos.filter(todoMatchesCategory);
+        if (scopedTodos.length === 0 && selectedCategoryKey !== "__all__") {
+          emptyEl.textContent = categories.find((c) => c.id === selectedCategoryKey)
+            ? `No tasks in "${categoryLabelById(selectedCategoryKey)}" yet.`
+            : "Nothing in this category.";
+        } else if (todos.length === 0) {
+          emptyEl.textContent = "No tasks yet—add your first one above.";
+        } else if (filter === "active") {
+          emptyEl.textContent = "Nothing active right now.";
+        } else if (filter === "completed") {
+          emptyEl.textContent = "No completed tasks yet.";
+        } else {
+          emptyEl.textContent = "Nothing to show.";
+        }
       }
     }
+
+    if (dueDayPageDate) renderDueDayPage();
   }
 
   /** @param {string} text @param {string | null} dueDate */
@@ -694,9 +984,7 @@
 
   /** Remove completed tasks in the current sidebar category scope. */
   function clearCompletedInScope() {
-    const drop = new Set(
-      todos.filter((t) => todoMatchesCategory(t) && t.completed).map((t) => t.id)
-    );
+    const drop = new Set(todosInCategoryAndDayScope().filter((t) => t.completed).map((t) => t.id));
     todos = todos.filter((t) => !drop.has(t.id));
     saveAll();
     renderCategorySidebar();
@@ -720,6 +1008,16 @@
       deadlineTrigger.focus();
       return;
     }
+    if (!dueDayPageRoot.hidden) {
+      closeDueDayPage();
+      return;
+    }
+    if (viewDueDateFilter) {
+      viewDueDateFilter = null;
+      renderAppCalendar();
+      render();
+      return;
+    }
     if (isMobileSidebar() && sidebarEl.classList.contains("is-open")) closeSidebar();
   });
 
@@ -730,6 +1028,7 @@
   bootstrap();
   renderCategorySidebar();
   refreshIllustration();
+  render();
 
   form.addEventListener("submit", (e) => {
     e.preventDefault();
@@ -748,5 +1047,11 @@
     btn.addEventListener("click", () => setFilter(/** @type {any} */ (btn.dataset.filter)));
   });
 
-  render();
+  dueDayFilterClear.addEventListener("click", () => {
+    viewDueDateFilter = null;
+    closeDueDayPage();
+  });
+
+  dueDayPageCloseBtn.addEventListener("click", () => closeDueDayPage());
+  dueDayPageBackdrop.addEventListener("click", () => closeDueDayPage());
 })();

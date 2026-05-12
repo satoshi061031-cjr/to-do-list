@@ -8,7 +8,7 @@
   </head>
   <body>
     <button type="button" class="sidebar-trigger" id="sidebar-trigger" aria-controls="sidebar" aria-expanded="false">
-      Categories
+      Menu
     </button>
     <div class="backdrop" id="sidebar-backdrop" hidden aria-hidden="true"></div>
 
@@ -33,6 +33,10 @@
               <button type="button" class="btn btn-category-submit" id="save-category">Add</button>
             </div>
           </div>
+          <div class="sidebar-planner-block">
+            <div class="sidebar-heading">Planner</div>
+            <a href="planner.html" class="sidebar-page-link">Open planner →</a>
+          </div>
         </div>
       </aside>
 
@@ -49,6 +53,19 @@
             <button type="button" class="illustration-canvas" id="choose-illustration" aria-label="Upload illustration">
               <img id="illustration-image" class="illustration-image" alt="" hidden />
             </button>
+          </section>
+          <section class="app-calendar-panel" aria-label="Calendar">
+            <time class="app-calendar-live" id="app-calendar-live" datetime=""></time>
+            <div class="app-calendar-toolbar">
+              <button type="button" class="app-calendar-nav" id="app-cal-prev" aria-label="Previous month">‹</button>
+              <div class="app-calendar-title" id="app-calendar-title"></div>
+              <button type="button" class="app-calendar-nav" id="app-cal-next" aria-label="Next month">›</button>
+              <button type="button" class="btn-app-cal-today" id="app-cal-today">This month</button>
+            </div>
+            <div class="app-cal-weekdays">
+              <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+            </div>
+            <div class="app-cal-grid" id="app-calendar-grid"></div>
           </section>
           <header class="header">
             <h1 class="title">To-do list</h1>
@@ -148,6 +165,11 @@
             <button type="button" class="btn btn-ghost" id="clear-completed" hidden>Clear completed</button>
           </div>
 
+          <div class="due-day-filter-bar" id="due-day-filter-bar" hidden>
+            <span class="due-day-filter-label" id="due-day-filter-label"></span>
+            <button type="button" class="btn due-day-filter-clear" id="due-day-filter-clear">Clear day</button>
+          </div>
+
           <ul class="todo-list" id="todo-list" aria-live="polite"></ul>
 
           <p class="empty-state" id="empty-state">No tasks yet—add your first one above.</p>
@@ -158,6 +180,20 @@
         </div>
       </main>
     </div>
+
+    <div id="due-day-page" class="due-day-page" hidden role="dialog" aria-modal="true" aria-labelledby="due-day-page-title">
+      <div class="due-day-page-backdrop" id="due-day-page-backdrop" tabindex="-1" aria-hidden="true"></div>
+      <div class="due-day-page-sheet">
+        <header class="due-day-page-header">
+          <button type="button" class="btn due-day-page-back" id="due-day-page-close">← Back</button>
+          <h2 id="due-day-page-title" class="due-day-page-title"></h2>
+          <p id="due-day-page-sub" class="due-day-page-sub"></p>
+        </header>
+        <ul class="todo-list due-day-page-list" id="due-day-page-list"></ul>
+        <p id="due-day-page-empty" class="due-day-page-empty" hidden></p>
+      </div>
+    </div>
+
     <script src="app.js"></script>
   </body>
 </html>

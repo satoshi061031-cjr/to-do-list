@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Planner</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="planner.css" />
+  </head>
+  <body class="planner-page">
+    <button type="button" class="sidebar-trigger" id="sidebar-trigger" aria-controls="sidebar" aria-expanded="false">
+      Menu
+    </button>
+    <div class="backdrop" id="sidebar-backdrop" hidden aria-hidden="true"></div>
+
+    <div class="layout">
+      <aside class="sidebar" id="sidebar" aria-label="Navigation">
+        <div class="sidebar-inner">
+          <div class="sidebar-heading">Planners</div>
+          <ul class="category-list" id="planner-workspace-list" role="list"></ul>
+          <div class="sidebar-actions">
+            <button
+              type="button"
+              class="btn btn-sidebar-add"
+              id="toggle-new-planner"
+              aria-expanded="false"
+              aria-controls="new-planner-panel"
+            >
+              + New planner
+            </button>
+            <div class="add-category-panel" id="new-planner-panel" hidden>
+              <input
+                type="text"
+                id="new-planner-name"
+                class="new-category-input"
+                placeholder="Name…"
+                maxlength="48"
+                aria-label="New planner name"
+              />
+              <button type="button" class="btn btn-category-submit" id="save-planner">Add</button>
+            </div>
+          </div>
+          <div class="sidebar-heading">Pages</div>
+          <a href="index.html" class="sidebar-page-link">← To-do list</a>
+        </div>
+      </aside>
+
+      <main class="main-area" id="main-area">
+        <div class="planner-view-root">
+          <div class="planner-shell">
+            <header class="planner-header">
+              <div class="planner-header-text">
+                <h1 class="planner-title" id="planner-month-title"></h1>
+                <p class="planner-meta" id="planner-meta-line"></p>
+              </div>
+              <div class="planner-header-actions">
+                <button type="button" class="btn btn-ghost planner-clear-done" id="planner-clear-done" hidden>
+                  Clear completed
+                </button>
+                <button type="button" class="btn planner-add-column-main" id="planner-add-column">+ Add column</button>
+              </div>
+            </header>
+            <div class="planner-board-scroll">
+              <div class="planner-board" id="planner-board"></div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <script src="planner.js"></script>
+  </body>
+</html>
