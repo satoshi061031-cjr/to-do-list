@@ -4,10 +4,26 @@
   --planner-accent: #6b5b95;
   --planner-accent-soft: rgba(107, 91, 149, 0.14);
   --planner-tag: #5a6d9e;
+  --planner-lemon: #d8b80f;
+  --planner-window: var(--glass);
+  --planner-card-glass: var(--glass);
+  --planner-card-glass-hover: var(--glass-strong);
+  --planner-card-border: var(--glass-border);
+}
+
+:root[data-theme="dark"] {
+  --planner-accent: #b9a8ff;
+  --planner-accent-soft: rgba(185, 168, 255, 0.18);
+  --planner-tag: #a9bdff;
+  --planner-lemon: #f5dc54;
+  --planner-window: var(--glass);
+  --planner-card-glass: var(--glass);
+  --planner-card-glass-hover: var(--glass-strong);
+  --planner-card-border: var(--glass-border);
 }
 
 body.planner-page {
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: inherit;
 }
 
 .planner-page .layout {
@@ -36,8 +52,8 @@ body.planner-page {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  padding: 1rem 1rem 1.5rem;
-  max-width: 1200px;
+  padding: 1.25rem 1rem 1.5rem;
+  max-width: 1260px;
   margin: 0 auto;
   width: 100%;
 }
@@ -83,16 +99,21 @@ body.planner-page {
   font-size: 0.78rem;
   letter-spacing: 0.05em;
   padding: 0.5rem 0.85rem;
-  border-radius: var(--radius);
-  border: none;
-  background: var(--planner-accent);
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
+  background: rgba(107, 91, 149, 0.78);
   color: #faf8ff;
+  box-shadow: var(--shadow-pop);
+  backdrop-filter: blur(12px) saturate(1.06);
+  -webkit-backdrop-filter: blur(12px) saturate(1.06);
   cursor: pointer;
-  transition: filter 0.15s, transform 0.1s;
+  transition: filter 0.15s, transform 0.16s, box-shadow 0.16s;
 }
 
 .planner-add-column-main:hover {
   filter: brightness(1.06);
+  box-shadow: var(--glow);
+  transform: translateY(-1px);
 }
 
 .planner-add-column-main:focus-visible {
@@ -103,19 +124,27 @@ body.planner-page {
 .planner-board-scroll {
   flex: 1;
   min-height: 0;
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding-bottom: 0.5rem;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 0.95rem 0.95rem 1.05rem;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  background: var(--planner-window);
+  box-shadow: var(--shadow-pop);
+  backdrop-filter: blur(14px) saturate(1.08);
+  -webkit-backdrop-filter: blur(14px) saturate(1.08);
   -webkit-overflow-scrolling: touch;
 }
 
 .planner-board {
   display: flex;
   flex-direction: row;
-  align-items: stretch;
-  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 1.15rem;
   min-height: min(70vh, 36rem);
-  padding: 0.25rem 0.15rem 0.75rem;
+  padding: 0.15rem 0.1rem 0.4rem;
 }
 
 .planner-board-empty {
@@ -128,53 +157,72 @@ body.planner-page {
 }
 
 .planner-column {
-  flex: 0 0 min(17.5rem, 78vw);
+  flex: 1 1 clamp(14rem, 24vw, 17rem);
+  max-width: 18rem;
+  min-height: 18rem;
   display: flex;
   flex-direction: column;
-  background: var(--surface-muted);
-  border: 1px solid var(--border-soft);
-  border-radius: 14px;
-  padding: 0.75rem 0.65rem 0.65rem;
-  box-shadow: var(--shadow);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-lg);
+  padding: 0.15rem;
+  box-shadow: none;
 }
 
 .planner-column-head {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
-  margin-bottom: 0.65rem;
+  gap: 0.35rem;
+  margin-bottom: 0.7rem;
   flex-shrink: 0;
+  padding: 0.15rem 0.15rem 0.35rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .planner-column-emoji {
-  width: 2.35rem;
+  width: 2rem;
   flex-shrink: 0;
-  text-align: center;
-  font-size: 1.1rem;
-  padding: 0.35rem 0.2rem;
-  border: 1px solid var(--border-soft);
-  border-radius: 8px;
-  background: var(--surface);
   font: inherit;
+  text-align: center;
+  font-size: 1rem;
+  padding: 0.24rem 0.1rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+}
+
+.planner-column-emoji:hover,
+.planner-column-emoji:focus {
+  border-color: var(--border-soft);
+  background: var(--planner-card-glass);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .planner-column-title-input {
   flex: 1;
   min-width: 0;
   font: inherit;
-  font-weight: 700;
-  font-size: 0.92rem;
-  padding: 0.4rem 0.45rem;
+  font-weight: 850;
+  font-size: 1.06rem;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  padding: 0.34rem 0.3rem;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--text);
+  color: var(--planner-lemon);
 }
 
 .planner-column-title-input:hover,
 .planner-column-title-input:focus {
   border-color: var(--border-soft);
-  background: var(--surface);
+  background: var(--planner-card-glass);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .planner-column-title-input:focus {
@@ -192,7 +240,7 @@ body.planner-page {
   font-size: 1.1rem;
   line-height: 1;
   padding: 0.25rem;
-  border-radius: 6px;
+  border-radius: 999px;
 }
 
 .planner-column-delete:hover {
@@ -206,19 +254,28 @@ body.planner-page {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
-  padding-right: 0.1rem;
+  gap: 0.48rem;
+  padding: 0 0.12rem 0.12rem;
 }
 
 .planner-card {
-  background: var(--surface);
-  border: 1px solid var(--border-soft);
-  border-radius: 12px;
-  padding: 0.5rem 0.6rem;
+  background: var(--planner-card-glass);
+  border: 1px solid var(--planner-card-border);
+  border-radius: var(--radius);
+  padding: 0.46rem 0.52rem;
   display: flex;
   flex-direction: column;
   gap: 0;
-  box-shadow: 0 1px 4px rgba(44, 41, 37, 0.04);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(12px) saturate(1.06);
+  -webkit-backdrop-filter: blur(12px) saturate(1.06);
+  transition: background 0.15s, border-color 0.15s, transform 0.12s;
+}
+
+.planner-card:hover {
+  background: var(--planner-card-glass-hover);
+  border-color: var(--glass-border);
+  transform: translateY(-1px);
 }
 
 .planner-card.is-done {
@@ -250,7 +307,7 @@ body.planner-page {
 .planner-card-title {
   font: inherit;
   font-weight: 600;
-  font-size: 0.88rem;
+  font-size: 0.82rem;
   width: 100%;
   border: none;
   background: transparent;
@@ -268,15 +325,18 @@ body.planner-page {
 
 .planner-card-toggle {
   flex-shrink: 0;
-  width: 1.85rem;
-  height: 1.85rem;
+  width: 1.6rem;
+  height: 1.6rem;
   margin-top: 0.02rem;
   display: flex;
   align-items: center;
   justify-content: center;
   border: 1px solid var(--border-soft);
-  border-radius: 8px;
-  background: var(--surface-muted);
+  border-radius: var(--radius-sm);
+  background: var(--glass);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   color: var(--text-muted);
   cursor: pointer;
   font-size: 0.65rem;
@@ -342,10 +402,16 @@ body.planner-page {
   min-height: 3.2rem;
   resize: vertical;
   border: 1px solid var(--border-soft);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   padding: 0.4rem 0.5rem;
-  background: var(--surface-muted);
+  background: var(--glass);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   color: var(--text);
+}
+
+:root[data-theme="dark"] .planner-card-note {
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .planner-card-note:focus {
@@ -377,9 +443,9 @@ body.planner-page {
   font-size: 1.1rem;
   line-height: 1;
   padding: 0.15rem;
-  border-radius: 6px;
-  width: 1.85rem;
-  height: 1.85rem;
+  border-radius: 999px;
+  width: 1.6rem;
+  height: 1.6rem;
   margin-top: 0.02rem;
   display: flex;
   align-items: center;
@@ -391,16 +457,19 @@ body.planner-page {
 }
 
 .planner-add-card {
-  margin-top: 0.5rem;
+  margin-top: 0.55rem;
   width: 100%;
   font: inherit;
   font-size: 0.74rem;
   font-weight: 600;
   padding: 0.45rem;
-  border-radius: 8px;
-  border: 1px dashed var(--border);
-  background: transparent;
-  color: var(--text-muted);
+  border-radius: var(--radius);
+  border: 1px dashed var(--planner-card-border);
+  background: var(--glass);
+  color: var(--planner-lemon);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   cursor: pointer;
   transition: border-color 0.15s, color 0.15s, background 0.15s;
 }
@@ -449,4 +518,44 @@ body.planner-page {
   outline: none;
   box-shadow: 0 0 0 2px var(--planner-accent-soft);
   border-radius: 8px;
+}
+
+@media (max-width: 980px) {
+  .planner-shell {
+    padding-left: 0.85rem;
+    padding-right: 0.85rem;
+  }
+
+  .planner-board {
+    gap: 1rem;
+  }
+
+  .planner-column {
+    flex-basis: clamp(13.5rem, 42vw, 17rem);
+    max-width: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .planner-shell {
+    padding-top: 4.6rem;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .planner-board-scroll {
+    padding: 0.75rem;
+    border-radius: 14px;
+  }
+
+  .planner-board {
+    gap: 1.1rem;
+    min-height: 0;
+  }
+
+  .planner-column {
+    flex-basis: 100%;
+    max-width: none;
+    min-height: 14rem;
+  }
 }

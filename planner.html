@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Planner</title>
+    <script src="theme.js"></script>
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="planner.css" />
   </head>
@@ -41,7 +42,8 @@
             </div>
           </div>
           <div class="sidebar-heading">Pages</div>
-          <a href="index.html" class="sidebar-page-link">← To-do list</a>
+          <a href="todo.html" class="sidebar-page-link">To-do list</a>
+          <a href="calendar.html" class="sidebar-page-link">Calendar</a>
         </div>
       </aside>
 
@@ -67,6 +69,11 @@
         </div>
       </main>
     </div>
+
+    <button type="button" class="theme-toggle" id="theme-toggle" aria-pressed="false">
+      <span class="theme-toggle-icon" aria-hidden="true">D</span>
+      <span class="theme-toggle-label">Dark</span>
+    </button>
 
     <script src="planner.js"></script>
   </body>

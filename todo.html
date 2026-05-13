@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head> <link rel="manifest" href="/to-do-list/manifest.json">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>To-do list</title>
+    <script src="theme.js"></script>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <button type="button" class="sidebar-trigger" id="sidebar-trigger" aria-controls="sidebar" aria-expanded="false">
+      Menu
+    </button>
+    <div class="backdrop" id="sidebar-backdrop" hidden aria-hidden="true"></div>
+
+    <div class="layout">
+      <aside class="sidebar" id="sidebar" aria-label="Categories">
+        <div class="sidebar-inner">
+          <div class="sidebar-heading">Categories</div>
+          <ul class="category-list" id="category-list" role="list"></ul>
+          <div class="sidebar-actions">
+            <button type="button" class="btn btn-sidebar-add" id="toggle-add-category" aria-expanded="false" aria-controls="add-category-panel">
+              + New category
+            </button>
+            <div class="add-category-panel" id="add-category-panel" hidden>
+              <input
+                type="text"
+                id="new-category-name"
+                class="new-category-input"
+                placeholder="Name…"
+                maxlength="48"
+                aria-label="New category name"
+              />
+              <button type="button" class="btn btn-category-submit" id="save-category">Add</button>
+            </div>
+          </div>
+          <div class="sidebar-planner-block">
+            <div class="sidebar-heading">Pages</div>
+            <a href="planner.html" class="sidebar-page-link">Planner</a>
+            <a href="calendar.html" class="sidebar-page-link">Calendar</a>
+          </div>
+        </div>
+      </aside>
+
+      <main class="main-area">
+        <div class="app">
+          <section class="hero-illustration app-module" data-module-id="illustration" aria-label="Header illustration">
+            <button type="button" class="module-drag-handle" draggable="true" aria-label="Move illustration module">↕</button>
+            <input
+              type="file"
+              id="illustration-upload"
+              accept="image/*"
+              hidden
+              aria-label="Upload illustration"
+            />
+            <button type="button" class="illustration-canvas" id="choose-illustration" aria-label="Upload illustration">
+              <img id="illustration-image" class="illustration-image" alt="" hidden />
+            </button>
+            <button type="button" class="illustration-delete" id="delete-illustration" aria-label="Delete illustration" hidden>
+              ×
+            </button>
+          </section>
+          <section class="app-calendar-panel app-module" data-module-id="calendar" aria-label="Calendar">
+            <button type="button" class="module-drag-handle" draggable="true" aria-label="Move calendar module">↕</button>
+            <time class="app-calendar-live" id="app-calendar-live" datetime=""></time>
+            <div class="app-calendar-toolbar">
+              <button type="button" class="app-calendar-nav" id="app-cal-prev" aria-label="Previous month">‹</button>
+              <div class="app-calendar-title" id="app-calendar-title"></div>
+              <button type="button" class="app-calendar-nav" id="app-cal-next" aria-label="Next month">›</button>
+              <button type="button" class="btn-app-cal-today" id="app-cal-today">This month</button>
+            </div>
+            <div class="app-cal-weekdays">
+              <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+            </div>
+            <div class="app-cal-grid" id="app-calendar-grid"></div>
+          </section>
+          <section class="task-module app-module" data-module-id="tasks" aria-label="To-do tasks">
+            <button type="button" class="module-drag-handle" draggable="true" aria-label="Move tasks module">↕</button>
+            <header class="header">
+              <h1 class="title">To-do list</h1>
+              <p class="subtitle">Quiet tasks for today—check them off when done.</p>
+            </header>
+
+          <form class="add-form" id="add-form" autocomplete="off">
+            <div class="add-form-row">
+              <input
+                type="text"
+                id="todo-input"
+                class="todo-input"
+                placeholder="Add a task…"
+                maxlength="500"
+                aria-label="New task"
+              />
+              <button type="submit" class="btn btn-primary">Add</button>
+            </div>
+            <div class="add-form-deadline">
+              <div class="deadline-picker">
+                <input type="hidden" id="todo-deadline" value="" />
+                <div class="deadline-field">
+                  <button
+                    type="button"
+                    class="deadline-trigger"
+                    id="deadline-trigger"
+                    aria-expanded="false"
+                    aria-haspopup="dialog"
+                    aria-controls="calendar-panel"
+                    aria-label="Due date"
+                  >
+                    <span class="deadline-trigger-text" id="deadline-display">Pick a date…</span>
+                    <svg
+                      class="deadline-trigger-icon"
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      aria-hidden="true"
+                    >
+                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                      <line x1="16" y1="2" x2="16" y2="6" />
+                      <line x1="8" y1="2" x2="8" y2="6" />
+                      <line x1="3" y1="10" x2="21" y2="10" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    class="deadline-clear-btn"
+                    id="deadline-clear"
+                    hidden
+                    aria-label="Clear due date"
+                  >
+                    ×
+                  </button>
+                </div>
+                <div
+                  class="calendar-popover"
+                  id="calendar-panel"
+                  hidden
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="Pick a due date"
+                >
+                  <div class="calendar-header">
+                    <button type="button" class="calendar-nav" id="cal-prev" aria-label="Previous month">
+                      ‹
+                    </button>
+                    <div class="calendar-title" id="calendar-title"></div>
+                    <button type="button" class="calendar-nav" id="cal-next" aria-label="Next month">›</button>
+                  </div>
+                  <div class="calendar-weekdays">
+                    <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+                  </div>
+                  <div class="calendar-grid" id="calendar-grid"></div>
+                </div>
+              </div>
+            </div>
+          </form>
+
+          <div class="toolbar">
+            <div class="filters" role="tablist" aria-label="Filter tasks">
+              <button type="button" class="filter-btn is-active" data-filter="all" role="tab" aria-selected="true">
+                All
+              </button>
+              <button type="button" class="filter-btn" data-filter="active" role="tab" aria-selected="false">
+                Active
+              </button>
+              <button type="button" class="filter-btn" data-filter="completed" role="tab" aria-selected="false">
+                Done
+              </button>
+            </div>
+            <button type="button" class="btn btn-ghost" id="clear-completed" hidden>Clear completed</button>
+          </div>
+
+            <div class="due-day-filter-bar" id="due-day-filter-bar" hidden>
+              <span class="due-day-filter-label" id="due-day-filter-label"></span>
+              <button type="button" class="btn due-day-filter-clear" id="due-day-filter-clear">Clear day</button>
+            </div>
+
+            <ul class="todo-list" id="todo-list" aria-live="polite"></ul>
+
+            <p class="empty-state" id="empty-state">No tasks yet—add your first one above.</p>
+
+            <footer class="footer">
+              <span id="count-text">0 tasks left</span>
+            </footer>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <button type="button" class="theme-toggle" id="theme-toggle" aria-pressed="false">
+      <span class="theme-toggle-icon" aria-hidden="true">D</span>
+      <span class="theme-toggle-label">Dark</span>
+    </button>
+
+    <div id="due-day-page" class="due-day-page" hidden role="dialog" aria-modal="true" aria-labelledby="due-day-page-title">
+      <div class="due-day-page-backdrop" id="due-day-page-backdrop" tabindex="-1" aria-hidden="true"></div>
+      <div class="due-day-page-sheet">
+        <header class="due-day-page-header">
+          <button type="button" class="btn due-day-page-back" id="due-day-page-close">← Back</button>
+          <h2 id="due-day-page-title" class="due-day-page-title"></h2>
+          <p id="due-day-page-sub" class="due-day-page-sub"></p>
+        </header>
+        <ul class="todo-list due-day-page-list" id="due-day-page-list"></ul>
+        <p id="due-day-page-empty" class="due-day-page-empty" hidden></p>
+      </div>
+    </div>
+
+    <script src="app.js"></script>
+  <script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/to-do-list/sw.js')
+      .then(() => console.log('SW registered'))
+      .catch((err) => console.log('SW error:', err));
+  }
+</script>
+  </body>
+</html>

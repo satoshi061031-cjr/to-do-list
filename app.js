@@ -1,6 +1,7 @@
 (function () {
   const STORAGE_APP = "todo-app-v2";
   const STORAGE_LEGACY = "todo-list-v1";
+  const STORAGE_MODULE_ORDER = "todo-module-order-v1";
   const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
   /** @typedef {{ id: string; name: string }} Category */
 
@@ -39,6 +40,7 @@
   const countEl = document.getElementById("count-text");
   const clearBtn = document.getElementById("clear-completed");
   const filterBtns = document.querySelectorAll(".filter-btn");
+  const appEl = document.querySelector(".app");
 
   const sidebarEl = document.getElementById("sidebar");
   const sidebarTrigger = document.getElementById("sidebar-trigger");
@@ -51,6 +53,7 @@
   const illustrationUpload = document.getElementById("illustration-upload");
   const chooseIllustrationBtn = document.getElementById("choose-illustration");
   const illustrationImage = document.getElementById("illustration-image");
+  const deleteIllustrationBtn = document.getElementById("delete-illustration");
 
   const appCalendarLive = document.getElementById("app-calendar-live");
   const appCalendarTitle = document.getElementById("app-calendar-title");
@@ -69,9 +72,12 @@
   const dueDayPageSub = document.getElementById("due-day-page-sub");
   const dueDayPageList = document.getElementById("due-day-page-list");
   const dueDayPageEmpty = document.getElementById("due-day-page-empty");
+  const welcomeScreen = document.getElementById("welcome-screen");
+  const welcomeEnterBtn = document.getElementById("welcome-enter");
 
   /** @type {"all" | "active" | "completed"} */
   let filter = "all";
+  const MODULE_IDS = ["illustration", "calendar", "tasks"];
 
   function bootstrap() {
     migratePlannerFromTodoAppV2();
@@ -229,10 +235,12 @@
     if (!illustrationData) {
       illustrationImage.hidden = true;
       illustrationImage.removeAttribute("src");
+      deleteIllustrationBtn.hidden = true;
       return;
     }
     illustrationImage.src = illustrationData;
     illustrationImage.hidden = false;
+    deleteIllustrationBtn.hidden = false;
   }
 
   function id() {
@@ -437,6 +445,103 @@
     appCalYear = n.getFullYear();
     appCalMonth = n.getMonth() + 1;
     renderAppCalendar();
+  }
+
+  function moduleOrderFromStorage() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(STORAGE_MODULE_ORDER) || "[]");
+      if (!Array.isArray(parsed)) return MODULE_IDS;
+      const valid = parsed.filter((id) => MODULE_IDS.includes(id));
+      return [...valid, ...MODULE_IDS.filter((id) => !valid.includes(id))];
+    } catch (_) {
+      return MODULE_IDS;
+    }
+  }
+
+  function saveModuleOrder() {
+    if (!appEl) return;
+    const order = Array.from(appEl.querySelectorAll(".app-module"))
+      .map((el) => el.dataset.moduleId)
+      .filter((id) => id && MODULE_IDS.includes(id));
+    localStorage.setItem(STORAGE_MODULE_ORDER, JSON.stringify(order));
+  }
+
+  function applyModuleOrder() {
+    if (!appEl) return;
+    const modules = new Map(
+      Array.from(appEl.querySelectorAll(".app-module")).map((el) => [el.dataset.moduleId, el])
+    );
+    moduleOrderFromStorage().forEach((moduleId) => {
+      const moduleEl = modules.get(moduleId);
+      if (moduleEl) appEl.appendChild(moduleEl);
+    });
+  }
+
+  function setupModuleSorting() {
+    if (!appEl) return;
+    applyModuleOrder();
+    /** @type {HTMLElement | null} */
+    let dragged = null;
+
+    function moveModule(moduleEl, direction) {
+      if (!appEl) return;
+      if (direction < 0 && moduleEl.previousElementSibling) {
+        appEl.insertBefore(moduleEl, moduleEl.previousElementSibling);
+      } else if (direction > 0 && moduleEl.nextElementSibling) {
+        appEl.insertBefore(moduleEl.nextElementSibling, moduleEl);
+      }
+      saveModuleOrder();
+    }
+
+    appEl.querySelectorAll(".module-drag-handle").forEach((handle) => {
+      handle.addEventListener("keydown", (event) => {
+        if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+        const moduleEl = handle.closest(".app-module");
+        if (!(moduleEl instanceof HTMLElement)) return;
+        event.preventDefault();
+        moveModule(moduleEl, event.key === "ArrowUp" ? -1 : 1);
+        handle.focus();
+      });
+
+      handle.addEventListener("dragstart", (event) => {
+        const moduleEl = handle.closest(".app-module");
+        if (!(moduleEl instanceof HTMLElement)) return;
+        dragged = moduleEl;
+        moduleEl.classList.add("is-dragging");
+        if (event.dataTransfer) {
+          event.dataTransfer.effectAllowed = "move";
+          event.dataTransfer.setData("text/plain", moduleEl.dataset.moduleId || "");
+        }
+      });
+
+      handle.addEventListener("dragend", () => {
+        if (dragged) dragged.classList.remove("is-dragging");
+        appEl.querySelectorAll(".app-module").forEach((moduleEl) => {
+          moduleEl.classList.remove("is-drag-over");
+        });
+        dragged = null;
+        saveModuleOrder();
+      });
+    });
+
+    appEl.addEventListener("dragover", (event) => {
+      if (!dragged) return;
+      const target = event.target instanceof Element ? event.target.closest(".app-module") : null;
+      if (!(target instanceof HTMLElement) || target === dragged || !appEl.contains(target)) return;
+      event.preventDefault();
+      appEl.querySelectorAll(".app-module").forEach((moduleEl) => {
+        moduleEl.classList.toggle("is-drag-over", moduleEl === target);
+      });
+      const rect = target.getBoundingClientRect();
+      const afterTarget = event.clientY > rect.top + rect.height / 2;
+      appEl.insertBefore(dragged, afterTarget ? target.nextSibling : target);
+    });
+
+    appEl.addEventListener("drop", (event) => {
+      if (!dragged) return;
+      event.preventDefault();
+      saveModuleOrder();
+    });
   }
 
   function refreshDeadlineChrome() {
@@ -700,6 +805,13 @@
 
   chooseIllustrationBtn.addEventListener("click", () => {
     illustrationUpload.click();
+  });
+
+  deleteIllustrationBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    delete illustrationsByCategory[selectedCategoryKey];
+    saveAll();
+    refreshIllustration();
   });
 
   illustrationUpload.addEventListener("change", () => {
@@ -1028,6 +1140,7 @@
   bootstrap();
   renderCategorySidebar();
   refreshIllustration();
+  setupModuleSorting();
   render();
 
   form.addEventListener("submit", (e) => {
@@ -1054,4 +1167,12 @@
 
   dueDayPageCloseBtn.addEventListener("click", () => closeDueDayPage());
   dueDayPageBackdrop.addEventListener("click", () => closeDueDayPage());
+
+  if (welcomeEnterBtn && welcomeScreen) {
+    welcomeEnterBtn.addEventListener("click", () => {
+      document.body.classList.remove("welcome-active");
+      welcomeScreen.hidden = true;
+      input.focus();
+    });
+  }
 })();

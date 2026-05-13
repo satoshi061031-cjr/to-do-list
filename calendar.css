@@ -1,0 +1,520 @@
+/* Calendar page - load after styles.css */
+
+body.calendar-page {
+  font-family: inherit;
+}
+
+.calendar-page .layout {
+  max-width: min(1320px, 100%);
+}
+
+.calendar-page .main-area {
+  width: 100%;
+  align-items: stretch;
+  justify-content: center;
+}
+
+.calendar-app {
+  width: 100%;
+  max-width: min(1180px, 92vw);
+  margin: 0 auto;
+  padding: 1rem 1rem 1.5rem;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.calendar-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0 auto 1rem;
+  width: 100%;
+}
+
+.calendar-eyebrow {
+  margin: 0 0 0.2rem;
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.calendar-title {
+  margin: 0;
+  color: var(--text);
+  font-size: clamp(1.8rem, 5vw, 3.2rem);
+  font-weight: 700;
+  letter-spacing: -0.06em;
+  line-height: 1;
+}
+
+.calendar-meta {
+  margin: 0.45rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.86rem;
+}
+
+.calendar-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem;
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  background: var(--glass);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(12px) saturate(1.06);
+  -webkit-backdrop-filter: blur(12px) saturate(1.06);
+}
+
+.calendar-nav-btn,
+.calendar-today-btn {
+  border: 1px solid transparent;
+  color: var(--text);
+  background: var(--glass);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: transform 0.16s, box-shadow 0.16s, background 0.16s, border-color 0.16s;
+}
+
+.calendar-nav-btn {
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 50%;
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+.calendar-today-btn {
+  min-width: 4rem;
+  padding: 0.45rem 0.8rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+}
+
+.calendar-nav-btn:hover,
+.calendar-today-btn:hover {
+  background: var(--glass-strong);
+  border-color: var(--glass-border);
+  box-shadow: var(--glow);
+  transform: translateY(-1px);
+}
+
+.calendar-nav-btn:focus-visible,
+.calendar-today-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.calendar-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(20rem, 24vw, 23rem);
+  gap: 1rem;
+  width: 100%;
+  margin: 0 auto;
+  align-items: start;
+}
+
+.calendar-month-card,
+.calendar-day-panel {
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  background: var(--glass);
+  box-shadow: var(--shadow-pop);
+  backdrop-filter: blur(14px) saturate(1.08);
+  -webkit-backdrop-filter: blur(14px) saturate(1.08);
+}
+
+.calendar-month-card {
+  overflow: hidden;
+  width: 100%;
+}
+
+.calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.45rem;
+  padding: 0.65rem 0.75rem 0.35rem;
+  border-bottom: none;
+  background: transparent;
+}
+
+.calendar-weekdays span {
+  padding: 0.72rem 0.45rem;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.calendar-month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.55rem;
+  padding: 0.75rem;
+}
+
+.calendar-day-cell {
+  min-height: clamp(6.4rem, 11.2vh, 9rem);
+  padding: 0.5rem;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  background: var(--glass);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: background 0.16s, box-shadow 0.16s, transform 0.16s, border-color 0.16s;
+}
+
+.calendar-day-cell:hover {
+  background: var(--glass-strong);
+  border-color: var(--glass-border);
+  box-shadow: var(--glow);
+  transform: translateY(-1px);
+}
+
+.calendar-day-cell:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.calendar-day-cell.is-selected {
+  background: var(--glass-strong);
+  border-color: var(--glass-border);
+  box-shadow: var(--glow);
+}
+
+.calendar-day-cell.is-outside {
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.22);
+}
+
+:root[data-theme="dark"] .calendar-day-cell.is-outside {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.calendar-day-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: flex-end;
+  min-width: 1.75rem;
+  height: 1.75rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  font-size: 0.88rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.calendar-day-cell.is-today .calendar-day-number {
+  background: var(--danger);
+  color: var(--on-primary);
+}
+
+.calendar-day-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.22rem;
+  min-width: 0;
+}
+
+.calendar-chip {
+  display: block;
+  overflow: hidden;
+  min-width: 0;
+  padding: 0.12rem 0.36rem;
+  border-radius: 999px;
+  color: var(--text);
+  font-size: 0.7rem;
+  font-weight: 650;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendar-chip.is-task {
+  border-left: 3px solid var(--danger);
+  background: var(--glass-strong);
+  box-shadow: var(--shadow-soft);
+}
+
+.calendar-chip.is-reminder {
+  background: rgba(107, 91, 149, 0.72);
+  color: #fff8ff;
+}
+
+:root[data-theme="dark"] .calendar-chip.is-reminder {
+  background: rgba(185, 168, 255, 0.48);
+}
+
+.calendar-chip.is-more {
+  color: var(--text-muted);
+  background: transparent;
+  font-weight: 700;
+}
+
+.calendar-day-panel {
+  position: sticky;
+  top: 1rem;
+  padding: 1rem;
+}
+
+.selected-day-head {
+  margin-bottom: 1rem;
+}
+
+.selected-day-kicker,
+.reminder-label {
+  display: block;
+  margin: 0 0 0.3rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.selected-day-title {
+  margin: 0;
+  color: var(--text);
+  font-size: 1.35rem;
+  line-height: 1.18;
+}
+
+.selected-day-meta {
+  margin: 0.45rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.reminder-form {
+  margin-bottom: 1.1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.reminder-row {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.reminder-time-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 0.45rem;
+  align-items: end;
+  margin-top: 0.55rem;
+}
+
+.reminder-time-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.22rem;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.reminder-input,
+.reminder-time-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--glass);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.86rem;
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.reminder-input::placeholder {
+  color: var(--text-muted);
+}
+
+.reminder-input:focus,
+.reminder-time-input:focus {
+  outline: none;
+  border-color: var(--glass-border);
+  box-shadow: var(--glow);
+  background: var(--surface);
+}
+
+.reminder-submit {
+  flex-shrink: 0;
+  padding: 0.55rem 0.8rem;
+  font-size: 0.74rem;
+}
+
+.selected-section {
+  margin-top: 1rem;
+}
+
+.selected-section-title {
+  margin: 0 0 0.55rem;
+  color: var(--text);
+  font-size: 0.86rem;
+  letter-spacing: 0.02em;
+}
+
+.calendar-item-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+}
+
+.calendar-list-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  padding: 0.65rem 0.7rem;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  background: var(--glass);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.calendar-item-check {
+  flex-shrink: 0;
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.22rem;
+  accent-color: var(--success);
+  cursor: pointer;
+}
+
+.calendar-item-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.calendar-item-text {
+  color: var(--text);
+  font-size: 0.86rem;
+  font-weight: 650;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.calendar-item-sub {
+  margin-top: 0.24rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.calendar-item-delete {
+  flex-shrink: 0;
+  border: none;
+  border-radius: 999px;
+  background: var(--glass);
+  box-shadow: var(--shadow-soft);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0.1rem 0.2rem;
+}
+
+.calendar-item-delete:hover {
+  color: var(--danger);
+  background: rgba(166, 75, 69, 0.1);
+}
+
+.calendar-empty {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.unscheduled-section {
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-soft);
+}
+
+@media (max-width: 980px) {
+  .calendar-content {
+    grid-template-columns: 1fr;
+  }
+
+  .calendar-day-panel {
+    position: static;
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .calendar-app {
+    padding-top: 4.6rem;
+    min-height: auto;
+    justify-content: flex-start;
+  }
+
+  .calendar-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .calendar-nav-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .calendar-day-cell {
+    min-height: 5.7rem;
+    padding: 0.35rem;
+  }
+
+  .calendar-weekdays span {
+    padding: 0.55rem 0.2rem;
+    font-size: 0.68rem;
+  }
+
+  .calendar-chip {
+    font-size: 0.64rem;
+  }
+
+  .calendar-day-number {
+    min-width: 1.5rem;
+    height: 1.5rem;
+    font-size: 0.78rem;
+  }
+
+  .reminder-time-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .reminder-submit {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+}

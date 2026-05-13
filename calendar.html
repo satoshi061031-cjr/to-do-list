@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Calendar</title>
+    <script src="theme.js"></script>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="calendar.css" />
+  </head>
+  <body class="calendar-page">
+    <button type="button" class="sidebar-trigger" id="sidebar-trigger" aria-controls="sidebar" aria-expanded="false">
+      Menu
+    </button>
+    <div class="backdrop" id="sidebar-backdrop" hidden aria-hidden="true"></div>
+
+    <div class="layout">
+      <aside class="sidebar" id="sidebar" aria-label="Navigation">
+        <div class="sidebar-inner">
+          <div class="sidebar-heading">Pages</div>
+          <a href="todo.html" class="sidebar-page-link">To-do list</a>
+          <a href="planner.html" class="sidebar-page-link">Planner</a>
+          <a href="calendar.html" class="sidebar-page-link is-active" aria-current="page">Calendar</a>
+        </div>
+      </aside>
+
+      <main class="main-area">
+        <div class="calendar-app">
+          <header class="calendar-header">
+            <div>
+              <p class="calendar-eyebrow">Calendar</p>
+              <h1 class="calendar-title" id="calendar-title"></h1>
+              <p class="calendar-meta" id="calendar-meta"></p>
+            </div>
+            <div class="calendar-nav-actions" aria-label="Calendar navigation">
+              <button type="button" class="calendar-nav-btn" id="calendar-prev" aria-label="Previous month">‹</button>
+              <button type="button" class="calendar-today-btn" id="calendar-today">Today</button>
+              <button type="button" class="calendar-nav-btn" id="calendar-next" aria-label="Next month">›</button>
+            </div>
+          </header>
+
+          <div class="calendar-content">
+            <section class="calendar-month-card" aria-label="Month calendar">
+              <div class="calendar-weekdays" aria-hidden="true">
+                <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+              </div>
+              <div class="calendar-month-grid" id="calendar-grid"></div>
+            </section>
+
+            <aside class="calendar-day-panel" aria-labelledby="selected-day-title">
+              <div class="selected-day-head">
+                <p class="selected-day-kicker">Selected day</p>
+                <h2 class="selected-day-title" id="selected-day-title"></h2>
+                <p class="selected-day-meta" id="selected-day-meta"></p>
+              </div>
+
+              <form class="reminder-form" id="reminder-form" autocomplete="off">
+                <label class="reminder-label" for="reminder-input">Add reminder</label>
+                <div class="reminder-row">
+                  <input
+                    type="text"
+                    id="reminder-input"
+                    class="reminder-input"
+                    placeholder="Reminder text..."
+                    maxlength="200"
+                  />
+                </div>
+                <div class="reminder-time-row">
+                  <label class="reminder-time-field">
+                    <span>Start</span>
+                    <input type="time" id="reminder-start-time" class="reminder-time-input" />
+                  </label>
+                  <label class="reminder-time-field">
+                    <span>End</span>
+                    <input type="time" id="reminder-end-time" class="reminder-time-input" />
+                  </label>
+                  <button type="submit" class="btn btn-primary reminder-submit">Add</button>
+                </div>
+              </form>
+
+              <section class="selected-section" aria-labelledby="reminders-title">
+                <h3 class="selected-section-title" id="reminders-title">Reminders</h3>
+                <ul class="calendar-item-list" id="reminder-list"></ul>
+                <p class="calendar-empty" id="reminder-empty"></p>
+              </section>
+
+              <section class="selected-section" aria-labelledby="tasks-title">
+                <h3 class="selected-section-title" id="tasks-title">Active tasks</h3>
+                <ul class="calendar-item-list" id="task-list"></ul>
+                <p class="calendar-empty" id="task-empty"></p>
+              </section>
+
+              <section class="selected-section unscheduled-section" aria-labelledby="unscheduled-title">
+                <h3 class="selected-section-title" id="unscheduled-title">Unscheduled active tasks</h3>
+                <ul class="calendar-item-list" id="unscheduled-list"></ul>
+                <p class="calendar-empty" id="unscheduled-empty"></p>
+              </section>
+            </aside>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <button type="button" class="theme-toggle" id="theme-toggle" aria-pressed="false">
+      <span class="theme-toggle-icon" aria-hidden="true">D</span>
+      <span class="theme-toggle-label">Dark</span>
+    </button>
+
+    <script src="calendar.js"></script>
+  </body>
+</html>
