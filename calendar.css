@@ -18,7 +18,7 @@ body.calendar-page {
   width: 100%;
   max-width: min(1180px, 92vw);
   margin: 0 auto;
-  padding: 1rem 1rem 1.5rem;
+  padding: 2.25rem 1rem 1.5rem;
   min-height: 100vh;
   display: flex;
   flex-direction: column;

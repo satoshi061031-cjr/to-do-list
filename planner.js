@@ -586,10 +586,6 @@
 
     plannerBoardEl.innerHTML = "";
     if (plannerColumns.length === 0) {
-      const p = document.createElement("p");
-      p.className = "planner-board-empty";
-      p.textContent = "No columns yet—use “+ Add column” to create sections, then add entries.";
-      plannerBoardEl.appendChild(p);
       return;
     }
 

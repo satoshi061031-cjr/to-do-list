@@ -38,30 +38,14 @@
             <div class="sidebar-heading">Pages</div>
             <a href="planner.html" class="sidebar-page-link">Planner</a>
             <a href="calendar.html" class="sidebar-page-link">Calendar</a>
+            <a href="tally.html" class="sidebar-page-link">Tally book</a>
           </div>
         </div>
       </aside>
 
       <main class="main-area">
         <div class="app">
-          <section class="hero-illustration app-module" data-module-id="illustration" aria-label="Header illustration">
-            <button type="button" class="module-drag-handle" draggable="true" aria-label="Move illustration module">↕</button>
-            <input
-              type="file"
-              id="illustration-upload"
-              accept="image/*"
-              hidden
-              aria-label="Upload illustration"
-            />
-            <button type="button" class="illustration-canvas" id="choose-illustration" aria-label="Upload illustration">
-              <img id="illustration-image" class="illustration-image" alt="" hidden />
-            </button>
-            <button type="button" class="illustration-delete" id="delete-illustration" aria-label="Delete illustration" hidden>
-              ×
-            </button>
-          </section>
           <section class="app-calendar-panel app-module" data-module-id="calendar" aria-label="Calendar">
-            <button type="button" class="module-drag-handle" draggable="true" aria-label="Move calendar module">↕</button>
             <time class="app-calendar-live" id="app-calendar-live" datetime=""></time>
             <div class="app-calendar-toolbar">
               <button type="button" class="app-calendar-nav" id="app-cal-prev" aria-label="Previous month">‹</button>
@@ -74,12 +58,27 @@
             </div>
             <div class="app-cal-grid" id="app-calendar-grid"></div>
           </section>
-          <section class="task-module app-module" data-module-id="tasks" aria-label="To-do tasks">
-            <button type="button" class="module-drag-handle" draggable="true" aria-label="Move tasks module">↕</button>
-            <header class="header">
-              <h1 class="title">To-do list</h1>
-              <p class="subtitle">Quiet tasks for today—check them off when done.</p>
-            </header>
+          <div class="todo-module-stack">
+            <section class="hero-illustration app-module" data-module-id="illustration" aria-label="Header illustration">
+              <input
+                type="file"
+                id="illustration-upload"
+                accept="image/*"
+                hidden
+                aria-label="Upload illustration"
+              />
+              <button type="button" class="illustration-canvas" id="choose-illustration" aria-label="Upload illustration">
+                <img id="illustration-image" class="illustration-image" alt="" hidden />
+              </button>
+              <button type="button" class="illustration-delete" id="delete-illustration" aria-label="Delete illustration" hidden>
+                ×
+              </button>
+            </section>
+            <section class="task-module app-module" data-module-id="tasks" aria-label="To-do tasks">
+              <header class="header">
+                <h1 class="title">To-do list</h1>
+                <p class="subtitle">Quiet tasks for today—check them off when done.</p>
+              </header>
 
           <form class="add-form" id="add-form" autocomplete="off">
             <div class="add-form-row">
@@ -185,7 +184,8 @@
             <footer class="footer">
               <span id="count-text">0 tasks left</span>
             </footer>
-          </section>
+            </section>
+          </div>
         </div>
       </main>
     </div>

@@ -1,19 +1,23 @@
-const CACHE_NAME = 'todo-v33';
+const CACHE_NAME = 'todo-v54';
 const urlsToCache = [
   '/to-do-list/',
   '/to-do-list/index.html',
   '/to-do-list/todo.html',
   '/to-do-list/planner.html',
   '/to-do-list/calendar.html',
+  '/to-do-list/tally.html',
   '/to-do-list/styles.css',
   '/to-do-list/planner.css',
   '/to-do-list/calendar.css',
+  '/to-do-list/tally.css',
   '/to-do-list/theme.js',
   '/to-do-list/app.js',
   '/to-do-list/planner.js',
   '/to-do-list/calendar.js',
+  '/to-do-list/tally.js',
   '/to-do-list/light-background.png',
-  '/to-do-list/dark-background.png'
+  '/to-do-list/dark-background.png',
+  '/to-do-list/welcome-sticker.png'
 ];
 
 self.addEventListener('install', (event) => {
