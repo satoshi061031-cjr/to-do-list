@@ -1,4 +1,4 @@
-const CACHE_NAME = 'todo-v54';
+const CACHE_NAME = 'todo-v57';
 const urlsToCache = [
   '/to-do-list/',
   '/to-do-list/index.html',

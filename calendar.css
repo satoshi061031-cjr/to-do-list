@@ -34,28 +34,35 @@ body.calendar-page {
   width: 100%;
 }
 
-.calendar-eyebrow {
+.calendar-page .calendar-header {
+  color: #f6d84f;
+}
+
+.calendar-page .calendar-eyebrow {
   margin: 0 0 0.2rem;
-  color: var(--text-muted);
+  color: #f6d84f;
   font-size: 0.74rem;
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.36);
 }
 
-.calendar-title {
+.calendar-page .calendar-title {
   margin: 0;
-  color: var(--text);
+  color: #f6d84f;
   font-size: clamp(1.8rem, 5vw, 3.2rem);
   font-weight: 700;
   letter-spacing: -0.06em;
   line-height: 1;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.42);
 }
 
-.calendar-meta {
+.calendar-page .calendar-meta {
   margin: 0.45rem 0 0;
-  color: var(--text-muted);
+  color: #f6d84f;
   font-size: 0.86rem;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.36);
 }
 
 .calendar-nav-actions {
@@ -71,10 +78,10 @@ body.calendar-page {
   -webkit-backdrop-filter: blur(12px) saturate(1.06);
 }
 
-.calendar-nav-btn,
-.calendar-today-btn {
+.calendar-page .calendar-nav-btn,
+.calendar-page .calendar-today-btn {
   border: 1px solid transparent;
-  color: var(--text);
+  color: #f6d84f;
   background: var(--glass);
   cursor: pointer;
   font: inherit;
