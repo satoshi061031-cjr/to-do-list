@@ -468,6 +468,45 @@ body.calendar-page {
   border-top: 1px solid var(--border-soft);
 }
 
+.calendar-month-card,
+.calendar-day-panel,
+.calendar-day-cell,
+.calendar-list-item {
+  position: relative;
+  transform-origin: center;
+  transition:
+    transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1),
+    filter 0.22s ease,
+    box-shadow 0.22s ease,
+    background 0.22s ease,
+    border-color 0.22s ease;
+}
+
+.calendar-month-card:hover,
+.calendar-day-panel:hover,
+.calendar-day-cell:hover,
+.calendar-list-item:hover {
+  transform: translateY(-2px) scale(1.015);
+  filter: drop-shadow(0 16px 28px rgba(246, 216, 79, 0.16));
+  box-shadow: var(--glow);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .calendar-month-card,
+  .calendar-day-panel,
+  .calendar-day-cell,
+  .calendar-list-item {
+    transition: none;
+  }
+
+  .calendar-month-card:hover,
+  .calendar-day-panel:hover,
+  .calendar-day-cell:hover,
+  .calendar-list-item:hover {
+    transform: none;
+  }
+}
+
 @media (max-width: 980px) {
   .calendar-content {
     grid-template-columns: 1fr;

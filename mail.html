@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mail</title>
+    <script src="theme.js"></script>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="mail.css" />
+  </head>
+  <body class="mail-page">
+    <button type="button" class="sidebar-trigger" id="sidebar-trigger" aria-controls="sidebar" aria-expanded="false">
+      Menu
+    </button>
+    <div class="backdrop" id="sidebar-backdrop" hidden aria-hidden="true"></div>
+
+    <div class="layout">
+      <aside class="sidebar" id="sidebar" aria-label="Navigation">
+        <div class="sidebar-inner">
+          <div class="sidebar-heading">Pages</div>
+          <a href="todo.html" class="sidebar-page-link">To-do list</a>
+          <a href="planner.html" class="sidebar-page-link">Planner</a>
+          <a href="calendar.html" class="sidebar-page-link">Calendar</a>
+          <a href="tally.html" class="sidebar-page-link">Tally book</a>
+          <a href="teamwork.html" class="sidebar-page-link">Teamwork</a>
+          <a href="mail.html" class="sidebar-page-link is-active" aria-current="page">Mail</a>
+        </div>
+      </aside>
+
+      <main class="main-area">
+        <div class="mail-app">
+          <header class="mail-hero mail-card">
+            <div>
+              <p class="mail-eyebrow">Mail</p>
+              <h1 class="mail-title">Connect your inboxes</h1>
+              <p class="mail-copy">
+                Add Gmail, Outlook, iCloud, or another mailbox so your workflow can include mail context.
+              </p>
+            </div>
+            <div class="mail-status-card" aria-live="polite">
+              <span>Connected accounts</span>
+              <strong id="mail-connected-count">0</strong>
+              <span id="mail-connected-summary">No mailbox connected yet</span>
+            </div>
+          </header>
+
+          <section class="mail-card mail-connect-panel" aria-labelledby="mail-connect-title">
+            <div class="mail-section-head">
+              <div>
+                <p class="mail-kicker">Authorize</p>
+                <h2 id="mail-connect-title">Choose an email provider</h2>
+              </div>
+            </div>
+            <form class="mail-connect-form" id="mail-connect-form" autocomplete="off">
+              <label class="mail-field">
+                <span>Mail provider</span>
+                <select class="mail-input mail-select" id="mail-provider" aria-label="Mail provider">
+                  <option value="Gmail">Gmail</option>
+                  <option value="Outlook">Outlook</option>
+                  <option value="iCloud">iCloud</option>
+                  <option value="Other">Other mail</option>
+                </select>
+              </label>
+              <label class="mail-field">
+                <span>Email address</span>
+                <input class="mail-input" id="mail-address" type="email" placeholder="name@example.com" aria-label="Email address" required />
+              </label>
+              <button class="btn btn-primary" type="submit">Authorize mailbox</button>
+            </form>
+          </section>
+
+          <section class="mail-card mail-account-panel" aria-labelledby="mail-accounts-title">
+            <div class="mail-section-head">
+              <div>
+                <p class="mail-kicker">Accounts</p>
+                <h2 id="mail-accounts-title">Authorized mailboxes</h2>
+              </div>
+            </div>
+            <div class="mail-account-list" id="mail-account-list"></div>
+            <p class="mail-empty" id="mail-empty">No accounts yet. Choose a provider above to begin.</p>
+            <p class="mail-note">
+              OAuth provider credentials and secure token storage require a backend setup before this can read real inbox data.
+            </p>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <button type="button" class="theme-toggle" id="theme-toggle" aria-pressed="false">
+      <span class="theme-toggle-icon" aria-hidden="true">D</span>
+      <span class="theme-toggle-label">Dark</span>
+    </button>
+    <script src="mail.js"></script>
+  </body>
+</html>

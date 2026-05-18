@@ -1,0 +1,14 @@
+{
+  "name": "daily-space-stock-signals",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Daily Space with a US stock watchlist, financial events, and market signals.",
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server/index.js",
+    "dev": "node --disable-warning=ExperimentalWarning --watch server/index.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

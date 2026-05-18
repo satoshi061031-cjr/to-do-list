@@ -287,7 +287,7 @@
   }
 
   function setupGreeting() {
-    const host = document.querySelector(".app, .planner-shell, .calendar-app, .tally-app");
+    const host = document.querySelector(".app, .planner-shell, .calendar-app, .tally-app, .teamwork-app, .mail-app");
     if (!host || host.querySelector(".app-greeting")) return;
 
     const greeting = document.createElement("section");

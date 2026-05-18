@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head> <link rel="manifest" href="/to-do-list/manifest.json">
+  <head> <link rel="manifest" href="manifest.json">
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Daily Space</title>
@@ -27,7 +27,7 @@
     </button>
   <script>
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/to-do-list/sw.js')
+    navigator.serviceWorker.register('sw.js')
       .then(() => console.log('SW registered'))
       .catch((err) => console.log('SW error:', err));
   }

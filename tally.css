@@ -358,6 +358,49 @@ body.tally-page {
   text-align: center;
 }
 
+.tally-card,
+.tally-form,
+.tally-calendar-card,
+.tally-day,
+.tally-record {
+  position: relative;
+  transform-origin: center;
+  transition:
+    transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1),
+    filter 0.22s ease,
+    box-shadow 0.22s ease,
+    background 0.22s ease,
+    border-color 0.22s ease;
+}
+
+.tally-card:hover,
+.tally-form:hover,
+.tally-calendar-card:hover,
+.tally-day:hover,
+.tally-record:hover {
+  transform: translateY(-2px) scale(1.015);
+  filter: drop-shadow(0 16px 28px rgba(246, 216, 79, 0.16));
+  box-shadow: var(--glow);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tally-card,
+  .tally-form,
+  .tally-calendar-card,
+  .tally-day,
+  .tally-record {
+    transition: none;
+  }
+
+  .tally-card:hover,
+  .tally-form:hover,
+  .tally-calendar-card:hover,
+  .tally-day:hover,
+  .tally-record:hover {
+    transform: none;
+  }
+}
+
 @media (max-width: 980px) {
   .tally-content,
   .tally-summary-grid {

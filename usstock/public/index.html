@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>美股追踪与市场信号</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <header class="header">
+        <h1>美股追踪与市场信号</h1>
+        <p>
+          输入你关注的股票代码，系统会抓取行情、相关新闻、SEC 文件并生成市场信号。
+        </p>
+      </header>
+
+      <section class="controls">
+        <label for="symbolsInput">自选股票（逗号分隔）</label>
+        <div class="input-row">
+          <input
+            id="symbolsInput"
+            type="text"
+            value="AAPL,MSFT,NVDA"
+            placeholder="例如：AAPL,TSLA,AMZN"
+          />
+          <button id="analyzeBtn">抓取并分析</button>
+        </div>
+        <small>示例：AAPL, MSFT, NVDA, TSLA（最多10只）</small>
+      </section>
+
+      <section id="status" class="status hidden"></section>
+      <section id="resultList" class="result-list"></section>
+    </main>
+
+    <template id="cardTemplate">
+      <article class="card">
+        <div class="card-top">
+          <div>
+            <h2 class="symbol"></h2>
+            <p class="company"></p>
+          </div>
+          <div class="signal-badge"></div>
+        </div>
+
+        <div class="market-grid">
+          <div>
+            <span>价格</span>
+            <strong class="price"></strong>
+          </div>
+          <div>
+            <span>涨跌幅</span>
+            <strong class="change"></strong>
+          </div>
+          <div>
+            <span>成交量</span>
+            <strong class="volume"></strong>
+          </div>
+          <div>
+            <span>3月均量</span>
+            <strong class="avg-volume"></strong>
+          </div>
+        </div>
+
+        <div class="scores">
+          <h3>信号评分</h3>
+          <p class="score-summary"></p>
+          <p class="source-status"></p>
+        </div>
+
+        <div class="split">
+          <section>
+            <h3>相关新闻</h3>
+            <ul class="news-list"></ul>
+          </section>
+          <section>
+            <h3>SEC 文件</h3>
+            <ul class="sec-list"></ul>
+          </section>
+        </div>
+      </article>
+    </template>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

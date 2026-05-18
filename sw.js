@@ -1,24 +1,32 @@
-const CACHE_NAME = 'todo-v57';
+const CACHE_NAME = 'todo-v65';
+const SCOPE_PATH = new URL(self.registration.scope).pathname.replace(/\/$/, '');
+const withScope = (path) => `${SCOPE_PATH}${path}`;
 const urlsToCache = [
-  '/to-do-list/',
-  '/to-do-list/index.html',
-  '/to-do-list/todo.html',
-  '/to-do-list/planner.html',
-  '/to-do-list/calendar.html',
-  '/to-do-list/tally.html',
-  '/to-do-list/styles.css',
-  '/to-do-list/planner.css',
-  '/to-do-list/calendar.css',
-  '/to-do-list/tally.css',
-  '/to-do-list/theme.js',
-  '/to-do-list/app.js',
-  '/to-do-list/planner.js',
-  '/to-do-list/calendar.js',
-  '/to-do-list/tally.js',
-  '/to-do-list/light-background.png',
-  '/to-do-list/dark-background.png',
-  '/to-do-list/welcome-sticker.png'
-];
+  '/',
+  '/index.html',
+  '/todo.html',
+  '/planner.html',
+  '/calendar.html',
+  '/tally.html',
+  '/teamwork.html',
+  '/mail.html',
+  '/styles.css',
+  '/planner.css',
+  '/calendar.css',
+  '/tally.css',
+  '/teamwork.css',
+  '/mail.css',
+  '/theme.js',
+  '/app.js',
+  '/planner.js',
+  '/calendar.js',
+  '/tally.js',
+  '/teamwork.js',
+  '/mail.js',
+  '/light-background.png',
+  '/dark-background.png',
+  '/welcome-sticker.png'
+].map(withScope);
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -51,8 +59,13 @@ self.addEventListener('fetch', (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
           return response;
         })
-        .catch(() => caches.match(event.request).then((response) => response || caches.match('/to-do-list/index.html')))
+        .catch(() => caches.match(event.request).then((response) => response || caches.match(withScope('/index.html'))))
     );
+    return;
+  }
+
+  if (new URL(event.request.url).pathname.startsWith(withScope('/api/'))) {
+    event.respondWith(fetch(event.request));
     return;
   }
 
