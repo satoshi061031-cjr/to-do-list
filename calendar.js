@@ -11,7 +11,7 @@
   /** @type {Record<string, any>} */
   let todoStore = {};
 
-  /** @type {{ id: string; date: string; text: string; startTime: string | null; endTime: string | null }[]} */
+  /** @type {{ id: string; date: string; text: string; startTime: string | null; endTime: string | null; priority: "high" | "medium" | "low" }[]} */
   let reminders = [];
   let selectedDate = todayIso();
   let calYear = new Date().getFullYear();
@@ -32,6 +32,7 @@
   const reminderInput = document.getElementById("reminder-input");
   const reminderStartInput = document.getElementById("reminder-start-time");
   const reminderEndInput = document.getElementById("reminder-end-time");
+  const reminderPriorityInput = document.getElementById("reminder-priority");
   const reminderListEl = document.getElementById("reminder-list");
   const reminderEmptyEl = document.getElementById("reminder-empty");
   const taskListEl = document.getElementById("task-list");
@@ -110,6 +111,16 @@
     return "";
   }
 
+  function normalizePriority(value) {
+    return value === "high" || value === "low" ? value : "medium";
+  }
+
+  function formatPriorityLabel(priority) {
+    if (priority === "high") return "High priority";
+    if (priority === "low") return "Low priority";
+    return "Medium priority";
+  }
+
   function reminderChipText(reminder) {
     const time = formatTimeRange(reminder.startTime, reminder.endTime);
     return time ? `${time} ${reminder.text}` : reminder.text;
@@ -174,6 +185,7 @@
           text: x.text.trim().slice(0, 200),
           startTime: normalizeTime(x.startTime),
           endTime: normalizeTime(x.endTime),
+          priority: normalizePriority(x.priority),
         };
       })
       .filter((r) => r.text);
@@ -286,7 +298,7 @@
     selectDate(todayIso());
   }
 
-  function addReminder(text, startTime, endTime) {
+  function addReminder(text, startTime, endTime, priority) {
     const trimmed = text.trim();
     if (!trimmed) return;
     const start = normalizeTime(startTime);
@@ -302,11 +314,13 @@
       text: trimmed.slice(0, 200),
       startTime: start,
       endTime: end,
+      priority: normalizePriority(priority),
     });
     saveCalendarState();
     reminderInput.value = "";
     reminderStartInput.value = "";
     reminderEndInput.value = "";
+    if (reminderPriorityInput instanceof HTMLSelectElement) reminderPriorityInput.value = "medium";
     render();
   }
 
@@ -362,13 +376,18 @@
       items.className = "calendar-day-items";
 
       const chips = [
-        ...dayReminders.map((reminder) => ({ type: "reminder", text: reminderChipText(reminder) })),
+        ...dayReminders.map((reminder) => ({
+          type: "reminder",
+          text: reminderChipText(reminder),
+          priority: reminder.priority,
+        })),
         ...dayTasks.map((todo) => ({ type: "task", text: todo.text })),
       ].slice(0, 4);
 
       chips.forEach((item) => {
         const chip = document.createElement("span");
         chip.className = `calendar-chip is-${item.type}`;
+        if (item.type === "reminder") chip.classList.add(`is-priority-${item.priority || "medium"}`);
         chip.textContent = item.text;
         items.appendChild(chip);
       });
@@ -430,10 +449,13 @@
     main.appendChild(text);
 
     const time = formatTimeRange(reminder.startTime, reminder.endTime);
-    if (time) {
+    const parts = [];
+    if (time) parts.push(time);
+    parts.push(formatPriorityLabel(reminder.priority));
+    if (parts.length) {
       const sub = document.createElement("div");
       sub.className = "calendar-item-sub";
-      sub.textContent = time;
+      sub.textContent = parts.join(" · ");
       main.appendChild(sub);
     }
 
@@ -522,7 +544,12 @@
 
   reminderForm.addEventListener("submit", (e) => {
     e.preventDefault();
-    addReminder(reminderInput.value, reminderStartInput.value, reminderEndInput.value);
+    addReminder(
+      reminderInput.value,
+      reminderStartInput.value,
+      reminderEndInput.value,
+      reminderPriorityInput instanceof HTMLSelectElement ? reminderPriorityInput.value : "medium"
+    );
   });
 
   window.addEventListener("resize", () => {

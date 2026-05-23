@@ -576,6 +576,7 @@ body::after {
 
 .sidebar-page-link {
   display: block;
+  margin-top: 0.28rem;
   padding: 0.55rem 0.72rem;
   font-size: 0.84rem;
   font-weight: 600;
@@ -613,6 +614,87 @@ body::after {
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
+}
+
+.sidebar-sync {
+  margin-top: 0.65rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.sync-form {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.sync-input {
+  width: 100%;
+  padding: 0.62rem 0.72rem;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  background: var(--glass);
+  color: var(--text);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(10px) saturate(1.04);
+  -webkit-backdrop-filter: blur(10px) saturate(1.04);
+  font: inherit;
+  font-size: 0.76rem;
+  text-transform: lowercase;
+}
+
+.sync-input:focus {
+  outline: none;
+  box-shadow: var(--glow);
+}
+
+.sync-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem;
+}
+
+.sync-btn {
+  width: 100%;
+  padding: 0.55rem 0.6rem;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  background: var(--glass);
+  color: var(--text);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(10px) saturate(1.06);
+  -webkit-backdrop-filter: blur(10px) saturate(1.06);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  transition: transform 0.16s, box-shadow 0.16s, background 0.16s;
+}
+
+.sync-btn:hover,
+.sync-btn:focus-visible {
+  outline: none;
+  background: var(--glass-strong);
+  box-shadow: var(--glow);
+  transform: translateY(-1px);
+}
+
+.sync-status {
+  min-height: 1.7em;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  line-height: 1.35;
+}
+
+.sync-last {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  line-height: 1.3;
 }
 
 .sidebar-auth-entry {

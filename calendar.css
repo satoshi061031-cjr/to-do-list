@@ -268,6 +268,18 @@ body.calendar-page {
   color: #fff8ff;
 }
 
+.calendar-chip.is-reminder.is-priority-high {
+  border-left: 3px solid #d7837c;
+}
+
+.calendar-chip.is-reminder.is-priority-medium {
+  border-left: 3px solid #f6d84f;
+}
+
+.calendar-chip.is-reminder.is-priority-low {
+  border-left: 3px solid #9bb895;
+}
+
 :root[data-theme="dark"] .calendar-chip.is-reminder {
   background: rgba(185, 168, 255, 0.48);
 }
@@ -343,9 +355,35 @@ body.calendar-page {
   text-transform: uppercase;
 }
 
+.reminder-priority-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.22rem;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .reminder-input,
 .reminder-time-input {
   flex: 1;
+  min-width: 0;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--glass);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.86rem;
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.reminder-priority-select {
   min-width: 0;
   padding: 0.65rem 0.75rem;
   border: 1px solid var(--border);
@@ -364,7 +402,8 @@ body.calendar-page {
 }
 
 .reminder-input:focus,
-.reminder-time-input:focus {
+.reminder-time-input:focus,
+.reminder-priority-select:focus {
   outline: none;
   border-color: var(--glass-border);
   box-shadow: var(--glow);
@@ -556,7 +595,7 @@ body.calendar-page {
   }
 
   .reminder-time-row {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr;
   }
 
   .reminder-submit {

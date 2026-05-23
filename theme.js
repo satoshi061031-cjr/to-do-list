@@ -1,6 +1,18 @@
 (function () {
   const STORAGE_THEME = "todo-theme";
   const STORAGE_AUTH = "daily-space-auth-v1";
+  const SYNC_CODE_STORAGE = "daily-space-sync-code-v1";
+  const SYNC_META_STORAGE = "daily-space-sync-meta-v1";
+  const SYNC_KEYS = [
+    "todo-app-v2",
+    "planner-app-v1",
+    "calendar-app-v1",
+    "tally-book-v1",
+    "teamwork-page-v1",
+    "daily-space-mail-accounts-v1",
+    STORAGE_THEME,
+    STORAGE_AUTH,
+  ];
   const DARK = "dark";
   const LIGHT = "light";
 
@@ -378,10 +390,280 @@
     window.addEventListener("resize", restartMotion);
   }
 
+  async function requestSync(method, code, payload) {
+    const response = await fetch(`/api/sync/${encodeURIComponent(code)}`, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: payload ? JSON.stringify(payload) : undefined,
+    });
+    const data = await response.json().catch(function () {
+      return {};
+    });
+    if (!response.ok) {
+      const message = data && typeof data.error === "string" ? data.error : "Sync request failed.";
+      throw new Error(message);
+    }
+    return data;
+  }
+
+  function collectSyncPayload() {
+    const payload = {};
+    SYNC_KEYS.forEach(function (key) {
+      try {
+        const value = localStorage.getItem(key);
+        if (value != null) payload[key] = value;
+      } catch (_) {
+        /* ignore inaccessible keys */
+      }
+    });
+    return payload;
+  }
+
+  function syncSignatureFromPayload(payload) {
+    return SYNC_KEYS.map(function (key) {
+      const value = payload && typeof payload[key] === "string" ? payload[key] : "";
+      return `${key}:${value.length}:${value}`;
+    }).join("|");
+  }
+
+  function readSyncMeta() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(SYNC_META_STORAGE) || "{}");
+      return parsed && typeof parsed === "object" ? parsed : {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  function writeSyncMeta(patch) {
+    const next = { ...readSyncMeta(), ...patch };
+    try {
+      localStorage.setItem(SYNC_META_STORAGE, JSON.stringify(next));
+    } catch (_) {
+      /* ignore metadata failures */
+    }
+    return next;
+  }
+
+  function formatSyncTime(iso) {
+    if (!iso) return "Never";
+    const dt = new Date(iso);
+    if (Number.isNaN(dt.getTime())) return "Never";
+    return dt.toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  }
+
+  function applySyncPayload(payload) {
+    if (!payload || typeof payload !== "object") return;
+    Object.keys(payload).forEach(function (key) {
+      if (!SYNC_KEYS.includes(key)) return;
+      const value = payload[key];
+      if (typeof value !== "string") return;
+      try {
+        localStorage.setItem(key, value);
+      } catch (_) {
+        /* ignore write failures */
+      }
+    });
+    applyTheme(storedTheme());
+    renderGreeting();
+  }
+
+  function setupSyncPanel() {
+    const sidebarInner = document.querySelector(".sidebar-inner");
+    if (!sidebarInner) return;
+
+    const block = document.createElement("div");
+    block.className = "sidebar-sync";
+    block.innerHTML = `
+      <div class="sidebar-heading">Sync</div>
+      <form class="sync-form" autocomplete="off">
+        <input class="sync-input" maxlength="32" placeholder="sync code (e.g. team-2026)" aria-label="Sync code" />
+        <div class="sync-actions">
+          <button class="sync-btn" type="button" data-action="upload">Upload</button>
+          <button class="sync-btn" type="button" data-action="download">Download</button>
+        </div>
+        <p class="sync-last" aria-live="polite"></p>
+        <p class="sync-status" aria-live="polite"></p>
+      </form>
+    `;
+    sidebarInner.appendChild(block);
+
+    const input = block.querySelector(".sync-input");
+    const last = block.querySelector(".sync-last");
+    const status = block.querySelector(".sync-status");
+    if (!(input instanceof HTMLInputElement) || !(status instanceof HTMLElement) || !(last instanceof HTMLElement)) return;
+    let autoTimer = 0;
+    let inFlight = false;
+    let syncMeta = readSyncMeta();
+
+    function setStatus(message) {
+      status.textContent = message;
+    }
+
+    function updateLastSyncText() {
+      last.textContent = `Last sync: ${formatSyncTime(syncMeta.lastSyncedAt)}`;
+    }
+
+    function normalizedCode() {
+      return input.value.trim().toLowerCase();
+    }
+
+    try {
+      input.value = localStorage.getItem(SYNC_CODE_STORAGE) || "";
+    } catch (_) {
+      /* ignore */
+    }
+
+    input.addEventListener("input", function () {
+      try {
+        localStorage.setItem(SYNC_CODE_STORAGE, normalizedCode());
+      } catch (_) {
+        /* ignore */
+      }
+    });
+
+    async function upload(code, reason) {
+      const payload = collectSyncPayload();
+      const localSignature = syncSignatureFromPayload(payload);
+      const result = await requestSync("PUT", code, { payload: payload });
+      const now = new Date().toISOString();
+      syncMeta = writeSyncMeta({
+        lastSyncedAt: now,
+        lastUploadedAt: now,
+        baselineSignature: localSignature,
+        remoteUpdatedAt: result.updatedAt || now,
+      });
+      updateLastSyncText();
+      if (reason === "auto") setStatus("Auto-sync uploaded.");
+      else setStatus("Uploaded successfully.");
+    }
+
+    async function download(code, reason) {
+      const data = await requestSync("GET", code);
+      const remotePayload = data && data.payload && typeof data.payload === "object" ? data.payload : {};
+      applySyncPayload(remotePayload);
+      const now = new Date().toISOString();
+      const remoteSignature = syncSignatureFromPayload(remotePayload);
+      syncMeta = writeSyncMeta({
+        lastSyncedAt: now,
+        lastDownloadedAt: now,
+        baselineSignature: remoteSignature,
+        remoteUpdatedAt: data.updatedAt || now,
+      });
+      updateLastSyncText();
+      if (reason === "auto") setStatus("Auto-sync downloaded.");
+      else setStatus("Downloaded. Refreshing page...");
+      window.setTimeout(function () {
+        window.location.reload();
+      }, 350);
+    }
+
+    async function autoSyncTick() {
+      if (inFlight || document.hidden) return;
+      const code = normalizedCode();
+      if (!/^[a-z0-9_-]{4,32}$/.test(code)) return;
+
+      inFlight = true;
+      try {
+        const localPayload = collectSyncPayload();
+        const localSignature = syncSignatureFromPayload(localPayload);
+        const data = await requestSync("GET", code);
+        const remotePayload = data && data.payload && typeof data.payload === "object" ? data.payload : {};
+        const remoteSignature = syncSignatureFromPayload(remotePayload);
+        const baselineSignature = syncMeta.baselineSignature || "";
+        const localChanged = localSignature !== baselineSignature;
+        const remoteChanged = remoteSignature !== baselineSignature;
+
+        if (!localChanged && !remoteChanged) return;
+        if (!localChanged && remoteChanged) {
+          await download(code, "auto");
+          return;
+        }
+        if (localChanged && !remoteChanged) {
+          await upload(code, "auto");
+          return;
+        }
+
+        setStatus("Conflict detected: local and remote both changed.");
+      } catch (error) {
+        setStatus(error instanceof Error ? error.message : "Auto-sync failed.");
+      } finally {
+        inFlight = false;
+      }
+    }
+
+    function restartAutoSync() {
+      window.clearInterval(autoTimer);
+      autoTimer = window.setInterval(autoSyncTick, 60_000);
+    }
+
+    updateLastSyncText();
+    restartAutoSync();
+
+    block.addEventListener("click", async function (event) {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const button = target.closest(".sync-btn");
+      if (!(button instanceof HTMLButtonElement)) return;
+      const action = button.getAttribute("data-action");
+      const code = normalizedCode();
+      if (!/^[a-z0-9_-]{4,32}$/.test(code)) {
+        setStatus("Use 4-32 letters/numbers for sync code.");
+        input.focus();
+        return;
+      }
+
+      button.disabled = true;
+      inFlight = true;
+      setStatus(action === "upload" ? "Uploading..." : "Downloading...");
+      try {
+        if (action === "upload") {
+          await upload(code, "manual");
+        } else {
+          const localPayload = collectSyncPayload();
+          const localSignature = syncSignatureFromPayload(localPayload);
+          const data = await requestSync("GET", code);
+          const remotePayload = data && data.payload && typeof data.payload === "object" ? data.payload : {};
+          const remoteSignature = syncSignatureFromPayload(remotePayload);
+          const baselineSignature = syncMeta.baselineSignature || "";
+          const localChanged = localSignature !== baselineSignature;
+          const remoteChanged = remoteSignature !== baselineSignature;
+          if (localChanged && remoteChanged) {
+            const useRemote = window.confirm(
+              "Conflict detected.\nPress OK to use remote data, or Cancel to keep local changes and upload them."
+            );
+            if (useRemote) {
+              await download(code, "manual");
+            } else {
+              await upload(code, "manual");
+            }
+          } else {
+            await download(code, "manual");
+          }
+        }
+      } catch (error) {
+        setStatus(error instanceof Error ? error.message : "Sync failed.");
+      } finally {
+        inFlight = false;
+        button.disabled = false;
+      }
+    });
+
+    window.addEventListener("beforeunload", function () {
+      window.clearInterval(autoTimer);
+    });
+  }
+
   function setupSharedUi() {
     setupThemeToggle();
     setupAutoSidebar();
     setupAuthEntry();
+    setupSyncPanel();
     setupGreeting();
     setupWelcomeSticker();
   }
