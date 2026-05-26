@@ -44,6 +44,26 @@ Signals are for research only and are not investment advice.
 - `GET /api/stocks/AAPL/summary`
 - `POST /api/stocks/AAPL/refresh`
 
+### Mail OAuth Endpoints
+
+- `GET /api/mail/accounts`
+- `DELETE /api/mail/accounts/:id`
+- `POST /api/mail/accounts/manual` with `{ "provider": "other", "email": "name@example.com" }`
+- `POST /api/mail/accounts/icloud` with `{ "email": "name@icloud.com", "appPassword": "xxxx-xxxx-xxxx-xxxx" }`
+- `POST /api/mail/oauth/start` with `{ "provider": "gmail" | "outlook", "email": "name@example.com", "returnTo": "/mail.html" }`
+- `GET /api/mail/oauth/google/callback`
+- `GET /api/mail/oauth/outlook/callback`
+- `GET /api/mail/accounts/:id/messages?limit=20` (recent inbox summaries)
+
+To enable real Gmail/Outlook authorization, copy `.env.example` to `.env` and fill:
+
+- `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`
+- `MICROSOFT_OAUTH_CLIENT_ID`, `MICROSOFT_OAUTH_CLIENT_SECRET`
+- `MAIL_TOKEN_ENCRYPTION_KEY` (`openssl rand -base64 32`)
+- `MAIL_OAUTH_BASE_URL` for production domain
+
+iCloud real connection uses Apple app-specific password with IMAP login verification against `imap.mail.me.com:993`.
+
 ## Test
 
 ```sh

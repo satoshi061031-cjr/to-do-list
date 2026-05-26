@@ -65,6 +65,17 @@
                 <span>Email address</span>
                 <input class="mail-input" id="mail-address" type="email" placeholder="name@example.com" aria-label="Email address" required />
               </label>
+              <label class="mail-field" id="mail-icloud-password-field" hidden>
+                <span>iCloud app-specific password</span>
+                <input
+                  class="mail-input"
+                  id="mail-icloud-password"
+                  type="password"
+                  placeholder="xxxx-xxxx-xxxx-xxxx"
+                  aria-label="iCloud app-specific password"
+                  autocomplete="off"
+                />
+              </label>
               <button class="btn btn-primary" type="submit">Authorize mailbox</button>
             </form>
           </section>
@@ -79,7 +90,7 @@
             <div class="mail-account-list" id="mail-account-list"></div>
             <p class="mail-empty" id="mail-empty">No accounts yet. Choose a provider above to begin.</p>
             <p class="mail-note">
-              OAuth provider credentials and secure token storage require a backend setup before this can read real inbox data.
+              Gmail/Outlook use real OAuth. iCloud uses real IMAP verification with your Apple app-specific password.
             </p>
           </section>
         </div>

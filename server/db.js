@@ -114,6 +114,29 @@ function migrate(database) {
       started_at TEXT NOT NULL,
       ended_at TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS mail_accounts (
+      id TEXT PRIMARY KEY,
+      provider TEXT NOT NULL,
+      email TEXT NOT NULL,
+      access_token TEXT,
+      refresh_token TEXT,
+      token_type TEXT,
+      scope TEXT,
+      expires_at TEXT,
+      profile_json TEXT,
+      connected_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      UNIQUE(provider, email)
+    );
+
+    CREATE TABLE IF NOT EXISTS oauth_states (
+      state TEXT PRIMARY KEY,
+      provider TEXT NOT NULL,
+      email_hint TEXT,
+      return_to TEXT,
+      created_at TEXT NOT NULL
+    );
   `);
 }
 
@@ -459,16 +482,136 @@ function getSummary(symbol) {
   };
 }
 
+function listMailAccounts() {
+  return getDb()
+    .prepare(
+      `SELECT id, provider, email, token_type AS tokenType, scope, expires_at AS expiresAt,
+              connected_at AS connectedAt, updated_at AS updatedAt
+       FROM mail_accounts
+       ORDER BY updated_at DESC`
+    )
+    .all();
+}
+
+function getMailAccountById(id) {
+  const row = getDb()
+    .prepare("SELECT * FROM mail_accounts WHERE id = ?")
+    .get(String(id || ""));
+  if (!row) return null;
+  return {
+    id: row.id,
+    provider: row.provider,
+    email: row.email,
+    accessToken: row.access_token,
+    refreshToken: row.refresh_token,
+    tokenType: row.token_type,
+    scope: row.scope,
+    expiresAt: row.expires_at,
+    profile: fromJson(row.profile_json, {}),
+    connectedAt: row.connected_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function upsertMailAccount(input) {
+  const provider = String(input.provider || "").trim().toLowerCase();
+  const email = String(input.email || "").trim().toLowerCase();
+  if (!provider || !email) {
+    const error = new Error("Provider and email are required.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const now = nowIso();
+  const existing = getDb()
+    .prepare("SELECT id, connected_at AS connectedAt FROM mail_accounts WHERE provider = ? AND email = ?")
+    .get(provider, email);
+  const id = existing?.id || `${provider}:${email}`;
+  const connectedAt = existing?.connectedAt || now;
+  getDb()
+    .prepare(
+      `INSERT INTO mail_accounts (
+        id, provider, email, access_token, refresh_token, token_type, scope, expires_at, profile_json, connected_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(provider, email) DO UPDATE SET
+        access_token = excluded.access_token,
+        refresh_token = COALESCE(excluded.refresh_token, mail_accounts.refresh_token),
+        token_type = excluded.token_type,
+        scope = excluded.scope,
+        expires_at = excluded.expires_at,
+        profile_json = excluded.profile_json,
+        updated_at = excluded.updated_at`
+    )
+    .run(
+      id,
+      provider,
+      email,
+      input.accessToken || null,
+      input.refreshToken || null,
+      input.tokenType || null,
+      input.scope || null,
+      input.expiresAt || null,
+      toJson(input.profile || {}),
+      connectedAt,
+      now
+    );
+  return getDb().prepare("SELECT * FROM mail_accounts WHERE id = ?").get(id);
+}
+
+function removeMailAccount(id) {
+  return getDb().prepare("DELETE FROM mail_accounts WHERE id = ?").run(String(id || "")).changes > 0;
+}
+
+function createOauthState(input) {
+  const state = String(input.state || "").trim();
+  if (!state) return;
+  getDb()
+    .prepare(
+      `INSERT OR REPLACE INTO oauth_states (state, provider, email_hint, return_to, created_at)
+       VALUES (?, ?, ?, ?, ?)`
+    )
+    .run(
+      state,
+      String(input.provider || "").trim().toLowerCase(),
+      input.emailHint || null,
+      input.returnTo || null,
+      nowIso()
+    );
+}
+
+function consumeOauthState(state, maxAgeMinutes = 20) {
+  const normalized = String(state || "").trim();
+  if (!normalized) return null;
+  const row = getDb().prepare("SELECT * FROM oauth_states WHERE state = ?").get(normalized);
+  getDb().prepare("DELETE FROM oauth_states WHERE state = ?").run(normalized);
+  if (!row) return null;
+  const ageMs = Date.now() - Date.parse(row.created_at);
+  if (!Number.isFinite(ageMs) || ageMs > maxAgeMinutes * 60_000) return null;
+  return {
+    state: row.state,
+    provider: row.provider,
+    emailHint: row.email_hint || null,
+    returnTo: row.return_to || null,
+    createdAt: row.created_at,
+  };
+}
+
 module.exports = {
   addWatchlist,
+  consumeOauthState,
+  createOauthState,
   getDb,
+  getMailAccountById,
   getSummary,
   listWatchlist,
+  listMailAccounts,
   logFetchRun,
   normalizeSymbol,
+  removeMailAccount,
   removeWatchlist,
   replaceEvents,
   replaceFilings,
+  upsertMailAccount,
   upsertFundamentals,
   upsertQuote,
   upsertSignal,

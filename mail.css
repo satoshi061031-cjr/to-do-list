@@ -180,6 +180,12 @@
   box-shadow: var(--shadow-soft);
 }
 
+.mail-account-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.42rem;
+}
+
 .mail-account-provider {
   color: #f6d84f;
   font-size: 0.76rem;
@@ -201,6 +207,36 @@
   margin-top: 0.2rem;
   color: var(--text-muted);
   font-size: 0.78rem;
+}
+
+.mail-message-list {
+  margin-top: 0.55rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.mail-message-item {
+  display: grid;
+  gap: 0.12rem;
+  padding: 0.42rem 0.52rem;
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.mail-message-item strong {
+  font-size: 0.78rem;
+}
+
+.mail-message-item span {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.mail-message-empty {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--text-muted);
 }
 
 .mail-disconnect {

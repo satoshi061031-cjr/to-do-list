@@ -1,32 +1,15 @@
 (function () {
-  const STORAGE_KEY = "daily-space-mail-accounts-v1";
-  let accounts = loadAccounts();
+  let accounts = [];
 
   const form = document.getElementById("mail-connect-form");
   const providerSelect = document.getElementById("mail-provider");
   const addressInput = document.getElementById("mail-address");
+  const icloudPasswordField = document.getElementById("mail-icloud-password-field");
+  const icloudPasswordInput = document.getElementById("mail-icloud-password");
   const list = document.getElementById("mail-account-list");
   const empty = document.getElementById("mail-empty");
   const count = document.getElementById("mail-connected-count");
   const summary = document.getElementById("mail-connected-summary");
-
-  function loadAccounts() {
-    try {
-      const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (_) {
-      return [];
-    }
-  }
-
-  function saveAccounts() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(accounts));
-  }
-
-  function uid() {
-    if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
-    return `mail-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  }
 
   function formatDate(value) {
     return new Date(value).toLocaleString(undefined, {
@@ -54,8 +37,12 @@
           <span class="mail-account-provider">${escapeHtml(account.provider)}</span>
           <span class="mail-account-email">${escapeHtml(account.email)}</span>
           <span class="mail-account-meta">Authorized on this device · ${escapeHtml(formatDate(account.connectedAt))}</span>
+          <div class="mail-message-list" id="mail-message-list-${escapeHtml(account.id)}"></div>
         </div>
-        <button class="mail-disconnect" type="button" data-disconnect="${account.id}">Disconnect</button>
+        <div class="mail-account-actions">
+          <button class="mail-disconnect" type="button" data-load-messages="${account.id}">Load recent mails</button>
+          <button class="mail-disconnect" type="button" data-disconnect="${account.id}">Disconnect</button>
+        </div>
       `;
       list.appendChild(row);
     });
@@ -73,8 +60,68 @@
     });
   }
 
+  async function request(path, init) {
+    const response = await fetch(path, init);
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload.error || "Request failed");
+    }
+    return payload;
+  }
+
+  async function loadFromServer() {
+    const payload = await request("/api/mail/accounts");
+    accounts = Array.isArray(payload.accounts) ? payload.accounts : [];
+    render();
+  }
+
+  function providerValueToApi(value) {
+    const normalized = String(value || "").trim().toLowerCase();
+    if (normalized === "gmail") return "gmail";
+    if (normalized === "outlook") return "outlook";
+    if (normalized === "icloud") return "icloud";
+    return "other";
+  }
+
+  function updateProviderDependentFields() {
+    if (!(providerSelect instanceof HTMLSelectElement)) return;
+    const provider = providerValueToApi(providerSelect.value);
+    const isIcloud = provider === "icloud";
+    if (icloudPasswordField instanceof HTMLElement) {
+      icloudPasswordField.hidden = !isIcloud;
+    }
+    if (icloudPasswordInput instanceof HTMLInputElement) {
+      icloudPasswordInput.required = isIcloud;
+      if (!isIcloud) icloudPasswordInput.value = "";
+    }
+  }
+
+  function toast(message) {
+    if (!message) return;
+    window.alert(message);
+  }
+
+  function handleOauthResultFromUrl() {
+    const url = new URL(window.location.href);
+    const oauth = url.searchParams.get("oauth");
+    if (!oauth) return;
+    const provider = url.searchParams.get("provider") || "Mail";
+    const email = url.searchParams.get("email") || "";
+    const message = url.searchParams.get("message") || "";
+    if (oauth === "success") {
+      toast(`${provider} connected${email ? `: ${email}` : ""}`);
+    } else {
+      toast(`${provider} authorization failed${message ? `: ${message}` : ""}`);
+    }
+    url.searchParams.delete("oauth");
+    url.searchParams.delete("provider");
+    url.searchParams.delete("email");
+    url.searchParams.delete("message");
+    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+  }
+
   if (form && providerSelect && addressInput) {
-    form.addEventListener("submit", (event) => {
+    form.addEventListener("submit", async (event) => {
       event.preventDefault();
       if (!(providerSelect instanceof HTMLSelectElement) || !(addressInput instanceof HTMLInputElement)) return;
       const email = addressInput.value.trim();
@@ -83,36 +130,101 @@
         return;
       }
 
-      const provider = providerSelect.value || "Mail";
-      const existing = accounts.find(
-        (account) => account.provider === provider && account.email.toLowerCase() === email.toLowerCase()
-      );
-      if (existing) {
-        existing.connectedAt = new Date().toISOString();
-      } else {
-        accounts.push({
-          id: uid(),
-          provider,
-          email,
-          connectedAt: new Date().toISOString(),
-        });
-      }
+      const provider = providerValueToApi(providerSelect.value);
+      const submitButton = form.querySelector("button[type='submit']");
+      if (submitButton instanceof HTMLButtonElement) submitButton.disabled = true;
 
-      addressInput.value = "";
-      saveAccounts();
-      render();
+      try {
+        if (provider === "gmail" || provider === "outlook") {
+          const payload = await request("/api/mail/oauth/start", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              provider,
+              email,
+              returnTo: "/mail.html",
+            }),
+          });
+          if (payload.authUrl) {
+            window.location.href = payload.authUrl;
+            return;
+          }
+        } else if (provider === "icloud") {
+          const appPassword =
+            icloudPasswordInput instanceof HTMLInputElement ? icloudPasswordInput.value.trim() : "";
+          await request("/api/mail/accounts/icloud", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ provider, email, appPassword }),
+          });
+          toast("iCloud mailbox connected.");
+          addressInput.value = "";
+          if (icloudPasswordInput instanceof HTMLInputElement) icloudPasswordInput.value = "";
+          await loadFromServer();
+        } else {
+          await request("/api/mail/accounts/manual", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ provider, email }),
+          });
+          toast("Mailbox connected.");
+          addressInput.value = "";
+          await loadFromServer();
+        }
+      } catch (error) {
+        toast(error.message || "Authorization failed.");
+      } finally {
+        if (submitButton instanceof HTMLButtonElement) submitButton.disabled = false;
+      }
     });
   }
 
-  document.addEventListener("click", (event) => {
+  if (providerSelect instanceof HTMLSelectElement) {
+    providerSelect.addEventListener("change", updateProviderDependentFields);
+  }
+
+  document.addEventListener("click", async (event) => {
     const target = event.target;
     if (!(target instanceof Element)) return;
+    const loadMessagesId = target.getAttribute("data-load-messages");
+    if (loadMessagesId) {
+      const container = document.getElementById(`mail-message-list-${loadMessagesId}`);
+      if (container) container.textContent = "Loading...";
+      try {
+        const payload = await request(`/api/mail/accounts/${encodeURIComponent(loadMessagesId)}/messages?limit=20`);
+        const rows = Array.isArray(payload.messages) ? payload.messages : [];
+        if (!container) return;
+        if (!rows.length) {
+          container.innerHTML = `<p class="mail-message-empty">No recent inbox messages.</p>`;
+          return;
+        }
+        container.innerHTML = rows
+          .map((item) => {
+            const subject = escapeHtml(item.subject || "(No subject)");
+            const from = escapeHtml(item.from || "Unknown sender");
+            const time = item.receivedAt ? escapeHtml(formatDate(item.receivedAt)) : "Unknown time";
+            return `<article class="mail-message-item"><strong>${subject}</strong><span>${from}</span><span>${time}</span></article>`;
+          })
+          .join("");
+      } catch (error) {
+        if (container) container.innerHTML = `<p class="mail-message-empty">${escapeHtml(error.message || "Failed to load messages.")}</p>`;
+      }
+      return;
+    }
+
     const id = target.getAttribute("data-disconnect");
     if (!id) return;
-    accounts = accounts.filter((account) => account.id !== id);
-    saveAccounts();
-    render();
+    try {
+      await request(`/api/mail/accounts/${encodeURIComponent(id)}`, { method: "DELETE" });
+      await loadFromServer();
+    } catch (error) {
+      toast(error.message || "Failed to disconnect account.");
+    }
   });
 
-  render();
+  handleOauthResultFromUrl();
+  updateProviderDependentFields();
+  loadFromServer().catch((error) => {
+    toast(error.message || "Failed to load mail accounts.");
+  });
 })();
