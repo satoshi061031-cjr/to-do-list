@@ -117,6 +117,7 @@ function migrate(database) {
 
     CREATE TABLE IF NOT EXISTS mail_accounts (
       id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
       provider TEXT NOT NULL,
       email TEXT NOT NULL,
       access_token TEXT,
@@ -127,7 +128,7 @@ function migrate(database) {
       profile_json TEXT,
       connected_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
-      UNIQUE(provider, email)
+      UNIQUE(user_id, provider, email)
     );
 
     CREATE TABLE IF NOT EXISTS oauth_states (
@@ -137,7 +138,49 @@ function migrate(database) {
       return_to TEXT,
       created_at TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS user_snapshots (
+      user_id TEXT PRIMARY KEY,
+      payload_json TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
   `);
+
+  const mailAccountColumns = database.prepare("PRAGMA table_info(mail_accounts)").all();
+  if (!mailAccountColumns.some((column) => column.name === "user_id")) {
+    database.exec(`
+      BEGIN;
+      ALTER TABLE mail_accounts RENAME TO mail_accounts_legacy;
+
+      CREATE TABLE mail_accounts (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        provider TEXT NOT NULL,
+        email TEXT NOT NULL,
+        access_token TEXT,
+        refresh_token TEXT,
+        token_type TEXT,
+        scope TEXT,
+        expires_at TEXT,
+        profile_json TEXT,
+        connected_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        UNIQUE(user_id, provider, email)
+      );
+
+      INSERT INTO mail_accounts (
+        id, user_id, provider, email, access_token, refresh_token, token_type,
+        scope, expires_at, profile_json, connected_at, updated_at
+      )
+      SELECT
+        id, lower(email), provider, email, access_token, refresh_token, token_type,
+        scope, expires_at, profile_json, connected_at, updated_at
+      FROM mail_accounts_legacy;
+
+      DROP TABLE mail_accounts_legacy;
+      COMMIT;
+    `);
+  }
 }
 
 function nowIso() {
@@ -482,21 +525,30 @@ function getSummary(symbol) {
   };
 }
 
-function listMailAccounts() {
+function normalizeUserId(userId) {
+  return String(userId || "").trim().toLowerCase();
+}
+
+function listMailAccounts(userId) {
+  const ownerId = normalizeUserId(userId);
+  if (!ownerId) return [];
   return getDb()
     .prepare(
       `SELECT id, provider, email, token_type AS tokenType, scope, expires_at AS expiresAt,
               connected_at AS connectedAt, updated_at AS updatedAt
        FROM mail_accounts
+       WHERE user_id = ?
        ORDER BY updated_at DESC`
     )
-    .all();
+    .all(ownerId);
 }
 
-function getMailAccountById(id) {
+function getMailAccountById(userId, id) {
+  const ownerId = normalizeUserId(userId);
+  if (!ownerId) return null;
   const row = getDb()
-    .prepare("SELECT * FROM mail_accounts WHERE id = ?")
-    .get(String(id || ""));
+    .prepare("SELECT * FROM mail_accounts WHERE user_id = ? AND id = ?")
+    .get(ownerId, String(id || ""));
   if (!row) return null;
   return {
     id: row.id,
@@ -514,27 +566,31 @@ function getMailAccountById(id) {
 }
 
 function upsertMailAccount(input) {
+  const userId = normalizeUserId(input.userId);
   const provider = String(input.provider || "").trim().toLowerCase();
   const email = String(input.email || "").trim().toLowerCase();
-  if (!provider || !email) {
-    const error = new Error("Provider and email are required.");
+  if (!userId || !provider || !email) {
+    const error = new Error("User, provider, and email are required.");
     error.statusCode = 400;
     throw error;
   }
 
   const now = nowIso();
   const existing = getDb()
-    .prepare("SELECT id, connected_at AS connectedAt FROM mail_accounts WHERE provider = ? AND email = ?")
-    .get(provider, email);
-  const id = existing?.id || `${provider}:${email}`;
+    .prepare(
+      "SELECT id, connected_at AS connectedAt FROM mail_accounts WHERE user_id = ? AND provider = ? AND email = ?"
+    )
+    .get(userId, provider, email);
+  const id = existing?.id || `${userId}:${provider}:${email}`;
   const connectedAt = existing?.connectedAt || now;
   getDb()
     .prepare(
       `INSERT INTO mail_accounts (
-        id, provider, email, access_token, refresh_token, token_type, scope, expires_at, profile_json, connected_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(provider, email) DO UPDATE SET
-        access_token = excluded.access_token,
+        id, user_id, provider, email, access_token, refresh_token, token_type, scope, expires_at,
+        profile_json, connected_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(user_id, provider, email) DO UPDATE SET
+        access_token = COALESCE(excluded.access_token, mail_accounts.access_token),
         refresh_token = COALESCE(excluded.refresh_token, mail_accounts.refresh_token),
         token_type = excluded.token_type,
         scope = excluded.scope,
@@ -544,6 +600,7 @@ function upsertMailAccount(input) {
     )
     .run(
       id,
+      userId,
       provider,
       email,
       input.accessToken || null,
@@ -555,22 +612,61 @@ function upsertMailAccount(input) {
       connectedAt,
       now
     );
-  return getDb().prepare("SELECT * FROM mail_accounts WHERE id = ?").get(id);
+  return getDb().prepare("SELECT * FROM mail_accounts WHERE user_id = ? AND id = ?").get(userId, id);
 }
 
-function removeMailAccount(id) {
-  return getDb().prepare("DELETE FROM mail_accounts WHERE id = ?").run(String(id || "")).changes > 0;
+function removeMailAccount(userId, id) {
+  const ownerId = normalizeUserId(userId);
+  if (!ownerId) return false;
+  return getDb()
+    .prepare("DELETE FROM mail_accounts WHERE user_id = ? AND id = ?")
+    .run(ownerId, String(id || "")).changes > 0;
 }
 
-function removeMailAccountByProviderEmail(provider, email) {
+function removeMailAccountByProviderEmail(userId, provider, email) {
+  const ownerId = normalizeUserId(userId);
   const normalizedProvider = String(provider || "").trim().toLowerCase();
   const normalizedEmail = String(email || "").trim().toLowerCase();
-  if (!normalizedProvider || !normalizedEmail) return false;
+  if (!ownerId || !normalizedProvider || !normalizedEmail) return false;
   return (
     getDb()
-      .prepare("DELETE FROM mail_accounts WHERE provider = ? AND email = ?")
-      .run(normalizedProvider, normalizedEmail).changes > 0
+      .prepare("DELETE FROM mail_accounts WHERE user_id = ? AND provider = ? AND email = ?")
+      .run(ownerId, normalizedProvider, normalizedEmail).changes > 0
   );
+}
+
+function getUserSnapshot(userId) {
+  const id = String(userId || "").trim().toLowerCase();
+  if (!id) return null;
+  const row = getDb().prepare("SELECT payload_json, updated_at FROM user_snapshots WHERE user_id = ?").get(id);
+  if (!row) return null;
+  return {
+    payload: fromJson(row.payload_json, {}),
+    updatedAt: row.updated_at,
+  };
+}
+
+function upsertUserSnapshot(userId, payload) {
+  const id = String(userId || "").trim().toLowerCase();
+  if (!id) {
+    const error = new Error("userId is required.");
+    error.statusCode = 400;
+    throw error;
+  }
+  const timestamp = nowIso();
+  getDb()
+    .prepare(
+      `INSERT INTO user_snapshots (user_id, payload_json, updated_at)
+       VALUES (?, ?, ?)
+       ON CONFLICT(user_id) DO UPDATE SET
+         payload_json = excluded.payload_json,
+         updated_at = excluded.updated_at`
+    )
+    .run(id, toJson(payload && typeof payload === "object" ? payload : {}), timestamp);
+  return {
+    userId: id,
+    updatedAt: timestamp,
+  };
 }
 
 function createOauthState(input) {
@@ -621,8 +717,10 @@ module.exports = {
   removeMailAccount,
   removeMailAccountByProviderEmail,
   removeWatchlist,
+  getUserSnapshot,
   replaceEvents,
   replaceFilings,
+  upsertUserSnapshot,
   upsertMailAccount,
   upsertFundamentals,
   upsertQuote,

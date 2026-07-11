@@ -9,27 +9,55 @@
   </head>
   <body>
     <section class="welcome-screen" id="welcome-screen" aria-labelledby="welcome-title">
-      <img class="welcome-sticker" src="welcome-sticker.png" alt="" aria-hidden="true" />
-      <div class="welcome-card">
-        <p class="welcome-kicker">Daily Space</p>
-        <h1 class="welcome-title" id="welcome-title">
-          <span class="welcome-title-main">Welcome</span>
-        </h1>
-        <p class="welcome-copy">A quiet space for workflows</p>
-        <a class="btn btn-primary welcome-enter" href="todo.html">Enter</a>
+      <div class="welcome-ghost-field" aria-hidden="true">
+        <img class="welcome-floating-ghost" src="welcome-sticker.png" alt="" />
       </div>
+
+      <div class="welcome-intro">
+        <p class="welcome-kicker">Daily Space</p>
+        <h1 class="welcome-title" id="welcome-title">A new era of<br />focus is here.</h1>
+      </div>
+
+      <div class="welcome-reveal" aria-live="polite">
+        <p class="welcome-reveal-kicker">Meet Daily Space.</p>
+        <p class="welcome-reveal-copy">Your personal productivity space.</p>
+      </div>
+
+      <div class="welcome-actions">
+        <button type="button" class="welcome-provider welcome-provider-google" data-welcome-provider="google">
+          <span class="welcome-provider-mark" aria-hidden="true">G</span>
+          <span>Continue with Google</span>
+        </button>
+        <button type="button" class="welcome-provider welcome-provider-outlook" data-welcome-provider="outlook">
+          <span class="welcome-provider-mark" aria-hidden="true">⊞</span>
+          <span>Continue with Outlook</span>
+        </button>
+        <a class="welcome-enter" href="todo.html">Enter Daily Space</a>
+      </div>
+
+      <button
+        type="button"
+        class="welcome-lens"
+        aria-label="Drag up to enter"
+        aria-expanded="false"
+      >
+        <span class="welcome-lens-glint" aria-hidden="true"></span>
+      </button>
+      <p class="welcome-swipe-hint">Swipe up to enter</p>
     </section>
 
     <button type="button" class="theme-toggle" id="theme-toggle" aria-pressed="false">
       <span class="theme-toggle-icon" aria-hidden="true">D</span>
       <span class="theme-toggle-label">Dark</span>
     </button>
-  <script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js')
-      .then(() => console.log('SW registered'))
-      .catch((err) => console.log('SW error:', err));
-  }
-</script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker
+          .register("sw.js")
+          .then(() => console.log("SW registered"))
+          .catch((err) => console.log("SW error:", err));
+      }
+
+    </script>
   </body>
 </html>

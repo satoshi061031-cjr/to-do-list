@@ -13,8 +13,20 @@
     STORAGE_THEME,
     STORAGE_AUTH,
   ];
+  const USER_SNAPSHOT_KEYS = SYNC_KEYS.filter(function (key) {
+    return key !== STORAGE_AUTH;
+  });
+  const USER_SNAPSHOT_INTERVAL_MS = 30000;
+  const USER_LOCAL_CACHE_PREFIX = "daily-space-user-cache-v1:";
+  const USER_LAST_ID_STORAGE = "daily-space-last-user-v1";
   const DARK = "dark";
   const LIGHT = "light";
+  let userSnapshotTimer = 0;
+  let userSnapshotInFlight = false;
+  let userSnapshotUserId = "";
+  let userSnapshotBaseline = "";
+  let userSnapshotLastSyncedAt = "";
+  let userSnapshotStatus = "idle";
 
   function storedTheme() {
     try {
@@ -152,6 +164,24 @@
     window.dispatchEvent(new CustomEvent("daily-space-auth-updated"));
   }
 
+  function currentUserId() {
+    const auth = readAuthState();
+    const email = String(auth?.email || "").trim().toLowerCase();
+    return email;
+  }
+
+  function emitUserSnapshotUpdate() {
+    window.dispatchEvent(
+      new CustomEvent("daily-space-user-sync-updated", {
+        detail: {
+          status: userSnapshotStatus,
+          lastSyncedAt: userSnapshotLastSyncedAt || "",
+          userId: userSnapshotUserId || "",
+        },
+      })
+    );
+  }
+
   function setupAuthEntry() {
     const sidebarInner = document.querySelector(".sidebar-inner");
     if (!sidebarInner) return;
@@ -173,7 +203,10 @@
     const authHint = document.createElement("span");
     authHint.className = "sidebar-auth-hint";
 
-    authButton.append(authLabel, authHint);
+    const authSync = document.createElement("span");
+    authSync.className = "sidebar-auth-sync";
+
+    authButton.append(authLabel, authHint, authSync);
     authBlock.append(heading, authButton);
     sidebarInner.appendChild(authBlock);
 
@@ -211,20 +244,16 @@
             </span>
             <span>Sign in with Google</span>
           </button>
-          <button type="button" class="auth-provider" data-provider="meta">
+          <button type="button" class="auth-provider" data-provider="outlook">
             <span class="auth-provider-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" focusable="false">
-                <path
-                  fill="#1877F2"
-                  d="M2 8.5c0-2.49 2.01-4.5 4.5-4.5h11c2.49 0 4.5 2.01 4.5 4.5v7c0 2.49-2.01 4.5-4.5 4.5h-11C4.01 20 2 17.99 2 15.5v-7Z"
-                />
-                <path
-                  fill="#fff"
-                  d="M8.2 15.8V9.1h1.95l1.84 2.8 1.85-2.8h1.96v6.7h-1.98v-3.4l-1.58 2.35h-.5l-1.58-2.35v3.4H8.2Z"
-                />
+                <path fill="#f25022" d="M2 2h9.2v9.2H2z" />
+                <path fill="#7fba00" d="M12.8 2H22v9.2h-9.2z" />
+                <path fill="#00a4ef" d="M2 12.8h9.2V22H2z" />
+                <path fill="#ffb900" d="M12.8 12.8H22V22h-9.2z" />
               </svg>
             </span>
-            <span>Sign in with Meta</span>
+            <span>Sign in with Outlook</span>
           </button>
         </div>
         <div class="auth-divider" aria-hidden="true"><span>OR</span></div>
@@ -250,13 +279,29 @@
     function renderAuth() {
       const state = readAuthState();
       authLabel.textContent = state ? state.label : "Sign in";
-      authHint.textContent = state ? state.provider : "Google, Meta, phone";
+      authHint.textContent = state ? state.provider : "Google, Outlook, phone";
+      if (!state) {
+        authSync.hidden = true;
+      } else if (userSnapshotLastSyncedAt) {
+        authSync.hidden = false;
+        authSync.textContent = `Cloud sync: ${formatSyncTime(userSnapshotLastSyncedAt)}`;
+      } else if (userSnapshotStatus === "syncing") {
+        authSync.hidden = false;
+        authSync.textContent = "Cloud sync: syncing...";
+      } else if (userSnapshotStatus === "error") {
+        authSync.hidden = false;
+        authSync.textContent = "Cloud sync: unavailable";
+      } else {
+        authSync.hidden = false;
+        authSync.textContent = "Cloud sync: ready";
+      }
       authButton.classList.toggle("is-signed-in", !!state);
       if (logoutButton) logoutButton.hidden = !state;
       renderGreeting();
     }
 
     window.addEventListener("daily-space-auth-updated", renderAuth);
+    window.addEventListener("daily-space-user-sync-updated", renderAuth);
 
     function openModal() {
       renderAuth();
@@ -315,8 +360,8 @@
       window.location.href = payload.authUrl;
     }
 
-    async function startMetaSignIn() {
-      const response = await fetch("/api/auth/meta/start", {
+    async function startOutlookSignIn() {
+      const response = await fetch("/api/auth/outlook/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -327,9 +372,9 @@
         return {};
       });
       if (!response.ok) {
-        throw new Error((payload && payload.error) || "Meta sign-in failed.");
+        throw new Error((payload && payload.error) || "Outlook sign-in failed.");
       }
-      if (!payload.authUrl) throw new Error("Missing Meta authorization URL.");
+      if (!payload.authUrl) throw new Error("Missing Outlook authorization URL.");
       window.location.href = payload.authUrl;
     }
 
@@ -397,8 +442,8 @@
             window.alert(error instanceof Error ? error.message : "Google sign-in failed.");
           });
         } else {
-          startMetaSignIn().catch(function (error) {
-            window.alert(error instanceof Error ? error.message : "Meta sign-in failed.");
+          startOutlookSignIn().catch(function (error) {
+            window.alert(error instanceof Error ? error.message : "Outlook sign-in failed.");
           });
         }
       }
@@ -429,8 +474,9 @@
         logoutButton.setAttribute("disabled", "true");
         try {
           await disconnectLinkedMailbox(readAuthState());
+          await fetch("/api/auth/logout", { method: "POST" });
         } catch (_) {
-          /* linked mailbox disconnect is best-effort */
+          /* best-effort signout sync */
         } finally {
           clearAuthState();
           renderAuth();
@@ -492,77 +538,166 @@
     window.setInterval(renderGreeting, 60000);
   }
 
-  function setupWelcomeSticker() {
-    const sticker = document.querySelector(".welcome-sticker");
-    const card = document.querySelector(".welcome-card");
+  function setupWelcomeExperience() {
     const stage = document.querySelector(".welcome-screen");
-    if (!sticker || !stage || !window.matchMedia) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const field = stage?.querySelector(".welcome-ghost-field");
+    const ghost = field?.querySelector(".welcome-floating-ghost");
+    const lens = stage?.querySelector(".welcome-lens");
+    if (
+      !(stage instanceof HTMLElement) ||
+      !(field instanceof HTMLElement) ||
+      !(ghost instanceof HTMLImageElement) ||
+      !(lens instanceof HTMLButtonElement)
+    ) {
+      return;
+    }
 
-    let moveTimer = 0;
+    let progress = 0;
+    let dragStartY = 0;
+    let dragStartProgress = 0;
+    let dragging = false;
+    let moved = false;
+    let ghostTimer = 0;
 
     function randomBetween(min, max) {
       return min + Math.random() * (max - min);
     }
 
-    function overlapsCard(x, y, width, height) {
-      if (!card) return false;
-      const stageRect = stage.getBoundingClientRect();
-      const cardRect = card.getBoundingClientRect();
-      const gap = 36;
-      const stickerRect = {
-        left: stageRect.left + x,
-        right: stageRect.left + x + width,
-        top: stageRect.top + y,
-        bottom: stageRect.top + y + height,
-      };
-
-      return (
-        stickerRect.left < cardRect.right + gap &&
-        stickerRect.right > cardRect.left - gap &&
-        stickerRect.top < cardRect.bottom + gap &&
-        stickerRect.bottom > cardRect.top - gap
-      );
+    function moveGhost() {
+      window.clearTimeout(ghostTimer);
+      const maxX = Math.max(0, field.clientWidth - ghost.offsetWidth);
+      const maxY = Math.max(0, field.clientHeight - ghost.offsetHeight);
+      const x = randomBetween(maxX * 0.04, maxX * 0.96);
+      const y = randomBetween(0, maxY);
+      const rotation = randomBetween(-14, 14);
+      ghost.style.transitionDuration = `${randomBetween(2.4, 4).toFixed(2)}s`;
+      ghost.style.transform =
+        `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) ` +
+        `rotate(${rotation.toFixed(1)}deg) scale(var(--welcome-ghost-scale))`;
+      ghostTimer = window.setTimeout(moveGhost, randomBetween(2800, 4400));
     }
 
-    function randomTarget() {
-      const width = sticker.offsetWidth || 120;
-      const height = sticker.offsetHeight || 120;
-      const maxX = Math.max(0, stage.clientWidth - width);
-      const maxY = Math.max(0, stage.clientHeight - height);
-
-      for (let attempt = 0; attempt < 50; attempt += 1) {
-        const x = randomBetween(0, maxX);
-        const y = randomBetween(0, maxY);
-        if (!overlapsCard(x, y, width, height)) {
-          return { x, y, rotation: randomBetween(-16, 16) };
-        }
+    function setProgress(nextProgress, settle) {
+      progress = Math.max(0, Math.min(1, nextProgress));
+      if (settle) {
+        const expanded = progress >= 0.5;
+        progress = expanded ? 1 : 0;
+        stage.classList.toggle("is-expanded", expanded);
+        lens.setAttribute("aria-expanded", String(expanded));
+        lens.setAttribute("aria-label", expanded ? "Collapse welcome screen" : "Drag up to enter");
       }
-
-      const edgeX = Math.random() > 0.5 ? randomBetween(maxX * 0.72, maxX) : randomBetween(0, maxX * 0.18);
-      const edgeY = Math.random() > 0.5 ? randomBetween(maxY * 0.72, maxY) : randomBetween(0, maxY * 0.18);
-      return { x: edgeX, y: edgeY, rotation: randomBetween(-16, 16) };
+      stage.style.setProperty("--welcome-progress", progress.toFixed(3));
+      stage.style.setProperty("--welcome-ghost-scale", (0.82 + progress * 0.18).toFixed(3));
+      stage.style.setProperty("--welcome-intro-opacity", Math.max(0, 1 - progress * 1.6).toFixed(3));
+      stage.style.setProperty("--welcome-intro-y", `${(-progress * 3.5).toFixed(3)}rem`);
+      stage.style.setProperty("--welcome-reveal-opacity", Math.max(0, Math.min(1, (progress - 0.42) * 2.8)).toFixed(3));
+      stage.style.setProperty("--welcome-reveal-y", `${((1 - progress) * 2).toFixed(3)}rem`);
+      stage.style.setProperty("--welcome-actions-opacity", Math.max(0, Math.min(1, (progress - 0.55) * 3)).toFixed(3));
+      stage.style.setProperty("--welcome-actions-y", `${((1 - progress) * 2.5).toFixed(3)}rem`);
+      stage.style.setProperty("--welcome-lens-y", `${(-progress * 60).toFixed(3)}vh`);
+      stage.style.setProperty("--welcome-lens-scale", (1 - progress * 0.7).toFixed(3));
+      stage.style.setProperty("--welcome-hint-opacity", Math.max(0, 1 - progress * 2).toFixed(3));
     }
 
-    function moveSticker() {
-      const target = randomTarget();
-      sticker.style.transitionDuration = `${randomBetween(4.4, 7.2).toFixed(2)}s`;
-      sticker.style.transform = `translate3d(${target.x.toFixed(1)}px, ${target.y.toFixed(1)}px, 0) rotate(${target.rotation.toFixed(1)}deg)`;
-      moveTimer = window.setTimeout(moveSticker, randomBetween(4600, 7800));
+    async function startWelcomeSignIn(provider) {
+      const response = await fetch(`/api/auth/${provider}/start`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          returnTo: window.location.pathname + window.location.search,
+        }),
+      });
+      const payload = await response.json().catch(function () {
+        return {};
+      });
+      if (!response.ok) {
+        throw new Error((payload && payload.error) || `${provider} sign-in failed.`);
+      }
+      if (!payload.authUrl) throw new Error("Missing authorization URL.");
+      window.location.href = payload.authUrl;
     }
 
-    function restartMotion() {
-      window.clearTimeout(moveTimer);
-      moveSticker();
+    async function hydrateWelcomeSession() {
+      const response = await fetch("/api/auth/me");
+      if (!response.ok) return;
+      const payload = await response.json().catch(function () {
+        return {};
+      });
+      const user = payload?.user;
+      if (!user || !user.label) return;
+      saveAuthState({
+        label: user.label,
+        email: user.email || "",
+        provider: user.provider || "Account",
+        mailProvider: String(user.provider || "").toLowerCase().includes("google")
+          ? "gmail"
+          : String(user.provider || "").toLowerCase().includes("outlook")
+            ? "outlook"
+            : "",
+      });
+      const enterLink = stage.querySelector(".welcome-enter");
+      if (enterLink) enterLink.textContent = `Continue as ${user.label}`;
+      const url = new URL(window.location.href);
+      ["userauth", "provider", "label", "email", "message"].forEach(function (key) {
+        url.searchParams.delete(key);
+      });
+      window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
     }
 
-    if (sticker.complete) {
-      restartMotion();
-    } else {
-      sticker.addEventListener("load", restartMotion, { once: true });
+    lens.addEventListener("pointerdown", function (event) {
+      dragging = true;
+      moved = false;
+      dragStartY = event.clientY;
+      dragStartProgress = progress;
+      lens.setPointerCapture(event.pointerId);
+      stage.classList.add("is-dragging");
+    });
+
+    lens.addEventListener("pointermove", function (event) {
+      if (!dragging) return;
+      const delta = dragStartY - event.clientY;
+      if (Math.abs(delta) > 6) moved = true;
+      setProgress(dragStartProgress + delta / Math.max(220, stage.clientHeight * 0.48), false);
+    });
+
+    function finishDrag(event) {
+      if (!dragging) return;
+      dragging = false;
+      stage.classList.remove("is-dragging");
+      if (lens.hasPointerCapture(event.pointerId)) lens.releasePointerCapture(event.pointerId);
+      setProgress(progress, true);
     }
 
-    window.addEventListener("resize", restartMotion);
+    lens.addEventListener("pointerup", finishDrag);
+    lens.addEventListener("pointercancel", finishDrag);
+    lens.addEventListener("click", function () {
+      if (moved) {
+        moved = false;
+        return;
+      }
+      setProgress(progress < 0.5 ? 1 : 0, true);
+    });
+
+    stage.addEventListener("click", function (event) {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const providerButton = target.closest("[data-welcome-provider]");
+      if (!providerButton) return;
+      const provider = providerButton.getAttribute("data-welcome-provider");
+      if (provider !== "google" && provider !== "outlook") return;
+      startWelcomeSignIn(provider).catch(function (error) {
+        window.alert(error instanceof Error ? error.message : "Sign-in failed.");
+      });
+    });
+
+    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      if (ghost.complete) moveGhost();
+      else ghost.addEventListener("load", moveGhost, { once: true });
+      window.addEventListener("resize", moveGhost);
+    }
+    hydrateWelcomeSession().catch(function () {
+      /* The welcome screen remains usable when the auth server is unavailable. */
+    });
   }
 
   async function requestSync(method, code, payload) {
@@ -581,9 +716,25 @@
     return data;
   }
 
-  function collectSyncPayload() {
+  async function requestUserSnapshot(method, payload) {
+    const response = await fetch("/api/user/snapshot", {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: payload ? JSON.stringify(payload) : undefined,
+    });
+    const data = await response.json().catch(function () {
+      return {};
+    });
+    if (!response.ok) {
+      const message = data && typeof data.error === "string" ? data.error : "User sync request failed.";
+      throw new Error(message);
+    }
+    return data;
+  }
+
+  function collectPayloadForKeys(keys) {
     const payload = {};
-    SYNC_KEYS.forEach(function (key) {
+    keys.forEach(function (key) {
       try {
         const value = localStorage.getItem(key);
         if (value != null) payload[key] = value;
@@ -592,6 +743,49 @@
       }
     });
     return payload;
+  }
+
+  function collectSyncPayload() {
+    return collectPayloadForKeys(SYNC_KEYS);
+  }
+
+  function collectUserSnapshotPayload() {
+    return collectPayloadForKeys(USER_SNAPSHOT_KEYS);
+  }
+
+  function readLastUserId() {
+    try {
+      return String(localStorage.getItem(USER_LAST_ID_STORAGE) || "").trim().toLowerCase();
+    } catch (_) {
+      return "";
+    }
+  }
+
+  function writeLastUserId(userId) {
+    try {
+      if (userId) localStorage.setItem(USER_LAST_ID_STORAGE, userId);
+    } catch (_) {
+      /* ignore inaccessible local cache */
+    }
+  }
+
+  function readUserLocalCache(userId) {
+    if (!userId) return null;
+    try {
+      const parsed = JSON.parse(localStorage.getItem(`${USER_LOCAL_CACHE_PREFIX}${userId}`) || "null");
+      return parsed && typeof parsed === "object" ? parsed : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function writeUserLocalCache(userId, payload) {
+    if (!userId) return;
+    try {
+      localStorage.setItem(`${USER_LOCAL_CACHE_PREFIX}${userId}`, JSON.stringify(payload || {}));
+    } catch (_) {
+      /* ignore inaccessible local cache */
+    }
   }
 
   function syncSignatureFromPayload(payload) {
@@ -646,6 +840,146 @@
     });
     applyTheme(storedTheme());
     renderGreeting();
+  }
+
+  function userSnapshotSignature(payload) {
+    return USER_SNAPSHOT_KEYS.map(function (key) {
+      const value = payload && typeof payload[key] === "string" ? payload[key] : "";
+      return `${key}:${value.length}:${value}`;
+    }).join("|");
+  }
+
+  function applyUserSnapshotPayload(payload) {
+    const nextPayload = payload && typeof payload === "object" ? payload : {};
+    USER_SNAPSHOT_KEYS.forEach(function (key) {
+      const value = nextPayload[key];
+      try {
+        if (typeof value === "string") localStorage.setItem(key, value);
+        else localStorage.removeItem(key);
+      } catch (_) {
+        /* ignore write failures */
+      }
+    });
+    applyTheme(storedTheme());
+    renderGreeting();
+  }
+
+  async function loadSnapshotForCurrentUser() {
+    const userId = currentUserId();
+    if (!userId) return;
+    const previousUserId = userSnapshotUserId || readLastUserId();
+    const localPayload = collectUserSnapshotPayload();
+    if (previousUserId && previousUserId !== userId) {
+      writeUserLocalCache(previousUserId, localPayload);
+    }
+    userSnapshotStatus = "syncing";
+    emitUserSnapshotUpdate();
+    const data = await requestUserSnapshot("GET");
+    let nextPayload = data.payload && typeof data.payload === "object" ? data.payload : {};
+    let syncedAt = data.updatedAt || "";
+    if (!data.updatedAt) {
+      const cachedPayload = readUserLocalCache(userId);
+      nextPayload = cachedPayload || (!previousUserId ? localPayload : {});
+      applyUserSnapshotPayload(nextPayload);
+      if (Object.keys(nextPayload).length) {
+        const saved = await requestUserSnapshot("PUT", { payload: nextPayload });
+        syncedAt = saved.updatedAt || new Date().toISOString();
+      }
+    } else {
+      applyUserSnapshotPayload(nextPayload);
+    }
+    userSnapshotUserId = userId;
+    writeLastUserId(userId);
+    writeUserLocalCache(userId, collectUserSnapshotPayload());
+    userSnapshotBaseline = userSnapshotSignature(collectUserSnapshotPayload());
+    userSnapshotLastSyncedAt = syncedAt;
+    userSnapshotStatus = "ok";
+    emitUserSnapshotUpdate();
+  }
+
+  async function userSnapshotTick() {
+    if (userSnapshotInFlight || document.hidden) return;
+    const userId = currentUserId();
+    if (!userId) return;
+    userSnapshotInFlight = true;
+    userSnapshotStatus = "syncing";
+    emitUserSnapshotUpdate();
+    try {
+      if (userSnapshotUserId !== userId) {
+        await loadSnapshotForCurrentUser();
+        return;
+      }
+      const payload = collectUserSnapshotPayload();
+      const signature = userSnapshotSignature(payload);
+      if (signature === userSnapshotBaseline) {
+        userSnapshotStatus = "ok";
+        emitUserSnapshotUpdate();
+        return;
+      }
+      const saved = await requestUserSnapshot("PUT", { payload });
+      if (saved && saved.ok) {
+        userSnapshotBaseline = signature;
+        userSnapshotLastSyncedAt = saved.updatedAt || new Date().toISOString();
+        writeUserLocalCache(userId, payload);
+      }
+      userSnapshotStatus = "ok";
+      emitUserSnapshotUpdate();
+    } catch (_) {
+      userSnapshotStatus = "error";
+      emitUserSnapshotUpdate();
+    } finally {
+      userSnapshotInFlight = false;
+    }
+  }
+
+  function stopUserSnapshotSync() {
+    const previousUserId = userSnapshotUserId || readLastUserId();
+    if (previousUserId) {
+      writeUserLocalCache(previousUserId, collectUserSnapshotPayload());
+      applyUserSnapshotPayload({});
+    }
+    window.clearInterval(userSnapshotTimer);
+    userSnapshotTimer = 0;
+    userSnapshotUserId = "";
+    userSnapshotBaseline = "";
+    userSnapshotLastSyncedAt = "";
+    userSnapshotStatus = "idle";
+    emitUserSnapshotUpdate();
+  }
+
+  function startUserSnapshotSync() {
+    if (userSnapshotTimer) return;
+    userSnapshotTimer = window.setInterval(userSnapshotTick, USER_SNAPSHOT_INTERVAL_MS);
+  }
+
+  async function refreshUserSnapshotSession(forceLoad) {
+    const userId = currentUserId();
+    if (!userId) {
+      stopUserSnapshotSync();
+      return;
+    }
+    startUserSnapshotSync();
+    if (forceLoad || userSnapshotUserId !== userId) {
+      try {
+        await loadSnapshotForCurrentUser();
+      } catch (_) {
+        /* keep UX responsive even if sync unavailable */
+        userSnapshotStatus = "error";
+        emitUserSnapshotUpdate();
+      }
+    } else {
+      emitUserSnapshotUpdate();
+    }
+  }
+
+  function setupUserSnapshotSync() {
+    window.addEventListener("daily-space-auth-updated", function () {
+      refreshUserSnapshotSession(true);
+    });
+    document.addEventListener("visibilitychange", function () {
+      if (!document.hidden) userSnapshotTick();
+    });
+    refreshUserSnapshotSession(false);
   }
 
   function setupSyncPanel() {
@@ -838,9 +1172,10 @@
     setupThemeToggle();
     setupAutoSidebar();
     setupAuthEntry();
+    setupUserSnapshotSync();
     setupSyncPanel();
     setupGreeting();
-    setupWelcomeSticker();
+    setupWelcomeExperience();
   }
 
   applyTheme(storedTheme());

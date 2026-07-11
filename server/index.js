@@ -9,6 +9,7 @@ const {
   createOauthState,
   getDb,
   getMailAccountById,
+  getUserSnapshot,
   getSummary,
   listMailAccounts,
   listWatchlist,
@@ -16,6 +17,7 @@ const {
   removeMailAccountByProviderEmail,
   removeWatchlist,
   upsertMailAccount,
+  upsertUserSnapshot,
   upsertSymbol,
 } = require("./db");
 const { refreshSymbol, startScheduler } = require("./jobs/scheduler");
@@ -25,6 +27,7 @@ const ROOT_DIR = path.resolve(__dirname, "..");
 const SYNC_DIR = path.join(__dirname, "data", "sync");
 const PORT = Number(process.env.PORT || 3000);
 const manualRefreshes = new Map();
+const SESSION_COOKIE_NAME = "daily_space_session";
 
 loadEnv();
 getDb();
@@ -51,12 +54,49 @@ async function handleRequest(request, response) {
 
 async function handleApi(request, response, url) {
   const method = request.method || "GET";
+  const session = readSessionFromRequest(request);
 
   if (method === "GET" && url.pathname === "/api/health") {
     sendJson(response, {
       ok: true,
       now: new Date().toISOString(),
       alphaVantageConfigured: Boolean(process.env.ALPHA_VANTAGE_API_KEY),
+    });
+    return;
+  }
+
+  if (method === "GET" && url.pathname === "/api/auth/me") {
+    sendJson(response, { user: session || null });
+    return;
+  }
+
+  if (method === "POST" && url.pathname === "/api/auth/logout") {
+    clearSessionCookie(response);
+    sendJson(response, { ok: true });
+    return;
+  }
+
+  if (method === "GET" && url.pathname === "/api/user/snapshot") {
+    enforceUserSession(session);
+    const snapshot = getUserSnapshot(session.userId);
+    sendJson(response, {
+      ok: true,
+      userId: session.userId,
+      payload: snapshot?.payload || {},
+      updatedAt: snapshot?.updatedAt || null,
+    });
+    return;
+  }
+
+  if (method === "PUT" && url.pathname === "/api/user/snapshot") {
+    enforceUserSession(session);
+    const body = await readJson(request);
+    const payload = body && typeof body.payload === "object" && body.payload ? body.payload : {};
+    const saved = upsertUserSnapshot(session.userId, payload);
+    sendJson(response, {
+      ok: true,
+      userId: saved.userId,
+      updatedAt: saved.updatedAt,
     });
     return;
   }
@@ -229,6 +269,7 @@ async function handleApi(request, response, url) {
       const label = resolveDisplayName(profile, tokenClaims, email, "Google user");
       if (isValidEmail(email)) {
         upsertMailAccount({
+          userId: email,
           provider: "gmail",
           email,
           profile: {
@@ -244,7 +285,16 @@ async function handleApi(request, response, url) {
           provider: "Google",
           label: label.slice(0, 80),
           email: email.slice(0, 120),
-        })
+        }),
+        302,
+        {
+          "Set-Cookie": buildSessionCookieValue({
+            userId: email,
+            email,
+            provider: "Google",
+            label,
+          }),
+        }
       );
       return;
     } catch (error) {
@@ -259,38 +309,37 @@ async function handleApi(request, response, url) {
     }
   }
 
-  if (method === "POST" && url.pathname === "/api/auth/meta/start") {
+  if (method === "POST" && url.pathname === "/api/auth/outlook/start") {
     const body = await readJson(request);
     const returnTo = sanitizeReturnTo(body.returnTo || "/todo.html");
     const state = crypto.randomUUID();
-    const providerConfig = getMetaSignInConfig(request);
+    const providerConfig = getOutlookSignInConfig(request);
     createOauthState({
       state,
-      provider: "meta-login",
+      provider: "outlook-login",
       returnTo,
     });
     sendJson(response, {
       ok: true,
-      authUrl: buildMetaAuthUrl(providerConfig, state),
+      authUrl: buildOauthAuthUrl("outlook", providerConfig, state, ""),
     });
     return;
   }
 
-  if (method === "GET" && url.pathname === "/api/auth/meta/callback") {
+  if (method === "GET" && url.pathname === "/api/auth/outlook/callback") {
     const state = url.searchParams.get("state") || "";
     const code = url.searchParams.get("code") || "";
     const oauthError = url.searchParams.get("error");
-    const oauthErrorDescription =
-      url.searchParams.get("error_message") || url.searchParams.get("error_description");
+    const oauthErrorDescription = url.searchParams.get("error_description");
     const stateInfo = consumeOauthState(state);
     const returnTo = sanitizeReturnTo(stateInfo?.returnTo || "/todo.html");
 
-    if (!stateInfo || stateInfo.provider !== "meta-login") {
+    if (!stateInfo || stateInfo.provider !== "outlook-login") {
       sendRedirect(
         response,
         withQuery(returnTo, {
           userauth: "error",
-          message: "Meta sign-in state expired. Please try again.",
+          message: "Outlook sign-in state expired. Please try again.",
         })
       );
       return;
@@ -312,26 +361,59 @@ async function handleApi(request, response, url) {
         response,
         withQuery(returnTo, {
           userauth: "error",
-          message: "Missing Meta OAuth code.",
+          message: "Missing Outlook OAuth code.",
         })
       );
       return;
     }
 
     try {
-      const config = getMetaSignInConfig(request);
-      const token = await exchangeMetaCode(config, code);
-      const profile = await fetchMetaProfile(token.access_token);
-      const email = String(profile.email || "").trim().toLowerCase();
-      const label = String(profile.name || email || "Meta user").trim();
+      const config = getOutlookSignInConfig(request);
+      const token = await exchangeOauthCode("outlook", config, code);
+      const profile = await fetchOauthProfile("outlook", token.access_token);
+      const tokenClaims = parseJwtClaims(token.id_token);
+      const email = String(
+        profile.mail || profile.userPrincipalName || tokenClaims.email || tokenClaims.preferred_username || ""
+      )
+        .trim()
+        .toLowerCase();
+      if (!isValidEmail(email)) {
+        throw Object.assign(new Error("Unable to read email from Microsoft profile."), { statusCode: 502 });
+      }
+      const label = resolveDisplayName(profile, tokenClaims, email, "Outlook user");
+      upsertMailAccount({
+        userId: email,
+        provider: "outlook",
+        email,
+        accessToken: sealToken(token.access_token),
+        refreshToken: token.refresh_token ? sealToken(token.refresh_token) : null,
+        tokenType: token.token_type || "Bearer",
+        scope: token.scope || null,
+        expiresAt: token.expires_in ? new Date(Date.now() + Number(token.expires_in) * 1000).toISOString() : null,
+        profile: {
+          source: "linked-user-auth",
+          displayName: label,
+          id: profile.id || tokenClaims.oid || null,
+          raw: profile,
+        },
+      });
       sendRedirect(
         response,
         withQuery(returnTo, {
           userauth: "success",
-          provider: "Meta",
+          provider: "Outlook",
           label: label.slice(0, 80),
           email: email.slice(0, 120),
-        })
+        }),
+        302,
+        {
+          "Set-Cookie": buildSessionCookieValue({
+            userId: email,
+            email,
+            provider: "Outlook",
+            label,
+          }),
+        }
       );
       return;
     } catch (error) {
@@ -339,7 +421,7 @@ async function handleApi(request, response, url) {
         response,
         withQuery(returnTo, {
           userauth: "error",
-          message: error.message || "Meta sign-in failed.",
+          message: error.message || "Outlook sign-in failed.",
         })
       );
       return;
@@ -347,8 +429,9 @@ async function handleApi(request, response, url) {
   }
 
   if (method === "GET" && url.pathname === "/api/mail/accounts") {
+    enforceUserSession(session);
     sendJson(response, {
-      accounts: listMailAccounts().map((account) => ({
+      accounts: listMailAccounts(session.userId).map((account) => ({
         ...account,
         provider: formatProviderLabel(account.provider),
       })),
@@ -358,12 +441,14 @@ async function handleApi(request, response, url) {
 
   const mailDeleteMatch = url.pathname.match(/^\/api\/mail\/accounts\/([^/]+)$/);
   if (method === "DELETE" && mailDeleteMatch) {
-    const removed = removeMailAccount(decodeURIComponent(mailDeleteMatch[1]));
+    enforceUserSession(session);
+    const removed = removeMailAccount(session.userId, decodeURIComponent(mailDeleteMatch[1]));
     sendJson(response, { removed });
     return;
   }
 
   if (method === "POST" && url.pathname === "/api/mail/accounts/disconnect-linked") {
+    enforceUserSession(session);
     const body = await readJson(request);
     const provider = normalizeMailProvider(body.provider);
     const email = String(body.email || "").trim().toLowerCase();
@@ -372,15 +457,16 @@ async function handleApi(request, response, url) {
       error.statusCode = 400;
       throw error;
     }
-    const removed = removeMailAccountByProviderEmail(provider, email);
+    const removed = removeMailAccountByProviderEmail(session.userId, provider, email);
     sendJson(response, { removed });
     return;
   }
 
   const mailMessagesMatch = url.pathname.match(/^\/api\/mail\/accounts\/([^/]+)\/messages$/);
   if (method === "GET" && mailMessagesMatch) {
+    enforceUserSession(session);
     const accountId = decodeURIComponent(mailMessagesMatch[1]);
-    const account = getMailAccountById(accountId);
+    const account = getMailAccountById(session.userId, accountId);
     if (!account) {
       const error = new Error("Mail account not found.");
       error.statusCode = 404;
@@ -400,6 +486,7 @@ async function handleApi(request, response, url) {
   }
 
   if (method === "POST" && url.pathname === "/api/mail/accounts/manual") {
+    enforceUserSession(session);
     const body = await readJson(request);
     const provider = normalizeMailProvider(body.provider);
     if (!provider) {
@@ -413,7 +500,12 @@ async function handleApi(request, response, url) {
       error.statusCode = 400;
       throw error;
     }
-    const row = upsertMailAccount({ provider, email, profile: { source: "manual" } });
+    const row = upsertMailAccount({
+      userId: session.userId,
+      provider,
+      email,
+      profile: { source: "manual" },
+    });
     sendJson(
       response,
       {
@@ -431,6 +523,7 @@ async function handleApi(request, response, url) {
   }
 
   if (method === "POST" && url.pathname === "/api/mail/accounts/link-from-auth") {
+    enforceUserSession(session);
     const body = await readJson(request);
     const provider = normalizeMailProvider(body.provider);
     const email = String(body.email || "").trim().toLowerCase();
@@ -441,6 +534,7 @@ async function handleApi(request, response, url) {
       throw error;
     }
     const row = upsertMailAccount({
+      userId: session.userId,
       provider,
       email,
       profile: {
@@ -465,6 +559,7 @@ async function handleApi(request, response, url) {
   }
 
   if (method === "POST" && url.pathname === "/api/mail/accounts/icloud") {
+    enforceUserSession(session);
     const body = await readJson(request);
     const email = String(body.email || "").trim().toLowerCase();
     const appPassword = String(body.appPassword || "").trim();
@@ -482,6 +577,7 @@ async function handleApi(request, response, url) {
     await verifyIcloudImapLogin(email, appPassword);
     const encryptedAppPassword = sealToken(appPassword.replace(/\s+/g, ""));
     const row = upsertMailAccount({
+      userId: session.userId,
       provider: "icloud",
       email,
       refreshToken: encryptedAppPassword,
@@ -594,6 +690,7 @@ async function handleApi(request, response, url) {
       const encryptedAccessToken = sealToken(token.access_token);
       const encryptedRefreshToken = token.refresh_token ? sealToken(token.refresh_token) : null;
       upsertMailAccount({
+        userId: email,
         provider: callbackProvider,
         email,
         accessToken: encryptedAccessToken,
@@ -615,7 +712,16 @@ async function handleApi(request, response, url) {
           provider: providerLabel,
           label: label.slice(0, 80),
           email,
-        })
+        }),
+        302,
+        {
+          "Set-Cookie": buildSessionCookieValue({
+            userId: email,
+            email,
+            provider: providerLabel,
+            label,
+          }),
+        }
       );
       return;
     } catch (error) {
@@ -684,12 +790,106 @@ function sendText(response, text, status = 200) {
   response.end(text);
 }
 
-function sendRedirect(response, location, status = 302) {
+function sendRedirect(response, location, status = 302, extraHeaders = {}) {
   response.writeHead(status, {
     Location: location,
     "Cache-Control": "no-store",
+    ...extraHeaders,
   });
   response.end();
+}
+
+function enforceUserSession(session) {
+  if (session && session.userId) return;
+  const error = new Error("Please sign in first.");
+  error.statusCode = 401;
+  throw error;
+}
+
+function getSessionSecret() {
+  const source = String(process.env.APP_SESSION_SECRET || process.env.MAIL_TOKEN_ENCRYPTION_KEY || "").trim();
+  if (!source) return null;
+  return crypto.createHash("sha256").update(source).digest("hex");
+}
+
+function signSessionPayload(payloadJson) {
+  const secret = getSessionSecret();
+  if (!secret) return "";
+  return crypto.createHmac("sha256", secret).update(payloadJson).digest("base64url");
+}
+
+function serializeSession(session) {
+  const payloadJson = JSON.stringify(session);
+  const payload = Buffer.from(payloadJson, "utf8").toString("base64url");
+  const signature = signSessionPayload(payloadJson);
+  if (!signature) return "";
+  return `${payload}.${signature}`;
+}
+
+function parseCookieHeader(header) {
+  const raw = String(header || "");
+  if (!raw) return {};
+  const result = {};
+  raw.split(";").forEach((part) => {
+    const index = part.indexOf("=");
+    if (index === -1) return;
+    const key = part.slice(0, index).trim();
+    const value = part.slice(index + 1).trim();
+    if (!key) return;
+    result[key] = value;
+  });
+  return result;
+}
+
+function readSessionFromRequest(request) {
+  const cookies = parseCookieHeader(request.headers.cookie || "");
+  const token = cookies[SESSION_COOKIE_NAME];
+  if (!token || !token.includes(".")) return null;
+  const [payloadPart, signaturePart] = token.split(".");
+  if (!payloadPart || !signaturePart) return null;
+  let payloadJson = "";
+  try {
+    payloadJson = Buffer.from(payloadPart, "base64url").toString("utf8");
+  } catch (_) {
+    return null;
+  }
+  const expectedSignature = signSessionPayload(payloadJson);
+  if (!expectedSignature || signaturePart !== expectedSignature) return null;
+  let parsed;
+  try {
+    parsed = JSON.parse(payloadJson);
+  } catch (_) {
+    return null;
+  }
+  if (!parsed || typeof parsed !== "object") return null;
+  const userId = String(parsed.userId || "").trim().toLowerCase();
+  const email = String(parsed.email || "").trim().toLowerCase();
+  if (!userId || !email) return null;
+  return {
+    userId,
+    email,
+    provider: String(parsed.provider || "").trim() || "User",
+    label: String(parsed.label || "").trim() || email,
+  };
+}
+
+function buildSessionCookieValue(session) {
+  const token = serializeSession(session);
+  if (!token) return "";
+  return `${SESSION_COOKIE_NAME}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000`;
+}
+
+function setSessionCookie(response, session) {
+  const cookie = buildSessionCookieValue(session);
+  if (!cookie) return;
+  response.setHeader("Set-Cookie", cookie);
+}
+
+function clearSessionCookie(response) {
+  response.setHeader(
+    "Set-Cookie",
+    `${SESSION_COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT`
+  );
 }
 
 function sendError(response, error) {
@@ -865,13 +1065,15 @@ function getGoogleSignInConfig(request) {
   };
 }
 
-function getMetaSignInConfig(request) {
+function getOutlookSignInConfig(request) {
   const baseUrl = getBaseUrl(request);
-  const clientId = process.env.META_OAUTH_CLIENT_ID;
-  const clientSecret = process.env.META_OAUTH_CLIENT_SECRET;
-  const redirectUri = process.env.META_SIGNIN_REDIRECT_URI || `${baseUrl}/api/auth/meta/callback`;
+  const clientId = process.env.MICROSOFT_OAUTH_CLIENT_ID;
+  const clientSecret = process.env.MICROSOFT_OAUTH_CLIENT_SECRET;
+  const redirectUri = process.env.MICROSOFT_SIGNIN_REDIRECT_URI || `${baseUrl}/api/auth/outlook/callback`;
   if (!clientId || !clientSecret) {
-    const error = new Error("Meta OAuth env is missing (META_OAUTH_CLIENT_ID / META_OAUTH_CLIENT_SECRET).");
+    const error = new Error(
+      "Microsoft OAuth env is missing (MICROSOFT_OAUTH_CLIENT_ID / MICROSOFT_OAUTH_CLIENT_SECRET)."
+    );
     error.statusCode = 500;
     throw error;
   }
@@ -879,21 +1081,10 @@ function getMetaSignInConfig(request) {
     clientId,
     clientSecret,
     redirectUri,
-    scope: "public_profile,email",
-    authUrl: "https://www.facebook.com/v19.0/dialog/oauth",
-    tokenUrl: "https://graph.facebook.com/v19.0/oauth/access_token",
+    scope: "offline_access openid profile email User.Read Mail.Read",
+    authUrl: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+    tokenUrl: "https://login.microsoftonline.com/common/oauth2/v2.0/token",
   };
-}
-
-function buildMetaAuthUrl(config, state) {
-  const params = new URLSearchParams({
-    client_id: config.clientId,
-    redirect_uri: config.redirectUri,
-    state,
-    response_type: "code",
-    scope: config.scope,
-  });
-  return `${config.authUrl}?${params.toString()}`;
 }
 
 function parseJwtClaims(jwt) {
@@ -915,6 +1106,7 @@ function parseJwtClaims(jwt) {
 function resolveDisplayName(profile, tokenClaims, email, fallback) {
   const fromProfile =
     profile?.name ||
+    profile?.displayName ||
     [profile?.given_name, profile?.family_name].filter(Boolean).join(" ").trim() ||
     tokenClaims?.name ||
     [tokenClaims?.given_name, tokenClaims?.family_name].filter(Boolean).join(" ").trim();
@@ -969,23 +1161,6 @@ async function exchangeOauthCode(provider, config, code) {
   return payload;
 }
 
-async function exchangeMetaCode(config, code) {
-  const url = new URL(config.tokenUrl);
-  url.searchParams.set("client_id", config.clientId);
-  url.searchParams.set("client_secret", config.clientSecret);
-  url.searchParams.set("redirect_uri", config.redirectUri);
-  url.searchParams.set("code", code);
-  const response = await fetch(url, { method: "GET" });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok || !payload.access_token) {
-    const message = payload.error?.message || "Token exchange failed.";
-    const error = new Error(`Meta OAuth token exchange failed: ${message}`);
-    error.statusCode = 502;
-    throw error;
-  }
-  return payload;
-}
-
 async function fetchOauthProfile(provider, accessToken) {
   if (provider === "gmail") {
     const response = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
@@ -1014,20 +1189,6 @@ async function fetchOauthProfile(provider, accessToken) {
   const error = new Error("Unsupported OAuth profile provider.");
   error.statusCode = 400;
   throw error;
-}
-
-async function fetchMetaProfile(accessToken) {
-  const url = new URL("https://graph.facebook.com/me");
-  url.searchParams.set("fields", "id,name,email");
-  url.searchParams.set("access_token", accessToken);
-  const response = await fetch(url);
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const error = new Error(payload.error?.message || "Unable to read Meta profile.");
-    error.statusCode = 502;
-    throw error;
-  }
-  return payload;
 }
 
 function getTokenEncryptionKey() {
