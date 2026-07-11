@@ -873,10 +873,15 @@ function readSessionFromRequest(request) {
   };
 }
 
+function sessionCookieSecuritySuffix() {
+  const publicUrl = String(process.env.MAIL_OAUTH_BASE_URL || process.env.RENDER_EXTERNAL_URL || "");
+  return process.env.NODE_ENV === "production" || publicUrl.startsWith("https://") ? "; Secure" : "";
+}
+
 function buildSessionCookieValue(session) {
   const token = serializeSession(session);
   if (!token) return "";
-  return `${SESSION_COOKIE_NAME}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000`;
+  return `${SESSION_COOKIE_NAME}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000${sessionCookieSecuritySuffix()}`;
 }
 
 function setSessionCookie(response, session) {
@@ -888,7 +893,7 @@ function setSessionCookie(response, session) {
 function clearSessionCookie(response) {
   response.setHeader(
     "Set-Cookie",
-    `${SESSION_COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT`
+    `${SESSION_COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT${sessionCookieSecuritySuffix()}`
   );
 }
 
