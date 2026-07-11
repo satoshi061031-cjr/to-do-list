@@ -993,7 +993,9 @@ function withQuery(pathname, params) {
 
 function getBaseUrl(request) {
   const host = request.headers.host || "localhost:3000";
-  const configured = String(process.env.MAIL_OAUTH_BASE_URL || "").trim().replace(/\/+$/, "");
+  const configured = String(process.env.MAIL_OAUTH_BASE_URL || process.env.RENDER_EXTERNAL_URL || "")
+    .trim()
+    .replace(/\/+$/, "");
   if (configured) return configured;
   return `http://${host}`;
 }
