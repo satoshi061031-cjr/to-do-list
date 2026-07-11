@@ -195,11 +195,10 @@ body::after {
 
 .welcome-kicker {
   margin: 0;
-  color: rgba(18, 17, 15, 0.78);
+  color: rgba(18, 17, 15, 0.92);
   font-size: 0.72rem;
   font-weight: 650;
   letter-spacing: 0.2em;
-  text-shadow: 0 4px 24px rgba(255, 255, 255, 0.42);
   text-transform: uppercase;
 }
 
@@ -227,7 +226,6 @@ body::after {
   font-weight: 430;
   letter-spacing: -0.055em;
   line-height: 1.04;
-  text-shadow: 0 5px 30px rgba(255, 255, 255, 0.46);
 }
 
 .welcome-reveal {
@@ -245,7 +243,6 @@ body::after {
   font-weight: 450;
   letter-spacing: -0.05em;
   line-height: 1.08;
-  text-shadow: 0 5px 30px rgba(255, 255, 255, 0.46);
 }
 
 .welcome-actions {
@@ -380,7 +377,7 @@ body::after {
   bottom: max(1.35rem, env(safe-area-inset-bottom));
   z-index: 7;
   margin: 0;
-  color: rgba(18, 17, 15, 0.72);
+  color: rgba(18, 17, 15, 0.84);
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -392,15 +389,13 @@ body::after {
 
 :root[data-theme="dark"] .welcome-kicker,
 :root[data-theme="dark"] .welcome-swipe-hint {
-  color: rgba(255, 255, 255, 0.82);
-  text-shadow: 0 5px 26px rgba(0, 0, 0, 0.44);
+  color: rgba(255, 255, 255, 0.94);
 }
 
 :root[data-theme="dark"] .welcome-title,
 :root[data-theme="dark"] .welcome-reveal-kicker,
 :root[data-theme="dark"] .welcome-reveal-copy {
   color: #fffdf7;
-  text-shadow: 0 6px 34px rgba(0, 0, 0, 0.5);
 }
 
 .welcome-screen.is-dragging .welcome-lens,
