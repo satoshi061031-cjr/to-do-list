@@ -830,14 +830,77 @@ body::after {
 
 .auth-provider {
   width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.45rem;
   padding: 0.78rem 1rem;
+  text-align: left;
+}
+
+.auth-provider-icon {
+  width: 1.35rem;
+  height: 1.35rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.auth-provider-icon svg {
+  width: 0.92rem;
+  height: 0.92rem;
+  display: block;
+}
+
+.auth-divider {
+  position: relative;
   text-align: center;
+  margin-top: 0.8rem;
+}
+
+.auth-divider::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  border-top: 1px solid var(--glass-border);
+}
+
+.auth-divider span {
+  position: relative;
+  display: inline-block;
+  padding: 0 0.55rem;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.auth-alt-trigger {
+  width: 100%;
+  margin-top: 0.7rem;
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  background: var(--glass);
+  color: var(--text);
+  box-shadow: var(--shadow-soft);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  padding: 0.75rem 1rem;
 }
 
 .auth-provider:hover,
 .auth-phone-submit:hover,
 .auth-logout:hover,
-.auth-close:hover {
+.auth-close:hover,
+.auth-alt-trigger:hover {
   background: var(--glass-strong);
   box-shadow: var(--glow);
 }

@@ -186,12 +186,50 @@
         <button type="button" class="auth-close" data-auth-close aria-label="Close login">×</button>
         <p class="auth-kicker">Daily Space</p>
         <h2 class="auth-title" id="auth-title">Sign in</h2>
-        <p class="auth-copy">Choose a login method to personalize this app on this device.</p>
+        <p class="auth-copy">Continue with a provider to keep your workspace synced.</p>
         <div class="auth-provider-list">
-          <button type="button" class="auth-provider" data-provider="google">Continue with Google</button>
-          <button type="button" class="auth-provider" data-provider="meta">Continue with Meta</button>
+          <button type="button" class="auth-provider" data-provider="google">
+            <span class="auth-provider-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <path
+                  fill="#EA4335"
+                  d="M12 10.2v3.9h5.4c-.24 1.26-.96 2.33-2.04 3.05l3.3 2.56c1.92-1.77 3.03-4.38 3.03-7.49 0-.72-.06-1.41-.19-2.01H12z"
+                />
+                <path
+                  fill="#34A853"
+                  d="M12 22c2.76 0 5.07-.91 6.76-2.48l-3.3-2.56c-.91.61-2.08.97-3.46.97-2.66 0-4.92-1.79-5.73-4.2l-3.41 2.63C4.57 19.72 8.02 22 12 22z"
+                />
+                <path
+                  fill="#4A90E2"
+                  d="M6.27 13.73A5.95 5.95 0 0 1 5.95 12c0-.6.11-1.18.32-1.73L2.86 7.64A9.97 9.97 0 0 0 2 12c0 1.61.39 3.14 1.08 4.47l3.19-2.74z"
+                />
+                <path
+                  fill="#FBBC05"
+                  d="M12 6.06c1.5 0 2.85.52 3.91 1.54l2.93-2.93C17.05 3.01 14.74 2 12 2 8.02 2 4.57 4.28 2.86 7.64l3.41 2.63c.81-2.41 3.07-4.21 5.73-4.21z"
+                />
+              </svg>
+            </span>
+            <span>Sign in with Google</span>
+          </button>
+          <button type="button" class="auth-provider" data-provider="meta">
+            <span class="auth-provider-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <path
+                  fill="#1877F2"
+                  d="M2 8.5c0-2.49 2.01-4.5 4.5-4.5h11c2.49 0 4.5 2.01 4.5 4.5v7c0 2.49-2.01 4.5-4.5 4.5h-11C4.01 20 2 17.99 2 15.5v-7Z"
+                />
+                <path
+                  fill="#fff"
+                  d="M8.2 15.8V9.1h1.95l1.84 2.8 1.85-2.8h1.96v6.7h-1.98v-3.4l-1.58 2.35h-.5l-1.58-2.35v3.4H8.2Z"
+                />
+              </svg>
+            </span>
+            <span>Sign in with Meta</span>
+          </button>
         </div>
-        <form class="auth-phone-form">
+        <div class="auth-divider" aria-hidden="true"><span>OR</span></div>
+        <button type="button" class="auth-alt-trigger">Continue with phone or email</button>
+        <form class="auth-phone-form" hidden>
           <label class="auth-phone-label" for="auth-phone-input">Phone number</label>
           <div class="auth-phone-row">
             <input id="auth-phone-input" class="auth-phone-input" type="tel" inputmode="tel" placeholder="+1 555 000 0000" />
@@ -207,6 +245,7 @@
     const phoneForm = modal.querySelector(".auth-phone-form");
     const phoneInput = modal.querySelector(".auth-phone-input");
     const logoutButton = modal.querySelector(".auth-logout");
+    const altTrigger = modal.querySelector(".auth-alt-trigger");
 
     function renderAuth() {
       const state = readAuthState();
@@ -223,6 +262,7 @@
       renderAuth();
       modal.hidden = false;
       document.body.classList.add("auth-modal-open");
+      if (phoneForm instanceof HTMLFormElement) phoneForm.hidden = true;
       const firstProvider = modal.querySelector(".auth-provider");
       if (firstProvider) firstProvider.focus();
     }
@@ -373,6 +413,14 @@
           return;
         }
         login("Phone", phone);
+      });
+    }
+
+    if (altTrigger && phoneForm && phoneInput) {
+      altTrigger.addEventListener("click", function () {
+        if (!(phoneForm instanceof HTMLFormElement) || !(phoneInput instanceof HTMLInputElement)) return;
+        phoneForm.hidden = false;
+        phoneInput.focus();
       });
     }
 

@@ -2,11 +2,7 @@
   const STORAGE_AUTH = "daily-space-auth-v1";
   let accounts = [];
 
-  const form = document.getElementById("mail-connect-form");
-  const providerSelect = document.getElementById("mail-provider");
-  const addressInput = document.getElementById("mail-address");
-  const icloudPasswordField = document.getElementById("mail-icloud-password-field");
-  const icloudPasswordInput = document.getElementById("mail-icloud-password");
+  const quickOauthButtons = document.querySelectorAll(".mail-oauth-btn[data-quick-provider]");
   const list = document.getElementById("mail-account-list");
   const empty = document.getElementById("mail-empty");
   const count = document.getElementById("mail-connected-count");
@@ -76,27 +72,6 @@
     render();
   }
 
-  function providerValueToApi(value) {
-    const normalized = String(value || "").trim().toLowerCase();
-    if (normalized === "gmail") return "gmail";
-    if (normalized === "outlook") return "outlook";
-    if (normalized === "icloud") return "icloud";
-    return "other";
-  }
-
-  function updateProviderDependentFields() {
-    if (!(providerSelect instanceof HTMLSelectElement)) return;
-    const provider = providerValueToApi(providerSelect.value);
-    const isIcloud = provider === "icloud";
-    if (icloudPasswordField instanceof HTMLElement) {
-      icloudPasswordField.hidden = !isIcloud;
-    }
-    if (icloudPasswordInput instanceof HTMLInputElement) {
-      icloudPasswordInput.required = isIcloud;
-      if (!isIcloud) icloudPasswordInput.value = "";
-    }
-  }
-
   function toast(message) {
     if (!message) return;
     window.alert(message);
@@ -153,69 +128,30 @@
     window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
   }
 
-  if (form && providerSelect && addressInput) {
-    form.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      if (!(providerSelect instanceof HTMLSelectElement) || !(addressInput instanceof HTMLInputElement)) return;
-      const email = addressInput.value.trim();
-      if (!email) {
-        addressInput.focus();
-        return;
-      }
-
-      const provider = providerValueToApi(providerSelect.value);
-      const submitButton = form.querySelector("button[type='submit']");
-      if (submitButton instanceof HTMLButtonElement) submitButton.disabled = true;
-
+  quickOauthButtons.forEach((button) => {
+    button.addEventListener("click", async () => {
+      const provider = String(button.getAttribute("data-quick-provider") || "").trim().toLowerCase();
+      if (!(provider === "gmail" || provider === "outlook")) return;
+      button.setAttribute("disabled", "true");
       try {
-        if (provider === "gmail" || provider === "outlook") {
-          const payload = await request("/api/mail/oauth/start", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              provider,
-              email,
-              returnTo: "/mail.html",
-            }),
-          });
-          if (payload.authUrl) {
-            window.location.href = payload.authUrl;
-            return;
-          }
-          throw new Error(`${provider === "outlook" ? "Outlook" : "Gmail"} authorization URL not returned.`);
-        } else if (provider === "icloud") {
-          const appPassword =
-            icloudPasswordInput instanceof HTMLInputElement ? icloudPasswordInput.value.trim() : "";
-          await request("/api/mail/accounts/icloud", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ provider, email, appPassword }),
-          });
-          toast("iCloud mailbox connected.");
-          addressInput.value = "";
-          if (icloudPasswordInput instanceof HTMLInputElement) icloudPasswordInput.value = "";
-          await loadFromServer();
-        } else {
-          await request("/api/mail/accounts/manual", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ provider, email }),
-          });
-          toast("Mailbox connected.");
-          addressInput.value = "";
-          await loadFromServer();
-        }
+        const payload = await request("/api/mail/oauth/start", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            provider,
+            email: "",
+            returnTo: "/mail.html",
+          }),
+        });
+        if (!payload.authUrl) throw new Error("Authorization URL not returned.");
+        window.location.href = payload.authUrl;
       } catch (error) {
         toast(error.message || "Authorization failed.");
       } finally {
-        if (submitButton instanceof HTMLButtonElement) submitButton.disabled = false;
+        button.removeAttribute("disabled");
       }
     });
-  }
-
-  if (providerSelect instanceof HTMLSelectElement) {
-    providerSelect.addEventListener("change", updateProviderDependentFields);
-  }
+  });
 
   document.addEventListener("click", async (event) => {
     const target = event.target;
@@ -257,7 +193,6 @@
   });
 
   handleOauthResultFromUrl();
-  updateProviderDependentFields();
   loadFromServer().catch((error) => {
     toast(error.message || "Failed to load mail accounts.");
   });
