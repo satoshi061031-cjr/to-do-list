@@ -4,8 +4,8 @@
   "private": true,
   "description": "Daily Space with a US stock watchlist, financial events, and market signals.",
   "scripts": {
-    "start": "node --disable-warning=ExperimentalWarning server/index.js",
-    "dev": "node --disable-warning=ExperimentalWarning --watch server/index.js",
+    "start": "node --experimental-sqlite --disable-warning=ExperimentalWarning server/index.js",
+    "dev": "node --experimental-sqlite --disable-warning=ExperimentalWarning --watch server/index.js",
     "test": "node --test"
   },
   "engines": {
