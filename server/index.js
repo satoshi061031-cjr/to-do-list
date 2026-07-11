@@ -13,6 +13,7 @@ const {
   listMailAccounts,
   listWatchlist,
   removeMailAccount,
+  removeMailAccountByProviderEmail,
   removeWatchlist,
   upsertMailAccount,
   upsertSymbol,
@@ -161,6 +162,190 @@ async function handleApi(request, response, url) {
     return;
   }
 
+  if (method === "POST" && url.pathname === "/api/auth/google/start") {
+    const body = await readJson(request);
+    const returnTo = sanitizeReturnTo(body.returnTo || "/todo.html");
+    const state = crypto.randomUUID();
+    const providerConfig = getGoogleSignInConfig(request);
+    createOauthState({
+      state,
+      provider: "google-login",
+      returnTo,
+    });
+    sendJson(response, {
+      ok: true,
+      authUrl: buildOauthAuthUrl("gmail", providerConfig, state, ""),
+    });
+    return;
+  }
+
+  if (method === "GET" && url.pathname === "/api/auth/google/callback") {
+    const state = url.searchParams.get("state") || "";
+    const code = url.searchParams.get("code") || "";
+    const oauthError = url.searchParams.get("error");
+    const oauthErrorDescription = url.searchParams.get("error_description");
+    const stateInfo = consumeOauthState(state);
+    const returnTo = sanitizeReturnTo(stateInfo?.returnTo || "/todo.html");
+
+    if (!stateInfo || stateInfo.provider !== "google-login") {
+      sendRedirect(
+        response,
+        withQuery(returnTo, {
+          userauth: "error",
+          message: "Sign-in state expired. Please try again.",
+        })
+      );
+      return;
+    }
+
+    if (oauthError) {
+      sendRedirect(
+        response,
+        withQuery(returnTo, {
+          userauth: "error",
+          message: oauthErrorDescription || oauthError,
+        })
+      );
+      return;
+    }
+
+    if (!code) {
+      sendRedirect(
+        response,
+        withQuery(returnTo, {
+          userauth: "error",
+          message: "Missing OAuth code.",
+        })
+      );
+      return;
+    }
+
+    try {
+      const config = getGoogleSignInConfig(request);
+      const token = await exchangeOauthCode("gmail", config, code);
+      const profile = await fetchOauthProfile("gmail", token.access_token);
+      const tokenClaims = parseJwtClaims(token.id_token);
+      const email = String(profile.email || tokenClaims.email || "").trim().toLowerCase();
+      const label = resolveDisplayName(profile, tokenClaims, email, "Google user");
+      if (isValidEmail(email)) {
+        upsertMailAccount({
+          provider: "gmail",
+          email,
+          profile: {
+            source: "linked-user-auth",
+            label,
+          },
+        });
+      }
+      sendRedirect(
+        response,
+        withQuery(returnTo, {
+          userauth: "success",
+          provider: "Google",
+          label: label.slice(0, 80),
+          email: email.slice(0, 120),
+        })
+      );
+      return;
+    } catch (error) {
+      sendRedirect(
+        response,
+        withQuery(returnTo, {
+          userauth: "error",
+          message: error.message || "Google sign-in failed.",
+        })
+      );
+      return;
+    }
+  }
+
+  if (method === "POST" && url.pathname === "/api/auth/meta/start") {
+    const body = await readJson(request);
+    const returnTo = sanitizeReturnTo(body.returnTo || "/todo.html");
+    const state = crypto.randomUUID();
+    const providerConfig = getMetaSignInConfig(request);
+    createOauthState({
+      state,
+      provider: "meta-login",
+      returnTo,
+    });
+    sendJson(response, {
+      ok: true,
+      authUrl: buildMetaAuthUrl(providerConfig, state),
+    });
+    return;
+  }
+
+  if (method === "GET" && url.pathname === "/api/auth/meta/callback") {
+    const state = url.searchParams.get("state") || "";
+    const code = url.searchParams.get("code") || "";
+    const oauthError = url.searchParams.get("error");
+    const oauthErrorDescription =
+      url.searchParams.get("error_message") || url.searchParams.get("error_description");
+    const stateInfo = consumeOauthState(state);
+    const returnTo = sanitizeReturnTo(stateInfo?.returnTo || "/todo.html");
+
+    if (!stateInfo || stateInfo.provider !== "meta-login") {
+      sendRedirect(
+        response,
+        withQuery(returnTo, {
+          userauth: "error",
+          message: "Meta sign-in state expired. Please try again.",
+        })
+      );
+      return;
+    }
+
+    if (oauthError) {
+      sendRedirect(
+        response,
+        withQuery(returnTo, {
+          userauth: "error",
+          message: oauthErrorDescription || oauthError,
+        })
+      );
+      return;
+    }
+
+    if (!code) {
+      sendRedirect(
+        response,
+        withQuery(returnTo, {
+          userauth: "error",
+          message: "Missing Meta OAuth code.",
+        })
+      );
+      return;
+    }
+
+    try {
+      const config = getMetaSignInConfig(request);
+      const token = await exchangeMetaCode(config, code);
+      const profile = await fetchMetaProfile(token.access_token);
+      const email = String(profile.email || "").trim().toLowerCase();
+      const label = String(profile.name || email || "Meta user").trim();
+      sendRedirect(
+        response,
+        withQuery(returnTo, {
+          userauth: "success",
+          provider: "Meta",
+          label: label.slice(0, 80),
+          email: email.slice(0, 120),
+        })
+      );
+      return;
+    } catch (error) {
+      sendRedirect(
+        response,
+        withQuery(returnTo, {
+          userauth: "error",
+          message: error.message || "Meta sign-in failed.",
+        })
+      );
+      return;
+    }
+  }
+
   if (method === "GET" && url.pathname === "/api/mail/accounts") {
     sendJson(response, {
       accounts: listMailAccounts().map((account) => ({
@@ -174,6 +359,20 @@ async function handleApi(request, response, url) {
   const mailDeleteMatch = url.pathname.match(/^\/api\/mail\/accounts\/([^/]+)$/);
   if (method === "DELETE" && mailDeleteMatch) {
     const removed = removeMailAccount(decodeURIComponent(mailDeleteMatch[1]));
+    sendJson(response, { removed });
+    return;
+  }
+
+  if (method === "POST" && url.pathname === "/api/mail/accounts/disconnect-linked") {
+    const body = await readJson(request);
+    const provider = normalizeMailProvider(body.provider);
+    const email = String(body.email || "").trim().toLowerCase();
+    if (!provider || !isValidEmail(email)) {
+      const error = new Error("Provider and email are required for linked disconnect.");
+      error.statusCode = 400;
+      throw error;
+    }
+    const removed = removeMailAccountByProviderEmail(provider, email);
     sendJson(response, { removed });
     return;
   }
@@ -215,6 +414,40 @@ async function handleApi(request, response, url) {
       throw error;
     }
     const row = upsertMailAccount({ provider, email, profile: { source: "manual" } });
+    sendJson(
+      response,
+      {
+        account: {
+          id: row.id,
+          provider: formatProviderLabel(row.provider),
+          email: row.email,
+          connectedAt: row.connected_at,
+          updatedAt: row.updated_at,
+        },
+      },
+      201
+    );
+    return;
+  }
+
+  if (method === "POST" && url.pathname === "/api/mail/accounts/link-from-auth") {
+    const body = await readJson(request);
+    const provider = normalizeMailProvider(body.provider);
+    const email = String(body.email || "").trim().toLowerCase();
+    const label = String(body.label || "").trim();
+    if (!(provider === "gmail" || provider === "outlook") || !isValidEmail(email)) {
+      const error = new Error("Valid provider and email are required.");
+      error.statusCode = 400;
+      throw error;
+    }
+    const row = upsertMailAccount({
+      provider,
+      email,
+      profile: {
+        source: "linked-user-auth",
+        label: label || null,
+      },
+    });
     sendJson(
       response,
       {
@@ -374,11 +607,13 @@ async function handleApi(request, response, url) {
           raw: profile,
         },
       });
+      const label = String(profile.name || profile.displayName || email || `${providerLabel} user`).trim();
       sendRedirect(
         response,
         withQuery(returnTo, {
           oauth: "success",
           provider: providerLabel,
+          label: label.slice(0, 80),
           email,
         })
       );
@@ -610,6 +845,86 @@ function getOauthProviderConfig(provider, request) {
   throw error;
 }
 
+function getGoogleSignInConfig(request) {
+  const baseUrl = getBaseUrl(request);
+  const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
+  const redirectUri = process.env.GOOGLE_SIGNIN_REDIRECT_URI || `${baseUrl}/api/auth/google/callback`;
+  if (!clientId || !clientSecret) {
+    const error = new Error("Google OAuth env is missing (GOOGLE_OAUTH_CLIENT_ID / GOOGLE_OAUTH_CLIENT_SECRET).");
+    error.statusCode = 500;
+    throw error;
+  }
+  return {
+    clientId,
+    clientSecret,
+    redirectUri,
+    scope: "openid email profile",
+    authUrl: "https://accounts.google.com/o/oauth2/v2/auth",
+    tokenUrl: "https://oauth2.googleapis.com/token",
+  };
+}
+
+function getMetaSignInConfig(request) {
+  const baseUrl = getBaseUrl(request);
+  const clientId = process.env.META_OAUTH_CLIENT_ID;
+  const clientSecret = process.env.META_OAUTH_CLIENT_SECRET;
+  const redirectUri = process.env.META_SIGNIN_REDIRECT_URI || `${baseUrl}/api/auth/meta/callback`;
+  if (!clientId || !clientSecret) {
+    const error = new Error("Meta OAuth env is missing (META_OAUTH_CLIENT_ID / META_OAUTH_CLIENT_SECRET).");
+    error.statusCode = 500;
+    throw error;
+  }
+  return {
+    clientId,
+    clientSecret,
+    redirectUri,
+    scope: "public_profile,email",
+    authUrl: "https://www.facebook.com/v19.0/dialog/oauth",
+    tokenUrl: "https://graph.facebook.com/v19.0/oauth/access_token",
+  };
+}
+
+function buildMetaAuthUrl(config, state) {
+  const params = new URLSearchParams({
+    client_id: config.clientId,
+    redirect_uri: config.redirectUri,
+    state,
+    response_type: "code",
+    scope: config.scope,
+  });
+  return `${config.authUrl}?${params.toString()}`;
+}
+
+function parseJwtClaims(jwt) {
+  const token = String(jwt || "").trim();
+  if (!token || !token.includes(".")) return {};
+  const parts = token.split(".");
+  if (parts.length < 2) return {};
+  try {
+    const normalized = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized + "=".repeat((4 - (normalized.length % 4 || 4)) % 4);
+    const decoded = Buffer.from(padded, "base64").toString("utf8");
+    const parsed = JSON.parse(decoded);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+function resolveDisplayName(profile, tokenClaims, email, fallback) {
+  const fromProfile =
+    profile?.name ||
+    [profile?.given_name, profile?.family_name].filter(Boolean).join(" ").trim() ||
+    tokenClaims?.name ||
+    [tokenClaims?.given_name, tokenClaims?.family_name].filter(Boolean).join(" ").trim();
+  if (fromProfile) return String(fromProfile).trim();
+  if (email && email.includes("@")) {
+    return email.split("@")[0];
+  }
+  return fallback;
+}
+
 function buildOauthAuthUrl(provider, config, state, emailHint) {
   const params = new URLSearchParams({
     response_type: "code",
@@ -654,6 +969,23 @@ async function exchangeOauthCode(provider, config, code) {
   return payload;
 }
 
+async function exchangeMetaCode(config, code) {
+  const url = new URL(config.tokenUrl);
+  url.searchParams.set("client_id", config.clientId);
+  url.searchParams.set("client_secret", config.clientSecret);
+  url.searchParams.set("redirect_uri", config.redirectUri);
+  url.searchParams.set("code", code);
+  const response = await fetch(url, { method: "GET" });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload.access_token) {
+    const message = payload.error?.message || "Token exchange failed.";
+    const error = new Error(`Meta OAuth token exchange failed: ${message}`);
+    error.statusCode = 502;
+    throw error;
+  }
+  return payload;
+}
+
 async function fetchOauthProfile(provider, accessToken) {
   if (provider === "gmail") {
     const response = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
@@ -682,6 +1014,20 @@ async function fetchOauthProfile(provider, accessToken) {
   const error = new Error("Unsupported OAuth profile provider.");
   error.statusCode = 400;
   throw error;
+}
+
+async function fetchMetaProfile(accessToken) {
+  const url = new URL("https://graph.facebook.com/me");
+  url.searchParams.set("fields", "id,name,email");
+  url.searchParams.set("access_token", accessToken);
+  const response = await fetch(url);
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new Error(payload.error?.message || "Unable to read Meta profile.");
+    error.statusCode = 502;
+    throw error;
+  }
+  return payload;
 }
 
 function getTokenEncryptionKey() {

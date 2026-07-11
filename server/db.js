@@ -562,6 +562,17 @@ function removeMailAccount(id) {
   return getDb().prepare("DELETE FROM mail_accounts WHERE id = ?").run(String(id || "")).changes > 0;
 }
 
+function removeMailAccountByProviderEmail(provider, email) {
+  const normalizedProvider = String(provider || "").trim().toLowerCase();
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  if (!normalizedProvider || !normalizedEmail) return false;
+  return (
+    getDb()
+      .prepare("DELETE FROM mail_accounts WHERE provider = ? AND email = ?")
+      .run(normalizedProvider, normalizedEmail).changes > 0
+  );
+}
+
 function createOauthState(input) {
   const state = String(input.state || "").trim();
   if (!state) return;
@@ -608,6 +619,7 @@ module.exports = {
   logFetchRun,
   normalizeSymbol,
   removeMailAccount,
+  removeMailAccountByProviderEmail,
   removeWatchlist,
   replaceEvents,
   replaceFilings,

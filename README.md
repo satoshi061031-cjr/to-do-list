@@ -55,6 +55,13 @@ Signals are for research only and are not investment advice.
 - `GET /api/mail/oauth/outlook/callback`
 - `GET /api/mail/accounts/:id/messages?limit=20` (recent inbox summaries)
 
+### User Google Sign-In Endpoints
+
+- `POST /api/auth/google/start` with `{ "returnTo": "/todo.html" }`
+- `GET /api/auth/google/callback`
+- `POST /api/auth/meta/start` with `{ "returnTo": "/todo.html" }`
+- `GET /api/auth/meta/callback`
+
 To enable real Gmail/Outlook authorization, copy `.env.example` to `.env` and fill:
 
 - `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`

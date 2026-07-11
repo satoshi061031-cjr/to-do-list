@@ -1,4 +1,5 @@
 (function () {
+  const STORAGE_AUTH = "daily-space-auth-v1";
   let accounts = [];
 
   const form = document.getElementById("mail-connect-form");
@@ -101,20 +102,52 @@
     window.alert(message);
   }
 
+  function syncGlobalAuth(provider, label, email) {
+    const providerLabel = String(provider || "Mail").trim();
+    const displayLabel = String(label || email || `${providerLabel} user`).trim();
+    const decoratedLabel = email ? `${displayLabel} (${email})` : displayLabel;
+    const normalizedProvider = providerLabel.toLowerCase();
+    const mailProvider =
+      normalizedProvider.includes("gmail") || normalizedProvider.includes("google")
+        ? "gmail"
+        : normalizedProvider.includes("outlook") || normalizedProvider.includes("microsoft")
+          ? "outlook"
+          : "";
+    try {
+      localStorage.setItem(
+        STORAGE_AUTH,
+        JSON.stringify({
+          provider: providerLabel,
+          label: decoratedLabel,
+          email: String(email || "").trim().toLowerCase(),
+          mailProvider,
+        })
+      );
+    } catch (_) {
+      /* ignore auth sync failures */
+    }
+    window.dispatchEvent(new CustomEvent("daily-space-auth-updated"));
+  }
+
   function handleOauthResultFromUrl() {
     const url = new URL(window.location.href);
     const oauth = url.searchParams.get("oauth");
     if (!oauth) return;
     const provider = url.searchParams.get("provider") || "Mail";
+    const label = url.searchParams.get("label") || "";
     const email = url.searchParams.get("email") || "";
     const message = url.searchParams.get("message") || "";
     if (oauth === "success") {
+      if (provider === "Gmail" || provider === "Outlook") {
+        syncGlobalAuth(provider, label, email);
+      }
       toast(`${provider} connected${email ? `: ${email}` : ""}`);
     } else {
       toast(`${provider} authorization failed${message ? `: ${message}` : ""}`);
     }
     url.searchParams.delete("oauth");
     url.searchParams.delete("provider");
+    url.searchParams.delete("label");
     url.searchParams.delete("email");
     url.searchParams.delete("message");
     window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
@@ -149,6 +182,7 @@
             window.location.href = payload.authUrl;
             return;
           }
+          throw new Error(`${provider === "outlook" ? "Outlook" : "Gmail"} authorization URL not returned.`);
         } else if (provider === "icloud") {
           const appPassword =
             icloudPasswordInput instanceof HTMLInputElement ? icloudPasswordInput.value.trim() : "";

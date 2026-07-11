@@ -126,6 +126,8 @@
       return {
         provider: parsed.provider,
         label: parsed.label,
+        email: typeof parsed.email === "string" ? parsed.email : "",
+        mailProvider: typeof parsed.mailProvider === "string" ? parsed.mailProvider : "",
       };
     } catch (_) {
       return null;
@@ -138,6 +140,7 @@
     } catch (_) {
       /* Auth UI state is non-critical for the static app. */
     }
+    window.dispatchEvent(new CustomEvent("daily-space-auth-updated"));
   }
 
   function clearAuthState() {
@@ -146,6 +149,7 @@
     } catch (_) {
       /* ignore */
     }
+    window.dispatchEvent(new CustomEvent("daily-space-auth-updated"));
   }
 
   function setupAuthEntry() {
@@ -213,6 +217,8 @@
       renderGreeting();
     }
 
+    window.addEventListener("daily-space-auth-updated", renderAuth);
+
     function openModal() {
       renderAuth();
       modal.hidden = false;
@@ -233,6 +239,110 @@
       closeModal();
     }
 
+    async function disconnectLinkedMailbox(authState) {
+      const email = String(authState?.email || "").trim().toLowerCase();
+      if (!email) return;
+      const normalizedProvider = String(authState?.mailProvider || authState?.provider || "")
+        .trim()
+        .toLowerCase();
+      let provider = "";
+      if (normalizedProvider.includes("gmail") || normalizedProvider.includes("google")) provider = "gmail";
+      else if (normalizedProvider.includes("outlook") || normalizedProvider.includes("microsoft")) provider = "outlook";
+      if (!provider) return;
+
+      await fetch("/api/mail/accounts/disconnect-linked", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider, email }),
+      });
+    }
+
+    async function startGoogleSignIn() {
+      const response = await fetch("/api/auth/google/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          returnTo: window.location.pathname + window.location.search,
+        }),
+      });
+      const payload = await response.json().catch(function () {
+        return {};
+      });
+      if (!response.ok) {
+        throw new Error((payload && payload.error) || "Google sign-in failed.");
+      }
+      if (!payload.authUrl) throw new Error("Missing Google authorization URL.");
+      window.location.href = payload.authUrl;
+    }
+
+    async function startMetaSignIn() {
+      const response = await fetch("/api/auth/meta/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          returnTo: window.location.pathname + window.location.search,
+        }),
+      });
+      const payload = await response.json().catch(function () {
+        return {};
+      });
+      if (!response.ok) {
+        throw new Error((payload && payload.error) || "Meta sign-in failed.");
+      }
+      if (!payload.authUrl) throw new Error("Missing Meta authorization URL.");
+      window.location.href = payload.authUrl;
+    }
+
+    async function linkMailAccountFromAuth(provider, email, label) {
+      const normalizedProvider = String(provider || "").trim().toLowerCase();
+      const mailProvider =
+        normalizedProvider.includes("google") || normalizedProvider.includes("gmail")
+          ? "gmail"
+          : normalizedProvider.includes("outlook") || normalizedProvider.includes("microsoft")
+            ? "outlook"
+            : "";
+      if (!mailProvider || !email) return;
+      await fetch("/api/mail/accounts/link-from-auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          provider: mailProvider,
+          email,
+          label,
+        }),
+      });
+    }
+
+    function applyUserAuthResultFromUrl() {
+      const url = new URL(window.location.href);
+      const status = url.searchParams.get("userauth");
+      if (!status) return;
+
+      const provider = url.searchParams.get("provider") || "Google";
+      const label = url.searchParams.get("label") || "Google user";
+      const email = url.searchParams.get("email") || "";
+      const message = url.searchParams.get("message") || "";
+      if (status === "success") {
+        saveAuthState({
+          provider,
+          label: email ? `${label} (${email})` : label,
+          email,
+          mailProvider: provider.toLowerCase(),
+        });
+        linkMailAccountFromAuth(provider, email, label).catch(function () {
+          /* Best-effort sync so sign-in UX remains smooth. */
+        });
+      } else if (message) {
+        window.alert(message);
+      }
+
+      ["userauth", "provider", "label", "email", "message"].forEach(function (key) {
+        url.searchParams.delete(key);
+      });
+      window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+      renderAuth();
+    }
+
     authButton.addEventListener("click", openModal);
 
     modal.addEventListener("click", function (event) {
@@ -242,7 +352,15 @@
       const providerButton = target.closest(".auth-provider");
       if (providerButton) {
         const provider = providerButton.getAttribute("data-provider") || "provider";
-        login(provider === "google" ? "Google" : "Meta", provider === "google" ? "Google user" : "Meta user");
+        if (provider === "google") {
+          startGoogleSignIn().catch(function (error) {
+            window.alert(error instanceof Error ? error.message : "Google sign-in failed.");
+          });
+        } else {
+          startMetaSignIn().catch(function (error) {
+            window.alert(error instanceof Error ? error.message : "Meta sign-in failed.");
+          });
+        }
       }
     });
 
@@ -259,10 +377,18 @@
     }
 
     if (logoutButton) {
-      logoutButton.addEventListener("click", function () {
-        clearAuthState();
-        renderAuth();
-        closeModal();
+      logoutButton.addEventListener("click", async function () {
+        logoutButton.setAttribute("disabled", "true");
+        try {
+          await disconnectLinkedMailbox(readAuthState());
+        } catch (_) {
+          /* linked mailbox disconnect is best-effort */
+        } finally {
+          clearAuthState();
+          renderAuth();
+          closeModal();
+          logoutButton.removeAttribute("disabled");
+        }
       });
     }
 
@@ -271,6 +397,7 @@
     });
 
     renderAuth();
+    applyUserAuthResultFromUrl();
   }
 
   function greetingTextForNow() {
