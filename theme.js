@@ -251,6 +251,7 @@
   }
 
   async function redirectSignedInWelcomeUser() {
+    if (!isWelcomePath(window.location.pathname)) return false;
     const response = await fetch("/api/auth/me");
     if (!response.ok) return false;
     const payload = await response.json().catch(function () {
@@ -579,6 +580,10 @@
   }
 
   function setupWelcomeExperience() {
+    if (!document.querySelector(".welcome-screen") || !isWelcomePath(window.location.pathname)) {
+      return;
+    }
+
     if (applyUserAuthResultFromUrl({ redirectToApp: true })) {
       return;
     }

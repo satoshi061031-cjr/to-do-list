@@ -1,4 +1,4 @@
-const CACHE_NAME = 'todo-v97';
+const CACHE_NAME = 'todo-v98';
 const SCOPE_PATH = new URL(self.registration.scope).pathname.replace(/\/$/, '');
 const withScope = (path) => `${SCOPE_PATH}${path}`;
 const urlsToCache = [
@@ -59,7 +59,16 @@ self.addEventListener('fetch', (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
           return response;
         })
-        .catch(() => caches.match(event.request).then((response) => response || caches.match(withScope('/index.html'))))
+        .catch(() =>
+          caches.match(event.request).then((response) => {
+            if (response) return response;
+            const path = new URL(event.request.url).pathname.replace(/\/+$/, '') || '/';
+            if (path === '/' || path.endsWith('/index.html')) {
+              return caches.match(withScope('/index.html'));
+            }
+            return Response.error();
+          })
+        )
     );
     return;
   }
@@ -70,10 +79,14 @@ self.addEventListener('fetch', (event) => {
   }
 
   event.respondWith(
-    caches.match(event.request)
+    fetch(event.request)
       .then((response) => {
-        if (response) return response;
-        return fetch(event.request);
+        if (response && response.ok) {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        }
+        return response;
       })
+      .catch(() => caches.match(event.request))
   );
 });
