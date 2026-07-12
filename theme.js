@@ -250,6 +250,28 @@
     return succeeded;
   }
 
+  async function redirectSignedInWelcomeUser() {
+    const response = await fetch("/api/auth/me");
+    if (!response.ok) return false;
+    const payload = await response.json().catch(function () {
+      return {};
+    });
+    const user = payload?.user;
+    if (!user || !user.label) return false;
+    saveAuthState({
+      label: user.label,
+      email: user.email || "",
+      provider: user.provider || "Account",
+      mailProvider: String(user.provider || "").toLowerCase().includes("google")
+        ? "gmail"
+        : String(user.provider || "").toLowerCase().includes("outlook")
+          ? "outlook"
+          : "",
+    });
+    window.location.replace(DEFAULT_APP_PATH);
+    return true;
+  }
+
   function setupAuthEntry() {
     const sidebarInner = document.querySelector(".sidebar-inner");
     if (!sidebarInner) return;
@@ -561,6 +583,17 @@
       return;
     }
 
+    redirectSignedInWelcomeUser()
+      .then(function (redirected) {
+        if (redirected) return;
+        initWelcomeExperience();
+      })
+      .catch(function () {
+        initWelcomeExperience();
+      });
+  }
+
+  function initWelcomeExperience() {
     const stage = document.querySelector(".welcome-screen");
     const field = stage?.querySelector(".welcome-ghost-field");
     const ghost = field?.querySelector(".welcome-floating-ghost");
@@ -639,38 +672,6 @@
       window.location.href = payload.authUrl;
     }
 
-    async function hydrateWelcomeSession() {
-      const url = new URL(window.location.href);
-      const justAuthed = url.searchParams.get("userauth") === "success";
-      const response = await fetch("/api/auth/me");
-      if (!response.ok) return;
-      const payload = await response.json().catch(function () {
-        return {};
-      });
-      const user = payload?.user;
-      if (!user || !user.label) return;
-      saveAuthState({
-        label: user.label,
-        email: user.email || "",
-        provider: user.provider || "Account",
-        mailProvider: String(user.provider || "").toLowerCase().includes("google")
-          ? "gmail"
-          : String(user.provider || "").toLowerCase().includes("outlook")
-            ? "outlook"
-            : "",
-      });
-      if (justAuthed) {
-        window.location.replace(DEFAULT_APP_PATH);
-        return;
-      }
-      const enterLink = stage.querySelector(".welcome-enter");
-      if (enterLink) enterLink.textContent = `Continue as ${user.label}`;
-      ["userauth", "provider", "label", "email", "message"].forEach(function (key) {
-        url.searchParams.delete(key);
-      });
-      window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
-    }
-
     lens.addEventListener("pointerdown", function (event) {
       dragging = true;
       moved = false;
@@ -722,9 +723,6 @@
       else ghost.addEventListener("load", moveGhost, { once: true });
       window.addEventListener("resize", moveGhost);
     }
-    hydrateWelcomeSession().catch(function () {
-      /* The welcome screen remains usable when the auth server is unavailable. */
-    });
   }
 
   async function requestSync(method, code, payload) {
