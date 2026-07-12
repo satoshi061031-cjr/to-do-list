@@ -957,26 +957,148 @@
     if (dueDayPageDate) renderDueDayPage();
   }
 
-  /** @param {string} text @param {string | null} dueDate */
-  function add(text, dueDate) {
+  function add(text, dueDate, categoryIdOverride) {
     const trimmed = text.trim();
-    if (!trimmed) return;
-    const categoryId =
-      selectedCategoryKey === "__all__" || !categoryExists(selectedCategoryKey)
-        ? null
-        : selectedCategoryKey;
+    if (!trimmed) return null;
+    let categoryId = null;
+    if (typeof categoryIdOverride === "string" && categoryExists(categoryIdOverride)) {
+      categoryId = categoryIdOverride;
+    } else if (selectedCategoryKey === "__all__" || !categoryExists(selectedCategoryKey)) {
+      categoryId = null;
+    } else {
+      categoryId = selectedCategoryKey;
+    }
 
-    todos.unshift({
+    const item = {
       id: id(),
       text: trimmed,
       completed: false,
       dueDate: dueDate && ISO_DATE.test(dueDate) ? dueDate : null,
       categoryId,
-    });
+    };
+    todos.unshift(item);
     saveAll();
     renderCategorySidebar();
     render();
+    return item;
   }
+
+  function findTodoForAgent(todoId, matchText) {
+    if (todoId) {
+      const byId = todos.find((t) => t.id === todoId);
+      if (byId) return byId;
+    }
+    const needle = String(matchText || "").trim().toLowerCase();
+    if (!needle) return null;
+    const exact = todos.find((t) => t.text.trim().toLowerCase() === needle);
+    if (exact) return exact;
+    const partial = todos.find((t) => t.text.toLowerCase().includes(needle));
+    return partial || null;
+  }
+
+  function ensureCategoryByName(name) {
+    const trimmed = String(name || "").trim().slice(0, 48);
+    if (!trimmed) return null;
+    const existing = categories.find((c) => c.name.toLowerCase() === trimmed.toLowerCase());
+    if (existing) return existing;
+    const cat = { id: id(), name: trimmed };
+    categories.push(cat);
+    return cat;
+  }
+
+  function applyAgentActions(actions) {
+    const applied = [];
+    if (!Array.isArray(actions)) return applied;
+    for (const action of actions) {
+      if (!action || typeof action !== "object") continue;
+      const type = String(action.type || "");
+      try {
+        if (type === "add") {
+          let categoryId = null;
+          if (action.categoryName) {
+            const cat = ensureCategoryByName(action.categoryName);
+            categoryId = cat ? cat.id : null;
+          }
+          const item = add(String(action.text || ""), action.dueDate || null, categoryId);
+          if (item) applied.push({ type, id: item.id, text: item.text });
+          continue;
+        }
+        if (type === "add_category") {
+          const cat = ensureCategoryByName(action.name);
+          if (cat) applied.push({ type, id: cat.id, name: cat.name });
+          continue;
+        }
+        const target = findTodoForAgent(action.todoId, action.matchText);
+        if (!target) {
+          applied.push({ type, ok: false, error: "Todo not found" });
+          continue;
+        }
+        if (type === "complete") {
+          if (!target.completed) {
+            target.completed = true;
+            applied.push({ type, id: target.id, text: target.text });
+          } else {
+            applied.push({ type, id: target.id, text: target.text, skipped: true });
+          }
+          continue;
+        }
+        if (type === "uncomplete") {
+          if (target.completed) {
+            target.completed = false;
+            applied.push({ type, id: target.id, text: target.text });
+          } else {
+            applied.push({ type, id: target.id, text: target.text, skipped: true });
+          }
+          continue;
+        }
+        if (type === "delete") {
+          todos = todos.filter((t) => t.id !== target.id);
+          applied.push({ type, id: target.id, text: target.text });
+          continue;
+        }
+        if (type === "update") {
+          if (typeof action.text === "string" && action.text.trim()) {
+            target.text = action.text.trim().slice(0, 500);
+          }
+          if (Object.prototype.hasOwnProperty.call(action, "dueDate")) {
+            const due = action.dueDate;
+            target.dueDate = typeof due === "string" && ISO_DATE.test(due) ? due : null;
+          }
+          if (typeof action.categoryName === "string" && action.categoryName.trim()) {
+            const cat = ensureCategoryByName(action.categoryName);
+            target.categoryId = cat ? cat.id : target.categoryId;
+          }
+          applied.push({ type, id: target.id, text: target.text });
+        }
+      } catch (_) {
+        applied.push({ type, ok: false, error: "Action failed" });
+      }
+    }
+    saveAll();
+    renderCategorySidebar();
+    render();
+    return applied;
+  }
+
+  function getAgentSnapshot() {
+    return {
+      todos: todos.map((t) => ({
+        id: t.id,
+        text: t.text,
+        completed: t.completed,
+        dueDate: t.dueDate,
+        categoryId: t.categoryId,
+      })),
+      categories: categories.map((c) => ({ id: c.id, name: c.name })),
+      selectedCategoryKey,
+      today: new Date().toISOString().slice(0, 10),
+    };
+  }
+
+  window.DailySpaceTodo = {
+    getSnapshot: getAgentSnapshot,
+    applyActions: applyAgentActions,
+  };
 
   function toggle(todoId) {
     const t = todos.find((x) => x.id === todoId);

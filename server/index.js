@@ -22,6 +22,7 @@ const {
 } = require("./db");
 const { refreshSymbol, startScheduler } = require("./jobs/scheduler");
 const { searchSymbols } = require("./providers/market");
+const { isAgentConfigured, runTodoAgent } = require("./agent");
 
 const ROOT_DIR = path.resolve(__dirname, "..");
 const SYNC_DIR = path.join(__dirname, "data", "sync");
@@ -61,7 +62,25 @@ async function handleApi(request, response, url) {
       ok: true,
       now: new Date().toISOString(),
       alphaVantageConfigured: Boolean(process.env.ALPHA_VANTAGE_API_KEY),
+      agentConfigured: isAgentConfigured(),
     });
+    return;
+  }
+
+  if (method === "GET" && url.pathname === "/api/agent/status") {
+    sendJson(response, { ok: true, configured: isAgentConfigured() });
+    return;
+  }
+
+  if (method === "POST" && url.pathname === "/api/agent/todo") {
+    const body = await readJson(request);
+    const result = await runTodoAgent({
+      message: body.message,
+      todos: body.todos,
+      categories: body.categories,
+      today: body.today,
+    });
+    sendJson(response, { ok: true, ...result });
     return;
   }
 
