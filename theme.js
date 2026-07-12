@@ -182,6 +182,74 @@
     );
   }
 
+  const DEFAULT_APP_PATH = "/todo.html";
+
+  function isWelcomePath(pathname) {
+    const path = String(pathname || "/").replace(/\/+$/, "") || "/";
+    return path === "/" || path === "/index.html";
+  }
+
+  async function linkMailAccountFromAuth(provider, email, label) {
+    const normalizedProvider = String(provider || "").trim().toLowerCase();
+    const mailProvider =
+      normalizedProvider.includes("google") || normalizedProvider.includes("gmail")
+        ? "gmail"
+        : normalizedProvider.includes("outlook") || normalizedProvider.includes("microsoft")
+          ? "outlook"
+          : "";
+    if (!mailProvider || !email) return;
+    await fetch("/api/mail/accounts/link-from-auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        provider: mailProvider,
+        email,
+        label,
+      }),
+    });
+  }
+
+  function applyUserAuthResultFromUrl(options) {
+    const settings = options || {};
+    const url = new URL(window.location.href);
+    const status = url.searchParams.get("userauth");
+    if (!status) return false;
+
+    const provider = url.searchParams.get("provider") || "Google";
+    const label = url.searchParams.get("label") || "Google user";
+    const email = url.searchParams.get("email") || "";
+    const message = url.searchParams.get("message") || "";
+    let succeeded = false;
+
+    if (status === "success") {
+      succeeded = true;
+      saveAuthState({
+        provider,
+        label: email ? `${label} (${email})` : label,
+        email,
+        mailProvider: provider.toLowerCase(),
+      });
+      linkMailAccountFromAuth(provider, email, label).catch(function () {
+        /* Best-effort sync so sign-in UX remains smooth. */
+      });
+    } else if (message) {
+      window.alert(message);
+    }
+
+    ["userauth", "provider", "label", "email", "message"].forEach(function (key) {
+      url.searchParams.delete(key);
+    });
+    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+    window.dispatchEvent(new CustomEvent("daily-space-auth-updated"));
+
+    if (succeeded && settings.redirectToApp && isWelcomePath(url.pathname)) {
+      window.location.replace(DEFAULT_APP_PATH);
+      return true;
+    }
+
+    return succeeded;
+  }
+
   function setupAuthEntry() {
     const sidebarInner = document.querySelector(".sidebar-inner");
     if (!sidebarInner) return;
@@ -378,56 +446,6 @@
       window.location.href = payload.authUrl;
     }
 
-    async function linkMailAccountFromAuth(provider, email, label) {
-      const normalizedProvider = String(provider || "").trim().toLowerCase();
-      const mailProvider =
-        normalizedProvider.includes("google") || normalizedProvider.includes("gmail")
-          ? "gmail"
-          : normalizedProvider.includes("outlook") || normalizedProvider.includes("microsoft")
-            ? "outlook"
-            : "";
-      if (!mailProvider || !email) return;
-      await fetch("/api/mail/accounts/link-from-auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          provider: mailProvider,
-          email,
-          label,
-        }),
-      });
-    }
-
-    function applyUserAuthResultFromUrl() {
-      const url = new URL(window.location.href);
-      const status = url.searchParams.get("userauth");
-      if (!status) return;
-
-      const provider = url.searchParams.get("provider") || "Google";
-      const label = url.searchParams.get("label") || "Google user";
-      const email = url.searchParams.get("email") || "";
-      const message = url.searchParams.get("message") || "";
-      if (status === "success") {
-        saveAuthState({
-          provider,
-          label: email ? `${label} (${email})` : label,
-          email,
-          mailProvider: provider.toLowerCase(),
-        });
-        linkMailAccountFromAuth(provider, email, label).catch(function () {
-          /* Best-effort sync so sign-in UX remains smooth. */
-        });
-      } else if (message) {
-        window.alert(message);
-      }
-
-      ["userauth", "provider", "label", "email", "message"].forEach(function (key) {
-        url.searchParams.delete(key);
-      });
-      window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
-      renderAuth();
-    }
-
     authButton.addEventListener("click", openModal);
 
     modal.addEventListener("click", function (event) {
@@ -539,6 +557,10 @@
   }
 
   function setupWelcomeExperience() {
+    if (applyUserAuthResultFromUrl({ redirectToApp: true })) {
+      return;
+    }
+
     const stage = document.querySelector(".welcome-screen");
     const field = stage?.querySelector(".welcome-ghost-field");
     const ghost = field?.querySelector(".welcome-floating-ghost");
@@ -604,7 +626,7 @@
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          returnTo: window.location.pathname + window.location.search,
+          returnTo: DEFAULT_APP_PATH,
         }),
       });
       const payload = await response.json().catch(function () {
@@ -618,6 +640,8 @@
     }
 
     async function hydrateWelcomeSession() {
+      const url = new URL(window.location.href);
+      const justAuthed = url.searchParams.get("userauth") === "success";
       const response = await fetch("/api/auth/me");
       if (!response.ok) return;
       const payload = await response.json().catch(function () {
@@ -635,9 +659,12 @@
             ? "outlook"
             : "",
       });
+      if (justAuthed) {
+        window.location.replace(DEFAULT_APP_PATH);
+        return;
+      }
       const enterLink = stage.querySelector(".welcome-enter");
       if (enterLink) enterLink.textContent = `Continue as ${user.label}`;
-      const url = new URL(window.location.href);
       ["userauth", "provider", "label", "email", "message"].forEach(function (key) {
         url.searchParams.delete(key);
       });
