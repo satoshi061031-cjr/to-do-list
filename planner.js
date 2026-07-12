@@ -30,6 +30,8 @@
   const plannerMetaLineEl = document.getElementById("planner-meta-line");
   const plannerAddColumnBtn = document.getElementById("planner-add-column");
   const plannerClearDoneBtn = document.getElementById("planner-clear-done");
+  let dealingColumnId = "";
+  let columnDealAnimation = null;
 
   function id() {
     return crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random();
@@ -296,10 +298,13 @@
   }
 
   function addPlannerColumn() {
-    plannerColumns.push({ id: id(), title: "New column", emoji: "📌" });
+    const column = { id: id(), title: "New column", emoji: "📌" };
+    plannerColumns.push(column);
     savePlannerState();
     renderPlannerSidebar();
+    dealingColumnId = column.id;
     renderPlanner();
+    queueColumnDealAnimation(column.id);
   }
 
   function removePlannerColumn(columnId) {
@@ -569,6 +574,147 @@
     });
   }
 
+  function buildPlannerColumnEl(col) {
+    const colEl = document.createElement("section");
+    colEl.className = "planner-column";
+    if (col.id === dealingColumnId) colEl.classList.add("is-dealing");
+    colEl.dataset.columnId = col.id;
+
+    const head = document.createElement("header");
+    head.className = "planner-column-head";
+
+    const emojiInp = document.createElement("input");
+    emojiInp.type = "text";
+    emojiInp.className = "planner-column-emoji";
+    emojiInp.value = col.emoji;
+    emojiInp.maxLength = 8;
+    emojiInp.setAttribute("aria-label", "Column icon");
+    emojiInp.addEventListener("change", () => {
+      updatePlannerColumn(col.id, { emoji: emojiInp.value.trim().slice(0, 8) || "📌" });
+    });
+
+    const titleInp = document.createElement("input");
+    titleInp.type = "text";
+    titleInp.className = "planner-column-title-input";
+    titleInp.value = col.title;
+    titleInp.setAttribute("aria-label", "Column title");
+    titleInp.maxLength = 80;
+    titleInp.addEventListener("change", () => {
+      updatePlannerColumn(col.id, { title: titleInp.value.trim().slice(0, 80) || "Untitled" });
+    });
+
+    const delCol = document.createElement("button");
+    delCol.type = "button";
+    delCol.className = "planner-column-delete";
+    delCol.textContent = "×";
+    delCol.setAttribute("aria-label", `Delete column ${col.title}`);
+    delCol.addEventListener("click", () => removePlannerColumn(col.id));
+
+    head.append(emojiInp, titleInp, delCol);
+
+    const cardsWrap = document.createElement("div");
+    cardsWrap.className = "planner-cards";
+    plannerEntries
+      .filter((e) => e.columnId === col.id)
+      .forEach((entry) => {
+        cardsWrap.appendChild(buildPlannerCardEl(entry));
+      });
+
+    const addEntryBtn = document.createElement("button");
+    addEntryBtn.type = "button";
+    addEntryBtn.className = "planner-add-card";
+    addEntryBtn.textContent = "+ Add entry";
+    addEntryBtn.addEventListener("click", () => addPlannerEntry(col.id));
+
+    colEl.append(head, cardsWrap, addEntryBtn);
+    return colEl;
+  }
+
+  function prefersReducedMotion() {
+    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }
+
+  function playColumnDealAnimation(columnEl, sourceEl) {
+    if (columnDealAnimation) {
+      columnDealAnimation.cancel();
+      columnDealAnimation = null;
+    }
+
+    sourceEl.classList.add("is-dealing-source");
+
+    const columnRect = columnEl.getBoundingClientRect();
+    const sourceRect = sourceEl.getBoundingClientRect();
+    const startX = sourceRect.left + sourceRect.width / 2 - (columnRect.left + columnRect.width / 2);
+    const startY = sourceRect.top + sourceRect.height / 2 - (columnRect.top + columnRect.height / 2);
+
+    columnDealAnimation = columnEl.animate(
+      [
+        {
+          transform: `translate3d(${startX}px, ${startY}px, 0) rotate(-24deg) scale(0.42)`,
+          opacity: 0.15,
+          boxShadow: "0 2px 8px rgba(0, 0, 0, 0.12)",
+        },
+        {
+          transform: `translate3d(${startX * 0.42}px, ${startY * 0.18 - 18}px, 0) rotate(-14deg) scale(0.74)`,
+          opacity: 0.72,
+          boxShadow: "0 10px 22px rgba(0, 0, 0, 0.16)",
+          offset: 0.48,
+        },
+        {
+          transform: "translate3d(-5px, 4px, 0) rotate(3deg) scale(1.03)",
+          opacity: 1,
+          boxShadow: "0 16px 30px rgba(0, 0, 0, 0.2)",
+          offset: 0.84,
+        },
+        {
+          transform: "translate3d(0, 0, 0) rotate(0deg) scale(1)",
+          opacity: 1,
+          boxShadow: "0 8px 18px rgba(0, 0, 0, 0.12)",
+        },
+      ],
+      {
+        duration: 620,
+        easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+        fill: "forwards",
+      }
+    );
+
+    const finishDeal = () => {
+      const anim = columnDealAnimation;
+      columnDealAnimation = null;
+      if (anim) {
+        anim.onfinish = null;
+        anim.oncancel = null;
+        anim.cancel();
+      }
+      sourceEl.classList.remove("is-dealing-source");
+      columnEl.classList.remove("is-dealing");
+      dealingColumnId = "";
+      columnEl.scrollIntoView({ behavior: "smooth", inline: "end", block: "nearest" });
+    };
+
+    columnDealAnimation.onfinish = finishDeal;
+    columnDealAnimation.oncancel = finishDeal;
+  }
+
+  function queueColumnDealAnimation(columnId) {
+    if (prefersReducedMotion()) {
+      dealingColumnId = "";
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const columnEl = plannerBoardEl.querySelector(`.planner-column[data-column-id="${columnId}"]`);
+        if (!(columnEl instanceof HTMLElement) || !(plannerAddColumnBtn instanceof HTMLElement)) {
+          dealingColumnId = "";
+          return;
+        }
+        playColumnDealAnimation(columnEl, plannerAddColumnBtn);
+      });
+    });
+  }
+
   function renderPlanner() {
     const pl = planners.find((x) => x.id === selectedPlannerId);
     plannerMonthTitleEl.textContent = pl ? pl.name : "Planner";
@@ -590,58 +736,7 @@
     }
 
     plannerColumns.forEach((col) => {
-      const colEl = document.createElement("section");
-      colEl.className = "planner-column";
-      colEl.dataset.columnId = col.id;
-
-      const head = document.createElement("header");
-      head.className = "planner-column-head";
-
-      const emojiInp = document.createElement("input");
-      emojiInp.type = "text";
-      emojiInp.className = "planner-column-emoji";
-      emojiInp.value = col.emoji;
-      emojiInp.maxLength = 8;
-      emojiInp.setAttribute("aria-label", "Column icon");
-      emojiInp.addEventListener("change", () => {
-        updatePlannerColumn(col.id, { emoji: emojiInp.value.trim().slice(0, 8) || "📌" });
-      });
-
-      const titleInp = document.createElement("input");
-      titleInp.type = "text";
-      titleInp.className = "planner-column-title-input";
-      titleInp.value = col.title;
-      titleInp.setAttribute("aria-label", "Column title");
-      titleInp.maxLength = 80;
-      titleInp.addEventListener("change", () => {
-        updatePlannerColumn(col.id, { title: titleInp.value.trim().slice(0, 80) || "Untitled" });
-      });
-
-      const delCol = document.createElement("button");
-      delCol.type = "button";
-      delCol.className = "planner-column-delete";
-      delCol.textContent = "×";
-      delCol.setAttribute("aria-label", `Delete column ${col.title}`);
-      delCol.addEventListener("click", () => removePlannerColumn(col.id));
-
-      head.append(emojiInp, titleInp, delCol);
-
-      const cardsWrap = document.createElement("div");
-      cardsWrap.className = "planner-cards";
-      plannerEntries
-        .filter((e) => e.columnId === col.id)
-        .forEach((entry) => {
-          cardsWrap.appendChild(buildPlannerCardEl(entry));
-        });
-
-      const addEntryBtn = document.createElement("button");
-      addEntryBtn.type = "button";
-      addEntryBtn.className = "planner-add-card";
-      addEntryBtn.textContent = "+ Add entry";
-      addEntryBtn.addEventListener("click", () => addPlannerEntry(col.id));
-
-      colEl.append(head, cardsWrap, addEntryBtn);
-      plannerBoardEl.appendChild(colEl);
+      plannerBoardEl.appendChild(buildPlannerColumnEl(col));
     });
   }
 

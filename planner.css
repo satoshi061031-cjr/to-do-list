@@ -167,6 +167,24 @@ body.planner-page {
   border-radius: var(--radius-lg);
   padding: 0.15rem;
   box-shadow: none;
+  transform-origin: center center;
+}
+
+.planner-column.is-dealing {
+  position: relative;
+  z-index: 4;
+  background: var(--planner-card-glass);
+  border: 1px solid var(--planner-card-border);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(12px) saturate(1.06);
+  -webkit-backdrop-filter: blur(12px) saturate(1.06);
+  will-change: transform, opacity, box-shadow;
+  pointer-events: none;
+}
+
+.planner-add-column-main.is-dealing-source {
+  transform: scale(0.96);
+  transition: transform 0.18s ease;
 }
 
 .planner-column-head {
@@ -555,6 +573,15 @@ body.planner-page {
   .planner-board-scroll:hover,
   .planner-column:hover,
   .planner-card:hover {
+    transform: none;
+  }
+
+  .planner-column.is-dealing {
+    pointer-events: auto;
+    will-change: auto;
+  }
+
+  .planner-add-column-main.is-dealing-source {
     transform: none;
   }
 }
