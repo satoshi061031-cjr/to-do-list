@@ -1,6 +1,10 @@
 (function () {
   const STORAGE_TALLY = "tally-book-v1";
 
+  function uiLocale() {
+    return window.DailySpaceI18n?.localeTag() || "en-US";
+  }
+
   /** @type {{ id: string; date: string; amount: number; category: string; note: string }[]} */
   let records = [];
   let budget = 1000;
@@ -143,7 +147,7 @@
     const remaining = Math.max(0, budget - monthTotal);
     const percent = budget > 0 ? Math.min(100, (monthTotal / budget) * 100) : 0;
 
-    monthTitleEl.textContent = new Date(viewYear, viewMonth - 1, 1).toLocaleDateString("en-US", {
+    monthTitleEl.textContent = new Date(viewYear, viewMonth - 1, 1).toLocaleDateString(uiLocale(), {
       year: "numeric",
       month: "long",
     });
@@ -201,7 +205,7 @@
 
   function renderRecords() {
     const selectedRecords = records.filter((r) => r.date === selectedDate).sort((a, b) => b.amount - a.amount);
-    selectedTitleEl.textContent = parseIso(selectedDate).toLocaleDateString("en-US", {
+    selectedTitleEl.textContent = parseIso(selectedDate).toLocaleDateString(uiLocale(), {
       year: "numeric",
       month: "short",
       day: "numeric",
@@ -266,6 +270,15 @@
   prevBtn.addEventListener("click", () => shiftMonth(-1));
   nextBtn.addEventListener("click", () => shiftMonth(1));
   todayBtn.addEventListener("click", () => selectDate(todayIso()));
+
+  window.addEventListener("daily-space-agent-data-updated", (event) => {
+    const domains = Array.isArray(event.detail?.domains) ? event.detail.domains : [];
+    if (!domains.includes("tally")) return;
+    loadState();
+    render();
+  });
+
+  window.addEventListener("daily-space-locale-changed", () => render());
 
   loadState();
   render();

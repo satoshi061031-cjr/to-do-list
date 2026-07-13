@@ -1,17 +1,23 @@
 (function () {
-  if (!document.querySelector(".task-module")) return;
+  const api = window.DailySpaceAgentData;
+  if (!api || typeof api.getSnapshot !== "function" || typeof api.applyActions !== "function") return;
+
+  function currentPage() {
+    const name = window.location.pathname.split("/").pop() || "index.html";
+    return name.replace(/\.html$/i, "") || "welcome";
+  }
 
   const panel = document.createElement("div");
   panel.className = "todo-agent";
   panel.innerHTML = `
-    <button type="button" class="todo-agent-fab" aria-expanded="false" aria-controls="todo-agent-panel" aria-label="Open Todo Agent">
+    <button type="button" class="todo-agent-fab" aria-expanded="false" aria-controls="todo-agent-panel" aria-label="Open Daily Space Agent">
       <img class="todo-agent-fab-ghost" src="welcome-sticker.png" alt="" aria-hidden="true" />
     </button>
     <section class="todo-agent-panel" id="todo-agent-panel" hidden>
       <header class="todo-agent-header">
         <div>
           <p class="todo-agent-kicker">Daily Space</p>
-          <h2 class="todo-agent-title">Todo Agent</h2>
+          <h2 class="todo-agent-title">Daily Space Agent</h2>
         </div>
         <button type="button" class="todo-agent-close" aria-label="Close agent">×</button>
       </header>
@@ -21,12 +27,12 @@
           class="todo-agent-input"
           type="text"
           maxlength="2000"
-          placeholder="e.g. Add buy milk for tomorrow"
-          aria-label="Message for Todo Agent"
+          placeholder="Add a task, expense, reminder..."
+          aria-label="Message for Daily Space Agent"
         />
         <button class="todo-agent-send" type="submit">Send</button>
       </form>
-      <p class="todo-agent-hint">Can add, complete, update, or delete tasks.</p>
+      <p class="todo-agent-hint">Works across Todo, Planner, Calendar, Tally and Teamwork.</p>
     </section>
   `;
   document.body.appendChild(panel);
@@ -65,14 +71,14 @@
   function setOpen(open) {
     sheet.hidden = !open;
     fab.setAttribute("aria-expanded", String(open));
-    fab.setAttribute("aria-label", open ? "Close Todo Agent" : "Open Todo Agent");
+    fab.setAttribute("aria-label", open ? "Close Daily Space Agent" : "Open Daily Space Agent");
     panel.classList.toggle("is-open", open);
     document.body.classList.toggle("todo-agent-open", open);
     if (open) {
       if (messagesEl.childElementCount === 0) {
         appendMessage(
           "assistant",
-          "Tell me what to change. Example: “Add three tasks for tomorrow: groceries, rent, email reply.”"
+          "Tell me what to change anywhere in Daily Space. Example: “Record lunch ¥30 in Tally” or “Add a reminder tomorrow at 9:00.”"
         );
       }
       input.focus();
@@ -105,11 +111,6 @@
   async function sendMessage(raw) {
     const message = String(raw || "").trim();
     if (!message || busy) return;
-    const api = window.DailySpaceTodo;
-    if (!api || typeof api.getSnapshot !== "function" || typeof api.applyActions !== "function") {
-      appendMessage("assistant", "Todo bridge is unavailable on this page.");
-      return;
-    }
 
     busy = true;
     sendBtn.disabled = true;
@@ -119,15 +120,15 @@
     const thinking = messagesEl.lastElementChild;
 
     try {
-      const snapshot = api.getSnapshot();
-      const response = await fetch("/api/agent/todo", {
+      const context = api.getSnapshot();
+      const response = await fetch("/api/agent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message,
-          todos: snapshot.todos,
-          categories: snapshot.categories,
-          today: snapshot.today,
+          context,
+          today: api.todayIso(),
+          currentPage: currentPage(),
         }),
       });
       const data = await response.json().catch(function () {
@@ -136,7 +137,15 @@
       if (!response.ok) {
         throw new Error((data && data.error) || "Agent request failed.");
       }
-      const applied = api.applyActions(data.actions || []);
+      const actions = Array.isArray(data.actions) ? data.actions : [];
+      if (api.needsConfirmation(actions)) {
+        const confirmed = window.confirm(api.confirmationText(actions));
+        if (!confirmed) {
+          if (thinking) thinking.textContent = "Cancelled. No changes were applied.";
+          return;
+        }
+      }
+      const applied = api.applyActions(actions);
       const reply = typeof data.reply === "string" && data.reply.trim() ? data.reply.trim() : "Done.";
       const summary =
         applied.length > 0

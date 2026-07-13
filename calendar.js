@@ -4,6 +4,10 @@
   const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
   const TIME_24H = /^([01]\d|2[0-3]):[0-5]\d$/;
 
+  function uiLocale() {
+    return window.DailySpaceI18n?.localeTag() || "en-US";
+  }
+
   /** @type {{ id: string; text: string; completed: boolean; dueDate: string | null; categoryId: string | null }[]} */
   let todos = [];
   /** @type {{ id: string; name: string }[]} */
@@ -78,7 +82,7 @@
   }
 
   function formatLongDate(iso) {
-    return parseIso(iso).toLocaleDateString("en-US", {
+    return parseIso(iso).toLocaleDateString(uiLocale(), {
       weekday: "long",
       year: "numeric",
       month: "long",
@@ -87,14 +91,14 @@
   }
 
   function formatMonthTitle(year, month) {
-    return new Date(year, month - 1, 1).toLocaleDateString("en-US", {
+    return new Date(year, month - 1, 1).toLocaleDateString(uiLocale(), {
       month: "long",
       year: "numeric",
     });
   }
 
   function formatShortDate(iso) {
-    return parseIso(iso).toLocaleDateString("en-US", {
+    return parseIso(iso).toLocaleDateString(uiLocale(), {
       month: "short",
       day: "numeric",
     });
@@ -573,6 +577,16 @@
     loadCalendarState();
     render();
   });
+
+  window.addEventListener("daily-space-agent-data-updated", (event) => {
+    const domains = Array.isArray(event.detail?.domains) ? event.detail.domains : [];
+    if (!domains.includes("calendar") && !domains.includes("todo")) return;
+    loadTodoState();
+    loadCalendarState();
+    render();
+  });
+
+  window.addEventListener("daily-space-locale-changed", () => render());
 
   loadTodoState();
   loadCalendarState();

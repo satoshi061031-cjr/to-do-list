@@ -102,8 +102,8 @@
       column.innerHTML = `
         <div class="teamwork-task-head">
           <div>
-            <p class="teamwork-kicker">${escapeHtml(member.role || "Member")}</p>
-            <h3>${escapeHtml(member.name || "Unnamed")}</h3>
+            <p class="teamwork-kicker" data-i18n-ignore="true">${escapeHtml(member.role || "Member")}</p>
+            <h3 data-i18n-ignore="true">${escapeHtml(member.name || "Unnamed")}</h3>
           </div>
         </div>
         <ul class="teamwork-task-list">
@@ -235,6 +235,16 @@
     saveState();
     render();
   });
+
+  window.addEventListener("daily-space-agent-data-updated", (event) => {
+    const domains = Array.isArray(event.detail?.domains) ? event.detail.domains : [];
+    if (!domains.includes("teamwork")) return;
+    state = loadState();
+    applyFields();
+    render();
+  });
+
+  window.addEventListener("daily-space-locale-changed", () => render());
 
   applyFields();
   render();

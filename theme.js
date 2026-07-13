@@ -552,7 +552,7 @@
     const time = greeting.querySelector(".app-greeting-time");
     if (title) title.textContent = `${greetingTextForNow()}, ${userNameForGreeting()}`;
     if (time) {
-      time.textContent = new Date().toLocaleString(undefined, {
+      time.textContent = new Date().toLocaleString(window.DailySpaceI18n?.localeTag(), {
         weekday: "long",
         hour: "numeric",
         minute: "2-digit",
@@ -576,6 +576,7 @@
     `;
     host.prepend(greeting);
     renderGreeting();
+    window.addEventListener("daily-space-locale-changed", renderGreeting);
     window.setInterval(renderGreeting, 60000);
   }
 
@@ -848,7 +849,7 @@
     if (!iso) return "Never";
     const dt = new Date(iso);
     if (Number.isNaN(dt.getTime())) return "Never";
-    return dt.toLocaleString(undefined, {
+    return dt.toLocaleString(window.DailySpaceI18n?.localeTag(), {
       month: "short",
       day: "numeric",
       hour: "numeric",

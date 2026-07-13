@@ -2,6 +2,10 @@
   const STORAGE_PLANNER = "planner-app-v1";
   const STORAGE_TODO_APP = "todo-app-v2";
 
+  function uiLocale() {
+    return window.DailySpaceI18n?.localeTag() || "en-US";
+  }
+
   /** @type {{ id: string; name: string }[]} */
   let planners = [];
   /** @type {string} */
@@ -25,6 +29,7 @@
   const newPlannerPanel = document.getElementById("new-planner-panel");
   const newPlannerNameInput = document.getElementById("new-planner-name");
   const savePlannerBtn = document.getElementById("save-planner");
+  const plannerBoardScrollEl = document.querySelector(".planner-board-scroll");
   const plannerBoardEl = document.getElementById("planner-board");
   const plannerMonthTitleEl = document.getElementById("planner-month-title");
   const plannerMetaLineEl = document.getElementById("planner-meta-line");
@@ -720,7 +725,7 @@
     plannerMonthTitleEl.textContent = pl ? pl.name : "Planner";
 
     const now = new Date();
-    const monthLine = now.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    const monthLine = now.toLocaleDateString(uiLocale(), { month: "long", year: "numeric" });
     const total = plannerEntries.length;
     const done = plannerEntries.filter((e) => e.completed).length;
     if (total === 0) {
@@ -732,8 +737,10 @@
 
     plannerBoardEl.innerHTML = "";
     if (plannerColumns.length === 0) {
+      if (plannerBoardScrollEl instanceof HTMLElement) plannerBoardScrollEl.hidden = true;
       return;
     }
+    if (plannerBoardScrollEl instanceof HTMLElement) plannerBoardScrollEl.hidden = false;
 
     plannerColumns.forEach((col) => {
       plannerBoardEl.appendChild(buildPlannerColumnEl(col));
@@ -769,6 +776,19 @@
 
   window.addEventListener("resize", () => {
     if (!isMobileSidebar()) closeSidebar();
+  });
+
+  window.addEventListener("daily-space-agent-data-updated", (event) => {
+    const domains = Array.isArray(event.detail?.domains) ? event.detail.domains : [];
+    if (!domains.includes("planner")) return;
+    loadPlannerState();
+    renderPlannerSidebar();
+    renderPlanner();
+  });
+
+  window.addEventListener("daily-space-locale-changed", () => {
+    renderPlannerSidebar();
+    renderPlanner();
   });
 
   loadPlannerState();

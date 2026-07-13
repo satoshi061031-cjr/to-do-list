@@ -4,6 +4,10 @@
   const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
   /** @typedef {{ id: string; name: string }} Category */
 
+  function uiLocale() {
+    return window.DailySpaceI18n?.localeTag() || "en-US";
+  }
+
   /** @type {{ id: string; text: string; completed: boolean; dueDate: string | null; categoryId: string | null }[]} */
   let todos = [];
 
@@ -345,7 +349,7 @@
   function formatDueDate(iso) {
     const [y, mo, da] = iso.split("-").map(Number);
     const dt = new Date(y, mo - 1, da);
-    return dt.toLocaleDateString("en-US", {
+    return dt.toLocaleDateString(uiLocale(), {
       year: "numeric",
       month: "long",
       day: "numeric",
@@ -373,7 +377,7 @@
   function tickAppCalendarClock() {
     const now = new Date();
     appCalendarLive.dateTime = now.toISOString();
-    appCalendarLive.textContent = now.toLocaleString("en-US", {
+    appCalendarLive.textContent = now.toLocaleString(uiLocale(), {
       weekday: "long",
       year: "numeric",
       month: "long",
@@ -385,7 +389,7 @@
   }
 
   function renderAppCalendar() {
-    appCalendarTitle.textContent = new Date(appCalYear, appCalMonth - 1, 1).toLocaleDateString("en-US", {
+    appCalendarTitle.textContent = new Date(appCalYear, appCalMonth - 1, 1).toLocaleDateString(uiLocale(), {
       year: "numeric",
       month: "long",
     });
@@ -483,7 +487,7 @@
   }
 
   function renderCalendar() {
-    calendarTitle.textContent = new Date(calYear, calMonth - 1, 1).toLocaleDateString("en-US", {
+    calendarTitle.textContent = new Date(calYear, calMonth - 1, 1).toLocaleDateString(uiLocale(), {
       year: "numeric",
       month: "long",
     });
@@ -1157,6 +1161,22 @@
 
   window.addEventListener("resize", () => {
     if (!isMobileSidebar()) closeSidebar();
+  });
+
+  window.addEventListener("daily-space-agent-data-updated", (event) => {
+    const domains = Array.isArray(event.detail?.domains) ? event.detail.domains : [];
+    if (!domains.includes("todo")) return;
+    bootstrap();
+    renderCategorySidebar();
+    refreshIllustration();
+    render();
+  });
+
+  window.addEventListener("daily-space-locale-changed", () => {
+    renderAppCalendar();
+    renderCalendar();
+    renderCategorySidebar();
+    render();
   });
 
   bootstrap();

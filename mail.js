@@ -9,7 +9,7 @@
   const summary = document.getElementById("mail-connected-summary");
 
   function formatDate(value) {
-    return new Date(value).toLocaleString(undefined, {
+    return new Date(value).toLocaleString(window.DailySpaceI18n?.localeTag(), {
       month: "short",
       day: "numeric",
       hour: "numeric",
@@ -191,6 +191,8 @@
       toast(error.message || "Failed to disconnect account.");
     }
   });
+
+  window.addEventListener("daily-space-locale-changed", () => render());
 
   handleOauthResultFromUrl();
   loadFromServer().catch((error) => {

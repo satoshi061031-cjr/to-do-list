@@ -100,8 +100,8 @@ body::before {
   background-image: url("light-background.png");
   background-size: cover;
   background-position: center;
-  filter: blur(22px) saturate(0.94) brightness(0.78);
-  transform: scale(1.04);
+  filter: blur(8px) saturate(0.98) brightness(0.94);
+  transform: scale(1.025);
 }
 
 body::after {
@@ -482,6 +482,41 @@ body::after {
 }
 
 .theme-toggle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow-pop);
+}
+
+.language-toggle {
+  position: fixed;
+  top: max(1rem, env(safe-area-inset-top));
+  right: 1rem;
+  z-index: 265;
+  min-width: 3.4rem;
+  height: 2.25rem;
+  padding: 0 0.8rem;
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  background: var(--glass-strong);
+  color: var(--text);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(14px) saturate(1.05);
+  -webkit-backdrop-filter: blur(14px) saturate(1.05);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 760;
+  cursor: pointer;
+  transition: right 0.24s ease, background 0.15s, border-color 0.15s, transform 0.1s;
+}
+
+.language-toggle:hover {
+  background: var(--surface-hover);
+}
+
+.language-toggle:active {
+  transform: translateY(1px);
+}
+
+.language-toggle:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow-pop);
 }
@@ -2412,6 +2447,10 @@ body.todo-agent-open .theme-toggle {
   right: 24rem;
 }
 
+body.todo-agent-open .language-toggle {
+  right: 24rem;
+}
+
 .todo-agent-header {
   display: flex;
   align-items: flex-start;
@@ -2560,7 +2599,8 @@ body.todo-agent-open .theme-toggle {
     margin-right: 0;
   }
 
-  body.todo-agent-open .theme-toggle {
+  body.todo-agent-open .theme-toggle,
+  body.todo-agent-open .language-toggle {
     right: 1rem;
     visibility: hidden;
   }

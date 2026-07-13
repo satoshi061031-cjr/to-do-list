@@ -23,6 +23,7 @@ const {
 const { refreshSymbol, startScheduler } = require("./jobs/scheduler");
 const { searchSymbols } = require("./providers/market");
 const { isAgentConfigured, runTodoAgent } = require("./agent");
+const { runGlobalAgent } = require("./global-agent");
 
 const ROOT_DIR = path.resolve(__dirname, "..");
 const SYNC_DIR = path.join(__dirname, "data", "sync");
@@ -69,6 +70,18 @@ async function handleApi(request, response, url) {
 
   if (method === "GET" && url.pathname === "/api/agent/status") {
     sendJson(response, { ok: true, configured: isAgentConfigured() });
+    return;
+  }
+
+  if (method === "POST" && url.pathname === "/api/agent") {
+    const body = await readJson(request);
+    const result = await runGlobalAgent({
+      message: body.message,
+      context: body.context,
+      today: body.today,
+      currentPage: body.currentPage,
+    });
+    sendJson(response, { ok: true, ...result });
     return;
   }
 
