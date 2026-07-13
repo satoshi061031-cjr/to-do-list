@@ -4,8 +4,8 @@
   const panel = document.createElement("div");
   panel.className = "todo-agent";
   panel.innerHTML = `
-    <button type="button" class="todo-agent-fab" aria-expanded="false" aria-controls="todo-agent-panel">
-      <span class="todo-agent-fab-label">Agent</span>
+    <button type="button" class="todo-agent-fab" aria-expanded="false" aria-controls="todo-agent-panel" aria-label="Open Todo Agent">
+      <img class="todo-agent-fab-ghost" src="welcome-sticker.png" alt="" aria-hidden="true" />
     </button>
     <section class="todo-agent-panel" id="todo-agent-panel" hidden>
       <header class="todo-agent-header">
@@ -65,7 +65,9 @@
   function setOpen(open) {
     sheet.hidden = !open;
     fab.setAttribute("aria-expanded", String(open));
+    fab.setAttribute("aria-label", open ? "Close Todo Agent" : "Open Todo Agent");
     panel.classList.toggle("is-open", open);
+    document.body.classList.toggle("todo-agent-open", open);
     if (open) {
       if (messagesEl.childElementCount === 0) {
         appendMessage(
@@ -75,6 +77,8 @@
       }
       input.focus();
       refreshStatus();
+    } else {
+      fab.focus();
     }
   }
 
