@@ -9,7 +9,6 @@ const {
   createOauthState,
   getDb,
   getMailAccountById,
-  getUserSnapshot,
   getSummary,
   listMailAccounts,
   listWatchlist,
@@ -17,13 +16,16 @@ const {
   removeMailAccountByProviderEmail,
   removeWatchlist,
   upsertMailAccount,
-  upsertUserSnapshot,
   upsertSymbol,
 } = require("./db");
 const { refreshSymbol, startScheduler } = require("./jobs/scheduler");
 const { searchSymbols } = require("./providers/market");
 const { isAgentConfigured, runTodoAgent } = require("./agent");
 const { runGlobalAgent } = require("./global-agent");
+const {
+  getDefaultStore: getUserSnapshotStore,
+  isSupabaseSnapshotStoreConfigured,
+} = require("./user-snapshot-store");
 
 const ROOT_DIR = path.resolve(__dirname, "..");
 const SYNC_DIR = path.join(__dirname, "data", "sync");
@@ -64,6 +66,7 @@ async function handleApi(request, response, url) {
       now: new Date().toISOString(),
       alphaVantageConfigured: Boolean(process.env.ALPHA_VANTAGE_API_KEY),
       agentConfigured: isAgentConfigured(),
+      supabaseConfigured: isSupabaseSnapshotStoreConfigured(),
     });
     return;
   }
@@ -110,7 +113,7 @@ async function handleApi(request, response, url) {
 
   if (method === "GET" && url.pathname === "/api/user/snapshot") {
     enforceUserSession(session);
-    const snapshot = getUserSnapshot(session.userId);
+    const snapshot = await getUserSnapshotStore().getSnapshot(session.userId);
     sendJson(response, {
       ok: true,
       userId: session.userId,
@@ -124,7 +127,7 @@ async function handleApi(request, response, url) {
     enforceUserSession(session);
     const body = await readJson(request);
     const payload = body && typeof body.payload === "object" && body.payload ? body.payload : {};
-    const saved = upsertUserSnapshot(session.userId, payload);
+    const saved = await getUserSnapshotStore().upsertSnapshot(session.userId, payload);
     sendJson(response, {
       ok: true,
       userId: saved.userId,

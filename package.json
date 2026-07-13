@@ -6,9 +6,12 @@
   "scripts": {
     "start": "node --experimental-sqlite --disable-warning=ExperimentalWarning server/index.js",
     "dev": "node --experimental-sqlite --disable-warning=ExperimentalWarning --watch server/index.js",
-    "test": "node --test"
+    "test": "node --experimental-sqlite --disable-warning=ExperimentalWarning --test"
   },
   "engines": {
     "node": ">=22"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.110.2"
   }
 }

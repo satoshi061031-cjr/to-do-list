@@ -963,6 +963,25 @@
     }
   }
 
+  function flushUserSnapshotOnPageHide() {
+    const userId = currentUserId();
+    if (!userId) return;
+    const payload = collectUserSnapshotPayload();
+    const signature = userSnapshotSignature(payload);
+    if (signature === userSnapshotBaseline) return;
+    writeUserLocalCache(userId, payload);
+    const body = JSON.stringify({ payload });
+    if (new Blob([body]).size > 60 * 1024) return;
+    fetch("/api/user/snapshot", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body,
+      keepalive: true,
+    }).catch(function () {
+      /* local per-user cache remains available for the next retry */
+    });
+  }
+
   function stopUserSnapshotSync() {
     const previousUserId = userSnapshotUserId || readLastUserId();
     if (previousUserId) {
@@ -1008,8 +1027,10 @@
       refreshUserSnapshotSession(true);
     });
     document.addEventListener("visibilitychange", function () {
-      if (!document.hidden) userSnapshotTick();
+      if (document.hidden) flushUserSnapshotOnPageHide();
+      else userSnapshotTick();
     });
+    window.addEventListener("pagehide", flushUserSnapshotOnPageHide);
     refreshUserSnapshotSession(false);
   }
 

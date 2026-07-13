@@ -10,7 +10,22 @@ npm start
 
 Open `http://localhost:3000/stocks.html`.
 
-The backend uses Node 22 built-in `node:sqlite`, so no runtime dependencies are required. SQLite data is stored in `server/data/stocks.sqlite`.
+The backend uses Node 22 built-in `node:sqlite` for legacy and local-development data. SQLite data is stored in `server/data/stocks.sqlite`.
+
+## Persistent User Workspaces with Supabase
+
+Daily Space keeps `localStorage` as a fast offline cache and stores signed-in users' workspace snapshots in Supabase Postgres.
+
+1. Create a Supabase project.
+2. Run `supabase/migrations/001_user_snapshots.sql` in the Supabase SQL Editor.
+3. Add these server-only environment variables locally and in Render:
+
+```sh
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+```
+
+Never expose `SUPABASE_SERVICE_ROLE_KEY` in browser code. If Supabase is not configured, local development falls back to SQLite. Existing SQLite snapshots are copied to Supabase the first time each user signs in.
 
 ## Optional Configuration
 
