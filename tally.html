@@ -30,75 +30,77 @@
 
       <main class="main-area">
         <div class="tally-app">
-          <header class="tally-header">
-            <div>
-              <p class="tally-eyebrow">Tally book</p>
-              <h1 class="tally-title" id="tally-month-title"></h1>
-              <p class="tally-meta" id="tally-meta"></p>
-            </div>
-            <div class="tally-nav-actions">
+          <header class="tally-topbar">
+            <div class="tally-period-switcher" aria-label="Month navigation">
               <button type="button" class="tally-nav-btn" id="tally-prev" aria-label="Previous month">‹</button>
-              <button type="button" class="tally-today-btn" id="tally-today">This month</button>
+              <button type="button" class="tally-period-btn" id="tally-today" title="Return to this month">
+                <span id="tally-month-title"></span>
+              </button>
               <button type="button" class="tally-nav-btn" id="tally-next" aria-label="Next month">›</button>
             </div>
+            <button type="button" class="tally-icon-btn" id="tally-settings-toggle" aria-expanded="false" aria-controls="tally-settings" aria-label="Budget settings">⚙</button>
           </header>
 
-          <section class="tally-summary-grid" aria-label="Monthly summary">
-            <article class="tally-card tally-total-card">
-              <span class="tally-card-label">Expense</span>
-              <strong id="tally-month-total">¥0.00</strong>
-              <div class="tally-mini-rows">
-                <span>Today <b id="tally-today-total">¥0.00</b></span>
-                <span>Week <b id="tally-week-total">¥0.00</b></span>
-              </div>
-            </article>
-
-            <article class="tally-card">
-              <span class="tally-card-label">Budget</span>
-              <label class="tally-budget-row">
-                <span>Monthly</span>
-                <input type="number" min="0" step="1" id="tally-budget" class="tally-budget-input" />
-              </label>
-              <div class="tally-progress">
-                <span id="tally-progress-bar"></span>
-              </div>
-              <p class="tally-card-note" id="tally-budget-note"></p>
-            </article>
+          <section class="tally-settings" id="tally-settings" hidden>
+            <label class="tally-budget-row" for="tally-budget">
+              <span>Monthly budget</span>
+              <input type="number" min="0" step="1" id="tally-budget" class="tally-budget-input" />
+            </label>
+            <label class="tally-budget-row" for="tally-currency">
+              <span>Currency symbol</span>
+              <input type="text" id="tally-currency" class="tally-currency-input" list="tally-currency-options" maxlength="8" placeholder="¥" />
+            </label>
+            <datalist id="tally-currency-options">
+              <option value="¥"></option>
+              <option value="$"></option>
+              <option value="€"></option>
+              <option value="£"></option>
+              <option value="₩"></option>
+              <option value="₹"></option>
+              <option value="HK$"></option>
+              <option value="S$"></option>
+            </datalist>
+            <div class="tally-progress"><span id="tally-progress-bar"></span></div>
+            <p class="tally-card-note" id="tally-budget-note"></p>
           </section>
 
-          <div class="tally-content">
-            <section class="tally-calendar-card" aria-label="Expense calendar">
-              <div class="tally-weekdays" aria-hidden="true">
-                <span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span><span>Su</span>
-              </div>
-              <div class="tally-calendar-grid" id="tally-calendar-grid"></div>
-            </section>
+          <section class="tally-overview-card" aria-label="Weekly expense summary">
+            <p class="tally-overview-label">Spent this week</p>
+            <strong class="tally-week-total" id="tally-week-total">¥0.00</strong>
+            <p class="tally-meta" id="tally-meta"></p>
+            <div class="tally-bars" id="tally-bars"></div>
+          </section>
 
-            <aside class="tally-side">
-              <form class="tally-form" id="tally-form" autocomplete="off">
-                <h2>Add expense</h2>
-                <input type="hidden" id="tally-date" />
-                <input type="number" min="0" step="0.01" id="tally-amount" placeholder="Amount" required />
-                <input type="text" id="tally-category" placeholder="Category" maxlength="40" required />
-                <input type="text" id="tally-note" placeholder="Note" maxlength="120" />
-                <button type="submit" class="btn btn-primary">Add</button>
-              </form>
-
-              <section class="tally-card tally-chart-card" aria-label="Daily expense chart">
-                <h2>Daily expense</h2>
-                <div class="tally-bars" id="tally-bars"></div>
-              </section>
-            </aside>
-          </div>
-
-          <section class="tally-card tally-records-card" aria-label="Expense records">
+          <section class="tally-transactions" aria-label="Expense records">
             <div class="tally-records-head">
-              <h2 id="tally-selected-title"></h2>
-              <span id="tally-selected-total"></span>
+              <h1>Transactions</h1>
+              <span><b id="tally-month-total">¥0.00</b> this month</span>
             </div>
             <ul class="tally-record-list" id="tally-record-list"></ul>
             <p class="tally-empty" id="tally-empty"></p>
           </section>
+
+          <button type="button" class="tally-add-fab" id="tally-add-open" aria-label="Add expense">+</button>
+
+          <div class="tally-sheet" id="tally-add-sheet" hidden>
+            <button type="button" class="tally-sheet-backdrop" id="tally-add-backdrop" aria-label="Close add expense"></button>
+            <section class="tally-sheet-panel" role="dialog" aria-modal="true" aria-labelledby="tally-add-title">
+              <div class="tally-sheet-head">
+                <div>
+                  <p>New transaction</p>
+                  <h2 id="tally-add-title">Add expense</h2>
+                </div>
+                <button type="button" class="tally-sheet-close" id="tally-add-close" aria-label="Close add expense">×</button>
+              </div>
+              <form class="tally-form" id="tally-form" autocomplete="off">
+                <label>Date<input type="date" id="tally-date" required /></label>
+                <label>Amount<input type="number" min="0" step="0.01" id="tally-amount" placeholder="0.00" required /></label>
+                <label>Category<input type="text" id="tally-category" placeholder="Coffee, groceries..." maxlength="40" required /></label>
+                <label>Note<input type="text" id="tally-note" placeholder="Optional note" maxlength="120" /></label>
+                <button type="submit" class="tally-submit-btn">Add transaction</button>
+              </form>
+            </section>
+          </div>
         </div>
       </main>
     </div>

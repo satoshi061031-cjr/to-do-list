@@ -122,3 +122,21 @@ test("requires confirmation for deletes and budget changes", () => {
   assert.equal(api.needsConfirmation([{ type: "tally_set_budget", budget: 500 }]), true);
   assert.equal(api.needsConfirmation([{ type: "todo_add", text: "Safe" }]), false);
 });
+
+test("preserves a custom Tally currency in snapshots and Agent results", () => {
+  const { api, values } = createAgentData();
+  values.set(
+    "tally-book-v1",
+    JSON.stringify({ version: 1, budget: 1200, currency: "USD", records: [] })
+  );
+  const applied = api.applyActions([
+    {
+      type: "tally_add_expense",
+      amount: 12.5,
+      category: "Coffee",
+      date: "2026-07-14",
+    },
+  ]);
+  assert.equal(api.getSnapshot().tally.currency, "USD");
+  assert.match(applied[0].label, /USD 12\.50/);
+});

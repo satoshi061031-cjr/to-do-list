@@ -104,6 +104,12 @@
     return typeof value === "string" ? value.trim().slice(0, max) : "";
   }
 
+  function tallyAmount(state, amount) {
+    const symbol = clean(state.currency, 8) || "¥";
+    const separator = /[a-z0-9]$/i.test(symbol) ? " " : "";
+    return `${symbol}${separator}${Number(amount || 0).toFixed(2)}`;
+  }
+
   function matchText(items, id, query, getText) {
     if (id) {
       const exactId = items.find((item) => item && item.id === id);
@@ -164,6 +170,7 @@
     const state = read(KEYS.tally, {});
     if (!Array.isArray(state.records)) state.records = [];
     if (!(Number(state.budget) > 0)) state.budget = 1000;
+    state.currency = clean(state.currency, 8) || "¥";
     state.version = 1;
     return state;
   }
@@ -237,6 +244,7 @@
       },
       tally: {
         budget: Number(tally.budget),
+        currency: tally.currency,
         records: tally.records.slice(0, 160).map((record) => ({
           id: record.id,
           date: record.date,
@@ -486,14 +494,14 @@
               category,
               note: clean(action.note, 120),
             });
-            success(action, `${category} ¥${amount.toFixed(2)}`);
+            success(action, `${category} ${tallyAmount(tally, amount)}`);
             return;
           }
           if (action.type === "tally_set_budget") {
             const budget = Number(action.budget);
             if (!(budget > 0)) return failure(action, "Budget must be positive.");
             tally.budget = budget;
-            success(action, `Budget ¥${budget.toFixed(2)}`);
+            success(action, `Budget ${tallyAmount(tally, budget)}`);
             return;
           }
           const record =
@@ -518,7 +526,7 @@
             if (has(action, "note")) record.note = clean(action.note, 120);
             if (has(action, "date") && validDate(action.date)) record.date = action.date;
           }
-          success(action, `${record.category} ¥${Number(record.amount).toFixed(2)}`);
+          success(action, `${record.category} ${tallyAmount(tally, record.amount)}`);
         } else if (action.type.startsWith("teamwork_")) {
           if (action.type === "teamwork_update_field") {
             if (!TEAMWORK_FIELDS.has(action.field)) return failure(action, "Unsupported Teamwork field.");
