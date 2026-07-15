@@ -214,9 +214,11 @@
 
   const PATTERNS_ZH = [
     [/^Good morning,\s*Guest$/i, "早上好，访客"],
+    [/^Good noon,\s*Guest$/i, "中午好，访客"],
     [/^Good afternoon,\s*Guest$/i, "下午好，访客"],
     [/^Good evening,\s*Guest$/i, "晚上好，访客"],
     [/^Good morning,\s*(.+)$/i, "早上好，$1"],
+    [/^Good noon,\s*(.+)$/i, "中午好，$1"],
     [/^Good afternoon,\s*(.+)$/i, "下午好，$1"],
     [/^Good evening,\s*(.+)$/i, "晚上好，$1"],
     [/^All tasks\s+(\d+)$/i, "全部任务 $1"],

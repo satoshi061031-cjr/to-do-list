@@ -535,9 +535,37 @@
     applyUserAuthResultFromUrl();
   }
 
-  function greetingTextForNow() {
-    const hour = new Date().getHours();
-    return hour < 12 ? "Good morning" : "Good evening";
+  function userTimeZone() {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
+    } catch (_) {
+      return undefined;
+    }
+  }
+
+  function hourInTimeZone(date, timeZone) {
+    if (!timeZone) return date.getHours();
+    try {
+      const hourPart = new Intl.DateTimeFormat("en-US", {
+        hour: "2-digit",
+        hourCycle: "h23",
+        timeZone,
+      })
+        .formatToParts(date)
+        .find((part) => part.type === "hour");
+      const hour = Number(hourPart?.value);
+      return Number.isFinite(hour) ? hour : date.getHours();
+    } catch (_) {
+      return date.getHours();
+    }
+  }
+
+  function greetingTextForNow(date = new Date(), timeZone = userTimeZone()) {
+    const hour = hourInTimeZone(date, timeZone);
+    if (hour < 12) return "Good morning";
+    if (hour < 14) return "Good noon";
+    if (hour < 18) return "Good afternoon";
+    return "Good evening";
   }
 
   function userNameForGreeting() {
@@ -550,12 +578,16 @@
     if (!greeting) return;
     const title = greeting.querySelector(".app-greeting-title");
     const time = greeting.querySelector(".app-greeting-time");
-    if (title) title.textContent = `${greetingTextForNow()}, ${userNameForGreeting()}`;
+    const now = new Date();
+    const timeZone = userTimeZone();
+    if (timeZone) greeting.dataset.timeZone = timeZone;
+    if (title) title.textContent = `${greetingTextForNow(now, timeZone)}, ${userNameForGreeting()}`;
     if (time) {
-      time.textContent = new Date().toLocaleString(window.DailySpaceI18n?.localeTag(), {
+      time.textContent = now.toLocaleString(window.DailySpaceI18n?.localeTag(), {
         weekday: "long",
         hour: "numeric",
         minute: "2-digit",
+        timeZone,
       });
     }
   }
