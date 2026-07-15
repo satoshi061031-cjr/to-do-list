@@ -28,7 +28,6 @@ const {
 } = require("./user-snapshot-store");
 
 const ROOT_DIR = path.resolve(__dirname, "..");
-const SYNC_DIR = path.join(__dirname, "data", "sync");
 const PORT = Number(process.env.PORT || 3000);
 const manualRefreshes = new Map();
 const SESSION_COOKIE_NAME = "daily_space_session";
@@ -180,60 +179,6 @@ async function handleApi(request, response, url) {
     enforceRefreshLimit(symbol);
     const summary = await refreshSymbol(symbol, { deep: true });
     sendJson(response, { summary });
-    return;
-  }
-
-  const syncMatch = url.pathname.match(/^\/api\/sync\/([^/]+)$/);
-  if (syncMatch && method === "GET") {
-    const code = normalizeSyncCode(syncMatch[1]);
-    if (!code) {
-      const error = new Error("Invalid sync code.");
-      error.statusCode = 400;
-      throw error;
-    }
-    const filePath = syncFilePath(code);
-    let raw;
-    try {
-      raw = await fs.promises.readFile(filePath, "utf8");
-    } catch (error) {
-      if (error && error.code === "ENOENT") {
-        const notFound = new Error("No synced data found for this code.");
-        notFound.statusCode = 404;
-        throw notFound;
-      }
-      throw error;
-    }
-    const parsed = JSON.parse(raw);
-    sendJson(response, {
-      ok: true,
-      updatedAt: parsed.updatedAt || null,
-      payload: parsed.payload && typeof parsed.payload === "object" ? parsed.payload : {},
-    });
-    return;
-  }
-
-  if (syncMatch && method === "PUT") {
-    const code = normalizeSyncCode(syncMatch[1]);
-    if (!code) {
-      const error = new Error("Invalid sync code.");
-      error.statusCode = 400;
-      throw error;
-    }
-    const body = await readJson(request);
-    const payload = body && typeof body.payload === "object" && body.payload ? body.payload : null;
-    if (!payload) {
-      const error = new Error("Missing sync payload.");
-      error.statusCode = 400;
-      throw error;
-    }
-
-    await fs.promises.mkdir(SYNC_DIR, { recursive: true });
-    const snapshot = {
-      updatedAt: new Date().toISOString(),
-      payload,
-    };
-    await fs.promises.writeFile(syncFilePath(code), JSON.stringify(snapshot), "utf8");
-    sendJson(response, { ok: true, updatedAt: snapshot.updatedAt });
     return;
   }
 
@@ -978,16 +923,6 @@ function contentType(filePath) {
       ".webp": "image/webp",
     }[ext] || "application/octet-stream"
   );
-}
-
-function normalizeSyncCode(rawCode) {
-  const code = decodeURIComponent(String(rawCode || "")).trim();
-  if (!/^[a-zA-Z0-9_-]{4,32}$/.test(code)) return "";
-  return code.toLowerCase();
-}
-
-function syncFilePath(code) {
-  return path.join(SYNC_DIR, `${code}.json`);
 }
 
 function normalizeMailProvider(value) {
