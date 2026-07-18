@@ -3,26 +3,22 @@
 
   const defaults = {
     kicker: "Teamwork",
-    title: "Shared rhythm for every project",
-    copy: "Keep teammates, priorities, and active collaboration notes in one quiet workspace.",
-    statusLabel: "Today",
-    statusMain: "4 aligned",
-    statusSub: "2 blockers to review",
+    title: "",
+    copy: "",
+    statusLabel: "",
+    statusMain: "",
+    statusSub: "",
     focusKicker: "Focus",
-    focusTitle: "Launch checklist",
-    focusCopy: "Finalize visual QA, publish the newest build, and confirm the Pages cache has refreshed.",
+    focusTitle: "",
+    focusCopy: "",
     notesKicker: "Sync",
     notesTitle: "Team notes",
-    notes: "Design review at 4:30 PM\nConfirm mobile welcome animation\nPush final polish after preview",
+    notes: "",
     membersKicker: "Members",
     membersTitle: "Availability",
     tasksKicker: "Tasks",
     tasksTitle: "Member task breakdown",
-    members: [
-      { id: "member-1", name: "Junrong", role: "Design", tasks: ["Review Teamwork layout"] },
-      { id: "member-2", name: "LingLong", role: "Build", tasks: ["Prepare preview update"] },
-      { id: "member-3", name: "Guest", role: "Review", tasks: ["Check mobile page"] },
-    ],
+    members: [],
   };
 
   let state = loadState();

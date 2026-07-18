@@ -32,7 +32,7 @@
 
   function persistTheme(theme) {
     try {
-      localStorage.setItem(STORAGE_THEME, theme);
+      localStorage.setItem(STORAGE_THEME, theme === DARK ? DARK : LIGHT);
     } catch (_) {
       /* Theme preference is non-critical. */
     }
@@ -59,6 +59,11 @@
       const nextTheme = document.documentElement.dataset.theme === DARK ? LIGHT : DARK;
       persistTheme(nextTheme);
       applyTheme(nextTheme);
+      // Keep account snapshots from replaying an older light theme on the next page.
+      if (currentUserId()) {
+        userSnapshotBaseline = "";
+        flushUserSnapshotOnPageHide();
+      }
     });
   }
 
@@ -844,13 +849,19 @@
     }).join("|");
   }
 
-  function applyUserSnapshotPayload(payload) {
+  function applyUserSnapshotPayload(payload, options) {
     const nextPayload = payload && typeof payload === "object" ? payload : {};
+    const clearMissing = Boolean(options && options.clearMissing);
     USER_SNAPSHOT_KEYS.forEach(function (key) {
       const value = nextPayload[key];
       try {
-        if (typeof value === "string") localStorage.setItem(key, value);
-        else localStorage.removeItem(key);
+        if (typeof value === "string") {
+          // Theme is a device preference: never let a missing/empty remote value wipe local dark/light.
+          if (key === STORAGE_THEME && value !== DARK && value !== LIGHT) return;
+          localStorage.setItem(key, value);
+        } else if (clearMissing && key !== STORAGE_THEME) {
+          localStorage.removeItem(key);
+        }
       } catch (_) {
         /* ignore write failures */
       }
@@ -950,7 +961,8 @@
     const previousUserId = userSnapshotUserId || readLastUserId();
     if (previousUserId) {
       writeUserLocalCache(previousUserId, collectUserSnapshotPayload());
-      applyUserSnapshotPayload({});
+      // Clear synced app data for the signed-out user, but keep local theme preference.
+      applyUserSnapshotPayload({}, { clearMissing: true });
     }
     window.clearInterval(userSnapshotTimer);
     userSnapshotTimer = 0;

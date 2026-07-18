@@ -25,6 +25,7 @@
 
 .teamwork-card {
   position: relative;
+  overflow: visible;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   background: var(--glass);
@@ -85,10 +86,19 @@
 .teamwork-task-input {
   width: 100%;
   border: 1px solid transparent;
-  border-radius: var(--radius-sm);
+  border-radius: 1.15rem;
   background: transparent;
   color: var(--text);
   font: inherit;
+  position: relative;
+  z-index: 0;
+  transform-origin: center left;
+  transition:
+    transform 0.22s cubic-bezier(0.22, 1.2, 0.36, 1),
+    box-shadow 0.22s ease,
+    background 0.18s ease,
+    border-color 0.18s ease,
+    padding 0.18s ease;
 }
 
 .teamwork-inline-input {
@@ -101,9 +111,51 @@
 .teamwork-member-input:focus,
 .teamwork-task-input:focus {
   outline: none;
-  border-color: var(--glass-border);
-  background: var(--glass);
+  z-index: 4;
+  border-color: rgba(246, 216, 79, 0.48);
+  border-radius: 1.45rem;
+  background: var(--glass-strong);
+  box-shadow:
+    0 0 0 1px rgba(246, 216, 79, 0.22),
+    0 18px 40px rgba(0, 0, 0, 0.26),
+    0 6px 18px rgba(246, 216, 79, 0.18);
+  animation: teamwork-bubble-pop 0.34s cubic-bezier(0.22, 1.35, 0.36, 1) both;
+}
+
+.teamwork-inline-input:focus {
+  padding: 0.48rem 0.8rem;
+}
+
+.teamwork-title:focus {
+  transform-origin: top left;
+}
+
+@keyframes teamwork-bubble-pop {
+  0% {
+    transform: translateY(0) scale(0.96);
+    opacity: 0.86;
+  }
+  60% {
+    transform: translateY(-6px) scale(1.055);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-4px) scale(1.04);
+    opacity: 1;
+  }
+}
+
+.teamwork-member-row:focus-within,
+.teamwork-task-item:focus-within {
+  z-index: 3;
+  position: relative;
+  transform: translateY(-2px);
   box-shadow: var(--glow);
+}
+
+.teamwork-add-form:focus-within .teamwork-form-input,
+.teamwork-add-task-form:focus-within .teamwork-form-input {
+  border-color: rgba(246, 216, 79, 0.42);
 }
 
 .teamwork-copy,
@@ -327,11 +379,23 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .teamwork-card {
+  .teamwork-card,
+  .teamwork-inline-input,
+  .teamwork-form-input,
+  .teamwork-member-input,
+  .teamwork-task-input {
     transition: none;
   }
 
   .teamwork-card:hover {
+    transform: none;
+  }
+
+  .teamwork-inline-input:focus,
+  .teamwork-form-input:focus,
+  .teamwork-member-input:focus,
+  .teamwork-task-input:focus {
+    animation: none;
     transform: none;
   }
 }

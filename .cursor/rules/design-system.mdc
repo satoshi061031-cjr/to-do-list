@@ -1,0 +1,9 @@
+---
+description: Apply this when creating or editing any UI component, page, or style
+globs: ["**/*.tsx", "**/*.css", "**/*.html", "**/*.js"]
+---
+
+Read DESIGN.md in the project root before writing any UI code.
+Extract the YAML front matter tokens and apply them exactly.
+Never hardcode color hex values — always reference the token names (via CSS variables that map to DESIGN.md).
+Run `npx @google/design.md lint DESIGN.md` and fix all errors before finishing.

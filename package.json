@@ -12,6 +12,7 @@
     "node": ">=22"
   },
   "dependencies": {
+    "@google/design.md": "^0.3.0",
     "@supabase/supabase-js": "^2.110.2"
   }
 }
