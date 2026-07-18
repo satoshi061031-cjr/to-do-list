@@ -1524,7 +1524,7 @@ body::after {
   align-items: flex-start;
   gap: 0.65rem;
   flex-wrap: wrap;
-  justify-content: flex-end;
+  justify-content: center;
 }
 
 .deadline-label {
@@ -1539,9 +1539,10 @@ body::after {
 
 .deadline-picker {
   position: relative;
-  flex: 1;
-  min-width: 10rem;
-  max-width: 18rem;
+  flex: 1 1 100%;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
 }
 
 .deadline-field {
@@ -1626,21 +1627,24 @@ body::after {
 .calendar-popover {
   position: absolute;
   top: calc(100% + 6px);
-  left: 0;
-  right: 0;
+  left: 50%;
+  right: auto;
   z-index: 50;
+  width: min(100%, 20rem);
+  min-width: 17rem;
   padding: 0.85rem;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-pop);
-  min-width: 17rem;
+  transform: translateX(-50%);
+  text-align: center;
 }
 
 .calendar-header {
-  display: flex;
+  display: grid;
+  grid-template-columns: 2rem 1fr 2rem;
   align-items: center;
-  justify-content: space-between;
   gap: 0.35rem;
   margin-bottom: 0.65rem;
 }
@@ -1649,6 +1653,8 @@ body::after {
   font-weight: 400;
   font-size: 0.95rem;
   letter-spacing: 0.06em;
+  text-align: center;
+  min-width: 0;
 }
 
 .calendar-nav {
@@ -1674,7 +1680,7 @@ body::after {
 
 .calendar-weekdays {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 2px;
   margin-bottom: 0.35rem;
   font-size: 0.68rem;
@@ -1683,12 +1689,14 @@ body::after {
   text-align: center;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  justify-items: center;
 }
 
 .calendar-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 4px;
+  justify-items: center;
 }
 
 .calendar-pad {
@@ -1699,12 +1707,13 @@ body::after {
 
 .calendar-cell {
   aspect-ratio: 1;
+  width: 100%;
   min-height: 2.25rem;
   display: flex;
   align-items: center;
   justify-content: center;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-pill);
   background: transparent;
   color: var(--text);
   font: inherit;
