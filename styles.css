@@ -820,8 +820,10 @@ body::after {
 
 .new-category-input:focus {
   outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  border-color: color-mix(in srgb, var(--highlight) 48%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--highlight) 22%, transparent),
+    0 0 0 3px color-mix(in srgb, var(--highlight) 18%, transparent);
 }
 
 .btn-category-submit {
@@ -1310,7 +1312,7 @@ body::after {
 
 .illustration-delete:hover,
 .illustration-delete:focus-visible {
-  background: rgba(166, 75, 69, 0.82);
+  background: color-mix(in srgb, var(--danger) 82%, transparent);
   box-shadow: var(--glow);
   outline: none;
 }
@@ -1378,7 +1380,7 @@ body::after {
   text-transform: uppercase;
   padding: 0.18rem 0.38rem;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--accent);
   cursor: pointer;
@@ -1445,7 +1447,7 @@ body::after {
 }
 
 .app-cal-cell.is-day-selected {
-  background: rgba(79, 99, 104, 0.16);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
   font-weight: 700;
 }
 
@@ -1546,16 +1548,6 @@ body::after {
   justify-content: center;
 }
 
-.deadline-label {
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: var(--text-muted);
-  white-space: nowrap;
-  padding-top: 0.65rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
 .deadline-picker {
   position: relative;
   flex: 1 1 100%;
@@ -1638,9 +1630,9 @@ body::after {
 }
 
 .deadline-clear-btn:hover {
-  background: rgba(166, 75, 69, 0.08);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
   color: var(--danger);
-  border-color: rgba(166, 75, 69, 0.35);
+  border-color: color-mix(in srgb, var(--danger) 35%, transparent);
 }
 
 .calendar-popover {
@@ -2131,7 +2123,8 @@ body.due-day-page-open {
 .due-day-filter-clear,
 .app-calendar-panel,
 .illustration-canvas,
-.due-day-page-sheet {
+.due-day-page-sheet,
+.btn-app-cal-today {
   border-radius: var(--radius);
 }
 

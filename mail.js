@@ -1,12 +1,20 @@
 (function () {
   const STORAGE_AUTH = "daily-space-auth-v1";
+  const STORAGE_SELECTED = "daily-space-mail-selected-v1";
   let accounts = [];
+  let selectedAccountId = "";
+  let messagesRequestId = 0;
 
-  const quickOauthButtons = document.querySelectorAll(".mail-oauth-btn[data-quick-provider]");
-  const list = document.getElementById("mail-account-list");
-  const empty = document.getElementById("mail-empty");
-  const count = document.getElementById("mail-connected-count");
-  const summary = document.getElementById("mail-connected-summary");
+  const titleEl = document.getElementById("mail-title");
+  const copyEl = document.getElementById("mail-copy");
+  const pageStatus = document.getElementById("mail-page-status");
+  const emptyConnect = document.getElementById("mail-empty-connect");
+  const inboxPanel = document.getElementById("mail-inbox");
+  const managePanel = document.getElementById("mail-manage");
+  const switcher = document.getElementById("mail-account-switcher");
+  const statusEl = document.getElementById("mail-status");
+  const messageList = document.getElementById("mail-message-list");
+  const accountList = document.getElementById("mail-account-list");
 
   function formatDate(value) {
     return new Date(value).toLocaleString(window.DailySpaceI18n?.localeTag(), {
@@ -14,34 +22,6 @@
       day: "numeric",
       hour: "numeric",
       minute: "2-digit",
-    });
-  }
-
-  function render() {
-    if (!list || !empty || !count || !summary) return;
-    list.innerHTML = "";
-    count.textContent = String(accounts.length);
-    summary.textContent = accounts.length
-      ? `${accounts.map((account) => account.provider).join(", ")} connected`
-      : "No mailbox connected yet";
-    empty.hidden = accounts.length > 0;
-
-    accounts.forEach((account) => {
-      const row = document.createElement("div");
-      row.className = "mail-account-row";
-      row.innerHTML = `
-        <div>
-          <span class="mail-account-provider">${escapeHtml(account.provider)}</span>
-          <span class="mail-account-email">${escapeHtml(account.email)}</span>
-          <span class="mail-account-meta">Authorized on this device · ${escapeHtml(formatDate(account.connectedAt))}</span>
-          <div class="mail-message-list" id="mail-message-list-${escapeHtml(account.id)}"></div>
-        </div>
-        <div class="mail-account-actions">
-          <button class="mail-disconnect" type="button" data-load-messages="${account.id}">Load recent mails</button>
-          <button class="mail-disconnect" type="button" data-disconnect="${account.id}">Disconnect</button>
-        </div>
-      `;
-      list.appendChild(row);
     });
   }
 
@@ -57,6 +37,128 @@
     });
   }
 
+  function readSelectedId() {
+    try {
+      return String(localStorage.getItem(STORAGE_SELECTED) || "").trim();
+    } catch (_) {
+      return "";
+    }
+  }
+
+  function writeSelectedId(id) {
+    selectedAccountId = String(id || "").trim();
+    try {
+      if (selectedAccountId) localStorage.setItem(STORAGE_SELECTED, selectedAccountId);
+      else localStorage.removeItem(STORAGE_SELECTED);
+    } catch (_) {
+      /* ignore */
+    }
+  }
+
+  function selectedAccount() {
+    return accounts.find((account) => account.id === selectedAccountId) || accounts[0] || null;
+  }
+
+  function setPageStatus(message, isError) {
+    if (!pageStatus) return;
+    if (!message) {
+      pageStatus.hidden = true;
+      pageStatus.textContent = "";
+      pageStatus.classList.remove("is-error");
+      return;
+    }
+    pageStatus.hidden = false;
+    pageStatus.textContent = message;
+    pageStatus.classList.toggle("is-error", Boolean(isError));
+  }
+
+  function setInboxStatus(message, isError) {
+    if (!statusEl) return;
+    statusEl.textContent = message || "";
+    statusEl.classList.toggle("is-error", Boolean(isError));
+    statusEl.hidden = !message;
+  }
+
+  function updateHero() {
+    const account = selectedAccount();
+    const connected = accounts.length > 0;
+    if (titleEl) titleEl.textContent = connected ? "Inbox" : "Mail";
+    if (copyEl) {
+      copyEl.textContent = connected
+        ? account
+          ? account.email
+          : "Your recent messages"
+        : "Recent messages will show up here.";
+    }
+  }
+
+  function renderSwitcher() {
+    if (!switcher) return;
+    switcher.innerHTML = "";
+    if (accounts.length <= 1) {
+      switcher.hidden = true;
+      return;
+    }
+    switcher.hidden = false;
+    accounts.forEach((account) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "mail-account-pill";
+      button.setAttribute("role", "tab");
+      button.setAttribute("data-select-account", account.id);
+      button.setAttribute("aria-selected", account.id === selectedAccountId ? "true" : "false");
+      if (account.id === selectedAccountId) button.classList.add("is-active");
+      button.innerHTML = `<span class="mail-account-pill-provider">${escapeHtml(account.provider)}</span><span class="mail-account-pill-email">${escapeHtml(account.email)}</span>`;
+      switcher.appendChild(button);
+    });
+  }
+
+  function renderManageAccounts() {
+    if (!accountList) return;
+    accountList.innerHTML = "";
+    accounts.forEach((account) => {
+      const row = document.createElement("div");
+      row.className = "mail-account-row";
+      row.innerHTML = `
+        <div>
+          <span class="mail-account-provider">${escapeHtml(account.provider)}</span>
+          <span class="mail-account-email">${escapeHtml(account.email)}</span>
+          <span class="mail-account-meta">Authorized on this device · ${escapeHtml(formatDate(account.connectedAt))}</span>
+        </div>
+        <div class="mail-account-actions">
+          <button class="mail-disconnect" type="button" data-disconnect="${escapeHtml(account.id)}">Disconnect</button>
+        </div>
+      `;
+      accountList.appendChild(row);
+    });
+  }
+
+  function renderShell() {
+    const connected = accounts.length > 0;
+    if (emptyConnect) emptyConnect.hidden = connected;
+    if (inboxPanel) inboxPanel.hidden = !connected;
+    if (managePanel) managePanel.hidden = !connected;
+    updateHero();
+    renderSwitcher();
+    renderManageAccounts();
+  }
+
+  function renderMessages(rows) {
+    if (!messageList) return;
+    if (!rows.length) {
+      messageList.innerHTML = `<p class="mail-message-empty">No recent inbox messages.</p>`;
+      return;
+    }
+    messageList.innerHTML = rows
+      .map((item) => {
+        const subject = escapeHtml(item.subject || "(No subject)");
+        const from = escapeHtml(item.from || "Unknown sender");
+        const time = item.receivedAt ? escapeHtml(formatDate(item.receivedAt)) : "Unknown time";
+        return `<article class="mail-message-item"><strong>${subject}</strong><span class="mail-message-from">${from}</span><span class="mail-message-time">${time}</span></article>`;
+      })
+      .join("");
+  }
+
   async function request(path, init) {
     const response = await fetch(path, init);
     const payload = await response.json().catch(() => ({}));
@@ -66,15 +168,43 @@
     return payload;
   }
 
+  async function loadMessagesForSelected() {
+    const account = selectedAccount();
+    if (!account || !messageList) return;
+    const requestId = ++messagesRequestId;
+    setInboxStatus("Loading messages…");
+    messageList.innerHTML = "";
+    try {
+      const payload = await request(
+        `/api/mail/accounts/${encodeURIComponent(account.id)}/messages?limit=20`
+      );
+      if (requestId !== messagesRequestId) return;
+      const rows = Array.isArray(payload.messages) ? payload.messages : [];
+      setInboxStatus("");
+      renderMessages(rows);
+    } catch (error) {
+      if (requestId !== messagesRequestId) return;
+      setInboxStatus(error.message || "Failed to load messages.", true);
+      messageList.innerHTML = `<p class="mail-message-empty is-error">${escapeHtml(error.message || "Failed to load messages.")}</p>`;
+    }
+  }
+
+  function ensureSelectedAccount() {
+    if (!accounts.length) {
+      writeSelectedId("");
+      return;
+    }
+    const preferred = readSelectedId();
+    const match = accounts.find((account) => account.id === preferred);
+    writeSelectedId(match ? match.id : accounts[0].id);
+  }
+
   async function loadFromServer() {
     const payload = await request("/api/mail/accounts");
     accounts = Array.isArray(payload.accounts) ? payload.accounts : [];
-    render();
-  }
-
-  function toast(message) {
-    if (!message) return;
-    window.alert(message);
+    ensureSelectedAccount();
+    renderShell();
+    if (accounts.length) await loadMessagesForSelected();
   }
 
   function syncGlobalAuth(provider, label, email) {
@@ -116,9 +246,9 @@
       if (provider === "Gmail" || provider === "Outlook") {
         syncGlobalAuth(provider, label, email);
       }
-      toast(`${provider} connected${email ? `: ${email}` : ""}`);
+      setPageStatus(`${provider} connected${email ? `: ${email}` : ""}`);
     } else {
-      toast(`${provider} authorization failed${message ? `: ${message}` : ""}`);
+      setPageStatus(`${provider} authorization failed${message ? `: ${message}` : ""}`, true);
     }
     url.searchParams.delete("oauth");
     url.searchParams.delete("provider");
@@ -128,74 +258,74 @@
     window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
   }
 
-  quickOauthButtons.forEach((button) => {
-    button.addEventListener("click", async () => {
-      const provider = String(button.getAttribute("data-quick-provider") || "").trim().toLowerCase();
-      if (!(provider === "gmail" || provider === "outlook")) return;
-      button.setAttribute("disabled", "true");
-      try {
-        const payload = await request("/api/mail/oauth/start", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            provider,
-            email: "",
-            returnTo: "/mail.html",
-          }),
-        });
-        if (!payload.authUrl) throw new Error("Authorization URL not returned.");
-        window.location.href = payload.authUrl;
-      } catch (error) {
-        toast(error.message || "Authorization failed.");
-      } finally {
-        button.removeAttribute("disabled");
-      }
+  async function startOauth(provider, button) {
+    if (!(provider === "gmail" || provider === "outlook")) return;
+    if (button) button.setAttribute("disabled", "true");
+    setPageStatus("");
+    try {
+      const payload = await request("/api/mail/oauth/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          provider,
+          email: "",
+          returnTo: "/mail.html",
+        }),
+      });
+      if (!payload.authUrl) throw new Error("Authorization URL not returned.");
+      window.location.href = payload.authUrl;
+    } catch (error) {
+      setPageStatus(error.message || "Authorization failed.", true);
+    } finally {
+      if (button) button.removeAttribute("disabled");
+    }
+  }
+
+  document.querySelectorAll(".mail-oauth-btn[data-quick-provider]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const provider = String(button.getAttribute("data-quick-provider") || "")
+        .trim()
+        .toLowerCase();
+      startOauth(provider, button);
     });
   });
 
   document.addEventListener("click", async (event) => {
     const target = event.target;
     if (!(target instanceof Element)) return;
-    const loadMessagesId = target.getAttribute("data-load-messages");
-    if (loadMessagesId) {
-      const container = document.getElementById(`mail-message-list-${loadMessagesId}`);
-      if (container) container.textContent = "Loading...";
-      try {
-        const payload = await request(`/api/mail/accounts/${encodeURIComponent(loadMessagesId)}/messages?limit=20`);
-        const rows = Array.isArray(payload.messages) ? payload.messages : [];
-        if (!container) return;
-        if (!rows.length) {
-          container.innerHTML = `<p class="mail-message-empty">No recent inbox messages.</p>`;
-          return;
-        }
-        container.innerHTML = rows
-          .map((item) => {
-            const subject = escapeHtml(item.subject || "(No subject)");
-            const from = escapeHtml(item.from || "Unknown sender");
-            const time = item.receivedAt ? escapeHtml(formatDate(item.receivedAt)) : "Unknown time";
-            return `<article class="mail-message-item"><strong>${subject}</strong><span>${from}</span><span>${time}</span></article>`;
-          })
-          .join("");
-      } catch (error) {
-        if (container) container.innerHTML = `<p class="mail-message-empty">${escapeHtml(error.message || "Failed to load messages.")}</p>`;
-      }
+
+    const selectId = target.closest("[data-select-account]")?.getAttribute("data-select-account");
+    if (selectId) {
+      if (selectId === selectedAccountId) return;
+      writeSelectedId(selectId);
+      updateHero();
+      renderSwitcher();
+      await loadMessagesForSelected();
       return;
     }
 
-    const id = target.getAttribute("data-disconnect");
+    const id = target.closest("[data-disconnect]")?.getAttribute("data-disconnect");
     if (!id) return;
+    setPageStatus("");
     try {
       await request(`/api/mail/accounts/${encodeURIComponent(id)}`, { method: "DELETE" });
       await loadFromServer();
+      setPageStatus("Mailbox disconnected.");
     } catch (error) {
-      toast(error.message || "Failed to disconnect account.");
+      setPageStatus(error.message || "Failed to disconnect account.", true);
     }
   });
 
-  window.addEventListener("daily-space-locale-changed", () => render());
+  window.addEventListener("daily-space-locale-changed", () => {
+    renderShell();
+    if (accounts.length) loadMessagesForSelected();
+  });
 
   handleOauthResultFromUrl();
   loadFromServer().catch((error) => {
-    toast(error.message || "Failed to load mail accounts.");
+    setPageStatus(error.message || "Failed to load mail accounts.", true);
+    if (emptyConnect) emptyConnect.hidden = false;
+    if (inboxPanel) inboxPanel.hidden = true;
+    if (managePanel) managePanel.hidden = true;
   });
 })();

@@ -33,22 +33,16 @@
           <header class="mail-hero mail-card">
             <div>
               <p class="mail-eyebrow">Mail</p>
-              <h1 class="mail-title">Connect your inboxes</h1>
-              <p class="mail-copy">
-                Add Gmail, Outlook, iCloud, or another mailbox so your workflow can include mail context.
-              </p>
+              <h1 class="mail-title" id="mail-title">Mail</h1>
+              <p class="mail-copy" id="mail-copy">Recent messages will show up here.</p>
             </div>
-            <div class="mail-status-card" aria-live="polite">
-              <span>Connected accounts</span>
-              <strong id="mail-connected-count">0</strong>
-              <span id="mail-connected-summary">No mailbox connected yet</span>
-            </div>
+            <p class="mail-inline-status" id="mail-page-status" aria-live="polite" hidden></p>
           </header>
 
-          <section class="mail-card mail-connect-panel" aria-labelledby="mail-connect-title">
+          <section class="mail-card mail-connect-panel" id="mail-empty-connect" hidden aria-labelledby="mail-connect-title">
             <div class="mail-section-head">
               <div>
-                <p class="mail-kicker">Authorize</p>
+                <p class="mail-kicker">Connect</p>
                 <h2 id="mail-connect-title">Sign in to your mailbox</h2>
               </div>
             </div>
@@ -93,19 +87,67 @@
             </div>
           </section>
 
-          <section class="mail-card mail-account-panel" aria-labelledby="mail-accounts-title">
+          <section class="mail-card mail-inbox-panel" id="mail-inbox" hidden aria-labelledby="mail-inbox-heading">
             <div class="mail-section-head">
               <div>
-                <p class="mail-kicker">Accounts</p>
-                <h2 id="mail-accounts-title">Authorized mailboxes</h2>
+                <p class="mail-kicker">Inbox</p>
+                <h2 id="mail-inbox-heading">Recent messages</h2>
               </div>
             </div>
-            <div class="mail-account-list" id="mail-account-list"></div>
-            <p class="mail-empty" id="mail-empty">No accounts yet. Choose a provider above to begin.</p>
-            <p class="mail-note">
-              Gmail/Outlook use real OAuth. iCloud uses real IMAP verification with your Apple app-specific password.
-            </p>
+            <div class="mail-account-switcher" id="mail-account-switcher" role="tablist" aria-label="Mailboxes"></div>
+            <p class="mail-status" id="mail-status" aria-live="polite"></p>
+            <div class="mail-message-list" id="mail-message-list"></div>
           </section>
+
+          <details class="mail-card mail-manage-panel" id="mail-manage" hidden>
+            <summary class="mail-manage-summary">
+              <span class="mail-kicker">Settings</span>
+              <span class="mail-manage-title">Manage mailboxes</span>
+            </summary>
+            <div class="mail-manage-body">
+              <div class="mail-oauth-quick mail-oauth-quick--compact" role="group" aria-label="Add another mailbox">
+                <button class="mail-oauth-btn" type="button" data-quick-provider="gmail">
+                  <span class="mail-oauth-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" focusable="false">
+                      <path
+                        fill="#EA4335"
+                        d="M12 10.2v3.9h5.4c-.24 1.26-.96 2.33-2.04 3.05l3.3 2.56c1.92-1.77 3.03-4.38 3.03-7.49 0-.72-.06-1.41-.19-2.01H12z"
+                      />
+                      <path
+                        fill="#34A853"
+                        d="M12 22c2.76 0 5.07-.91 6.76-2.48l-3.3-2.56c-.91.61-2.08.97-3.46.97-2.66 0-4.92-1.79-5.73-4.2l-3.41 2.63C4.57 19.72 8.02 22 12 22z"
+                      />
+                      <path
+                        fill="#4A90E2"
+                        d="M6.27 13.73A5.95 5.95 0 0 1 5.95 12c0-.6.11-1.18.32-1.73L2.86 7.64A9.97 9.97 0 0 0 2 12c0 1.61.39 3.14 1.08 4.47l3.19-2.74z"
+                      />
+                      <path
+                        fill="#FBBC05"
+                        d="M12 6.06c1.5 0 2.85.52 3.91 1.54l2.93-2.93C17.05 3.01 14.74 2 12 2 8.02 2 4.57 4.28 2.86 7.64l3.41 2.63c.81-2.41 3.07-4.21 5.73-4.21z"
+                      />
+                    </svg>
+                  </span>
+                  <span>Sign in with Google</span>
+                </button>
+                <button class="mail-oauth-btn" type="button" data-quick-provider="outlook">
+                  <span class="mail-oauth-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" focusable="false">
+                      <path fill="#1174D7" d="M2 5.5 10.5 4v16L2 18.5z" />
+                      <path fill="#2196F3" d="M10.5 6h11.5v12H10.5z" />
+                      <path fill="#0B5CAD" d="M10.5 9.2 22 10.8v2.4L10.5 14.8z" />
+                      <path
+                        fill="#fff"
+                        d="M6.5 9.4c-1.4 0-2.4 1.1-2.4 2.6 0 1.6 1 2.7 2.4 2.7s2.4-1.1 2.4-2.7c0-1.5-1-2.6-2.4-2.6Zm0 4.2c-.6 0-1-.6-1-1.6s.4-1.5 1-1.5 1 .5 1 1.5-.4 1.6-1 1.6Z"
+                      />
+                    </svg>
+                  </span>
+                  <span>Sign in with Outlook</span>
+                </button>
+              </div>
+              <div class="mail-account-list" id="mail-account-list"></div>
+              <p class="mail-note">Gmail and Outlook use OAuth to authorize this device.</p>
+            </div>
+          </details>
         </div>
       </main>
     </div>
