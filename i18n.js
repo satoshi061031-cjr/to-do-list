@@ -150,6 +150,14 @@
     "Continue with a provider to keep your workspace synced.": "选择服务商登录，以保持工作空间同步。",
     "OAuth needs a backend or auth service before these providers can become real sign-ins.":
       "OAuth 需要后端或认证服务才能完成真实登录。",
+    "Name this space…": "给这个空间起个名字…",
+    "One quiet sentence about the team…": "用一句话安静地介绍这个团队…",
+    "This week’s focus…": "本周重点…",
+    "What matters most right now…": "此刻最重要的事…",
+    "Shared notes for the team…": "写给团队的共享备注…",
+    "Add teammates to start assigning work.": "添加成员后，就可以开始分配任务。",
+    "Nothing blocking": "暂无阻塞",
+    Aligned: "已对齐",
   };
 
   const ATTR_ZH = {
@@ -205,6 +213,13 @@
     "Close add expense": "关闭添加支出",
     "Coffee, groceries...": "咖啡、杂货…",
     "Optional note": "可选备注",
+    "Name this space…": "给这个空间起个名字…",
+    "One quiet sentence about the team…": "用一句话安静地介绍这个团队…",
+    "This week’s focus…": "本周重点…",
+    "What matters most right now…": "此刻最重要的事…",
+    "Shared notes for the team…": "写给团队的共享备注…",
+    "Nothing blocking": "暂无阻塞",
+    Aligned: "已对齐",
   };
 
   const PATTERNS_ZH = [

@@ -77,6 +77,8 @@
   function renderMembers() {
     if (!memberList) return;
     memberList.innerHTML = "";
+    const emptyHint = document.getElementById("teamwork-members-empty");
+    if (emptyHint) emptyHint.hidden = state.members.length > 0;
     state.members.forEach((member) => {
       const row = document.createElement("div");
       row.className = "teamwork-member-row";

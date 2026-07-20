@@ -33,47 +33,48 @@
           <header class="teamwork-hero teamwork-card">
             <div>
               <label class="teamwork-field-label" for="teamwork-kicker">Page label</label>
-              <input id="teamwork-kicker" class="teamwork-inline-input teamwork-eyebrow" data-field="kicker" />
+              <input id="teamwork-kicker" class="teamwork-inline-input teamwork-eyebrow" data-field="kicker" placeholder="Teamwork" />
               <label class="teamwork-field-label" for="teamwork-title">Title</label>
-              <textarea id="teamwork-title" class="teamwork-inline-input teamwork-title" data-field="title" rows="2"></textarea>
+              <textarea id="teamwork-title" class="teamwork-inline-input teamwork-title" data-field="title" rows="2" placeholder="Name this space…"></textarea>
               <label class="teamwork-field-label" for="teamwork-copy">Description</label>
-              <textarea id="teamwork-copy" class="teamwork-inline-input teamwork-copy" data-field="copy" rows="2"></textarea>
+              <textarea id="teamwork-copy" class="teamwork-inline-input teamwork-copy" data-field="copy" rows="2" placeholder="One quiet sentence about the team…"></textarea>
             </div>
             <div class="teamwork-status-card" aria-label="Team status">
               <label class="teamwork-field-label" for="teamwork-status-label">Status label</label>
-              <input id="teamwork-status-label" class="teamwork-inline-input teamwork-status-label" data-field="statusLabel" />
+              <input id="teamwork-status-label" class="teamwork-inline-input teamwork-status-label" data-field="statusLabel" placeholder="Today" />
               <label class="teamwork-field-label" for="teamwork-status-main">Main status</label>
-              <input id="teamwork-status-main" class="teamwork-inline-input teamwork-status-main" data-field="statusMain" />
+              <input id="teamwork-status-main" class="teamwork-inline-input teamwork-status-main" data-field="statusMain" placeholder="Aligned" />
               <label class="teamwork-field-label" for="teamwork-status-sub">Status note</label>
-              <input id="teamwork-status-sub" class="teamwork-inline-input teamwork-status-sub" data-field="statusSub" />
+              <input id="teamwork-status-sub" class="teamwork-inline-input teamwork-status-sub" data-field="statusSub" placeholder="Nothing blocking" />
             </div>
           </header>
 
           <section class="teamwork-grid" aria-label="Teamwork overview">
             <article class="teamwork-card">
               <label class="teamwork-field-label" for="teamwork-focus-kicker">Card label</label>
-              <input id="teamwork-focus-kicker" class="teamwork-inline-input teamwork-kicker" data-field="focusKicker" />
+              <input id="teamwork-focus-kicker" class="teamwork-inline-input teamwork-kicker" data-field="focusKicker" placeholder="Focus" />
               <label class="teamwork-field-label" for="teamwork-focus-title">Card title</label>
-              <input id="teamwork-focus-title" class="teamwork-inline-input teamwork-card-title" data-field="focusTitle" />
+              <input id="teamwork-focus-title" class="teamwork-inline-input teamwork-card-title" data-field="focusTitle" placeholder="This week’s focus…" />
               <label class="teamwork-field-label" for="teamwork-focus-copy">Card content</label>
-              <textarea id="teamwork-focus-copy" class="teamwork-inline-input teamwork-card-copy" data-field="focusCopy" rows="4"></textarea>
+              <textarea id="teamwork-focus-copy" class="teamwork-inline-input teamwork-card-copy" data-field="focusCopy" rows="4" placeholder="What matters most right now…"></textarea>
             </article>
 
             <article class="teamwork-card">
               <label class="teamwork-field-label" for="teamwork-notes-kicker">Card label</label>
-              <input id="teamwork-notes-kicker" class="teamwork-inline-input teamwork-kicker" data-field="notesKicker" />
+              <input id="teamwork-notes-kicker" class="teamwork-inline-input teamwork-kicker" data-field="notesKicker" placeholder="Sync" />
               <label class="teamwork-field-label" for="teamwork-notes-title">Card title</label>
-              <input id="teamwork-notes-title" class="teamwork-inline-input teamwork-card-title" data-field="notesTitle" />
+              <input id="teamwork-notes-title" class="teamwork-inline-input teamwork-card-title" data-field="notesTitle" placeholder="Team notes" />
               <label class="teamwork-field-label" for="teamwork-notes">Notes</label>
-              <textarea id="teamwork-notes" class="teamwork-inline-input teamwork-card-copy" data-field="notes" rows="5"></textarea>
+              <textarea id="teamwork-notes" class="teamwork-inline-input teamwork-card-copy" data-field="notes" rows="5" placeholder="Shared notes for the team…"></textarea>
             </article>
 
             <article class="teamwork-card teamwork-members">
               <label class="teamwork-field-label" for="teamwork-members-kicker">Card label</label>
-              <input id="teamwork-members-kicker" class="teamwork-inline-input teamwork-kicker" data-field="membersKicker" />
+              <input id="teamwork-members-kicker" class="teamwork-inline-input teamwork-kicker" data-field="membersKicker" placeholder="Members" />
               <label class="teamwork-field-label" for="teamwork-members-title">Card title</label>
-              <input id="teamwork-members-title" class="teamwork-inline-input teamwork-card-title" data-field="membersTitle" />
+              <input id="teamwork-members-title" class="teamwork-inline-input teamwork-card-title" data-field="membersTitle" placeholder="Availability" />
               <div class="teamwork-member-list" id="teamwork-member-list"></div>
+              <p class="teamwork-empty-hint" id="teamwork-members-empty">Add teammates to start assigning work.</p>
               <form class="teamwork-add-form" id="teamwork-member-form" autocomplete="off">
                 <input class="teamwork-form-input" id="teamwork-member-name" placeholder="Member name" />
                 <input class="teamwork-form-input" id="teamwork-member-role" placeholder="Role" />
@@ -86,9 +87,9 @@
             <div class="teamwork-section-head">
               <div>
                 <label class="teamwork-field-label" for="teamwork-tasks-kicker">Section label</label>
-                <input id="teamwork-tasks-kicker" class="teamwork-inline-input teamwork-kicker" data-field="tasksKicker" />
+                <input id="teamwork-tasks-kicker" class="teamwork-inline-input teamwork-kicker" data-field="tasksKicker" placeholder="Tasks" />
                 <label class="teamwork-field-label" for="teamwork-tasks-title">Section title</label>
-                <input id="teamwork-tasks-title" class="teamwork-inline-input teamwork-card-title" data-field="tasksTitle" />
+                <input id="teamwork-tasks-title" class="teamwork-inline-input teamwork-card-title" data-field="tasksTitle" placeholder="Member task breakdown" />
               </div>
             </div>
             <div class="teamwork-task-grid" id="teamwork-task-grid"></div>

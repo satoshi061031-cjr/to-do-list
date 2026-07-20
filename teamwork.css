@@ -10,9 +10,11 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: 1rem;
+  justify-content: flex-start;
+  gap: var(--space-md);
   margin: 0 auto;
+  padding-top: clamp(1rem, 3vh, 2rem);
+  padding-bottom: 5rem;
 }
 
 .teamwork-hero {
@@ -39,9 +41,9 @@
     box-shadow 0.22s ease;
 }
 
-.teamwork-card:hover {
-  transform: translateY(-2px) scale(1.015);
-  filter: drop-shadow(0 16px 28px rgba(246, 216, 79, 0.16));
+.teamwork-hero.teamwork-card:hover {
+  transform: translateY(-2px) scale(1.01);
+  filter: drop-shadow(0 16px 28px color-mix(in srgb, var(--highlight) 16%, transparent));
   box-shadow: var(--glow);
 }
 
@@ -50,34 +52,46 @@
 .teamwork-status-label {
   display: block;
   margin: 0 0 0.35rem;
-  color: #f6d84f;
-  font-size: 0.78rem;
+  color: var(--highlight);
+  font-size: 0.72rem;
   font-weight: 800;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.36);
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.28);
 }
 
 .teamwork-title {
   width: 100%;
   max-width: 46rem;
   margin: 0;
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--text);
   font-size: clamp(2.4rem, 6vw, 5.4rem);
   font-weight: 400;
   letter-spacing: 0.01em;
   line-height: 0.92;
-  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.42);
 }
 
+.teamwork-title::placeholder,
+.teamwork-copy::placeholder,
+.teamwork-card-title::placeholder,
+.teamwork-card-copy::placeholder,
+.teamwork-status-main::placeholder,
+.teamwork-status-sub::placeholder,
+.teamwork-status-label::placeholder {
+  color: color-mix(in srgb, var(--text-muted) 72%, transparent);
+}
+
+/* Keep labels for assistive tech; hide the CMS-looking chrome. */
 .teamwork-field-label {
-  display: block;
-  margin: 0.55rem 0 0.22rem;
-  color: var(--text-muted);
-  font-size: 0.64rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .teamwork-inline-input,
@@ -86,7 +100,7 @@
 .teamwork-task-input {
   width: 100%;
   border: 1px solid transparent;
-  border-radius: 1.15rem;
+  border-radius: var(--radius);
   background: transparent;
   color: var(--text);
   font: inherit;
@@ -112,13 +126,13 @@
 .teamwork-task-input:focus {
   outline: none;
   z-index: 4;
-  border-color: rgba(246, 216, 79, 0.48);
-  border-radius: 1.45rem;
+  border-color: color-mix(in srgb, var(--highlight) 48%, transparent);
+  border-radius: var(--radius-lg);
   background: var(--glass-strong);
   box-shadow:
-    0 0 0 1px rgba(246, 216, 79, 0.22),
-    0 18px 40px rgba(0, 0, 0, 0.26),
-    0 6px 18px rgba(246, 216, 79, 0.18);
+    0 0 0 1px color-mix(in srgb, var(--highlight) 22%, transparent),
+    0 18px 40px rgba(0, 0, 0, 0.22),
+    0 6px 18px color-mix(in srgb, var(--highlight) 18%, transparent);
   animation: teamwork-bubble-pop 0.34s cubic-bezier(0.22, 1.35, 0.36, 1) both;
 }
 
@@ -155,7 +169,7 @@
 
 .teamwork-add-form:focus-within .teamwork-form-input,
 .teamwork-add-task-form:focus-within .teamwork-form-input {
-  border-color: rgba(246, 216, 79, 0.42);
+  border-color: color-mix(in srgb, var(--highlight) 42%, transparent);
 }
 
 .teamwork-copy,
@@ -168,7 +182,7 @@
 .teamwork-copy {
   width: 100%;
   max-width: 40rem;
-  margin: 1rem 0 0;
+  margin: 0.85rem 0 0;
   font-size: 1rem;
   line-height: 1.6;
 }
@@ -216,12 +230,20 @@
 .teamwork-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1rem;
+  gap: var(--space-md);
 }
 
 .teamwork-grid .teamwork-card {
-  min-height: 14rem;
-  padding: 1.2rem;
+  min-height: 10.5rem;
+  padding: 1rem 1.1rem;
+  box-shadow: var(--shadow-soft);
+}
+
+.teamwork-grid .teamwork-card:hover,
+.teamwork-task-board:hover {
+  transform: translateY(-1px);
+  filter: none;
+  box-shadow: var(--shadow);
 }
 
 .teamwork-card h2 {
@@ -261,7 +283,7 @@
 }
 
 .teamwork-member-row strong {
-  color: #f6d84f;
+  color: var(--highlight);
   font-size: 0.78rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -272,7 +294,7 @@
 }
 
 .teamwork-member-role {
-  color: #f6d84f;
+  color: var(--highlight);
   font-size: 0.78rem;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -302,7 +324,7 @@
   width: 2rem;
   height: 2rem;
   border: 1px solid var(--glass-border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--glass);
   color: var(--danger);
   box-shadow: var(--shadow-soft);
@@ -313,12 +335,13 @@
 }
 
 .teamwork-delete-btn:hover {
-  background: rgba(166, 75, 69, 0.16);
+  background: color-mix(in srgb, var(--danger) 16%, transparent);
   box-shadow: var(--glow);
 }
 
 .teamwork-task-board {
-  padding: 1.2rem;
+  padding: 1.15rem 1.2rem;
+  box-shadow: var(--shadow-soft);
 }
 
 .teamwork-section-head {
@@ -378,6 +401,13 @@
   padding: 0.35rem 0.45rem;
 }
 
+.teamwork-empty-hint {
+  margin: 0.85rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .teamwork-card,
   .teamwork-inline-input,
@@ -387,7 +417,9 @@
     transition: none;
   }
 
-  .teamwork-card:hover {
+  .teamwork-hero.teamwork-card:hover,
+  .teamwork-grid .teamwork-card:hover,
+  .teamwork-task-board:hover {
     transform: none;
   }
 

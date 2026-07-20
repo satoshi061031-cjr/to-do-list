@@ -113,15 +113,24 @@ body::before {
   z-index: -2;
   background-image: url("light-background.png");
   background-size: cover;
-  background-position: center;
-  filter: blur(8px) saturate(0.98) brightness(0.94);
-  transform: scale(1.025);
+  background-position: center 35%;
+  /* Cool mist: desaturate coral, keep soft grain atmosphere (DESIGN.md). */
+  filter: blur(12px) saturate(0.62) brightness(1.04) contrast(0.94);
+  transform: scale(1.04);
 }
 
 body::after {
   inset: 0;
   z-index: -1;
-  background: rgba(45, 50, 62, 0.12);
+  /* Slate wash so the photo sits under glass, not competing with yellow CTA. */
+  background:
+    radial-gradient(ellipse 70% 48% at 50% 22%, rgba(255, 255, 255, 0.34), transparent 58%),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--accent) 18%, transparent) 0%,
+      color-mix(in srgb, var(--bg) 42%, transparent) 48%,
+      color-mix(in srgb, var(--bg) 62%, transparent) 100%
+    );
 }
 
 :root[data-theme="dark"] body {
@@ -131,12 +140,22 @@ body::after {
 
 :root[data-theme="dark"] body::before {
   background-image: url("dark-background.png");
-  filter: blur(22px) saturate(0.96) brightness(0.86);
+  background-position: center 28%;
+  /* Pull warm orange/pink toward cool night mist; pair with light theme. */
+  filter: blur(20px) saturate(0.38) brightness(0.46) contrast(1.08) hue-rotate(-22deg);
+  transform: scale(1.05);
 }
 
 :root[data-theme="dark"] body::after {
   display: block;
-  background: rgba(8, 9, 18, 0.18);
+  background:
+    radial-gradient(ellipse 65% 42% at 50% 24%, rgba(159, 180, 186, 0.1), transparent 55%),
+    linear-gradient(
+      180deg,
+      rgba(8, 10, 14, 0.62) 0%,
+      rgba(19, 20, 18, 0.48) 46%,
+      rgba(19, 20, 18, 0.78) 100%
+    );
 }
 
 .welcome-active {

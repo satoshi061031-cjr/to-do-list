@@ -94,7 +94,7 @@
   margin: -0.25rem 0 1rem;
   padding: 0.9rem 1rem;
   border: 1px solid var(--glass-border);
-  border-radius: 1.25rem;
+  border-radius: var(--radius);
   background: var(--glass-strong);
   box-shadow: var(--shadow-soft);
   backdrop-filter: blur(16px);
@@ -143,7 +143,7 @@
   width: 0;
   height: 100%;
   border-radius: inherit;
-  background: var(--text);
+  background: var(--tertiary);
   transition: width 0.25s ease;
 }
 
@@ -156,7 +156,7 @@
 .tally-overview-card {
   padding: clamp(1.25rem, 4vw, 1.7rem);
   border: 1px solid var(--glass-border);
-  border-radius: 1.65rem;
+  border-radius: var(--radius-lg);
   background: var(--glass-strong);
   box-shadow: var(--shadow-pop);
   backdrop-filter: blur(18px) saturate(1.04);
@@ -165,9 +165,12 @@
 
 .tally-overview-label {
   margin: 0;
-  color: var(--text-muted);
-  font-size: 0.9rem;
-  font-weight: 650;
+  color: var(--highlight);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.28);
 }
 
 .tally-week-total {
@@ -232,7 +235,8 @@
   width: min(2.15rem, 76%);
   min-height: 0;
   border-radius: 0.65rem 0.65rem 0.18rem 0.18rem;
-  background: var(--text);
+  background: var(--tertiary);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--highlight) 22%, transparent);
   transition: height 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
@@ -390,20 +394,22 @@
   z-index: 255;
   width: 3.6rem;
   height: 3.6rem;
-  border: 0;
-  border-radius: 50%;
-  background: var(--text);
-  color: var(--bg);
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  background: var(--tertiary);
+  color: var(--on-tertiary);
+  box-shadow: var(--shadow-pop);
   cursor: pointer;
   font: inherit;
   font-size: 2rem;
   font-weight: 350;
   line-height: 1;
-  transition: transform 0.16s ease;
+  transition: transform 0.16s ease, background 0.15s ease;
 }
 
 .tally-add-fab:hover {
+  background: var(--tertiary-hover);
+  color: var(--on-tertiary);
   transform: translateY(-2px) scale(1.03);
 }
 
@@ -419,7 +425,7 @@
   position: absolute;
   inset: 0;
   border: 0;
-  background: rgba(10, 12, 16, 0.42);
+  background: color-mix(in srgb, var(--primary) 42%, transparent);
   backdrop-filter: blur(5px);
   -webkit-backdrop-filter: blur(5px);
 }
@@ -431,9 +437,11 @@
   margin-bottom: max(0.65rem, env(safe-area-inset-bottom));
   padding: 1.2rem;
   border: 1px solid var(--glass-border);
-  border-radius: 1.65rem;
-  background: var(--bg);
-  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.35);
+  border-radius: var(--radius-lg);
+  background: var(--glass-strong);
+  box-shadow: var(--shadow-pop);
+  backdrop-filter: blur(16px) saturate(1.04);
+  -webkit-backdrop-filter: blur(16px) saturate(1.04);
 }
 
 .tally-sheet-head {
@@ -443,10 +451,10 @@
 
 .tally-sheet-head p {
   margin: 0;
-  color: var(--text-muted);
+  color: var(--highlight);
   font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
+  font-weight: 800;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
@@ -492,13 +500,20 @@
 .tally-submit-btn {
   grid-column: 1 / -1;
   min-height: 2.9rem;
-  border: 0;
-  border-radius: 999px;
-  background: var(--text);
-  color: var(--bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  background: var(--tertiary);
+  color: var(--on-tertiary);
+  box-shadow: var(--shadow-pop);
   cursor: pointer;
   font: inherit;
   font-weight: 780;
+  transition: background 0.15s ease;
+}
+
+.tally-submit-btn:hover {
+  background: var(--tertiary-hover);
+  color: var(--on-tertiary);
 }
 
 body.tally-sheet-open {
