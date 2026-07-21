@@ -241,6 +241,9 @@
       if (requestId !== messagesRequestId) return;
       const rows = Array.isArray(payload.messages) ? payload.messages : [];
       setDigest(typeof payload.digest === "string" ? payload.digest : "");
+      if (window.DailySpaceLoop && typeof window.DailySpaceLoop.writeCachedMailDigest === "function") {
+        window.DailySpaceLoop.writeCachedMailDigest(payload.digest || "", Boolean(payload.summarized));
+      }
       if (!silent) {
         if (payload.summarized) setInboxStatus("Inbox updated with AI digest.");
         else if (payload.agentConfigured === false)

@@ -281,6 +281,13 @@ body.calendar-page {
   letter-spacing: 0.02em;
 }
 
+.calendar-alerts-btn {
+  margin: 0 0 0.65rem;
+  padding: 0.42rem 0.75rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}
+
 .calendar-todo-link {
   flex-shrink: 0;
   font-size: 0.74rem;

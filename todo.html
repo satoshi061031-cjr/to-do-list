@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>To-do list</title>
+    <script src="daily-loop.js"></script>
     <script src="theme.js"></script>
     <script src="i18n.js"></script>
     <link rel="stylesheet" href="styles.css" />
@@ -115,6 +116,20 @@
                   </div>
                   <ul class="daily-loop-reminders-list" id="daily-loop-reminders-list"></ul>
                 </a>
+              </section>
+
+              <section class="evening-review" id="evening-review" aria-label="Evening review">
+                <div class="evening-review-top">
+                  <p class="evening-review-kicker">Evening review</p>
+                  <h2 class="evening-review-title" id="evening-review-title">How did today go?</h2>
+                </div>
+                <p class="evening-review-summary" id="evening-review-summary"></p>
+                <ul class="evening-review-stats" id="evening-review-stats"></ul>
+                <p class="evening-review-mail" id="evening-review-mail" hidden></p>
+                <div class="evening-review-actions">
+                  <button type="button" class="btn btn-primary" id="evening-review-focus">Focus remaining</button>
+                  <button type="button" class="btn" id="evening-review-alerts">Enable reminder alerts</button>
+                </div>
               </section>
 
           <form class="add-form" id="add-form" autocomplete="off">

@@ -97,6 +97,13 @@
   const dailyLoopEmpty = document.getElementById("daily-loop-empty");
   const dailyLoopReminders = document.getElementById("daily-loop-reminders");
   const dailyLoopRemindersList = document.getElementById("daily-loop-reminders-list");
+  const eveningReviewEl = document.getElementById("evening-review");
+  const eveningReviewTitle = document.getElementById("evening-review-title");
+  const eveningReviewSummary = document.getElementById("evening-review-summary");
+  const eveningReviewStats = document.getElementById("evening-review-stats");
+  const eveningReviewMail = document.getElementById("evening-review-mail");
+  const eveningReviewFocusBtn = document.getElementById("evening-review-focus");
+  const eveningReviewAlertsBtn = document.getElementById("evening-review-alerts");
 
   /** @type {"all" | "active" | "completed" | "today"} */
   let filter = "all";
@@ -270,6 +277,9 @@
     if (localStorage.getItem(STORAGE_LEGACY)) {
       localStorage.removeItem(STORAGE_LEGACY);
     }
+    window.dispatchEvent(
+      new CustomEvent("daily-space-agent-data-updated", { detail: { domains: ["todo"] } })
+    );
   }
 
   function refreshIllustration() {
@@ -917,6 +927,7 @@
     if (statusFiltersEl) statusFiltersEl.hidden = isAssigned;
     if (assignedHintEl) assignedHintEl.hidden = !isAssigned;
     if (dailyLoopEl) dailyLoopEl.hidden = isAssigned;
+    if (eveningReviewEl) eveningReviewEl.hidden = isAssigned;
     if (clearBtn && isAssigned) clearBtn.hidden = true;
     if (dueDayFilterBar && isAssigned) dueDayFilterBar.hidden = true;
     sourceBtns.forEach((btn) => {
@@ -1235,6 +1246,99 @@
           more.textContent = `+${reminders.length - DAILY_LOOP_REMINDER_LIMIT} more`;
           dailyLoopRemindersList.appendChild(more);
         }
+      }
+    }
+
+    renderEveningReview({
+      dueTodayDone,
+      dueTodayTotal: dueToday.length,
+      dueTodayOpen: dueTodayOpen.length,
+      overdueOpen: overdueOpen.length,
+      remindersCount: reminders.length,
+    });
+  }
+
+  function renderEveningReview(stats) {
+    if (!eveningReviewEl) return;
+    if (todoSource === "assigned") {
+      eveningReviewEl.hidden = true;
+      return;
+    }
+    eveningReviewEl.hidden = false;
+    const evening =
+      window.DailySpaceLoop && typeof window.DailySpaceLoop.isEveningHour === "function"
+        ? window.DailySpaceLoop.isEveningHour()
+        : new Date().getHours() >= 17;
+    eveningReviewEl.classList.toggle("is-quiet", !evening);
+
+    const remaining = stats.dueTodayOpen + stats.overdueOpen;
+    const cleared = stats.dueTodayTotal > 0 && remaining === 0;
+
+    if (eveningReviewTitle) {
+      eveningReviewTitle.textContent = cleared
+        ? "Today looks clear."
+        : evening
+          ? "How did today go?"
+          : "Today so far";
+    }
+    if (eveningReviewSummary) {
+      if (cleared) {
+        eveningReviewSummary.textContent = "Nice — due today is done and nothing is overdue.";
+      } else if (remaining > 0) {
+        eveningReviewSummary.textContent = `${remaining} open ${remaining === 1 ? "item" : "items"} still need attention before you close the day.`;
+      } else {
+        eveningReviewSummary.textContent = "No due-today tasks yet — add one above if you want a light close.";
+      }
+    }
+
+    if (eveningReviewStats) {
+      eveningReviewStats.innerHTML = "";
+      const rows = [
+        { label: `Done ${stats.dueTodayDone}/${stats.dueTodayTotal}`, good: cleared },
+        { label: `${stats.dueTodayOpen} due left`, warn: stats.dueTodayOpen > 0 },
+        { label: `${stats.overdueOpen} overdue`, warn: stats.overdueOpen > 0 },
+        { label: `${stats.remindersCount} reminders` },
+      ];
+      rows.forEach((row) => {
+        const li = document.createElement("li");
+        li.className = "evening-review-stat";
+        if (row.warn) li.classList.add("is-warn");
+        if (row.good) li.classList.add("is-good");
+        li.textContent = row.label;
+        eveningReviewStats.appendChild(li);
+      });
+    }
+
+    if (eveningReviewMail) {
+      const mail =
+        window.DailySpaceLoop && typeof window.DailySpaceLoop.readCachedMailDigest === "function"
+          ? window.DailySpaceLoop.readCachedMailDigest()
+          : null;
+      if (mail && mail.digest) {
+        eveningReviewMail.hidden = false;
+        eveningReviewMail.textContent = `Mail · ${mail.digest}`;
+      } else {
+        eveningReviewMail.hidden = true;
+        eveningReviewMail.textContent = "";
+      }
+    }
+
+    if (eveningReviewAlertsBtn && window.DailySpaceLoop) {
+      const perm = window.DailySpaceLoop.notificationPermission();
+      if (perm === "unsupported") {
+        eveningReviewAlertsBtn.hidden = true;
+      } else if (perm === "granted") {
+        eveningReviewAlertsBtn.hidden = false;
+        eveningReviewAlertsBtn.textContent = "Reminder alerts on";
+        eveningReviewAlertsBtn.disabled = true;
+      } else if (perm === "denied") {
+        eveningReviewAlertsBtn.hidden = false;
+        eveningReviewAlertsBtn.textContent = "Alerts blocked in browser";
+        eveningReviewAlertsBtn.disabled = true;
+      } else {
+        eveningReviewAlertsBtn.hidden = false;
+        eveningReviewAlertsBtn.textContent = "Enable reminder alerts";
+        eveningReviewAlertsBtn.disabled = false;
       }
     }
   }
@@ -1559,6 +1663,8 @@
 
   if (window.location.hash === "#assigned") {
     setTodoSource("assigned");
+  } else if (window.location.hash === "#today") {
+    setFilter("today");
   }
 
   window.addEventListener("daily-space-open-assigned", () => {
@@ -1567,6 +1673,7 @@
 
   window.addEventListener("hashchange", () => {
     if (window.location.hash === "#assigned") setTodoSource("assigned");
+    if (window.location.hash === "#today") setFilter("today");
   });
 
   form.addEventListener("submit", (e) => {
@@ -1594,6 +1701,19 @@
 
   if (dailyLoopFocusBtn) {
     dailyLoopFocusBtn.addEventListener("click", () => focusTodayList());
+  }
+  if (eveningReviewFocusBtn) {
+    eveningReviewFocusBtn.addEventListener("click", () => focusTodayList());
+  }
+  if (eveningReviewAlertsBtn) {
+    eveningReviewAlertsBtn.addEventListener("click", async () => {
+      if (!window.DailySpaceLoop) return;
+      const perm = await window.DailySpaceLoop.requestNotificationPermission();
+      if (perm === "granted") {
+        window.DailySpaceLoop.tickReminderNotifications();
+      }
+      renderDailyLoop();
+    });
   }
   if (dailyLoopPillDue) {
     dailyLoopPillDue.addEventListener("click", () => focusTodayList());

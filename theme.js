@@ -1438,6 +1438,10 @@
     setupThemeToggle();
     setupAutoSidebar();
     setupAuthEntry();
+    if (window.DailySpaceLoop) {
+      window.DailySpaceLoop.setupSidebarTodayStrip();
+      window.DailySpaceLoop.setupReminderNotifications();
+    }
     setupUserSnapshotSync();
     setupGreeting();
     setupWelcomeExperience();

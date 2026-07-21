@@ -44,6 +44,7 @@
   const dayTaskForm = document.getElementById("day-task-form");
   const dayTaskInput = document.getElementById("day-task-input");
   const calendarOpenTodo = document.getElementById("calendar-open-todo");
+  const calendarAlertsBtn = document.getElementById("calendar-alerts-btn");
 
   function id() {
     return typeof crypto !== "undefined" && crypto.randomUUID
@@ -248,6 +249,9 @@
         selectedDate,
         reminders,
       })
+    );
+    window.dispatchEvent(
+      new CustomEvent("daily-space-agent-data-updated", { detail: { domains: ["calendar"] } })
     );
   }
 
@@ -511,9 +515,33 @@
     return li;
   }
 
+  function syncCalendarAlertsButton() {
+    if (!calendarAlertsBtn || !window.DailySpaceLoop) {
+      if (calendarAlertsBtn) calendarAlertsBtn.hidden = true;
+      return;
+    }
+    const perm = window.DailySpaceLoop.notificationPermission();
+    if (perm === "unsupported") {
+      calendarAlertsBtn.hidden = true;
+      return;
+    }
+    calendarAlertsBtn.hidden = false;
+    if (perm === "granted") {
+      calendarAlertsBtn.textContent = "Reminder alerts on";
+      calendarAlertsBtn.disabled = true;
+    } else if (perm === "denied") {
+      calendarAlertsBtn.textContent = "Alerts blocked in browser";
+      calendarAlertsBtn.disabled = true;
+    } else {
+      calendarAlertsBtn.textContent = "Enable reminder alerts";
+      calendarAlertsBtn.disabled = false;
+    }
+  }
+
   function render() {
     renderCalendarGrid();
     renderSelectedDay();
+    syncCalendarAlertsButton();
   }
 
   function isMobileSidebar() {
@@ -565,6 +593,15 @@
       addTaskForSelectedDay(dayTaskInput.value);
       dayTaskInput.value = "";
       dayTaskInput.focus();
+    });
+  }
+
+  if (calendarAlertsBtn) {
+    calendarAlertsBtn.addEventListener("click", async () => {
+      if (!window.DailySpaceLoop) return;
+      const perm = await window.DailySpaceLoop.requestNotificationPermission();
+      if (perm === "granted") window.DailySpaceLoop.tickReminderNotifications();
+      syncCalendarAlertsButton();
     });
   }
 

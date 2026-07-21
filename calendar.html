@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Calendar</title>
+    <script src="daily-loop.js"></script>
     <script src="theme.js"></script>
     <script src="i18n.js"></script>
     <link rel="stylesheet" href="styles.css" />
@@ -82,6 +83,9 @@
 
               <section class="selected-section" aria-labelledby="reminders-title">
                 <h3 class="selected-section-title" id="reminders-title">Reminders</h3>
+                <button type="button" class="btn calendar-alerts-btn" id="calendar-alerts-btn">
+                  Enable reminder alerts
+                </button>
                 <form class="reminder-form" id="reminder-form" autocomplete="off">
                   <label class="reminder-label" for="reminder-input">Add reminder</label>
                   <div class="reminder-row">

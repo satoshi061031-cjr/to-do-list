@@ -34,6 +34,7 @@ const files = [
   "mail.js",
   "agent-data.js",
   "agent-ui.js",
+  "daily-loop.js",
   "light-background.png",
   "dark-background.png",
   "welcome-sticker.png",
