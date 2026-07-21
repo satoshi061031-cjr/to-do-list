@@ -228,5 +228,8 @@ async function runTodoAgent({ message, todos, categories, today }) {
 
 module.exports = {
   isAgentConfigured,
+  getAgentConfig,
+  callOpenAiChat,
+  extractJsonObject,
   runTodoAgent,
 };

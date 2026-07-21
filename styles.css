@@ -1741,7 +1741,187 @@ body.todo-agent-open.has-notif-bell .language-toggle {
 }
 
 .header {
+  margin-bottom: var(--space-md);
+}
+
+.daily-loop {
   margin-bottom: var(--space-lg);
+  padding: var(--space-md);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  background: var(--glass);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(12px) saturate(1.08);
+  -webkit-backdrop-filter: blur(12px) saturate(1.08);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.daily-loop-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.daily-loop-progress {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--highlight);
+}
+
+.daily-loop-focus {
+  padding: 0.45rem 0.95rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+}
+
+.daily-loop-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.daily-loop-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.42rem 0.7rem;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  background: var(--surface-muted);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+}
+
+.daily-loop-pill:hover {
+  background: var(--surface-hover);
+}
+
+.daily-loop-pill.is-empty {
+  opacity: 0.55;
+}
+
+.daily-loop-pill.is-active {
+  border-color: color-mix(in srgb, var(--highlight) 55%, var(--glass-border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--highlight) 28%, transparent);
+}
+
+.daily-loop-pill.has-alert {
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--glass-border));
+  color: color-mix(in srgb, var(--danger) 82%, var(--text));
+}
+
+.daily-loop-pill-count {
+  min-width: 1.25rem;
+  padding: 0.08rem 0.35rem;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.daily-loop-pill.has-alert .daily-loop-pill-count {
+  background: color-mix(in srgb, var(--danger) 18%, transparent);
+  color: var(--danger);
+}
+
+.daily-loop-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.daily-loop-list .todo-item {
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+}
+
+.daily-loop-empty {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.86rem;
+  letter-spacing: 0.03em;
+}
+
+.daily-loop-reminders {
+  display: block;
+  margin-top: 0.15rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+  color: inherit;
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.daily-loop-reminders:hover {
+  background: var(--surface-hover);
+  border-color: var(--glass-border);
+}
+
+.daily-loop-reminders-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: 0.4rem;
+}
+
+.daily-loop-reminders-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.daily-loop-reminders-link {
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--accent);
+}
+
+.daily-loop-reminders-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+}
+
+.daily-loop-reminder-item {
+  font-size: 0.84rem;
+  letter-spacing: 0.02em;
+  color: var(--text);
+  line-height: 1.35;
+}
+
+.daily-loop-reminder-item.is-more {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+body.todo-source-assigned .daily-loop {
+  display: none;
 }
 
 .todo-kicker {
@@ -2456,7 +2636,8 @@ body.due-day-page-open {
 .due-day-filter-bar,
 .add-category-panel,
 .sidebar-page-link,
-.category-btn.is-active {
+.category-btn.is-active,
+.daily-loop {
   background: var(--glass);
   border-color: var(--glass-border);
   box-shadow: var(--shadow-soft);
@@ -2657,40 +2838,103 @@ body.due-day-page-open {
     max-width: none;
   }
 
-  .app {
-    max-width: 100%;
-    grid-template-columns: 1fr;
+  .main-area {
+    align-items: flex-start;
+    width: 100%;
   }
 
-  .main-area .app {
-    padding-top: 4.6rem;
+  .app {
+    max-width: 100%;
+    width: 100%;
+    grid-template-columns: 1fr;
+    align-items: stretch;
+    gap: var(--space-md);
+    padding-top: calc(env(safe-area-inset-top, 0px) + 3.75rem);
+    padding-right: 1rem;
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 5rem);
+    padding-left: 1rem;
+  }
+
+  .app-greeting {
+    margin-bottom: var(--space-sm);
+    padding: 0;
+  }
+
+  .app-greeting-title {
+    font-size: clamp(1.7rem, 7.5vw, 2.35rem);
+  }
+
+  .app-greeting-time {
+    font-size: 0.86rem;
+  }
+
+  .task-module {
+    padding: 1rem;
+    border-radius: var(--radius);
+  }
+
+  .daily-loop {
+    padding: 0.85rem;
+    gap: 0.65rem;
+  }
+
+  .daily-loop-focus {
+    width: 100%;
+  }
+
+  .todo-module-stack {
+    gap: 0.85rem;
+  }
+
+  .backdrop {
+    z-index: 210;
+    background: rgba(28, 31, 30, 0.36);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
   }
 
   .sidebar {
     position: fixed;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    width: 15.5rem;
+    top: calc(env(safe-area-inset-top, 0px) + 3.35rem);
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 0.75rem);
+    left: 0.65rem;
+    width: min(16rem, calc(100vw - 1.3rem));
     max-width: min(88vw, 17rem);
-    transform: translateX(-100%);
-    transition: transform 0.22s ease;
-    border-right: 1px solid var(--border-soft);
-    box-shadow: 2px 0 16px rgba(44, 41, 37, 0.04);
+    z-index: 220;
+    transform: translateX(calc(-100% - 1.5rem));
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 0.2s ease;
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-pop);
+    overflow: hidden;
   }
 
   .sidebar-inner {
     min-height: 100%;
     height: 100%;
+    max-height: 100%;
+    padding: 1.1rem 1rem 1.25rem;
   }
 
   .sidebar.is-open {
     transform: translateX(0);
+    opacity: 1;
+    pointer-events: auto;
   }
 
-  body.sidebar-drawer-open .main-area .app {
-    padding-left: 1rem;
-    padding-right: 1rem;
+  .welcome-card:hover,
+  .app-module:hover {
+    transform: none;
+    filter: none;
+  }
+
+  .welcome-card:hover::after,
+  .app-module:hover::after {
+    opacity: 0;
   }
 }
 
@@ -2715,8 +2959,9 @@ body.due-day-page-open {
 /* Todo Agent */
 .todo-agent {
   position: fixed;
-  right: 6.4rem;
-  bottom: 1rem;
+  /* Clear the theme pill (wider in Chinese: "D 深色"). */
+  right: max(7.6rem, calc(env(safe-area-inset-right, 0px) + 6.6rem));
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
   z-index: 270;
   display: flex;
   flex-direction: column;
@@ -2931,9 +3176,10 @@ body.todo-agent-open .notif-root {
 }
 
 @media (max-width: 819px) {
+  /* Stack above theme toggle; include safe-area so home-indicator devices don't collide. */
   .todo-agent {
-    right: 1rem;
-    bottom: 4.6rem;
+    right: max(1rem, env(safe-area-inset-right, 0px));
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 5.35rem);
   }
 
   .todo-agent-panel {
@@ -2959,38 +3205,26 @@ body.todo-agent-open .notif-root {
   }
 }
 
-/* Mobile: drop expensive blur; use denser fills so panels match desktop glass look. */
+/* Mobile: keep desktop glass tokens; lighter blur so frost reads without killing scroll. */
 @media (max-width: 819px) {
-  :root {
-    --glass: linear-gradient(180deg, rgba(250, 251, 248, 0.94) 0%, rgba(242, 244, 241, 0.9) 100%);
-    --glass-strong: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(247, 249, 247, 0.94) 100%);
-    --surface: rgba(242, 244, 241, 0.96);
-    --surface-muted: rgba(226, 229, 225, 0.94);
-    --surface-hover: rgba(250, 251, 248, 0.98);
-  }
-
-  :root[data-theme="dark"] {
-    --glass: linear-gradient(180deg, rgba(48, 48, 44, 0.96) 0%, rgba(28, 28, 26, 0.94) 100%);
-    --glass-strong: linear-gradient(180deg, rgba(58, 58, 52, 0.98) 0%, rgba(35, 35, 32, 0.96) 100%);
-    --surface: rgba(35, 36, 33, 0.97);
-    --surface-muted: rgba(28, 29, 26, 0.95);
-    --surface-hover: rgba(48, 49, 45, 0.98);
-  }
-
   body::before {
-    filter: none;
-    transform: none;
-    inset: 0;
-    opacity: 0.55;
+    filter: blur(8px) saturate(0.68) brightness(1.03) contrast(0.96);
+    transform: scale(1.02);
+    inset: -1.5rem;
+    opacity: 0.78;
+  }
+
+  :root[data-theme="dark"] body::before {
+    filter: blur(10px) saturate(0.42) brightness(0.5) contrast(1.06) hue-rotate(-22deg);
+    transform: scale(1.03);
+    opacity: 0.9;
   }
 
   .sidebar,
-  .sidebar-inner,
-  .app-module,
+  .task-module,
   .app-calendar-panel,
   .todo-item,
   .auth-card,
-  .auth-modal-backdrop,
   .calendar-month-card,
   .calendar-day-panel,
   .calendar-list-item,
@@ -3001,23 +3235,24 @@ body.todo-agent-open .notif-root {
   .due-day-page-sheet,
   .filters,
   .todo-source-switch,
+  .due-day-filter-bar,
+  .daily-loop,
   .sidebar-trigger,
   .theme-toggle,
   .language-toggle,
+  .notif-bell,
   .btn,
   .category-btn,
-  .filter-btn {
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
+  .filter-btn,
+  .todo-source-btn,
+  .sidebar-page-link {
+    backdrop-filter: blur(10px) saturate(1.06) !important;
+    -webkit-backdrop-filter: blur(10px) saturate(1.06) !important;
   }
 
-  .category-btn,
-  .sidebar-page-link,
-  .sidebar-trigger,
-  .language-toggle,
-  .theme-toggle,
-  .notif-bell {
-    background: var(--surface) !important;
+  .todo-agent-panel {
+    backdrop-filter: blur(14px) saturate(1.06) !important;
+    -webkit-backdrop-filter: blur(14px) saturate(1.06) !important;
   }
 
   .todo-agent-messages {
@@ -3038,4 +3273,16 @@ body.is-native-shell .notif-root {
 html.is-native-shell .theme-toggle,
 body.is-native-shell .theme-toggle {
   bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
+}
+
+html.is-native-shell .todo-agent,
+body.is-native-shell .todo-agent {
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 5.35rem);
+}
+
+@media (min-width: 820px) {
+  html.is-native-shell .todo-agent,
+  body.is-native-shell .todo-agent {
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
+  }
 }

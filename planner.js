@@ -56,6 +56,10 @@
   const plannerBoardEl = document.getElementById("planner-board");
   const plannerBoardEmptyEl = document.getElementById("planner-board-empty");
   const plannerBoardEmptyCopyEl = document.getElementById("planner-board-empty-copy");
+  const plannerDueStripEl = document.getElementById("planner-due-strip");
+  const plannerDueSummaryEl = document.getElementById("planner-due-summary");
+  const plannerDueTodayListEl = document.getElementById("planner-due-today-list");
+  const plannerDueWeekListEl = document.getElementById("planner-due-week-list");
   const plannerEmptyAddColumnBtn = document.getElementById("planner-empty-add-column");
   const plannerMonthTitleEl = document.getElementById("planner-month-title");
   const plannerModeBadgeEl = document.getElementById("planner-mode-badge");
@@ -73,6 +77,89 @@
 
   function id() {
     return crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random();
+  }
+
+  function todayIso() {
+    const n = new Date();
+    const y = n.getFullYear();
+    const m = String(n.getMonth() + 1).padStart(2, "0");
+    const d = String(n.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+
+  function addDaysIso(iso, days) {
+    const [y, mo, da] = iso.split("-").map(Number);
+    const dt = new Date(y, mo - 1, da);
+    dt.setDate(dt.getDate() + days);
+    const yy = dt.getFullYear();
+    const mm = String(dt.getMonth() + 1).padStart(2, "0");
+    const dd = String(dt.getDate()).padStart(2, "0");
+    return `${yy}-${mm}-${dd}`;
+  }
+
+  function columnTitleById(columnId) {
+    const col = plannerColumns.find((c) => c.id === columnId);
+    return col ? col.title : "Column";
+  }
+
+  function focusPlannerEntry(entryId) {
+    const entry = plannerEntries.find((e) => e.id === entryId);
+    if (!entry) return;
+    if (!entry.expanded) {
+      entry.expanded = true;
+      if (!isTeamMode()) saveAll();
+      renderPlanner();
+    }
+    queueMicrotask(() => {
+      const card = plannerBoardEl?.querySelector(`[data-entry-id="${entryId}"]`);
+      if (card && typeof card.scrollIntoView === "function") {
+        card.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+        card.classList.add("is-due-focus");
+        setTimeout(() => card.classList.remove("is-due-focus"), 1200);
+      }
+    });
+  }
+
+  function renderDueLoopStrip() {
+    if (!plannerDueStripEl || !plannerDueTodayListEl || !plannerDueWeekListEl) return;
+    const today = todayIso();
+    const weekEnd = addDaysIso(today, 7);
+    const open = plannerEntries.filter((e) => !e.completed && e.dueDate);
+    const dueToday = open.filter((e) => e.dueDate === today);
+    const dueWeek = open.filter((e) => e.dueDate > today && e.dueDate <= weekEnd);
+
+    if (dueToday.length === 0 && dueWeek.length === 0) {
+      plannerDueStripEl.hidden = true;
+      return;
+    }
+    plannerDueStripEl.hidden = false;
+    if (plannerDueSummaryEl) {
+      plannerDueSummaryEl.textContent = `${dueToday.length} today · ${dueWeek.length} this week`;
+    }
+
+    function fillList(listEl, entries) {
+      listEl.innerHTML = "";
+      if (!entries.length) {
+        const empty = document.createElement("li");
+        empty.className = "planner-due-empty";
+        empty.textContent = "None";
+        listEl.appendChild(empty);
+        return;
+      }
+      entries.slice(0, 6).forEach((entry) => {
+        const li = document.createElement("li");
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "planner-due-item";
+        btn.textContent = `${entry.title || "Untitled"} · ${columnTitleById(entry.columnId)}`;
+        btn.addEventListener("click", () => focusPlannerEntry(entry.id));
+        li.appendChild(btn);
+        listEl.appendChild(li);
+      });
+    }
+
+    fillList(plannerDueTodayListEl, dueToday);
+    fillList(plannerDueWeekListEl, dueWeek);
   }
 
   /** @param {unknown} raw */
@@ -1264,6 +1351,8 @@
       plannerMetaLineEl.textContent = `${monthLine} · ${done} completed · ${total - done} open`;
     }
     plannerClearDoneBtn.hidden = done === 0;
+
+    renderDueLoopStrip();
 
     if (plannerBoardScrollEl instanceof HTMLElement) plannerBoardScrollEl.hidden = false;
 

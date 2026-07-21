@@ -73,6 +73,22 @@
                 <button type="button" class="btn planner-add-column-main" id="planner-add-column">+ Add column</button>
               </div>
             </header>
+            <section class="planner-due-strip" id="planner-due-strip" hidden aria-label="Due soon">
+              <div class="planner-due-strip-head">
+                <p class="planner-due-kicker">Due soon</p>
+                <p class="planner-due-summary" id="planner-due-summary"></p>
+              </div>
+              <div class="planner-due-groups">
+                <div class="planner-due-group">
+                  <h3 class="planner-due-label">Due today</h3>
+                  <ul class="planner-due-list" id="planner-due-today-list"></ul>
+                </div>
+                <div class="planner-due-group">
+                  <h3 class="planner-due-label">This week</h3>
+                  <ul class="planner-due-list" id="planner-due-week-list"></ul>
+                </div>
+              </div>
+            </section>
             <div class="planner-board-scroll">
               <div class="planner-board-empty" id="planner-board-empty" hidden>
                 <p class="planner-board-empty-title">Start with a column</p>

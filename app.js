@@ -1,7 +1,10 @@
 (function () {
   const STORAGE_APP = "todo-app-v2";
   const STORAGE_LEGACY = "todo-list-v1";
+  const STORAGE_CALENDAR = "calendar-app-v1";
   const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+  const DAILY_LOOP_LIST_LIMIT = 5;
+  const DAILY_LOOP_REMINDER_LIMIT = 4;
   /** @typedef {{ id: string; name: string }} Category */
 
   function uiLocale() {
@@ -81,7 +84,21 @@
   const welcomeScreen = document.getElementById("welcome-screen");
   const welcomeEnterBtn = document.getElementById("welcome-enter");
 
-  /** @type {"all" | "active" | "completed"} */
+  const dailyLoopEl = document.getElementById("daily-loop");
+  const dailyLoopProgress = document.getElementById("daily-loop-progress");
+  const dailyLoopFocusBtn = document.getElementById("daily-loop-focus");
+  const dailyLoopPillDue = document.getElementById("daily-loop-pill-due");
+  const dailyLoopPillOverdue = document.getElementById("daily-loop-pill-overdue");
+  const dailyLoopPillAssigned = document.getElementById("daily-loop-pill-assigned");
+  const dailyLoopDueCount = document.getElementById("daily-loop-due-count");
+  const dailyLoopOverdueCount = document.getElementById("daily-loop-overdue-count");
+  const dailyLoopAssignedCount = document.getElementById("daily-loop-assigned-count");
+  const dailyLoopList = document.getElementById("daily-loop-list");
+  const dailyLoopEmpty = document.getElementById("daily-loop-empty");
+  const dailyLoopReminders = document.getElementById("daily-loop-reminders");
+  const dailyLoopRemindersList = document.getElementById("daily-loop-reminders-list");
+
+  /** @type {"all" | "active" | "completed" | "today"} */
   let filter = "all";
 
   /** @type {"personal" | "assigned"} */
@@ -477,7 +494,7 @@
   function refreshDeadlineChrome() {
     const v = deadlineInput.value.trim();
     if (v && ISO_DATE.test(v)) {
-      deadlineDisplay.textContent = formatDueDate(v);
+      deadlineDisplay.textContent = v === todayIso() ? "Today" : formatDueDate(v);
       deadlineDisplay.classList.remove("is-placeholder");
       deadlineClear.hidden = false;
       const [y, mo] = v.split("-").map(Number);
@@ -489,6 +506,11 @@
       deadlineClear.hidden = true;
     }
     renderAppCalendar();
+  }
+
+  function resetDeadlineToToday() {
+    deadlineInput.value = todayIso();
+    refreshDeadlineChrome();
   }
 
   function closeCalendar() {
@@ -599,7 +621,7 @@
     }
   });
 
-  refreshDeadlineChrome();
+  resetDeadlineToToday();
 
   tickAppCalendarClock();
   setInterval(tickAppCalendarClock, 1000);
@@ -819,8 +841,14 @@
     let list = todos.filter(todoMatchesCategory);
     if (viewDueDateFilter && selectedCategoryKey !== "__all__")
       list = list.filter((t) => t.dueDate === viewDueDateFilter);
-    if (filter === "active") list = list.filter((t) => !t.completed);
-    if (filter === "completed") list = list.filter((t) => t.completed);
+    if (filter === "today") {
+      const today = todayIso();
+      list = list.filter((t) => t.dueDate === today);
+    } else if (filter === "active") {
+      list = list.filter((t) => !t.completed);
+    } else if (filter === "completed") {
+      list = list.filter((t) => t.completed);
+    }
     return list;
   }
 
@@ -888,6 +916,7 @@
     if (form) form.hidden = isAssigned;
     if (statusFiltersEl) statusFiltersEl.hidden = isAssigned;
     if (assignedHintEl) assignedHintEl.hidden = !isAssigned;
+    if (dailyLoopEl) dailyLoopEl.hidden = isAssigned;
     if (clearBtn && isAssigned) clearBtn.hidden = true;
     if (dueDayFilterBar && isAssigned) dueDayFilterBar.hidden = true;
     sourceBtns.forEach((btn) => {
@@ -1081,10 +1110,156 @@
     }
   }
 
+  function readTodayReminders() {
+    const today = todayIso();
+    try {
+      const raw = localStorage.getItem(STORAGE_CALENDAR);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.reminders)) return [];
+      return parsed.reminders
+        .filter(
+          (r) =>
+            r &&
+            typeof r === "object" &&
+            typeof r.date === "string" &&
+            r.date === today &&
+            typeof r.text === "string" &&
+            r.text.trim()
+        )
+        .map((r) => ({
+          id: String(r.id || `${r.date}-${r.text}`),
+          text: String(r.text).trim().slice(0, 200),
+          startTime: typeof r.startTime === "string" ? r.startTime : null,
+          endTime: typeof r.endTime === "string" ? r.endTime : null,
+        }))
+        .sort((a, b) =>
+          (a.startTime || a.endTime || "99:99").localeCompare(b.startTime || b.endTime || "99:99")
+        );
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function formatReminderTime(reminder) {
+    if (reminder.startTime && reminder.endTime) return `${reminder.startTime}–${reminder.endTime}`;
+    if (reminder.startTime) return reminder.startTime;
+    if (reminder.endTime) return reminder.endTime;
+    return "";
+  }
+
+  function focusTodayList() {
+    setFilter("today");
+    queueMicrotask(() => {
+      const target = statusFiltersEl || listEl;
+      if (target && typeof target.scrollIntoView === "function") {
+        target.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+    });
+  }
+
+  function renderDailyLoop() {
+    if (!dailyLoopEl) return;
+    if (todoSource === "assigned") {
+      dailyLoopEl.hidden = true;
+      return;
+    }
+    dailyLoopEl.hidden = false;
+
+    const today = todayIso();
+    const dueToday = todos.filter((t) => t.dueDate === today);
+    const dueTodayOpen = dueToday.filter((t) => !t.completed);
+    const dueTodayDone = dueToday.filter((t) => t.completed).length;
+    const overdueOpen = todos.filter((t) => isOverdue(t.dueDate, t.completed));
+    const assignedDueToday = assignedTasks.filter(
+      (t) => !t.completed && t.dueDate === today
+    );
+
+    if (dailyLoopProgress) {
+      dailyLoopProgress.textContent = `Done today ${dueTodayDone} / ${dueToday.length}`;
+    }
+
+    if (dailyLoopDueCount) dailyLoopDueCount.textContent = String(dueTodayOpen.length);
+    if (dailyLoopOverdueCount) dailyLoopOverdueCount.textContent = String(overdueOpen.length);
+    if (dailyLoopAssignedCount) dailyLoopAssignedCount.textContent = String(assignedDueToday.length);
+
+    if (dailyLoopPillDue) {
+      dailyLoopPillDue.classList.toggle("is-empty", dueTodayOpen.length === 0);
+      dailyLoopPillDue.classList.toggle("is-active", filter === "today");
+    }
+    if (dailyLoopPillOverdue) {
+      dailyLoopPillOverdue.classList.toggle("is-empty", overdueOpen.length === 0);
+      dailyLoopPillOverdue.classList.toggle("has-alert", overdueOpen.length > 0);
+    }
+    if (dailyLoopPillAssigned) {
+      dailyLoopPillAssigned.classList.toggle("is-empty", assignedDueToday.length === 0);
+    }
+
+    if (dailyLoopList) {
+      dailyLoopList.innerHTML = "";
+      dueTodayOpen.slice(0, DAILY_LOOP_LIST_LIMIT).forEach((todo) => {
+        dailyLoopList.appendChild(
+          createTodoListItemEl(todo, {
+            showCategoryPill: !!(todo.categoryId && categoryExists(todo.categoryId)),
+            showDueBadge: false,
+          })
+        );
+      });
+    }
+
+    const showEmpty = dueTodayOpen.length === 0;
+    if (dailyLoopEmpty) {
+      dailyLoopEmpty.hidden = !showEmpty;
+      dailyLoopEmpty.textContent =
+        dueToday.length > 0 ? "All caught up for today." : "Nothing due today.";
+    }
+    if (dailyLoopList) dailyLoopList.hidden = showEmpty;
+
+    const reminders = readTodayReminders();
+    if (dailyLoopReminders && dailyLoopRemindersList) {
+      dailyLoopRemindersList.innerHTML = "";
+      if (reminders.length === 0) {
+        dailyLoopReminders.hidden = true;
+      } else {
+        dailyLoopReminders.hidden = false;
+        reminders.slice(0, DAILY_LOOP_REMINDER_LIMIT).forEach((reminder) => {
+          const li = document.createElement("li");
+          li.className = "daily-loop-reminder-item";
+          const time = formatReminderTime(reminder);
+          li.textContent = time ? `${time} · ${reminder.text}` : reminder.text;
+          dailyLoopRemindersList.appendChild(li);
+        });
+        if (reminders.length > DAILY_LOOP_REMINDER_LIMIT) {
+          const more = document.createElement("li");
+          more.className = "daily-loop-reminder-item is-more";
+          more.textContent = `+${reminders.length - DAILY_LOOP_REMINDER_LIMIT} more`;
+          dailyLoopRemindersList.appendChild(more);
+        }
+      }
+    }
+  }
+
+  async function refreshAssignedForLoop() {
+    try {
+      const me = await apiRequest("/api/auth/me");
+      if (!me.user) {
+        assignedTasks = [];
+        return;
+      }
+      const payload = await apiRequest("/api/me/tasks");
+      assignedTasks = (payload.tasks || []).map(mapAssignedTask);
+    } catch (_) {
+      /* keep existing assignedTasks for hub counts */
+    } finally {
+      if (todoSource === "personal") renderDailyLoop();
+    }
+  }
+
   function render() {
     syncSourceChrome();
     if (todoSource === "assigned") {
       renderAssigned();
+      renderDailyLoop();
       return;
     }
 
@@ -1104,7 +1279,11 @@
       );
     });
 
-    const inScope = todosInCategoryAndDayScope();
+    const inScopeBase = todosInCategoryAndDayScope();
+    const inScope =
+      filter === "today"
+        ? inScopeBase.filter((t) => t.dueDate === todayIso())
+        : inScopeBase;
     const activeCountScoped = inScope.filter((t) => !t.completed).length;
     countEl.textContent =
       activeCountScoped === 0
@@ -1131,6 +1310,8 @@
             : "Nothing in this category.";
         } else if (todos.length === 0) {
           emptyEl.textContent = "No tasks yet—add your first one above.";
+        } else if (filter === "today") {
+          emptyEl.textContent = "Nothing due today.";
         } else if (filter === "active") {
           emptyEl.textContent = "Nothing active right now.";
         } else if (filter === "completed") {
@@ -1142,6 +1323,7 @@
     }
 
     if (dueDayPageDate) renderDueDayPage();
+    renderDailyLoop();
   }
 
   function add(text, dueDate, categoryIdOverride) {
@@ -1313,6 +1495,7 @@
   }
 
   function setFilter(next) {
+    if (next !== "all" && next !== "active" && next !== "completed" && next !== "today") return;
     filter = next;
     filterBtns.forEach((btn) => {
       const isActive = btn.dataset.filter === next;
@@ -1364,12 +1547,15 @@
 
   window.addEventListener("daily-space-auth-updated", () => {
     if (todoSource === "assigned") loadAssignedTasks();
+    else refreshAssignedForLoop();
   });
 
   bootstrap();
   renderCategorySidebar();
   refreshIllustration();
+  resetDeadlineToToday();
   render();
+  refreshAssignedForLoop();
 
   if (window.location.hash === "#assigned") {
     setTodoSource("assigned");
@@ -1386,11 +1572,10 @@
   form.addEventListener("submit", (e) => {
     e.preventDefault();
     if (todoSource !== "personal") return;
-    const due = deadlineInput.value.trim() || null;
+    const due = deadlineInput.value.trim() || todayIso();
     add(input.value, due);
     input.value = "";
-    deadlineInput.value = "";
-    refreshDeadlineChrome();
+    resetDeadlineToToday();
     closeCalendar();
     input.focus();
   });
@@ -1406,6 +1591,27 @@
       setTodoSource(/** @type {"personal" | "assigned"} */ (btn.dataset.todoSource))
     );
   });
+
+  if (dailyLoopFocusBtn) {
+    dailyLoopFocusBtn.addEventListener("click", () => focusTodayList());
+  }
+  if (dailyLoopPillDue) {
+    dailyLoopPillDue.addEventListener("click", () => focusTodayList());
+  }
+  if (dailyLoopPillOverdue) {
+    dailyLoopPillOverdue.addEventListener("click", () => {
+      if (Number(dailyLoopOverdueCount?.textContent || 0) <= 0) return;
+      setFilter("active");
+      queueMicrotask(() => {
+        if (dailyLoopEl && typeof dailyLoopEl.scrollIntoView === "function") {
+          dailyLoopEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }
+      });
+    });
+  }
+  if (dailyLoopPillAssigned) {
+    dailyLoopPillAssigned.addEventListener("click", () => setTodoSource("assigned"));
+  }
 
   dueDayFilterClear.addEventListener("click", () => {
     viewDueDateFilter = null;

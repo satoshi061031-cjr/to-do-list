@@ -1,8 +1,8 @@
 {
-  "name": "daily-space-stock-signals",
+  "name": "daily-space",
   "version": "1.0.0",
   "private": true,
-  "description": "Daily Space with a US stock watchlist, financial events, and market signals.",
+  "description": "Daily Space — quiet glass productivity for tasks, planning, calendar, mail digest, and teamwork.",
   "scripts": {
     "start": "node --experimental-sqlite --disable-warning=ExperimentalWarning server/index.js",
     "dev": "node --experimental-sqlite --disable-warning=ExperimentalWarning --watch server/index.js",

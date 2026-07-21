@@ -42,6 +42,8 @@ services:
         sync: false
       - key: GROQ_API_KEY
         sync: false
+      - key: MAIL_OAUTH_BASE_URL
+        sync: false
       - key: OPENAI_BASE_URL
         value: https://api.groq.com/openai/v1
       - key: OPENAI_MODEL

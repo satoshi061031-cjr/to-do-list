@@ -22,6 +22,7 @@ const { refreshSymbol, startScheduler } = require("./jobs/scheduler");
 const { searchSymbols } = require("./providers/market");
 const { isAgentConfigured, runTodoAgent } = require("./agent");
 const { runGlobalAgent } = require("./global-agent");
+const { summarizeInboxMessages } = require("./mail-digest");
 const {
   getDefaultStore: getUserSnapshotStore,
   isSupabaseSnapshotStoreConfigured,
@@ -78,7 +79,7 @@ const server = http.createServer((request, response) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`Daily Space stock server running at http://localhost:${PORT}`);
+  console.log(`Daily Space server running at http://localhost:${PORT}`);
   startScheduler();
 });
 
@@ -869,6 +870,41 @@ async function handleApi(request, response, url) {
         email: account.email,
       },
       messages,
+    });
+    return;
+  }
+
+  const mailDigestMatch = url.pathname.match(/^\/api\/mail\/accounts\/([^/]+)\/digest$/);
+  if (method === "GET" && mailDigestMatch) {
+    enforceUserSession(session);
+    const accountId = decodeURIComponent(mailDigestMatch[1]);
+    const account = getMailAccountById(session.userId, accountId);
+    if (!account) {
+      const error = new Error("Mail account not found.");
+      error.statusCode = 404;
+      throw error;
+    }
+    const limit = Math.max(1, Math.min(30, Number(url.searchParams.get("limit") || 12)));
+    const messages = await fetchRecentMessagesForAccount(account, limit);
+    const today =
+      typeof url.searchParams.get("today") === "string" &&
+      /^\d{4}-\d{2}-\d{2}$/.test(url.searchParams.get("today") || "")
+        ? url.searchParams.get("today")
+        : new Date().toISOString().slice(0, 10);
+    const { digest, summaries, summarized } = await summarizeInboxMessages(messages, today);
+    sendJson(response, {
+      account: {
+        id: account.id,
+        provider: formatProviderLabel(account.provider),
+        email: account.email,
+      },
+      digest,
+      summarized,
+      agentConfigured: isAgentConfigured(),
+      messages: messages.map((item) => ({
+        ...item,
+        summary: summaries[item.id] || item.snippet || item.subject || "",
+      })),
     });
     return;
   }
@@ -1823,7 +1859,7 @@ async function fetchRecentGmailMessages(account, limit) {
   const ids = Array.isArray(listPayload.messages) ? listPayload.messages.map((item) => item.id).filter(Boolean) : [];
   const tasks = ids.map(async (id) => {
     const detailResponse = await fetch(
-      `https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(id)}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date`,
+      `https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(id)}?format=full`,
       {
         headers: { Authorization: `Bearer ${accessToken}` },
       }
@@ -1837,6 +1873,7 @@ async function fetchRecentGmailMessages(account, limit) {
       subject: getHeader("subject") || "(No subject)",
       from: getHeader("from") || "Unknown sender",
       receivedAt: detailPayload.internalDate ? new Date(Number(detailPayload.internalDate)).toISOString() : null,
+      snippet: String(detailPayload.snippet || "").trim().slice(0, 280),
     };
   });
   const results = await Promise.all(tasks);
@@ -1852,7 +1889,7 @@ async function fetchRecentOutlookMessages(account, limit) {
   const accessToken = openToken(account.accessToken);
   const url = new URL("https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages");
   url.searchParams.set("$top", String(limit));
-  url.searchParams.set("$select", "id,subject,receivedDateTime,from");
+  url.searchParams.set("$select", "id,subject,receivedDateTime,from,bodyPreview");
   url.searchParams.set("$orderby", "receivedDateTime DESC");
   const response = await fetch(url, {
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -1869,6 +1906,7 @@ async function fetchRecentOutlookMessages(account, limit) {
     subject: item.subject || "(No subject)",
     from: item.from?.emailAddress?.address || item.from?.emailAddress?.name || "Unknown sender",
     receivedAt: item.receivedDateTime || null,
+    snippet: String(item.bodyPreview || "").trim().slice(0, 280),
   }));
 }
 
@@ -2002,6 +2040,7 @@ function parseImapEnvelopeFetch(raw) {
       subject,
       from: fromName ? `${fromName} <${fromAddress}>` : fromAddress,
       receivedAt,
+      snippet: "",
     };
   });
 }

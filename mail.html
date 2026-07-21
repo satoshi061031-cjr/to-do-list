@@ -34,7 +34,7 @@
             <div>
               <p class="mail-eyebrow">Mail</p>
               <h1 class="mail-title" id="mail-title">Mail</h1>
-              <p class="mail-copy" id="mail-copy">Recent messages will show up here.</p>
+              <p class="mail-copy" id="mail-copy">Pull your inbox, get a short digest, and turn mail into today’s tasks.</p>
             </div>
             <p class="mail-inline-status" id="mail-page-status" aria-live="polite" hidden></p>
           </header>
@@ -42,11 +42,17 @@
           <section class="mail-card mail-connect-panel" id="mail-empty-connect" hidden aria-labelledby="mail-connect-title">
             <div class="mail-section-head">
               <div>
-                <p class="mail-kicker">Connect</p>
+                <p class="mail-kicker" id="mail-connect-kicker">Connect</p>
                 <h2 id="mail-connect-title">Sign in to your mailbox</h2>
+                <p class="mail-connect-hint" id="mail-connect-hint">
+                  Connect Gmail or Outlook to pull recent mail and build today’s digest.
+                </p>
               </div>
             </div>
-            <div class="mail-oauth-quick" role="group" aria-label="Quick authorization">
+            <button type="button" class="btn btn-primary mail-signin-space" id="mail-signin-space" hidden>
+              Sign in to Daily Space
+            </button>
+            <div class="mail-oauth-quick" id="mail-oauth-quick" role="group" aria-label="Quick authorization">
               <button class="mail-oauth-btn" type="button" data-quick-provider="gmail">
                 <span class="mail-oauth-icon" aria-hidden="true">
                   <svg viewBox="0 0 24 24" focusable="false">
@@ -93,8 +99,12 @@
                 <p class="mail-kicker">Inbox</p>
                 <h2 id="mail-inbox-heading">Recent messages</h2>
               </div>
+              <button type="button" class="btn mail-refresh-btn" id="mail-refresh" aria-label="Refresh inbox">
+                Refresh
+              </button>
             </div>
             <div class="mail-account-switcher" id="mail-account-switcher" role="tablist" aria-label="Mailboxes"></div>
+            <p class="mail-digest" id="mail-digest" hidden></p>
             <p class="mail-status" id="mail-status" aria-live="polite"></p>
             <div class="mail-message-list" id="mail-message-list"></div>
           </section>
@@ -156,6 +166,7 @@
       <span class="theme-toggle-icon" aria-hidden="true">D</span>
       <span class="theme-toggle-label">Dark</span>
     </button>
+    <script src="agent-data.js"></script>
     <script src="mail.js"></script>
   </body>
 </html>

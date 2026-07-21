@@ -41,6 +41,9 @@
   const reminderEmptyEl = document.getElementById("reminder-empty");
   const taskListEl = document.getElementById("task-list");
   const taskEmptyEl = document.getElementById("task-empty");
+  const dayTaskForm = document.getElementById("day-task-form");
+  const dayTaskInput = document.getElementById("day-task-input");
+  const calendarOpenTodo = document.getElementById("calendar-open-todo");
 
   function id() {
     return typeof crypto !== "undefined" && crypto.randomUUID
@@ -213,6 +216,8 @@
       const parsed = JSON.parse(raw);
       if (!parsed || typeof parsed !== "object") return;
       reminders = normalizeReminders(/** @type {any} */ (parsed).reminders);
+      // Keep month aligned to last selected day for navigation persistence,
+      // but page open forces today via focusTodayOnOpen().
       if (
         typeof /** @type {any} */ (parsed).selectedDate === "string" &&
         ISO_DATE.test(/** @type {any} */ (parsed).selectedDate)
@@ -225,6 +230,14 @@
     } catch (_) {
       reminders = [];
     }
+  }
+
+  function focusTodayOnOpen() {
+    selectedDate = todayIso();
+    const selected = parseIso(selectedDate);
+    calYear = selected.getFullYear();
+    calMonth = selected.getMonth() + 1;
+    saveCalendarState();
   }
 
   function saveCalendarState() {
@@ -378,13 +391,34 @@
     }
   }
 
+  function addTaskForSelectedDay(text) {
+    const trimmed = String(text || "").trim().slice(0, 500);
+    if (!trimmed) return;
+    todos.unshift({
+      id: id(),
+      text: trimmed,
+      completed: false,
+      dueDate: selectedDate,
+      categoryId: null,
+    });
+    saveTodoState();
+    render();
+  }
+
   function renderSelectedDay() {
     const dayReminders = remindersForDate(selectedDate);
     const dayTasks = todosDueOn(selectedDate);
+    const isToday = selectedDate === todayIso();
 
-    selectedDayTitleEl.textContent = `Tasks due ${formatDueDate(selectedDate)}`;
+    selectedDayTitleEl.textContent = isToday
+      ? `Today · ${formatDueDate(selectedDate)}`
+      : `Tasks due ${formatDueDate(selectedDate)}`;
     selectedDayMetaEl.textContent =
       dayTasks.length === 0 ? "" : `${dayTasks.length} ${dayTasks.length === 1 ? "task" : "tasks"}`;
+
+    if (calendarOpenTodo) {
+      calendarOpenTodo.hidden = !isToday;
+    }
 
     taskListEl.innerHTML = "";
     dayTasks.forEach((todo) => {
@@ -525,6 +559,15 @@
     );
   });
 
+  if (dayTaskForm && dayTaskInput) {
+    dayTaskForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      addTaskForSelectedDay(dayTaskInput.value);
+      dayTaskInput.value = "";
+      dayTaskInput.focus();
+    });
+  }
+
   window.addEventListener("resize", () => {
     if (!isMobileSidebar()) closeSidebar();
   });
@@ -559,5 +602,6 @@
 
   loadTodoState();
   loadCalendarState();
+  focusTodayOnOpen();
   render();
 })();

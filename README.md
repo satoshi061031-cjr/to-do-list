@@ -1,134 +1,100 @@
-# Daily Space Stock Signals
+# Daily Space
 
-This project is a static Daily Space PWA plus a Node 22 backend for a US stock watchlist, public-company filings, event reminders, and explainable market signals.
+Quiet glass productivity workspace for personal focus and light team assignment — tasks, planner, calendar, tally, teamwork, mail digest, and an optional AI agent.
 
-## Run Locally
+Live app: start at `/todo.html` (PWA start URL). Welcome screen: `/` or `/index.html`.
+
+## What you get
+
+| Surface | Role |
+|---|---|
+| **Todo** | Daily Loop hub — due today, overdue, assigned, today’s reminders |
+| **Calendar** | Month + day panel; add tasks for a day; reminders |
+| **Planner** | Personal / team boards; due today & this week strip |
+| **Tally** | Simple expense log + monthly budget |
+| **Teamwork** | Shared workspaces, invites, assignment feed |
+| **Mail** | Connect Gmail/Outlook → pull inbox → AI digest → add as today’s task |
+| **Agent** | Natural-language actions across Todo / Planner / Calendar / Tally (needs LLM key) |
+
+**Sign-in flow:** Menu → Sign in (Google / Outlook / WeChat) for cloud sync and teamwork. On Mail, sign in to Daily Space first, then connect a mailbox.
+
+Guest mode works locally with `localStorage`; collaboration, mail, and cloud sync need a signed-in session.
+
+## Run locally
 
 ```sh
+cp .env.example .env   # fill OAuth / keys as needed
 npm start
 ```
 
-Open `http://localhost:3000/stocks.html`.
+Open `http://localhost:3000/` or `http://localhost:3000/todo.html`.
 
-The backend uses Node 22 built-in `node:sqlite` for legacy and local-development data. SQLite data is stored in `server/data/stocks.sqlite`.
+Requires **Node 22+** (uses built-in `node:sqlite` for local/dev data when Supabase is unset).
 
-## Persistent User Workspaces with Supabase
+## Persistent workspaces (Supabase)
 
-Daily Space keeps `localStorage` as a fast offline cache and stores signed-in users' workspace snapshots in Supabase Postgres.
+Daily Space keeps `localStorage` as a fast offline cache and stores signed-in users’ snapshots in Supabase Postgres.
 
 1. Create a Supabase project.
-2. Run `supabase/migrations/001_user_snapshots.sql` in the Supabase SQL Editor.
-3. Add these server-only environment variables locally and in Render:
+2. Run `supabase/migrations/001_user_snapshots.sql` in the SQL Editor.
+3. Set on Render (and locally):
 
 ```sh
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 ```
 
-Never expose `SUPABASE_SERVICE_ROLE_KEY` in browser code. If Supabase is not configured, local development falls back to SQLite. Existing SQLite snapshots are copied to Supabase the first time each user signs in.
+Never expose the service role key in the browser. Without Supabase, the server falls back to SQLite.
 
-## Optional Configuration
+## Environment
 
-Create a local `.env` file if you want Alpha Vantage data:
+Copy `.env.example` → `.env`. Important variables:
 
-```sh
-ALPHA_VANTAGE_API_KEY=your_key_here
-SEC_USER_AGENT="DailySpaceStockSignals/1.0 your-email@example.com"
-PORT=3000
-```
+| Variable | Purpose |
+|---|---|
+| `MAIL_OAUTH_BASE_URL` | Public origin for OAuth callbacks (`http://localhost:3000` locally; `https://….onrender.com` in prod) |
+| `GOOGLE_OAUTH_*` | Google login + Gmail mail OAuth |
+| `MICROSOFT_OAUTH_*` | Outlook login + mail OAuth |
+| `WECHAT_OAUTH_*` | WeChat website-app QR login |
+| `MAIL_TOKEN_ENCRYPTION_KEY` | Encrypt mail tokens at rest (`openssl rand -base64 32`) |
+| `GROQ_API_KEY` or `OPENAI_API_KEY` | Todo Agent + Mail inbox AI digest |
+| `SUPABASE_*` | Cloud user snapshots |
+| `CAPACITOR_SERVER_URL` | Native shell loads this HTTPS origin |
 
-Without `ALPHA_VANTAGE_API_KEY`, quotes fall back to Yahoo Finance chart data and the earnings calendar shows a `sourceUnavailable` status. SEC EDGAR filings and companyfacts use public SEC endpoints.
+Sign-in requests identity scopes only. Mail scopes (`gmail.readonly` / `Mail.Read`) are requested only from the Mail page OAuth flow.
 
-## Stock Signal Scope
+### Useful API routes
 
-Signals are rule-based and explainable:
+- Auth: `/api/auth/me`, Google / Outlook / WeChat start + callback
+- Sync: `/api/user/snapshot`
+- Mail: `/api/mail/accounts`, `…/messages`, `…/digest`, OAuth start/callbacks
+- Agent: `/api/agent`, `/api/agent/status`
+- Teamwork boards / notifications: under `/api/workspaces`, `/api/me/tasks`, `/api/notifications`
 
-- Quote momentum and stale-data checks
-- SEC filing awareness
-- Revenue and diluted EPS growth from SEC companyfacts when available
-- Earnings-event volatility warnings when an event provider is configured
-
-Signals are for research only and are not investment advice.
-
-## API Endpoints
-
-- `GET /api/stocks/search?q=AAPL`
-- `GET /api/watchlist`
-- `POST /api/watchlist` with `{ "symbol": "AAPL" }`
-- `DELETE /api/watchlist/AAPL`
-- `GET /api/stocks/AAPL/summary`
-- `POST /api/stocks/AAPL/refresh`
-
-### Mail OAuth Endpoints
-
-- `GET /api/mail/accounts`
-- `DELETE /api/mail/accounts/:id`
-- `POST /api/mail/accounts/manual` with `{ "provider": "other", "email": "name@example.com" }`
-- `POST /api/mail/accounts/icloud` with `{ "email": "name@icloud.com", "appPassword": "xxxx-xxxx-xxxx-xxxx" }`
-- `POST /api/mail/oauth/start` with `{ "provider": "gmail" | "outlook", "email": "name@example.com", "returnTo": "/mail.html" }`
-- `GET /api/mail/oauth/google/callback`
-- `GET /api/mail/oauth/outlook/callback`
-- `GET /api/mail/accounts/:id/messages?limit=20` (recent inbox summaries)
-
-### User Sign-In Endpoints
-
-- `POST /api/auth/google/start` with `{ "returnTo": "/todo.html" }`
-- `GET /api/auth/google/callback`
-- `POST /api/auth/outlook/start` with `{ "returnTo": "/todo.html" }`
-- `GET /api/auth/outlook/callback`
-- `POST /api/auth/wechat/start` with `{ "returnTo": "/todo.html" }`
-- `GET /api/auth/wechat/callback`
-
-To enable real Gmail/Outlook/WeChat authorization, copy `.env.example` to `.env` and fill:
-
-- `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` (login + mail; login only asks for `openid email profile`)
-- `MICROSOFT_OAUTH_CLIENT_ID`, `MICROSOFT_OAUTH_CLIENT_SECRET` (login + mail; login omits `Mail.Read`)
-- Optional later: `GOOGLE_SIGNIN_*` / `MICROSOFT_SIGNIN_*` if you ever split clients
-- `WECHAT_OAUTH_APP_ID`, `WECHAT_OAUTH_APP_SECRET` (微信开放平台「网站应用」扫码登录)
-- `MAIL_TOKEN_ENCRYPTION_KEY` (`openssl rand -base64 32`)
-- `MAIL_OAUTH_BASE_URL` for production domain
-
-Sign-in no longer uses `include_granted_scopes`, so previous Gmail grants should not get pulled into the Google login consent screen. Mail scopes are only requested from the Mail page OAuth flow.
-
-For WeChat website-app login, register the authorization callback domain to match `MAIL_OAUTH_BASE_URL`, and use callback path `/api/auth/wechat/callback`. Local testing needs a public HTTPS tunnel because WeChat only redirects to registered domains.
-
-iCloud real connection uses Apple app-specific password with IMAP login verification against `imap.mail.me.com:993`.
-
-## Mobile app (Capacitor)
-
-Daily Space can run inside a native Android / iOS shell via Capacitor.
-
-1. Install deps (`npm install`) and prepare the web bundle:
+## Mobile (Capacitor)
 
 ```sh
 npm run cap:prepare
-```
-
-2. Point the shell at your **HTTPS** deploy (same host as `MAIL_OAUTH_BASE_URL`) so login and `/api` keep working:
-
-```sh
 export CAPACITOR_SERVER_URL=https://your-app.onrender.com
 npm run cap:sync
+npm run cap:android   # or cap:ios
 ```
 
-3. Open the native IDE:
+Without `CAPACITOR_SERVER_URL`, the shell loads bundled `www/` (UI only — OAuth/API need the live HTTPS URL).
 
-```sh
-npm run cap:android   # Android Studio
-npm run cap:ios       # Xcode (macOS)
-```
+## Deploy (Render)
 
-4. Run on a device/emulator from the IDE, or:
-
-```sh
-CAPACITOR_SERVER_URL=https://your-app.onrender.com npm run cap:run:android
-CAPACITOR_SERVER_URL=https://your-app.onrender.com npm run cap:run:ios
-```
-
-Without `CAPACITOR_SERVER_URL`, Capacitor loads the bundled `www/` files (UI only — OAuth/API need the live URL). Store listing still requires Apple / Google developer accounts and the usual review flow.
+1. Connect the GitHub repo; use `npm start` (or your existing Render Blueprint).
+2. Set `MAIL_OAUTH_BASE_URL` to the Render HTTPS URL.
+3. Set the same OAuth redirect URIs in Google / Microsoft / WeChat consoles.
+4. Set `GROQ_API_KEY` for Agent + Mail digests.
 
 ## Test
 
 ```sh
 npm test
 ```
+
+## Legacy note
+
+Some stock-watchlist API routes and SQLite tables may still exist in the server for compatibility. There is **no stock UI** in the current product surface; treat those endpoints as legacy unless you rebuild them.

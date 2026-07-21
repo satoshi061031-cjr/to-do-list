@@ -85,6 +85,38 @@
                 <p class="subtitle">Quiet tasks for today—check them off when done.</p>
               </header>
 
+              <section class="daily-loop" id="daily-loop" aria-label="Daily loop">
+                <div class="daily-loop-top">
+                  <p class="daily-loop-progress" id="daily-loop-progress">Done today 0 / 0</p>
+                  <button type="button" class="btn btn-primary daily-loop-focus" id="daily-loop-focus">
+                    Focus today
+                  </button>
+                </div>
+                <div class="daily-loop-pills" id="daily-loop-pills" role="group" aria-label="Today summary">
+                  <button type="button" class="daily-loop-pill" id="daily-loop-pill-due" data-loop-action="due">
+                    <span class="daily-loop-pill-label">Due today</span>
+                    <span class="daily-loop-pill-count" id="daily-loop-due-count">0</span>
+                  </button>
+                  <button type="button" class="daily-loop-pill" id="daily-loop-pill-overdue" data-loop-action="overdue">
+                    <span class="daily-loop-pill-label">Overdue</span>
+                    <span class="daily-loop-pill-count" id="daily-loop-overdue-count">0</span>
+                  </button>
+                  <button type="button" class="daily-loop-pill" id="daily-loop-pill-assigned" data-loop-action="assigned">
+                    <span class="daily-loop-pill-label">Assigned</span>
+                    <span class="daily-loop-pill-count" id="daily-loop-assigned-count">0</span>
+                  </button>
+                </div>
+                <ul class="todo-list daily-loop-list" id="daily-loop-list" aria-label="Due today"></ul>
+                <p class="daily-loop-empty" id="daily-loop-empty" hidden>Nothing due today.</p>
+                <a class="daily-loop-reminders" id="daily-loop-reminders" href="calendar.html" hidden>
+                  <div class="daily-loop-reminders-head">
+                    <span class="daily-loop-reminders-label">Reminders</span>
+                    <span class="daily-loop-reminders-link">Open calendar</span>
+                  </div>
+                  <ul class="daily-loop-reminders-list" id="daily-loop-reminders-list"></ul>
+                </a>
+              </section>
+
           <form class="add-form" id="add-form" autocomplete="off">
             <div class="add-form-row">
               <input
@@ -172,6 +204,9 @@
               </button>
             </div>
             <div class="filters" id="todo-status-filters" role="tablist" aria-label="Filter tasks">
+              <button type="button" class="filter-btn" data-filter="today" role="tab" aria-selected="false">
+                Today
+              </button>
               <button type="button" class="filter-btn is-active" data-filter="all" role="tab" aria-selected="true">
                 All
               </button>

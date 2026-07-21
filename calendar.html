@@ -32,7 +32,7 @@
         <div class="calendar-app">
           <header class="calendar-header">
             <div>
-              <p class="calendar-eyebrow">Calendar</p>
+              <p class="calendar-eyebrow">Today</p>
               <h1 class="calendar-title" id="calendar-title"></h1>
               <p class="calendar-meta" id="calendar-meta"></p>
             </div>
@@ -58,7 +58,24 @@
               </div>
 
               <section class="selected-section" aria-labelledby="tasks-title">
-                <h3 class="selected-section-title" id="tasks-title">Tasks due this day</h3>
+                <div class="selected-section-head">
+                  <h3 class="selected-section-title" id="tasks-title">Tasks due this day</h3>
+                  <a class="calendar-todo-link" id="calendar-open-todo" href="todo.html">Open Today in Todo</a>
+                </div>
+                <form class="day-task-form" id="day-task-form" autocomplete="off">
+                  <label class="day-task-label" for="day-task-input">Add a task for this day</label>
+                  <div class="day-task-row">
+                    <input
+                      type="text"
+                      id="day-task-input"
+                      class="day-task-input"
+                      placeholder="Add a task for this day…"
+                      maxlength="500"
+                      aria-label="New task for selected day"
+                    />
+                    <button type="submit" class="btn btn-primary day-task-submit">Add</button>
+                  </div>
+                </form>
                 <ul class="todo-list" id="task-list" aria-live="polite"></ul>
                 <p class="calendar-empty" id="task-empty" hidden></p>
               </section>
