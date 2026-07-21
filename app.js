@@ -128,7 +128,8 @@
   let assignedLoading = false;
   let assignedError = "";
 
-  function bootstrap() {
+  function bootstrap(options) {
+    const persist = !(options && options.persist === false);
     migratePlannerFromTodoAppV2();
     const state = loadState();
     todos = state.todos;
@@ -144,7 +145,9 @@
     if (!categoryExists(selectedCategoryKey) && selectedCategoryKey !== "__all__") {
       selectedCategoryKey = "__all__";
     }
-    saveAll();
+    // Agent-data listeners call bootstrap to reload — never saveAll there or we loop:
+    // saveAll → daily-space-agent-data-updated → bootstrap → saveAll → …
+    if (persist) saveAll();
   }
 
   function categoryExists(cid) {
@@ -1264,28 +1267,34 @@
       eveningReviewEl.hidden = true;
       return;
     }
-    eveningReviewEl.hidden = false;
     const evening =
       window.DailySpaceLoop && typeof window.DailySpaceLoop.isEveningHour === "function"
         ? window.DailySpaceLoop.isEveningHour()
         : new Date().getHours() >= 17;
-    eveningReviewEl.classList.toggle("is-quiet", !evening);
+    // Keep daytime first viewport calm — review only appears in the evening.
+    if (!evening) {
+      eveningReviewEl.hidden = true;
+      eveningReviewEl.classList.add("is-quiet");
+      return;
+    }
+    eveningReviewEl.hidden = false;
+    eveningReviewEl.classList.remove("is-quiet");
 
     const remaining = stats.dueTodayOpen + stats.overdueOpen;
     const cleared = stats.dueTodayTotal > 0 && remaining === 0;
 
     if (eveningReviewTitle) {
-      eveningReviewTitle.textContent = cleared
-        ? "Today looks clear."
-        : evening
-          ? "How did today go?"
-          : "Today so far";
+      eveningReviewTitle.textContent = cleared ? "Today looks clear." : "How did today go?";
     }
     if (eveningReviewSummary) {
       if (cleared) {
         eveningReviewSummary.textContent = "Nice — due today is done and nothing is overdue.";
       } else if (remaining > 0) {
-        eveningReviewSummary.textContent = `${remaining} open ${remaining === 1 ? "item" : "items"} still need attention before you close the day.`;
+        const bits = [];
+        if (stats.dueTodayOpen > 0) bits.push(`${stats.dueTodayOpen} due left`);
+        if (stats.overdueOpen > 0) bits.push(`${stats.overdueOpen} overdue`);
+        if (stats.remindersCount > 0) bits.push(`${stats.remindersCount} reminders`);
+        eveningReviewSummary.textContent = `${bits.join(" · ")}. Close what you can before you stop.`;
       } else {
         eveningReviewSummary.textContent = "No due-today tasks yet — add one above if you want a light close.";
       }
@@ -1293,20 +1302,7 @@
 
     if (eveningReviewStats) {
       eveningReviewStats.innerHTML = "";
-      const rows = [
-        { label: `Done ${stats.dueTodayDone}/${stats.dueTodayTotal}`, good: cleared },
-        { label: `${stats.dueTodayOpen} due left`, warn: stats.dueTodayOpen > 0 },
-        { label: `${stats.overdueOpen} overdue`, warn: stats.overdueOpen > 0 },
-        { label: `${stats.remindersCount} reminders` },
-      ];
-      rows.forEach((row) => {
-        const li = document.createElement("li");
-        li.className = "evening-review-stat";
-        if (row.warn) li.classList.add("is-warn");
-        if (row.good) li.classList.add("is-good");
-        li.textContent = row.label;
-        eveningReviewStats.appendChild(li);
-      });
+      eveningReviewStats.hidden = true;
     }
 
     if (eveningReviewMail) {
@@ -1636,7 +1632,7 @@
   window.addEventListener("daily-space-agent-data-updated", (event) => {
     const domains = Array.isArray(event.detail?.domains) ? event.detail.domains : [];
     if (!domains.includes("todo")) return;
-    bootstrap();
+    bootstrap({ persist: false });
     renderCategorySidebar();
     refreshIllustration();
     render();

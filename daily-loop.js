@@ -248,14 +248,16 @@
 
       strip.append(kicker, line);
 
-      const pagesHeading = Array.from(sidebarInner.querySelectorAll(".sidebar-heading")).find(
-        (el) => /pages/i.test(el.textContent || "")
-      );
-      if (pagesHeading) sidebarInner.insertBefore(strip, pagesHeading);
-      else {
-        const auth = sidebarInner.querySelector(".sidebar-auth");
-        if (auth) sidebarInner.insertBefore(strip, auth);
-        else sidebarInner.appendChild(strip);
+      // Pages heading lives inside .sidebar-planner-block — insert relative to that block
+      // (or auth), never as insertBefore(nestedHeading) on sidebarInner.
+      const plannerBlock = sidebarInner.querySelector(".sidebar-planner-block");
+      const auth = sidebarInner.querySelector(".sidebar-auth");
+      if (plannerBlock && plannerBlock.parentNode === sidebarInner) {
+        sidebarInner.insertBefore(strip, plannerBlock);
+      } else if (auth && auth.parentNode === sidebarInner) {
+        sidebarInner.insertBefore(strip, auth);
+      } else {
+        sidebarInner.appendChild(strip);
       }
     }
 

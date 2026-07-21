@@ -1465,6 +1465,12 @@
       // Native shell already caches via WebView / HTTP; avoid competing SWs.
       return;
     }
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener("controllerchange", function () {
+      if (refreshing) return;
+      refreshing = true;
+      window.location.reload();
+    });
     const run = function () {
       navigator.serviceWorker.register("sw.js").catch(function () {
         /* Offline shell is best-effort. */
@@ -1533,8 +1539,12 @@
     setupAutoSidebar();
     setupAuthEntry();
     if (window.DailySpaceLoop) {
-      window.DailySpaceLoop.setupSidebarTodayStrip();
-      window.DailySpaceLoop.setupReminderNotifications();
+      try {
+        window.DailySpaceLoop.setupSidebarTodayStrip();
+        window.DailySpaceLoop.setupReminderNotifications();
+      } catch (_) {
+        /* Keep shared chrome (greeting, sync) even if Today strip fails. */
+      }
     }
     setupUserSnapshotSync();
     setupGreeting();

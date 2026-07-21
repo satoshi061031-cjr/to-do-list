@@ -42,6 +42,18 @@
   --shadow-soft: var(--inner-light), 0 18px 46px rgba(28, 31, 30, 0.09);
   --glow: var(--inner-light), 0 20px 56px rgba(245, 248, 246, 0.2), 0 18px 44px rgba(28, 31, 30, 0.1);
   --font-family: Impact, Haettenschweiler, "Franklin Gothic Bold", "Arial Narrow Bold", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  /* DESIGN.md typography.* */
+  --type-display-size: 3rem;
+  --type-title-size: 1.75rem;
+  --type-body-size: 1rem;
+  --type-label-size: 0.72rem;
+  --type-display-lh: 0.95;
+  --type-body-lh: 1.65;
+  --type-display-tracking: 0.01em;
+  --type-title-tracking: 0.02em;
+  --type-body-tracking: 0.02em;
+  --type-label-tracking: 0.12em;
+  --type-label-weight: 800;
   color-scheme: light;
   font-family: var(--font-family);
 }
@@ -766,19 +778,19 @@ body.todo-agent-open.has-notif-bell .language-toggle {
 .app-greeting-title {
   margin: 0;
   color: rgba(255, 255, 255, 0.94);
-  font-size: clamp(2rem, 5vw, 3.4rem);
+  font-size: clamp(var(--type-title-size), 5vw, var(--type-display-size));
   font-weight: 400;
-  line-height: 0.95;
-  letter-spacing: 0.01em;
+  line-height: var(--type-display-lh);
+  letter-spacing: var(--type-display-tracking);
   text-shadow: 0 2px 18px rgba(0, 0, 0, 0.42);
 }
 
 .app-greeting-time {
-  margin: 0.22rem 0 0;
+  margin: var(--space-xs) 0 0;
   color: rgba(255, 255, 255, 0.72);
-  font-size: 0.95rem;
+  font-size: var(--type-body-size);
   line-height: 1.3;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--type-body-tracking);
   text-shadow: 0 2px 14px rgba(0, 0, 0, 0.36);
 }
 
@@ -1129,9 +1141,9 @@ body.todo-agent-open.has-notif-bell .language-toggle {
 .sidebar-today-strip {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
-  margin: 0 0 0.85rem;
-  padding: 0.7rem 0.8rem;
+  gap: var(--space-xs);
+  margin: 0 0 var(--space-md);
+  padding: var(--space-sm) var(--space-md);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius);
   background: var(--glass);
@@ -1150,16 +1162,16 @@ body.todo-agent-open.has-notif-bell .language-toggle {
 
 .sidebar-today-kicker {
   color: var(--highlight);
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  letter-spacing: var(--type-label-tracking);
   text-transform: uppercase;
 }
 
 .sidebar-today-line {
   color: var(--text);
-  font-size: 0.86rem;
-  letter-spacing: 0.03em;
+  font-size: var(--type-body-size);
+  letter-spacing: var(--type-body-tracking);
   line-height: 1.3;
 }
 
@@ -1790,7 +1802,7 @@ body.todo-agent-open.has-notif-bell .language-toggle {
 }
 
 .daily-loop {
-  margin-bottom: var(--space-lg);
+  margin-bottom: var(--space-md);
   padding: var(--space-md);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius);
@@ -1813,74 +1825,82 @@ body.todo-agent-open.has-notif-bell .language-toggle {
 
 .daily-loop-progress {
   margin: 0;
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  letter-spacing: var(--type-label-tracking);
   text-transform: uppercase;
   color: var(--highlight);
 }
 
 .daily-loop-focus {
-  padding: 0.45rem 0.95rem;
-  font-size: 0.78rem;
-  letter-spacing: 0.04em;
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--type-label-size);
+  letter-spacing: var(--type-body-tracking);
 }
 
 .daily-loop-pills {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-xs);
+  gap: var(--space-sm);
+  align-items: baseline;
 }
 
 .daily-loop-pill {
   display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.42rem 0.7rem;
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-pill);
-  background: var(--surface-muted);
-  color: var(--text);
+  align-items: baseline;
+  gap: var(--space-xs);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted);
   font: inherit;
-  font-size: 0.74rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  letter-spacing: var(--type-label-tracking);
+  text-transform: uppercase;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+  transition: color 0.15s, opacity 0.15s;
 }
 
 .daily-loop-pill:hover {
-  background: var(--surface-hover);
+  color: var(--text);
+  background: transparent;
 }
 
 .daily-loop-pill.is-empty {
-  opacity: 0.55;
+  display: none;
 }
 
 .daily-loop-pill.is-active {
-  border-color: color-mix(in srgb, var(--highlight) 55%, var(--glass-border));
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--highlight) 28%, transparent);
+  color: var(--highlight);
+  box-shadow: none;
+  border-color: transparent;
 }
 
 .daily-loop-pill.has-alert {
-  border-color: color-mix(in srgb, var(--danger) 45%, var(--glass-border));
-  color: color-mix(in srgb, var(--danger) 82%, var(--text));
+  color: var(--danger);
+  border-color: transparent;
 }
 
 .daily-loop-pill-count {
-  min-width: 1.25rem;
-  padding: 0.08rem 0.35rem;
-  border-radius: var(--radius-pill);
-  background: var(--accent-soft);
-  color: var(--accent);
-  text-align: center;
-  font-size: 0.7rem;
-  font-weight: 700;
+  min-width: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  text-align: start;
+  font-size: inherit;
+  font-weight: inherit;
 }
 
 .daily-loop-pill.has-alert .daily-loop-pill-count {
-  background: color-mix(in srgb, var(--danger) 18%, transparent);
-  color: var(--danger);
+  background: transparent;
+  color: inherit;
+}
+
+.daily-loop-pills:not(:has(.daily-loop-pill:not(.is-empty))) {
+  display: none;
 }
 
 .daily-loop-list {
@@ -1889,36 +1909,42 @@ body.todo-agent-open.has-notif-bell .language-toggle {
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
+  gap: var(--space-sm);
 }
 
 .daily-loop-list .todo-item {
   margin: 0;
-  padding: 0.55rem 0.7rem;
+  padding: var(--space-sm) var(--space-md);
 }
 
 .daily-loop-empty {
   margin: 0;
   color: var(--text-muted);
-  font-size: 0.86rem;
-  letter-spacing: 0.03em;
+  font-size: var(--type-body-size);
+  letter-spacing: var(--type-body-tracking);
+  line-height: var(--type-body-lh);
 }
 
 .daily-loop-reminders {
   display: block;
-  margin-top: 0.15rem;
-  padding: 0.7rem 0.8rem;
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-sm);
-  background: var(--surface-muted);
+  margin-top: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: inherit;
   text-decoration: none;
-  transition: background 0.15s, border-color 0.15s;
+  transition: color 0.15s;
+}
+
+.daily-loop-reminders[hidden] {
+  display: none !important;
 }
 
 .daily-loop-reminders:hover {
-  background: var(--surface-hover);
-  border-color: var(--glass-border);
+  background: transparent;
+  border-color: transparent;
+  color: var(--text);
 }
 
 .daily-loop-reminders-head {
@@ -1926,21 +1952,21 @@ body.todo-agent-open.has-notif-bell .language-toggle {
   align-items: baseline;
   justify-content: space-between;
   gap: var(--space-sm);
-  margin-bottom: 0.4rem;
+  margin-bottom: var(--space-xs);
 }
 
 .daily-loop-reminders-label {
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  letter-spacing: var(--type-label-tracking);
   text-transform: uppercase;
   color: var(--text-muted);
 }
 
 .daily-loop-reminders-link {
-  font-size: 0.74rem;
+  font-size: var(--type-label-size);
   font-weight: 600;
-  letter-spacing: 0.03em;
+  letter-spacing: var(--type-body-tracking);
   color: var(--accent);
 }
 
@@ -1950,19 +1976,19 @@ body.todo-agent-open.has-notif-bell .language-toggle {
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 0.28rem;
+  gap: var(--space-xs);
 }
 
 .daily-loop-reminder-item {
-  font-size: 0.84rem;
-  letter-spacing: 0.02em;
+  font-size: var(--type-body-size);
+  letter-spacing: var(--type-body-tracking);
   color: var(--text);
   line-height: 1.35;
 }
 
 .daily-loop-reminder-item.is-more {
   color: var(--text-muted);
-  font-size: 0.78rem;
+  font-size: var(--type-label-size);
 }
 
 body.todo-source-assigned .daily-loop {
@@ -1970,7 +1996,7 @@ body.todo-source-assigned .daily-loop {
 }
 
 .evening-review {
-  margin-bottom: var(--space-lg);
+  margin-bottom: var(--space-md);
   padding: var(--space-md);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius);
@@ -1984,86 +2010,64 @@ body.todo-source-assigned .daily-loop {
 }
 
 .evening-review.is-quiet {
-  opacity: 0.78;
+  display: none;
 }
 
 .evening-review-kicker {
   margin: 0;
   color: var(--highlight);
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  letter-spacing: var(--type-label-tracking);
   text-transform: uppercase;
 }
 
 .evening-review-title {
-  margin: 0.15rem 0 0;
+  margin: var(--space-xs) 0 0;
   color: var(--text);
-  font-size: 1.35rem;
+  font-size: var(--type-title-size);
   font-weight: 400;
-  letter-spacing: 0.02em;
+  letter-spacing: var(--type-title-tracking);
   line-height: 1.1;
 }
 
 .evening-review-summary {
   margin: 0;
   color: var(--text-muted);
-  font-size: 0.9rem;
-  line-height: 1.45;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  letter-spacing: var(--type-body-tracking);
 }
 
 .evening-review-stats {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-xs);
+  display: none;
 }
 
 .evening-review-stat {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.38rem 0.65rem;
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-pill);
-  background: var(--surface-muted);
-  color: var(--text);
-  font-size: 0.74rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-}
-
-.evening-review-stat.is-warn {
-  border-color: color-mix(in srgb, var(--danger) 40%, var(--border-soft));
-  color: color-mix(in srgb, var(--danger) 82%, var(--text));
-}
-
-.evening-review-stat.is-good {
-  border-color: color-mix(in srgb, var(--success) 40%, var(--border-soft));
+  display: none;
 }
 
 .evening-review-mail {
   margin: 0;
-  padding: 0.65rem 0.75rem;
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-sm);
-  background: var(--surface-muted);
-  color: var(--text);
-  font-size: 0.84rem;
-  line-height: 1.4;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  letter-spacing: var(--type-body-tracking);
 }
 
 .evening-review-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-xs);
+  gap: var(--space-sm);
 }
 
 .evening-review-actions .btn {
-  padding: 0.45rem 0.85rem;
-  font-size: 0.74rem;
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--type-label-size);
 }
 
 body.todo-source-assigned .evening-review {
@@ -2071,11 +2075,11 @@ body.todo-source-assigned .evening-review {
 }
 
 .todo-kicker {
-  margin: 0 0 0.35rem;
+  margin: 0 0 var(--space-xs);
   color: var(--highlight);
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  letter-spacing: var(--type-label-tracking);
   text-transform: uppercase;
   text-shadow: 0 2px 14px rgba(0, 0, 0, 0.28);
 }
@@ -3007,11 +3011,11 @@ body.due-day-page-open {
   }
 
   .app-greeting-title {
-    font-size: clamp(1.7rem, 7.5vw, 2.35rem);
+    font-size: clamp(var(--type-title-size), 7.5vw, 2.35rem);
   }
 
   .app-greeting-time {
-    font-size: 0.86rem;
+    font-size: var(--type-body-size);
   }
 
   .task-module {
@@ -3020,8 +3024,8 @@ body.due-day-page-open {
   }
 
   .daily-loop {
-    padding: 0.85rem;
-    gap: 0.65rem;
+    padding: var(--space-md);
+    gap: var(--space-sm);
   }
 
   .daily-loop-focus {

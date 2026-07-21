@@ -181,11 +181,11 @@
 
 .tally-today-total {
   display: block;
-  margin-top: 0.2rem;
+  margin-top: var(--space-xs);
   color: var(--text);
-  font-size: clamp(1.65rem, 5.5vw, 2.35rem);
-  line-height: 1;
-  letter-spacing: -0.04em;
+  font-size: clamp(var(--type-title-size), 5.5vw, var(--type-display-size));
+  line-height: var(--type-display-lh);
+  letter-spacing: var(--type-display-tracking);
 }
 
 .tally-week-total {

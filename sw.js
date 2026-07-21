@@ -1,4 +1,4 @@
-const CACHE_NAME = 'todo-v151';
+const CACHE_NAME = 'todo-v154';
 const SCOPE_PATH = new URL(self.registration.scope).pathname.replace(/\/$/, '');
 const withScope = (path) => `${SCOPE_PATH}${path}`;
 const urlsToCache = [
@@ -40,7 +40,16 @@ self.addEventListener('install', (event) => {
     caches
       .open(CACHE_NAME)
       .then((cache) =>
-        Promise.all(urlsToCache.map((url) => cache.add(url).catch(() => undefined)))
+        Promise.all(
+          urlsToCache.map((url) =>
+            fetch(url, { cache: 'reload' })
+              .then((response) => {
+                if (response && response.ok) return cache.put(url, response);
+                return undefined;
+              })
+              .catch(() => undefined)
+          )
+        )
       )
       .then(() => self.skipWaiting())
   );
