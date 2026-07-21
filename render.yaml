@@ -20,6 +20,10 @@ services:
         sync: false
       - key: MICROSOFT_OAUTH_CLIENT_SECRET
         sync: false
+      - key: WECHAT_OAUTH_APP_ID
+        sync: false
+      - key: WECHAT_OAUTH_APP_SECRET
+        sync: false
       - key: MAIL_TOKEN_ENCRYPTION_KEY
         generateValue: true
       - key: APP_SESSION_SECRET

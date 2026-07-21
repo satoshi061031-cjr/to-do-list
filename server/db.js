@@ -144,6 +144,88 @@ function migrate(database) {
       payload_json TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS workspaces (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      owner_user_id TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS workspace_members (
+      workspace_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      role TEXT NOT NULL,
+      status TEXT NOT NULL,
+      label TEXT,
+      joined_at TEXT,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (workspace_id, user_id),
+      FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS workspace_invites (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      email TEXT NOT NULL,
+      role TEXT NOT NULL,
+      token TEXT NOT NULL UNIQUE,
+      invited_by TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      accepted_at TEXT,
+      FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_workspace_members_user
+      ON workspace_members(user_id, status);
+    CREATE INDEX IF NOT EXISTS idx_workspace_invites_token
+      ON workspace_invites(token);
+
+    CREATE TABLE IF NOT EXISTS boards (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS board_columns (
+      id TEXT PRIMARY KEY,
+      board_id TEXT NOT NULL,
+      title TEXT NOT NULL,
+      emoji TEXT,
+      position INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (board_id) REFERENCES boards(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS board_tasks (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      board_id TEXT NOT NULL,
+      column_id TEXT NOT NULL,
+      title TEXT NOT NULL,
+      note TEXT,
+      assignee_user_id TEXT,
+      due_date TEXT,
+      completed INTEGER NOT NULL DEFAULT 0,
+      position INTEGER NOT NULL DEFAULT 0,
+      created_by TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
+      FOREIGN KEY (board_id) REFERENCES boards(id) ON DELETE CASCADE,
+      FOREIGN KEY (column_id) REFERENCES board_columns(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_boards_workspace ON boards(workspace_id);
+    CREATE INDEX IF NOT EXISTS idx_board_columns_board ON board_columns(board_id, position);
+    CREATE INDEX IF NOT EXISTS idx_board_tasks_board ON board_tasks(board_id, column_id, position);
+    CREATE INDEX IF NOT EXISTS idx_board_tasks_assignee ON board_tasks(assignee_user_id, completed);
   `);
 
   const mailAccountColumns = database.prepare("PRAGMA table_info(mail_accounts)").all();

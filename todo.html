@@ -71,6 +71,7 @@
                 aria-label="Upload illustration"
               />
               <button type="button" class="illustration-canvas" id="choose-illustration" aria-label="Upload illustration">
+                <span class="illustration-placeholder" id="illustration-placeholder">Add cover</span>
                 <img id="illustration-image" class="illustration-image" alt="" hidden />
               </button>
               <button type="button" class="illustration-delete" id="delete-illustration" aria-label="Delete illustration" hidden>
@@ -152,17 +153,25 @@
                     <div class="calendar-title" id="calendar-title"></div>
                     <button type="button" class="calendar-nav" id="cal-next" aria-label="Next month">›</button>
                   </div>
-                  <div class="calendar-weekdays">
+                  <div class="app-cal-weekdays">
                     <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
                   </div>
-                  <div class="calendar-grid" id="calendar-grid"></div>
+                  <div class="app-cal-grid" id="calendar-grid"></div>
                 </div>
               </div>
             </div>
           </form>
 
           <div class="toolbar">
-            <div class="filters" role="tablist" aria-label="Filter tasks">
+            <div class="todo-source-switch" role="tablist" aria-label="Task source">
+              <button type="button" class="todo-source-btn is-active" data-todo-source="personal" role="tab" aria-selected="true">
+                Personal
+              </button>
+              <button type="button" class="todo-source-btn" data-todo-source="assigned" role="tab" aria-selected="false">
+                Assigned to me
+              </button>
+            </div>
+            <div class="filters" id="todo-status-filters" role="tablist" aria-label="Filter tasks">
               <button type="button" class="filter-btn is-active" data-filter="all" role="tab" aria-selected="true">
                 All
               </button>
@@ -175,6 +184,9 @@
             </div>
             <button type="button" class="btn btn-ghost" id="clear-completed" hidden>Clear completed</button>
           </div>
+          <p class="todo-assigned-hint" id="todo-assigned-hint" hidden>
+            Shared tasks assigned to you from Planner team boards.
+          </p>
 
             <div class="due-day-filter-bar" id="due-day-filter-bar" hidden>
               <span class="due-day-filter-label" id="due-day-filter-label"></span>

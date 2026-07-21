@@ -44,68 +44,60 @@
           </header>
 
           <div class="calendar-content">
-            <section class="calendar-month-card" aria-label="Month calendar">
-              <div class="calendar-weekdays" aria-hidden="true">
+            <section class="calendar-month-card app-calendar-panel" aria-label="Month calendar">
+              <div class="app-cal-weekdays" aria-hidden="true">
                 <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
               </div>
-              <div class="calendar-month-grid" id="calendar-grid"></div>
+              <div class="app-cal-grid" id="calendar-grid"></div>
             </section>
 
             <aside class="calendar-day-panel" aria-labelledby="selected-day-title">
               <div class="selected-day-head">
-                <p class="selected-day-kicker">Selected day</p>
                 <h2 class="selected-day-title" id="selected-day-title"></h2>
                 <p class="selected-day-meta" id="selected-day-meta"></p>
               </div>
 
-              <form class="reminder-form" id="reminder-form" autocomplete="off">
-                <label class="reminder-label" for="reminder-input">Add reminder</label>
-                <div class="reminder-row">
-                  <input
-                    type="text"
-                    id="reminder-input"
-                    class="reminder-input"
-                    placeholder="Reminder text..."
-                    maxlength="200"
-                  />
-                </div>
-                <div class="reminder-time-row">
-                  <label class="reminder-time-field">
-                    <span>Start</span>
-                    <input type="time" id="reminder-start-time" class="reminder-time-input" />
-                  </label>
-                  <label class="reminder-time-field">
-                    <span>End</span>
-                    <input type="time" id="reminder-end-time" class="reminder-time-input" />
-                  </label>
-                  <label class="reminder-priority-field">
-                    <span>Priority</span>
-                    <select id="reminder-priority" class="reminder-priority-select">
-                      <option value="high">High</option>
-                      <option value="medium" selected>Medium</option>
-                      <option value="low">Low</option>
-                    </select>
-                  </label>
-                  <button type="submit" class="btn btn-primary reminder-submit">Add</button>
-                </div>
-              </form>
+              <section class="selected-section" aria-labelledby="tasks-title">
+                <h3 class="selected-section-title" id="tasks-title">Tasks due this day</h3>
+                <ul class="todo-list" id="task-list" aria-live="polite"></ul>
+                <p class="calendar-empty" id="task-empty" hidden></p>
+              </section>
 
               <section class="selected-section" aria-labelledby="reminders-title">
                 <h3 class="selected-section-title" id="reminders-title">Reminders</h3>
+                <form class="reminder-form" id="reminder-form" autocomplete="off">
+                  <label class="reminder-label" for="reminder-input">Add reminder</label>
+                  <div class="reminder-row">
+                    <input
+                      type="text"
+                      id="reminder-input"
+                      class="reminder-input"
+                      placeholder="Reminder text..."
+                      maxlength="200"
+                    />
+                  </div>
+                  <div class="reminder-time-row">
+                    <label class="reminder-time-field">
+                      <span>Start</span>
+                      <input type="time" id="reminder-start-time" class="reminder-time-input" />
+                    </label>
+                    <label class="reminder-time-field">
+                      <span>End</span>
+                      <input type="time" id="reminder-end-time" class="reminder-time-input" />
+                    </label>
+                    <label class="reminder-priority-field">
+                      <span>Priority</span>
+                      <select id="reminder-priority" class="reminder-priority-select">
+                        <option value="high">High</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="low">Low</option>
+                      </select>
+                    </label>
+                    <button type="submit" class="btn btn-primary reminder-submit">Add</button>
+                  </div>
+                </form>
                 <ul class="calendar-item-list" id="reminder-list"></ul>
-                <p class="calendar-empty" id="reminder-empty"></p>
-              </section>
-
-              <section class="selected-section" aria-labelledby="tasks-title">
-                <h3 class="selected-section-title" id="tasks-title">Active tasks</h3>
-                <ul class="calendar-item-list" id="task-list"></ul>
-                <p class="calendar-empty" id="task-empty"></p>
-              </section>
-
-              <section class="selected-section unscheduled-section" aria-labelledby="unscheduled-title">
-                <h3 class="selected-section-title" id="unscheduled-title">Unscheduled active tasks</h3>
-                <ul class="calendar-item-list" id="unscheduled-list"></ul>
-                <p class="calendar-empty" id="unscheduled-empty"></p>
+                <p class="calendar-empty" id="reminder-empty" hidden></p>
               </section>
             </aside>
           </div>

@@ -26,6 +26,42 @@ const {
   getDefaultStore: getUserSnapshotStore,
   isSupabaseSnapshotStoreConfigured,
 } = require("./user-snapshot-store");
+const {
+  acceptWorkspaceInvite,
+  createWorkspace,
+  createWorkspaceInvite,
+  deleteWorkspace,
+  getInviteByToken,
+  leaveWorkspace,
+  listPendingInvitesForWorkspace,
+  listWorkspaceMembers,
+  listWorkspacesForUser,
+  removeWorkspaceMember,
+  revokeWorkspaceInvite,
+  updateMemberRole,
+} = require("./workspace-store");
+const {
+  addColumn,
+  addTask,
+  createBoard,
+  deleteBoard,
+  deleteColumn,
+  deleteTask,
+  ensureDefaultBoardForWorkspace,
+  getBoard,
+  listAssignedTasksForUser,
+  listBoardsForWorkspace,
+  listWorkspaceTaskSummary,
+  updateColumn,
+  updateTask,
+} = require("./board-store");
+const {
+  countUnreadNotifications,
+  ensureNotificationTables,
+  listNotificationsForUser,
+  markAllNotificationsRead,
+  markNotificationRead,
+} = require("./notification-store");
 
 const ROOT_DIR = path.resolve(__dirname, "..");
 const PORT = Number(process.env.PORT || 3000);
@@ -132,6 +168,282 @@ async function handleApi(request, response, url) {
       userId: saved.userId,
       updatedAt: saved.updatedAt,
     });
+    return;
+  }
+
+  if (method === "GET" && url.pathname === "/api/workspaces") {
+    enforceUserSession(session);
+    sendJson(response, { workspaces: listWorkspacesForUser(session.userId) });
+    return;
+  }
+
+  if (method === "POST" && url.pathname === "/api/workspaces") {
+    enforceUserSession(session);
+    const body = await readJson(request);
+    const workspace = createWorkspace({
+      ownerUserId: session.userId,
+      name: body.name,
+      ownerLabel: session.label || session.email || session.userId,
+    });
+    const board = ensureDefaultBoardForWorkspace(workspace.id, session.userId);
+    sendJson(response, { workspace, board }, 201);
+    return;
+  }
+
+  const workspaceBoardsMatch = url.pathname.match(/^\/api\/workspaces\/([^/]+)\/boards$/);
+  if (method === "GET" && workspaceBoardsMatch) {
+    enforceUserSession(session);
+    const workspaceId = decodeURIComponent(workspaceBoardsMatch[1]);
+    sendJson(response, { boards: listBoardsForWorkspace(workspaceId, session.userId) });
+    return;
+  }
+
+  if (method === "POST" && workspaceBoardsMatch) {
+    enforceUserSession(session);
+    const workspaceId = decodeURIComponent(workspaceBoardsMatch[1]);
+    const body = await readJson(request);
+    const board = createBoard({
+      workspaceId,
+      name: body.name,
+      userId: session.userId,
+    });
+    sendJson(response, { board }, 201);
+    return;
+  }
+
+  const workspaceTaskSummaryMatch = url.pathname.match(/^\/api\/workspaces\/([^/]+)\/task-summary$/);
+  if (method === "GET" && workspaceTaskSummaryMatch) {
+    enforceUserSession(session);
+    const workspaceId = decodeURIComponent(workspaceTaskSummaryMatch[1]);
+    sendJson(response, {
+      summary: listWorkspaceTaskSummary(workspaceId, session.userId),
+    });
+    return;
+  }
+
+  const boardMatch = url.pathname.match(/^\/api\/boards\/([^/]+)$/);
+  if (method === "GET" && boardMatch) {
+    enforceUserSession(session);
+    const boardId = decodeURIComponent(boardMatch[1]);
+    sendJson(response, { board: getBoard(boardId, session.userId) });
+    return;
+  }
+
+  if (method === "DELETE" && boardMatch) {
+    enforceUserSession(session);
+    const boardId = decodeURIComponent(boardMatch[1]);
+    sendJson(response, deleteBoard(boardId, session.userId));
+    return;
+  }
+
+  const boardColumnsMatch = url.pathname.match(/^\/api\/boards\/([^/]+)\/columns$/);
+  if (method === "POST" && boardColumnsMatch) {
+    enforceUserSession(session);
+    const boardId = decodeURIComponent(boardColumnsMatch[1]);
+    const body = await readJson(request);
+    const column = addColumn(boardId, session.userId, body || {});
+    sendJson(response, { column }, 201);
+    return;
+  }
+
+  const boardColumnMatch = url.pathname.match(/^\/api\/boards\/([^/]+)\/columns\/([^/]+)$/);
+  if (method === "PATCH" && boardColumnMatch) {
+    enforceUserSession(session);
+    const boardId = decodeURIComponent(boardColumnMatch[1]);
+    const columnId = decodeURIComponent(boardColumnMatch[2]);
+    const body = await readJson(request);
+    const column = updateColumn(boardId, columnId, session.userId, body || {});
+    sendJson(response, { column });
+    return;
+  }
+
+  if (method === "DELETE" && boardColumnMatch) {
+    enforceUserSession(session);
+    const boardId = decodeURIComponent(boardColumnMatch[1]);
+    const columnId = decodeURIComponent(boardColumnMatch[2]);
+    sendJson(response, deleteColumn(boardId, columnId, session.userId));
+    return;
+  }
+
+  const boardTasksMatch = url.pathname.match(/^\/api\/boards\/([^/]+)\/tasks$/);
+  if (method === "POST" && boardTasksMatch) {
+    enforceUserSession(session);
+    const boardId = decodeURIComponent(boardTasksMatch[1]);
+    const body = await readJson(request);
+    const task = addTask(boardId, session.userId, body || {});
+    sendJson(response, { task }, 201);
+    return;
+  }
+
+  if (method === "GET" && url.pathname === "/api/me/tasks") {
+    enforceUserSession(session);
+    sendJson(response, {
+      tasks: listAssignedTasksForUser(session.userId),
+    });
+    return;
+  }
+
+  if (method === "GET" && url.pathname === "/api/me/notifications") {
+    enforceUserSession(session);
+    ensureNotificationTables();
+    const limit = Number(url.searchParams.get("limit") || 40);
+    sendJson(response, {
+      notifications: listNotificationsForUser(session.userId, { limit }),
+      unreadCount: countUnreadNotifications(session.userId),
+    });
+    return;
+  }
+
+  if (method === "POST" && url.pathname === "/api/me/notifications/read-all") {
+    enforceUserSession(session);
+    sendJson(response, markAllNotificationsRead(session.userId));
+    return;
+  }
+
+  const notificationReadMatch = url.pathname.match(/^\/api\/me\/notifications\/([^/]+)\/read$/);
+  if (method === "POST" && notificationReadMatch) {
+    enforceUserSession(session);
+    const notificationId = decodeURIComponent(notificationReadMatch[1]);
+    sendJson(response, {
+      notification: markNotificationRead(notificationId, session.userId),
+    });
+    return;
+  }
+
+  const taskMatch = url.pathname.match(/^\/api\/tasks\/([^/]+)$/);
+  if (method === "PATCH" && taskMatch) {
+    enforceUserSession(session);
+    const taskId = decodeURIComponent(taskMatch[1]);
+    const body = await readJson(request);
+    const task = updateTask(taskId, session.userId, body || {});
+    sendJson(response, { task });
+    return;
+  }
+
+  if (method === "DELETE" && taskMatch) {
+    enforceUserSession(session);
+    const taskId = decodeURIComponent(taskMatch[1]);
+    sendJson(response, deleteTask(taskId, session.userId));
+    return;
+  }
+
+  const workspaceMembersMatch = url.pathname.match(/^\/api\/workspaces\/([^/]+)\/members$/);
+  if (method === "GET" && workspaceMembersMatch) {
+    enforceUserSession(session);
+    const workspaceId = decodeURIComponent(workspaceMembersMatch[1]);
+    sendJson(response, {
+      members: listWorkspaceMembers(workspaceId, session.userId),
+    });
+    return;
+  }
+
+  const workspaceMemberMatch = url.pathname.match(/^\/api\/workspaces\/([^/]+)\/members\/([^/]+)$/);
+  if (method === "PATCH" && workspaceMemberMatch) {
+    enforceUserSession(session);
+    const workspaceId = decodeURIComponent(workspaceMemberMatch[1]);
+    const targetUserId = decodeURIComponent(workspaceMemberMatch[2]);
+    const body = await readJson(request);
+    sendJson(response, {
+      member: updateMemberRole(workspaceId, session.userId, targetUserId, body.role),
+    });
+    return;
+  }
+
+  if (method === "DELETE" && workspaceMemberMatch) {
+    enforceUserSession(session);
+    const workspaceId = decodeURIComponent(workspaceMemberMatch[1]);
+    const targetUserId = decodeURIComponent(workspaceMemberMatch[2]);
+    sendJson(response, removeWorkspaceMember(workspaceId, session.userId, targetUserId));
+    return;
+  }
+
+  const workspaceLeaveMatch = url.pathname.match(/^\/api\/workspaces\/([^/]+)\/leave$/);
+  if (method === "POST" && workspaceLeaveMatch) {
+    enforceUserSession(session);
+    const workspaceId = decodeURIComponent(workspaceLeaveMatch[1]);
+    sendJson(response, leaveWorkspace(workspaceId, session.userId));
+    return;
+  }
+
+  const workspaceDeleteMatch = url.pathname.match(/^\/api\/workspaces\/([^/]+)$/);
+  if (method === "DELETE" && workspaceDeleteMatch) {
+    enforceUserSession(session);
+    const workspaceId = decodeURIComponent(workspaceDeleteMatch[1]);
+    sendJson(response, deleteWorkspace(workspaceId, session.userId));
+    return;
+  }
+
+  const workspaceInvitesMatch = url.pathname.match(/^\/api\/workspaces\/([^/]+)\/invites$/);
+  if (method === "GET" && workspaceInvitesMatch) {
+    enforceUserSession(session);
+    const workspaceId = decodeURIComponent(workspaceInvitesMatch[1]);
+    sendJson(response, {
+      invites: listPendingInvitesForWorkspace(workspaceId, session.userId),
+    });
+    return;
+  }
+
+  if (method === "POST" && workspaceInvitesMatch) {
+    enforceUserSession(session);
+    const workspaceId = decodeURIComponent(workspaceInvitesMatch[1]);
+    const body = await readJson(request);
+    const invite = createWorkspaceInvite({
+      workspaceId,
+      invitedBy: session.userId,
+      email: body.email,
+      role: body.role,
+      inviterLabel: session.label || session.email || session.userId,
+    });
+    sendJson(response, { invite }, 201);
+    return;
+  }
+
+  const workspaceInviteDeleteMatch = url.pathname.match(
+    /^\/api\/workspaces\/([^/]+)\/invites\/([^/]+)$/
+  );
+  if (method === "DELETE" && workspaceInviteDeleteMatch) {
+    enforceUserSession(session);
+    const workspaceId = decodeURIComponent(workspaceInviteDeleteMatch[1]);
+    const inviteId = decodeURIComponent(workspaceInviteDeleteMatch[2]);
+    sendJson(response, revokeWorkspaceInvite(workspaceId, session.userId, inviteId));
+    return;
+  }
+
+  const inviteTokenMatch = url.pathname.match(/^\/api\/invites\/([^/]+)$/);
+  if (method === "GET" && inviteTokenMatch) {
+    const token = decodeURIComponent(inviteTokenMatch[1]);
+    const invite = getInviteByToken(token);
+    if (!invite || invite.acceptedAt) {
+      const error = new Error("Invite not found or already used.");
+      error.statusCode = 404;
+      throw error;
+    }
+    if (Date.parse(invite.expiresAt) < Date.now()) {
+      const error = new Error("This invite has expired.");
+      error.statusCode = 410;
+      throw error;
+    }
+    sendJson(response, {
+      invite: {
+        workspaceId: invite.workspaceId,
+        workspaceName: invite.workspaceName,
+        email: invite.email,
+        role: invite.role,
+        expiresAt: invite.expiresAt,
+      },
+    });
+    return;
+  }
+
+  if (method === "POST" && url.pathname === "/api/invites/accept") {
+    enforceUserSession(session);
+    const body = await readJson(request);
+    const workspace = acceptWorkspaceInvite({
+      token: body.token,
+      userId: session.userId,
+      userLabel: session.label || session.email || session.userId,
+    });
+    sendJson(response, { workspace });
     return;
   }
 
@@ -402,6 +714,108 @@ async function handleApi(request, response, url) {
         withQuery(returnTo, {
           userauth: "error",
           message: error.message || "Outlook sign-in failed.",
+        })
+      );
+      return;
+    }
+  }
+
+  if (method === "POST" && url.pathname === "/api/auth/wechat/start") {
+    const body = await readJson(request);
+    const returnTo = sanitizeReturnTo(body.returnTo || "/todo.html");
+    const state = crypto.randomUUID();
+    const providerConfig = getWeChatSignInConfig(request);
+    createOauthState({
+      state,
+      provider: "wechat-login",
+      returnTo,
+    });
+    sendJson(response, {
+      ok: true,
+      authUrl: buildWeChatAuthUrl(providerConfig, state),
+    });
+    return;
+  }
+
+  if (method === "GET" && url.pathname === "/api/auth/wechat/callback") {
+    const state = url.searchParams.get("state") || "";
+    const code = url.searchParams.get("code") || "";
+    const oauthError = url.searchParams.get("error") || url.searchParams.get("errcode");
+    const oauthErrorDescription =
+      url.searchParams.get("error_description") || url.searchParams.get("errmsg") || "";
+    const stateInfo = consumeOauthState(state);
+    const returnTo = sanitizeReturnTo(stateInfo?.returnTo || "/todo.html");
+
+    if (!stateInfo || stateInfo.provider !== "wechat-login") {
+      sendRedirect(
+        response,
+        withQuery(returnTo, {
+          userauth: "error",
+          message: "WeChat sign-in state expired. Please try again.",
+        })
+      );
+      return;
+    }
+
+    if (oauthError) {
+      sendRedirect(
+        response,
+        withQuery(returnTo, {
+          userauth: "error",
+          message: oauthErrorDescription || String(oauthError),
+        })
+      );
+      return;
+    }
+
+    if (!code) {
+      sendRedirect(
+        response,
+        withQuery(returnTo, {
+          userauth: "error",
+          message: "Missing WeChat OAuth code.",
+        })
+      );
+      return;
+    }
+
+    try {
+      const config = getWeChatSignInConfig(request);
+      const token = await exchangeWeChatCode(config, code);
+      const openid = String(token.openid || "").trim();
+      if (!openid) {
+        throw Object.assign(new Error("Unable to read WeChat openid."), { statusCode: 502 });
+      }
+      const profile = await fetchWeChatUserInfo(token.access_token, openid);
+      const userId = `wechat:${openid}`.toLowerCase();
+      const label =
+        String(profile.nickname || "").trim().slice(0, 80) ||
+        `WeChat ${openid.slice(0, 6)}`;
+      sendRedirect(
+        response,
+        withQuery(returnTo, {
+          userauth: "success",
+          provider: "WeChat",
+          label: label.slice(0, 80),
+          email: userId.slice(0, 120),
+        }),
+        302,
+        {
+          "Set-Cookie": buildSessionCookieValue({
+            userId,
+            email: userId,
+            provider: "WeChat",
+            label,
+          }),
+        }
+      );
+      return;
+    } catch (error) {
+      sendRedirect(
+        response,
+        withQuery(returnTo, {
+          userauth: "error",
+          message: error.message || "WeChat sign-in failed.",
         })
       );
       return;
@@ -1062,6 +1476,74 @@ function getOutlookSignInConfig(request) {
     authUrl: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
     tokenUrl: "https://login.microsoftonline.com/common/oauth2/v2.0/token",
   };
+}
+
+function getWeChatSignInConfig(request) {
+  const baseUrl = getBaseUrl(request);
+  const clientId = process.env.WECHAT_OAUTH_APP_ID;
+  const clientSecret = process.env.WECHAT_OAUTH_APP_SECRET;
+  const redirectUri = process.env.WECHAT_SIGNIN_REDIRECT_URI || `${baseUrl}/api/auth/wechat/callback`;
+  if (!clientId || !clientSecret) {
+    const error = new Error("WeChat OAuth env is missing (WECHAT_OAUTH_APP_ID / WECHAT_OAUTH_APP_SECRET).");
+    error.statusCode = 500;
+    throw error;
+  }
+  return {
+    clientId,
+    clientSecret,
+    redirectUri,
+    scope: "snsapi_login",
+    authUrl: "https://open.weixin.qq.com/connect/qrconnect",
+  };
+}
+
+function buildWeChatAuthUrl(config, state) {
+  const params = new URLSearchParams({
+    appid: config.clientId,
+    redirect_uri: config.redirectUri,
+    response_type: "code",
+    scope: config.scope || "snsapi_login",
+    state,
+  });
+  return `${config.authUrl}?${params.toString()}#wechat_redirect`;
+}
+
+async function exchangeWeChatCode(config, code) {
+  const params = new URLSearchParams({
+    appid: config.clientId,
+    secret: config.clientSecret,
+    code,
+    grant_type: "authorization_code",
+  });
+  const response = await fetch(`https://api.weixin.qq.com/sns/oauth2/access_token?${params.toString()}`);
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || payload.errcode) {
+    const error = new Error(payload.errmsg || "WeChat token exchange failed.");
+    error.statusCode = 502;
+    throw error;
+  }
+  if (!payload.access_token || !payload.openid) {
+    const error = new Error("WeChat token response missing access_token or openid.");
+    error.statusCode = 502;
+    throw error;
+  }
+  return payload;
+}
+
+async function fetchWeChatUserInfo(accessToken, openid) {
+  if (!accessToken || !openid) return {};
+  try {
+    const params = new URLSearchParams({
+      access_token: accessToken,
+      openid,
+    });
+    const response = await fetch(`https://api.weixin.qq.com/sns/userinfo?${params.toString()}`);
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload.errcode) return {};
+    return payload && typeof payload === "object" ? payload : {};
+  } catch (_) {
+    return {};
+  }
 }
 
 function parseJwtClaims(jwt) {

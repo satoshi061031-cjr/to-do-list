@@ -76,13 +76,18 @@ Signals are for research only and are not investment advice.
 - `GET /api/auth/google/callback`
 - `POST /api/auth/outlook/start` with `{ "returnTo": "/todo.html" }`
 - `GET /api/auth/outlook/callback`
+- `POST /api/auth/wechat/start` with `{ "returnTo": "/todo.html" }`
+- `GET /api/auth/wechat/callback`
 
-To enable real Gmail/Outlook authorization, copy `.env.example` to `.env` and fill:
+To enable real Gmail/Outlook/WeChat authorization, copy `.env.example` to `.env` and fill:
 
 - `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`
 - `MICROSOFT_OAUTH_CLIENT_ID`, `MICROSOFT_OAUTH_CLIENT_SECRET`
+- `WECHAT_OAUTH_APP_ID`, `WECHAT_OAUTH_APP_SECRET` (微信开放平台「网站应用」扫码登录)
 - `MAIL_TOKEN_ENCRYPTION_KEY` (`openssl rand -base64 32`)
 - `MAIL_OAUTH_BASE_URL` for production domain
+
+For WeChat website-app login, register the authorization callback domain to match `MAIL_OAUTH_BASE_URL`, and use callback path `/api/auth/wechat/callback`. Local testing needs a public HTTPS tunnel because WeChat only redirects to registered domains.
 
 iCloud real connection uses Apple app-specific password with IMAP login verification against `imap.mail.me.com:993`.
 

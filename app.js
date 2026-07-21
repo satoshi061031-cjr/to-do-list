@@ -43,6 +43,9 @@
   const countEl = document.getElementById("count-text");
   const clearBtn = document.getElementById("clear-completed");
   const filterBtns = document.querySelectorAll(".filter-btn");
+  const sourceBtns = document.querySelectorAll(".todo-source-btn");
+  const statusFiltersEl = document.getElementById("todo-status-filters");
+  const assignedHintEl = document.getElementById("todo-assigned-hint");
 
   const sidebarEl = document.getElementById("sidebar");
   const sidebarTrigger = document.getElementById("sidebar-trigger");
@@ -55,6 +58,7 @@
   const illustrationUpload = document.getElementById("illustration-upload");
   const chooseIllustrationBtn = document.getElementById("choose-illustration");
   const illustrationImage = document.getElementById("illustration-image");
+  const illustrationPlaceholder = document.getElementById("illustration-placeholder");
   const deleteIllustrationBtn = document.getElementById("delete-illustration");
 
   const appCalendarLive = document.getElementById("app-calendar-live");
@@ -79,6 +83,26 @@
 
   /** @type {"all" | "active" | "completed"} */
   let filter = "all";
+
+  /** @type {"personal" | "assigned"} */
+  let todoSource = "personal";
+
+  /**
+   * @typedef {{
+   *   id: string;
+   *   text: string;
+   *   completed: boolean;
+   *   dueDate: string | null;
+   *   categoryId: string | null;
+   *   boardName?: string;
+   *   workspaceName?: string;
+   *   source?: "assigned";
+   * }} AssignedTodo
+   */
+  /** @type {AssignedTodo[]} */
+  let assignedTasks = [];
+  let assignedLoading = false;
+  let assignedError = "";
 
   function bootstrap() {
     migratePlannerFromTodoAppV2();
@@ -237,11 +261,13 @@
       illustrationImage.hidden = true;
       illustrationImage.removeAttribute("src");
       deleteIllustrationBtn.hidden = true;
+      if (illustrationPlaceholder) illustrationPlaceholder.hidden = false;
       return;
     }
     illustrationImage.src = illustrationData;
     illustrationImage.hidden = false;
     deleteIllustrationBtn.hidden = false;
+    if (illustrationPlaceholder) illustrationPlaceholder.hidden = true;
   }
 
   function id() {
@@ -502,7 +528,7 @@
 
     for (let i = 0; i < pad; i++) {
       const hole = document.createElement("div");
-      hole.className = "calendar-pad";
+      hole.className = "app-cal-pad";
       hole.setAttribute("aria-hidden", "true");
       calendarGrid.appendChild(hole);
     }
@@ -511,7 +537,7 @@
       const iso = toIsoYmd(calYear, calMonth, day);
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className = "calendar-cell";
+      btn.className = "app-cal-cell";
       btn.textContent = String(day);
       btn.setAttribute("aria-label", formatDueDate(iso));
 
@@ -610,6 +636,8 @@
 
   function removeCategory(catId, e) {
     e.stopPropagation();
+    const label = categoryLabelById(catId);
+    if (!window.confirm(`Delete category “${label}”? Tasks in it stay, without a category.`)) return;
     todos = todos.map((t) => (t.categoryId === catId ? { ...t, categoryId: null } : t));
     categories = categories.filter((c) => c.id !== catId);
     delete illustrationsByCategory[catId];
@@ -812,11 +840,106 @@
     dueDayFilterLabel.textContent = `Tasks due ${formatDueDate(viewDueDateFilter)}`;
   }
 
+  async function apiRequest(path, init) {
+    const response = await fetch(path, init);
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || "Request failed");
+    return payload;
+  }
+
+  function mapAssignedTask(task) {
+    return {
+      id: String(task.id),
+      text: String(task.title || "").trim() || "Untitled",
+      completed: Boolean(task.completed),
+      dueDate: task.dueDate || null,
+      categoryId: null,
+      boardName: task.boardName || "Team board",
+      workspaceName: task.workspaceName || "Workspace",
+      source: /** @type {const} */ ("assigned"),
+    };
+  }
+
+  async function loadAssignedTasks() {
+    assignedLoading = true;
+    assignedError = "";
+    render();
+    try {
+      const me = await apiRequest("/api/auth/me");
+      if (!me.user) {
+        assignedTasks = [];
+        assignedError = "Sign in to see tasks assigned to you.";
+        return;
+      }
+      const payload = await apiRequest("/api/me/tasks");
+      assignedTasks = (payload.tasks || []).map(mapAssignedTask);
+    } catch (error) {
+      assignedTasks = [];
+      assignedError = error instanceof Error ? error.message : "Failed to load assigned tasks.";
+    } finally {
+      assignedLoading = false;
+      render();
+    }
+  }
+
+  function syncSourceChrome() {
+    const isAssigned = todoSource === "assigned";
+    document.body.classList.toggle("todo-source-assigned", isAssigned);
+    if (form) form.hidden = isAssigned;
+    if (statusFiltersEl) statusFiltersEl.hidden = isAssigned;
+    if (assignedHintEl) assignedHintEl.hidden = !isAssigned;
+    if (clearBtn && isAssigned) clearBtn.hidden = true;
+    if (dueDayFilterBar && isAssigned) dueDayFilterBar.hidden = true;
+    sourceBtns.forEach((btn) => {
+      const active = btn.dataset.todoSource === todoSource;
+      btn.classList.toggle("is-active", active);
+      btn.setAttribute("aria-selected", active ? "true" : "false");
+    });
+  }
+
+  function setTodoSource(next) {
+    if (next !== "personal" && next !== "assigned") return;
+    if (todoSource === next) {
+      if (next === "assigned") loadAssignedTasks();
+      return;
+    }
+    todoSource = next;
+    syncSourceChrome();
+    if (todoSource === "assigned") {
+      closeDueDayPage();
+      loadAssignedTasks();
+      return;
+    }
+    render();
+  }
+
+  async function completeAssignedTask(taskId) {
+    const target = assignedTasks.find((t) => t.id === taskId);
+    if (!target || target.completed) return;
+    target.completed = true;
+    render();
+    try {
+      await apiRequest(`/api/tasks/${encodeURIComponent(taskId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ completed: true }),
+      });
+      assignedTasks = assignedTasks.filter((t) => t.id !== taskId);
+      render();
+    } catch (error) {
+      target.completed = false;
+      assignedError = error instanceof Error ? error.message : "Failed to complete task.";
+      render();
+    }
+  }
+
   /**
-   * @param {{ id: string; text: string; completed: boolean; dueDate: string | null; categoryId: string | null }} todo
-   * @param {{ showCategoryPill: boolean; showDueBadge: boolean }} opts
+   * @param {{ id: string; text: string; completed: boolean; dueDate: string | null; categoryId: string | null; boardName?: string; workspaceName?: string; source?: string }} todo
+   * @param {{ showCategoryPill: boolean; showDueBadge: boolean; showBoardMeta?: boolean; allowDelete?: boolean; onToggle?: (id: string) => void }} opts
    */
   function createTodoListItemEl(todo, opts) {
+    const onToggle = opts.onToggle || toggle;
+    const allowDelete = opts.allowDelete !== false;
     const li = document.createElement("li");
     li.className = "todo-item" + (todo.completed ? " completed" : "");
     li.dataset.id = todo.id;
@@ -826,7 +949,7 @@
     check.className = "todo-check";
     check.checked = todo.completed;
     check.setAttribute("aria-label", todo.completed ? "Mark as active" : "Mark as done");
-    check.addEventListener("change", () => toggle(todo.id));
+    check.addEventListener("change", () => onToggle(todo.id));
 
     const main = document.createElement("div");
     main.className = "todo-main";
@@ -834,9 +957,16 @@
     const label = document.createElement("span");
     label.className = "todo-label";
     label.textContent = todo.text;
-    label.addEventListener("click", () => toggle(todo.id));
+    label.addEventListener("click", () => onToggle(todo.id));
 
     main.appendChild(label);
+
+    if (opts.showBoardMeta && (todo.boardName || todo.workspaceName)) {
+      const meta = document.createElement("span");
+      meta.className = "todo-board-meta";
+      meta.textContent = [todo.workspaceName, todo.boardName].filter(Boolean).join(" · ");
+      main.appendChild(meta);
+    }
 
     if (opts.showCategoryPill && todo.categoryId && categoryExists(todo.categoryId)) {
       const pill = document.createElement("span");
@@ -856,14 +986,17 @@
       main.appendChild(dueEl);
     }
 
-    const del = document.createElement("button");
-    del.type = "button";
-    del.className = "todo-delete";
-    del.setAttribute("aria-label", "Delete task");
-    del.textContent = "×";
-    del.addEventListener("click", () => remove(todo.id));
-
-    li.append(check, main, del);
+    if (allowDelete) {
+      const del = document.createElement("button");
+      del.type = "button";
+      del.className = "todo-delete";
+      del.setAttribute("aria-label", "Delete task");
+      del.textContent = "×";
+      del.addEventListener("click", () => remove(todo.id));
+      li.append(check, main, del);
+    } else {
+      li.append(check, main);
+    }
     return li;
   }
 
@@ -904,7 +1037,57 @@
     dueDayPageSub.textContent = empty ? "" : `${list.length} ${list.length === 1 ? "task" : "tasks"}`;
   }
 
+  function renderAssigned() {
+    listEl.innerHTML = "";
+    syncDueDayFilterBar();
+    clearBtn.hidden = true;
+
+    if (assignedLoading) {
+      countEl.textContent = "Loading…";
+      emptyEl.classList.add("is-visible");
+      emptyEl.textContent = "Loading assigned tasks…";
+      return;
+    }
+
+    if (assignedError) {
+      countEl.textContent = "Assigned";
+      emptyEl.classList.add("is-visible");
+      emptyEl.textContent = assignedError;
+      return;
+    }
+
+    const visible = assignedTasks.filter((t) => !t.completed);
+    visible.forEach((todo) => {
+      listEl.appendChild(
+        createTodoListItemEl(todo, {
+          showCategoryPill: false,
+          showDueBadge: !!todo.dueDate,
+          showBoardMeta: true,
+          allowDelete: false,
+          onToggle: completeAssignedTask,
+        })
+      );
+    });
+
+    const left = visible.length;
+    countEl.textContent =
+      left === 0 ? "All caught up" : `${left} ${left === 1 ? "task" : "tasks"} left`;
+
+    const showEmpty = left === 0;
+    emptyEl.classList.toggle("is-visible", showEmpty);
+    if (showEmpty) {
+      emptyEl.textContent =
+        "No open assignments. Assign cards to yourself in Planner → Team boards.";
+    }
+  }
+
   function render() {
+    syncSourceChrome();
+    if (todoSource === "assigned") {
+      renderAssigned();
+      return;
+    }
+
     const visible = visibleTodosPipeline();
     listEl.innerHTML = "";
     syncDueDayFilterBar();
@@ -1179,13 +1362,30 @@
     render();
   });
 
+  window.addEventListener("daily-space-auth-updated", () => {
+    if (todoSource === "assigned") loadAssignedTasks();
+  });
+
   bootstrap();
   renderCategorySidebar();
   refreshIllustration();
   render();
 
+  if (window.location.hash === "#assigned") {
+    setTodoSource("assigned");
+  }
+
+  window.addEventListener("daily-space-open-assigned", () => {
+    setTodoSource("assigned");
+  });
+
+  window.addEventListener("hashchange", () => {
+    if (window.location.hash === "#assigned") setTodoSource("assigned");
+  });
+
   form.addEventListener("submit", (e) => {
     e.preventDefault();
+    if (todoSource !== "personal") return;
     const due = deadlineInput.value.trim() || null;
     add(input.value, due);
     input.value = "";
@@ -1199,6 +1399,12 @@
 
   filterBtns.forEach((btn) => {
     btn.addEventListener("click", () => setFilter(/** @type {any} */ (btn.dataset.filter)));
+  });
+
+  sourceBtns.forEach((btn) => {
+    btn.addEventListener("click", () =>
+      setTodoSource(/** @type {"personal" | "assigned"} */ (btn.dataset.todoSource))
+    );
   });
 
   dueDayFilterClear.addEventListener("click", () => {

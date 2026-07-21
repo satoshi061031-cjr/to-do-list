@@ -18,10 +18,10 @@
   --primary: #35322e;
   --primary-hover: #45413c;
   --on-primary: #faf8f4;
-  --tertiary: #f6d84f;
-  --on-tertiary: #2c2925;
-  --highlight: #f6d84f;
-  --tertiary-hover: #ffe66d;
+  --tertiary: #e5c235;
+  --on-tertiary: #1a1814;
+  --highlight: #e5c235;
+  --tertiary-hover: #c9a91c;
   --success: #5a6b58;
   --danger: #a64b45;
   --radius: 24px;
@@ -41,8 +41,9 @@
   --shadow-pop: var(--inner-light), 0 34px 88px rgba(28, 31, 30, 0.16);
   --shadow-soft: var(--inner-light), 0 18px 46px rgba(28, 31, 30, 0.09);
   --glow: var(--inner-light), 0 20px 56px rgba(245, 248, 246, 0.2), 0 18px 44px rgba(28, 31, 30, 0.1);
+  --font-family: Impact, Haettenschweiler, "Franklin Gothic Bold", "Arial Narrow Bold", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
   color-scheme: light;
-  font-family: Impact, Haettenschweiler, "Franklin Gothic Bold", "Arial Narrow Bold", sans-serif;
+  font-family: var(--font-family);
 }
 
 :root[data-theme="dark"] {
@@ -66,9 +67,9 @@
   --primary-hover: #fff8eb;
   --on-primary: #1d1c19;
   --tertiary: #f6d84f;
-  --on-tertiary: #2c2925;
+  --on-tertiary: #1a1814;
   --highlight: #f6d84f;
-  --tertiary-hover: #ffe66d;
+  --tertiary-hover: #e5c235;
   --success: #9bb895;
   --danger: #d7837c;
   --glass: radial-gradient(ellipse at 50% 42%, rgba(93, 89, 80, 0.32) 0%, rgba(58, 57, 52, 0.24) 58%, rgba(27, 27, 25, 0.16) 100%);
@@ -188,7 +189,7 @@ body::after {
   padding: max(1.25rem, env(safe-area-inset-top)) 1.25rem max(1.25rem, env(safe-area-inset-bottom));
   color: var(--text);
   background: transparent;
-  font-family: Inter, "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
+  font-family: var(--font-family);
   isolation: isolate;
   touch-action: none;
 }
@@ -331,6 +332,12 @@ body::after {
   background: #0f6cbd;
 }
 
+.welcome-provider-wechat {
+  color: var(--on-primary);
+  background: color-mix(in srgb, var(--success) 88%, var(--primary));
+  box-shadow: var(--shadow-soft);
+}
+
 .welcome-provider-mark {
   display: grid;
   place-items: center;
@@ -352,6 +359,12 @@ body::after {
 .welcome-provider-outlook .welcome-provider-mark {
   color: #fff;
   font-family: "Segoe UI Symbol", Arial, sans-serif;
+}
+
+.welcome-provider-wechat .welcome-provider-mark {
+  color: var(--on-primary);
+  background: color-mix(in srgb, var(--on-primary) 18%, transparent);
+  font-size: 0.82rem;
 }
 
 .welcome-enter {
@@ -531,14 +544,188 @@ body::after {
   border-radius: 999px;
   background: var(--glass-strong);
   color: var(--text);
-  box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(14px) saturate(1.05);
-  -webkit-backdrop-filter: blur(14px) saturate(1.05);
   font: inherit;
-  font-size: 0.78rem;
-  font-weight: 760;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
   cursor: pointer;
-  transition: right 0.24s ease, background 0.15s, border-color 0.15s, transform 0.1s;
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(12px) saturate(1.08);
+  -webkit-backdrop-filter: blur(12px) saturate(1.08);
+  transition: background 0.15s, border-color 0.15s, right 0.2s ease;
+}
+
+body.has-notif-bell .language-toggle {
+  right: 4.6rem;
+}
+
+.notif-root {
+  position: fixed;
+  top: max(1rem, env(safe-area-inset-top));
+  right: 1rem;
+  z-index: 266;
+}
+
+.notif-bell {
+  position: relative;
+  width: 2.25rem;
+  height: 2.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  background: var(--glass-strong);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(12px) saturate(1.08);
+  -webkit-backdrop-filter: blur(12px) saturate(1.08);
+  transition: background 0.15s, border-color 0.15s, transform 0.15s;
+}
+
+.notif-bell:hover,
+.notif-bell:focus-visible {
+  outline: none;
+  background: var(--glass);
+  box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow-soft);
+}
+
+.notif-bell-glyph {
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.notif-bell-dot {
+  position: absolute;
+  top: 0.32rem;
+  right: 0.32rem;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: var(--tertiary);
+  box-shadow: 0 0 0 2px var(--surface);
+}
+
+.notif-panel {
+  position: absolute;
+  top: calc(100% + 0.55rem);
+  right: 0;
+  width: min(22rem, calc(100vw - 2rem));
+  max-height: min(24rem, 70vh);
+  overflow: auto;
+  padding: var(--space-md);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg, var(--radius));
+  background: var(--glass-strong);
+  color: var(--text);
+  box-shadow: var(--shadow-pop);
+  backdrop-filter: blur(16px) saturate(1.1);
+  -webkit-backdrop-filter: blur(16px) saturate(1.1);
+}
+
+.notif-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.notif-panel-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.notif-mark-all {
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0.2rem 0.1rem;
+}
+
+.notif-mark-all:hover {
+  color: var(--text);
+}
+
+.notif-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.notif-item-btn {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  padding: 0.7rem 0.75rem;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  background: var(--glass);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.notif-item.is-unread .notif-item-btn {
+  border-color: color-mix(in srgb, var(--tertiary) 45%, var(--glass-border));
+  background: color-mix(in srgb, var(--accent-soft) 70%, var(--glass));
+}
+
+.notif-item-btn:hover {
+  background: var(--glass-strong);
+}
+
+.notif-item-title {
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.notif-item-body {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+
+.notif-item-time {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+}
+
+.notif-empty {
+  margin: 0.4rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.welcome-active .notif-root,
+.welcome-screen ~ .notif-root {
+  display: none;
+}
+
+body.todo-agent-open .notif-root,
+body.todo-agent-open .language-toggle {
+  right: 24rem;
+}
+
+body.todo-agent-open.has-notif-bell .language-toggle {
+  right: calc(24rem + 3.6rem);
 }
 
 .language-toggle:hover {
@@ -614,21 +801,21 @@ body::after {
 
 .sidebar-trigger {
   position: fixed;
-  top: 1rem;
-  left: 1rem;
+  top: 0.75rem;
+  left: 0.75rem;
   z-index: 210;
   font: inherit;
   font-weight: 700;
-  font-size: 0.72rem;
-  letter-spacing: 0.06em;
+  font-size: 0.62rem;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  padding: 0.5rem 0.85rem;
+  padding: 0.32rem 0.55rem;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--text);
   cursor: pointer;
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-soft);
   transition: background 0.15s, border-color 0.15s;
 }
 
@@ -639,6 +826,50 @@ body::after {
 .sidebar-trigger:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow);
+}
+
+.sidebar-hint {
+  position: fixed;
+  top: 50%;
+  left: 0.85rem;
+  z-index: 220;
+  max-width: 11.5rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  background: var(--glass-strong);
+  color: var(--text);
+  box-shadow: var(--shadow-pop);
+  backdrop-filter: blur(12px) saturate(1.08);
+  -webkit-backdrop-filter: blur(12px) saturate(1.08);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  line-height: 1.35;
+  transform: translateY(-50%);
+  animation: sidebar-hint-in 0.35s ease;
+  pointer-events: none;
+}
+
+@keyframes sidebar-hint-in {
+  from {
+    opacity: 0;
+    transform: translate(-0.4rem, -50%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(0, -50%);
+  }
+}
+
+.welcome-active .sidebar-hint {
+  display: none !important;
+}
+
+@media (max-width: 819px) {
+  .sidebar-hint {
+    display: none !important;
+  }
 }
 
 .backdrop {
@@ -1060,6 +1291,13 @@ body::after {
   display: block;
 }
 
+.auth-provider-icon-wechat {
+  color: var(--on-primary);
+  background: color-mix(in srgb, var(--success) 88%, var(--primary));
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
 .auth-divider {
   position: relative;
   text-align: center;
@@ -1250,22 +1488,31 @@ body::after {
 }
 
 .illustration-canvas {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
   min-height: 3rem;
-  border: 1px dashed rgba(220, 212, 196, 0.55);
+  border: 1px dashed var(--glass-border);
   border-radius: var(--radius);
-  background: transparent;
+  background: var(--glass);
   padding: 0;
   cursor: pointer;
-  display: grid;
-  place-items: center;
   overflow: hidden;
   transition: background 0.15s, border-color 0.15s;
 }
 
+.illustration-placeholder {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
 .illustration-canvas:hover {
-  background: transparent;
-  border-color: rgba(79, 99, 104, 0.5);
+  background: var(--glass-strong);
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--glass-border));
 }
 
 .illustration-image {
@@ -1652,6 +1899,12 @@ body::after {
   text-align: center;
 }
 
+.calendar-popover .app-cal-pad,
+.calendar-popover .app-cal-cell {
+  min-height: 2.1rem;
+  font-size: 0.82rem;
+}
+
 .calendar-header {
   display: grid;
   grid-template-columns: 2rem 1fr 2rem;
@@ -1826,6 +2079,8 @@ body::after {
   background: var(--tertiary);
   color: var(--on-tertiary);
   border-radius: var(--radius-pill);
+  font-weight: 800;
+  border: 1px solid color-mix(in srgb, var(--on-tertiary) 16%, transparent);
 }
 
 .btn-primary:hover {
@@ -1853,6 +2108,66 @@ body::after {
   gap: 0.75rem;
   margin-bottom: 0.95rem;
   flex-wrap: wrap;
+}
+
+.todo-source-switch {
+  display: flex;
+  gap: var(--space-xs);
+  background: var(--glass);
+  padding: 0.35rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(10px) saturate(1.04);
+  -webkit-backdrop-filter: blur(10px) saturate(1.04);
+  flex: 1 1 100%;
+}
+
+.todo-source-btn {
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.45rem 0.9rem;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+  letter-spacing: 0.05em;
+  flex: 1;
+}
+
+.todo-source-btn:hover {
+  color: var(--text);
+}
+
+.todo-source-btn.is-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 800;
+  box-shadow: var(--shadow-soft);
+}
+
+.todo-assigned-hint {
+  margin: 0 0 var(--space-md);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+  line-height: 1.45;
+}
+
+.todo-board-meta {
+  display: block;
+  margin-top: 0.28rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}
+
+body.todo-source-assigned .app-calendar-panel,
+body.todo-source-assigned .hero-illustration {
+  display: none;
 }
 
 .filters {
@@ -1888,6 +2203,8 @@ body::after {
 .filter-btn.is-active {
   background: var(--tertiary);
   color: var(--on-tertiary);
+  font-weight: 800;
+  border: 1px solid color-mix(in srgb, var(--on-tertiary) 16%, transparent);
   box-shadow: var(--shadow-soft);
 }
 
@@ -2116,6 +2433,7 @@ body.due-day-page-open {
 .app-calendar-nav,
 .app-cal-cell,
 .filter-btn,
+.todo-source-btn,
 .todo-input,
 .todo-item,
 .todo-category-pill,
@@ -2134,6 +2452,7 @@ body.due-day-page-open {
 .calendar-popover,
 .due-day-page-sheet,
 .filters,
+.todo-source-switch,
 .due-day-filter-bar,
 .add-category-panel,
 .sidebar-page-link,
@@ -2211,9 +2530,10 @@ body.due-day-page-open {
 .btn-category-submit {
   background: var(--tertiary);
   color: var(--on-tertiary);
-  border: 1px solid var(--glass-border);
+  border: 1px solid color-mix(in srgb, var(--on-tertiary) 16%, transparent);
   box-shadow: var(--shadow-pop);
   border-radius: var(--radius-pill);
+  font-weight: 800;
 }
 
 .btn-primary:hover,
@@ -2290,12 +2610,13 @@ body.due-day-page-open {
   }
 
   .sidebar-trigger {
-    display: none;
+    display: inline-flex;
+    z-index: 250;
   }
 
   .sidebar {
     position: fixed;
-    top: 1rem;
+    top: 2.85rem;
     bottom: 1rem;
     left: 0.85rem;
     width: 15.5rem;
@@ -2326,7 +2647,7 @@ body.due-day-page-open {
     min-height: 100%;
     height: 100%;
     max-height: 100%;
-    padding-top: 1.25rem;
+    padding-top: 1rem;
   }
 }
 
@@ -2472,6 +2793,14 @@ body.todo-agent-open .theme-toggle {
 }
 
 body.todo-agent-open .language-toggle {
+  right: 24rem;
+}
+
+body.todo-agent-open.has-notif-bell .language-toggle {
+  right: calc(24rem + 3.6rem);
+}
+
+body.todo-agent-open .notif-root {
   right: 24rem;
 }
 

@@ -1,13 +1,14 @@
 ---
 version: alpha
 name: Daily Space
-description: Quiet glass productivity space — frosted panels, soft mist backgrounds, condensed display type, and a single warm yellow call-to-action.
+description: Quiet glass productivity workspace — frosted panels, soft mist backgrounds, condensed display type, and a single warm yellow call-to-action for personal focus and team assignment.
 colors:
   primary: "#35322e"
   on-primary: "#faf8f4"
   secondary: "#4f6368"
-  tertiary: "#f6d84f"
-  on-tertiary: "#2c2925"
+  tertiary: "#e5c235"
+  on-tertiary: "#1a1814"
+  tertiary-deep: "#c9a91c"
   neutral: "#e7e9ea"
   surface: "#f2f4f1"
   text: "#2c2925"
@@ -17,27 +18,27 @@ colors:
   danger: "#a64b45"
   success: "#5a6b58"
   glass-border: "#ffffff14"
-  highlight: "#f6d84f"
+  highlight: "#e5c235"
 typography:
   display:
-    fontFamily: Impact, Haettenschweiler, "Franklin Gothic Bold", "Arial Narrow Bold", sans-serif
+    fontFamily: Impact, Haettenschweiler, "Franklin Gothic Bold", "Arial Narrow Bold", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif
     fontSize: 3rem
     fontWeight: 400
     lineHeight: 0.95
     letterSpacing: 0.01em
   title:
-    fontFamily: Impact, Haettenschweiler, "Franklin Gothic Bold", "Arial Narrow Bold", sans-serif
+    fontFamily: Impact, Haettenschweiler, "Franklin Gothic Bold", "Arial Narrow Bold", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif
     fontSize: 1.75rem
     fontWeight: 400
     letterSpacing: 0.02em
   body-md:
-    fontFamily: Impact, Haettenschweiler, "Franklin Gothic Bold", "Arial Narrow Bold", sans-serif
+    fontFamily: Impact, Haettenschweiler, "Franklin Gothic Bold", "Arial Narrow Bold", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif
     fontSize: 1rem
     fontWeight: 400
     lineHeight: 1.65
     letterSpacing: 0.02em
   label-caps:
-    fontFamily: Impact, Haettenschweiler, "Franklin Gothic Bold", "Arial Narrow Bold", sans-serif
+    fontFamily: Impact, Haettenschweiler, "Franklin Gothic Bold", "Arial Narrow Bold", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif
     fontSize: 0.72rem
     fontWeight: 800
     letterSpacing: 0.12em
@@ -60,7 +61,7 @@ components:
     padding: 12px
     typography: "{typography.body-md}"
   button-primary-hover:
-    backgroundColor: "{colors.highlight}"
+    backgroundColor: "{colors.tertiary-deep}"
     textColor: "{colors.on-tertiary}"
   button-secondary:
     backgroundColor: "{colors.accent-soft}"
@@ -102,9 +103,9 @@ components:
 
 ## Overview
 
-Daily Space is a calm personal productivity product. The visual language is **frosted glass over misty photographic backgrounds**: translucent panels, soft depth, and condensed display typography. Interaction is driven by a single warm yellow accent (`tertiary` / `highlight`), not purple gradients or terracotta brochure looks.
+Daily Space is a calm productivity workspace. The visual language is **frosted glass over misty photographic backgrounds**: translucent panels, soft depth, and condensed display typography. Interaction is driven by a single warm yellow accent (`tertiary` / `highlight`), not purple gradients or terracotta brochure looks.
 
-Prefer atmosphere over dashboard density. First viewports should feel like one composed space — brand/greeting, one primary action area, and quiet supporting modules — not a control panel of cards and stats.
+Prefer atmosphere over dashboard density. First viewports should feel like one composed space — brand/greeting, one primary action area, and quiet supporting modules — not a control panel of cards and stats. Personal tools stay first-class; shared team surfaces should feel quieter than the yellow primary CTA, never a second brand color.
 
 ## Colors
 
@@ -112,7 +113,8 @@ The light theme is the default token set. Dark theme mirrors the same roles with
 
 - **primary (#35322e):** Dense ink for strong text and primary chrome.
 - **secondary / accent (#4f6368):** Cool slate for secondary actions, links, and muted structure.
-- **tertiary / highlight (#f6d84f):** Sole energetic accent for primary buttons, kickers, and focus rings.
+- **tertiary / highlight (#e5c235):** Sole energetic accent for primary buttons, kickers, and focus rings. Paired with near-black `on-tertiary` (#1a1814) so yellow CTAs stay readable on light mist.
+- **tertiary-deep (#c9a91c):** Hover / pressed yellow — deeper than resting tertiary, never a washed-out lighter tint.
 - **neutral (#e7e9ea):** Page wash behind the photographic blur.
 - **surface (#f2f4f1):** Solid stand-in for glass panels; in CSS prefer `var(--glass)` / `var(--glass-strong)` radial fills.
 - **text / text-muted:** Body and caption hierarchy.
@@ -123,6 +125,8 @@ Never invent new brand hues. Never hardcode hex in new UI — use `var(--…)` t
 ## Typography
 
 Display and UI currently share a condensed Impact-led stack for a bold, stamped voice. Titles can be large and tight (`display` / `title`). Body copy stays readable with generous line-height (`body-md`). Kickers and field labels use `label-caps` with wide tracking and the yellow highlight color.
+
+Latin glyphs use Impact / condensed fallbacks first. Chinese (and other CJK) glyphs skip those faces and render through explicit East-Asian fallbacks — `PingFang SC`, `Hiragino Sans GB`, `Microsoft YaHei`, then `Noto Sans SC` — before generic `sans-serif`. Keep this full stack on every typography role; do not rely on bare `sans-serif` alone for Chinese.
 
 Do not switch to Inter, Roboto, Arial, or system-ui as the brand voice.
 
@@ -148,7 +152,7 @@ Use large radii: `rounded.sm` (18px), `rounded.md` (24px), `rounded.lg` (36px). 
 
 ## Components
 
-- **button-primary:** Yellow fill, dark text, pill shape — the only loud control.
+- **button-primary:** Yellow fill (`tertiary`) with near-black label (`on-tertiary`), pill shape — the only loud control. Hover deepens to `tertiary-deep`, never a washed lighter tint.
 - **button-secondary / glass controls:** Quiet translucent surfaces with soft borders.
 - **card-glass:** Module shells (todo, tally, teamwork). Prefer glass tokens over opaque white cards.
 - **input-bubble:** Transparent until focus, then elevated bubble treatment.

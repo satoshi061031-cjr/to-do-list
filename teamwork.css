@@ -19,10 +19,29 @@
 
 .teamwork-hero {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(14rem, 18rem);
-  gap: clamp(1rem, 4vw, 2.5rem);
-  align-items: end;
-  padding: clamp(1.5rem, 4vw, 2.6rem);
+  grid-template-columns: 1fr;
+  gap: var(--space-sm);
+  align-items: start;
+  padding: clamp(1.35rem, 3.5vw, 2.2rem);
+}
+
+.teamwork-title-static {
+  width: 100%;
+  max-width: 46rem;
+  margin: 0;
+  color: var(--text);
+  font-size: clamp(2.4rem, 6vw, 5.4rem);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  line-height: 0.92;
+}
+
+.teamwork-copy-static {
+  max-width: 36rem;
+  margin: 0.75rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  line-height: 1.5;
 }
 
 .teamwork-card {
@@ -452,5 +471,380 @@
 
   .teamwork-delete-btn {
     justify-self: end;
+  }
+}
+
+.teamwork-workspace-panel {
+  padding: clamp(1.1rem, 2.5vw, 1.55rem);
+  box-shadow: var(--shadow-soft);
+}
+
+.teamwork-workspace-panel:hover {
+  transform: translateY(-1px);
+  filter: none;
+  box-shadow: var(--shadow);
+}
+
+.teamwork-workspace-status {
+  margin: 0 0 var(--space-sm);
+  min-height: 1.2em;
+  color: var(--text-muted);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.teamwork-workspace-status:empty {
+  display: none;
+}
+
+.teamwork-workspace-hint,
+.teamwork-invite-link {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.teamwork-workspace-status.is-error {
+  color: var(--danger);
+}
+
+.teamwork-personal-draft {
+  padding: 0;
+  box-shadow: var(--shadow-soft);
+}
+
+.teamwork-personal-draft:hover {
+  transform: none;
+  filter: none;
+  box-shadow: var(--shadow-soft);
+}
+
+.teamwork-personal-summary {
+  display: grid;
+  gap: 0.2rem;
+  padding: clamp(1rem, 2.2vw, 1.35rem);
+  cursor: pointer;
+  list-style: none;
+}
+
+.teamwork-personal-summary::-webkit-details-marker {
+  display: none;
+}
+
+.teamwork-personal-summary-title {
+  color: var(--text);
+  font-size: 1.2rem;
+  line-height: 1.2;
+}
+
+.teamwork-personal-summary-note {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.teamwork-personal-body {
+  display: grid;
+  gap: var(--space-md);
+  padding: 0 clamp(1rem, 2.2vw, 1.35rem) clamp(1rem, 2.2vw, 1.35rem);
+  border-top: 1px solid var(--glass-border);
+  padding-top: var(--space-md);
+}
+
+.teamwork-personal-fields {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.teamwork-grid--draft {
+  margin: 0;
+}
+
+.teamwork-card--quiet {
+  box-shadow: var(--shadow-soft);
+}
+
+.teamwork-card--quiet:hover {
+  transform: translateY(-1px);
+  filter: none;
+  box-shadow: var(--shadow);
+}
+
+.teamwork-workspace-create,
+.teamwork-invite-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  align-items: stretch;
+  margin-top: var(--space-sm);
+}
+
+.teamwork-workspace-create.is-collapsed {
+  display: none;
+}
+
+.teamwork-workspace-create .teamwork-form-input,
+.teamwork-invite-form .teamwork-form-input,
+.teamwork-workspace-select {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.teamwork-workspace-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  align-items: end;
+  margin-top: var(--space-md);
+}
+
+.teamwork-workspace-switch .teamwork-workspace-select {
+  flex: 1 1 12rem;
+}
+
+.teamwork-new-workspace-btn {
+  flex: 0 0 auto;
+}
+
+.teamwork-workspace-active {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--glass-border);
+}
+
+.teamwork-cloud-member-list,
+.teamwork-pending-invites {
+  list-style: none;
+  margin: 0.55rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.teamwork-cloud-member-list li,
+.teamwork-pending-invites li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.2rem 0.75rem;
+  align-items: center;
+  padding: 0.65rem 0.75rem;
+  border-radius: var(--radius);
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+}
+
+.teamwork-role-line {
+  margin: 0 0 var(--space-sm);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+}
+
+.teamwork-cloud-member-list li.teamwork-cloud-member-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem 0.85rem;
+}
+
+.teamwork-cloud-member-meta {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+  flex: 1 1 10rem;
+}
+
+.teamwork-cloud-member-meta strong {
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.teamwork-cloud-member-meta span {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.teamwork-cloud-member-controls {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.teamwork-role-select,
+.teamwork-invite-role {
+  min-width: 6.5rem;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  background: var(--glass);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.teamwork-member-remove,
+.teamwork-revoke-invite {
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--danger);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.35rem 0.65rem;
+}
+
+.teamwork-pending-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  justify-self: end;
+}
+
+.teamwork-workspace-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+.teamwork-leave-btn,
+.teamwork-delete-workspace-btn {
+  font-size: 0.78rem;
+}
+
+.teamwork-delete-workspace-btn {
+  color: var(--danger);
+}
+
+.teamwork-cloud-member-list li strong,
+.teamwork-pending-invites li span {
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.teamwork-cloud-member-list li span,
+.teamwork-cloud-member-list li em {
+  grid-column: 1;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-style: normal;
+}
+
+.teamwork-cloud-member-list li em {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  justify-self: end;
+  color: var(--highlight);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.teamwork-copy-invite {
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  background: var(--glass);
+  color: var(--accent);
+  box-shadow: var(--shadow-soft);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 0.4rem 0.7rem;
+}
+
+.teamwork-copy-invite:hover {
+  background: var(--glass-strong);
+  box-shadow: var(--glow);
+}
+
+.teamwork-invite-link {
+  margin-top: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.teamwork-invite-link a {
+  color: var(--accent);
+}
+
+.teamwork-assignment-summary {
+  margin-top: var(--space-lg);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--glass-border);
+}
+
+.teamwork-assignment-list {
+  list-style: none;
+  margin: var(--space-sm) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.teamwork-assignment-list li {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  background: var(--glass);
+  box-shadow: var(--shadow-soft);
+}
+
+.teamwork-assignment-list li.is-unassigned {
+  border-color: color-mix(in srgb, var(--highlight) 35%, transparent);
+}
+
+.teamwork-assignment-list li.is-empty em {
+  color: var(--text-muted);
+}
+
+.teamwork-assignment-list strong {
+  color: var(--text);
+}
+
+.teamwork-assignment-list span {
+  color: var(--highlight);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.teamwork-assignment-list em {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-style: normal;
+  overflow-wrap: anywhere;
+}
+
+.teamwork-workspace-create .teamwork-form-input:focus,
+.teamwork-invite-form .teamwork-form-input:focus,
+.teamwork-workspace-select:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--highlight) 48%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--highlight) 22%, transparent),
+    0 0 0 3px color-mix(in srgb, var(--highlight) 18%, transparent);
+}
+
+@media (max-width: 640px) {
+  .teamwork-cloud-member-list li,
+  .teamwork-pending-invites li {
+    grid-template-columns: 1fr;
+  }
+
+  .teamwork-cloud-member-list li em {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: start;
   }
 }

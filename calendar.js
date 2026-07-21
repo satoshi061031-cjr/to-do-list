@@ -41,8 +41,6 @@
   const reminderEmptyEl = document.getElementById("reminder-empty");
   const taskListEl = document.getElementById("task-list");
   const taskEmptyEl = document.getElementById("task-empty");
-  const unscheduledListEl = document.getElementById("unscheduled-list");
-  const unscheduledEmptyEl = document.getElementById("unscheduled-empty");
 
   function id() {
     return typeof crypto !== "undefined" && crypto.randomUUID
@@ -75,15 +73,10 @@
     return (date.getDay() + 6) % 7;
   }
 
-  function addDays(date, days) {
-    const next = new Date(date);
-    next.setDate(next.getDate() + days);
-    return next;
-  }
-
-  function formatLongDate(iso) {
-    return parseIso(iso).toLocaleDateString(uiLocale(), {
-      weekday: "long",
+  function formatDueDate(iso) {
+    const [y, mo, da] = iso.split("-").map(Number);
+    const dt = new Date(y, mo - 1, da);
+    return dt.toLocaleDateString(uiLocale(), {
       year: "numeric",
       month: "long",
       day: "numeric",
@@ -94,13 +87,6 @@
     return new Date(year, month - 1, 1).toLocaleDateString(uiLocale(), {
       month: "long",
       year: "numeric",
-    });
-  }
-
-  function formatShortDate(iso) {
-    return parseIso(iso).toLocaleDateString(uiLocale(), {
-      month: "short",
-      day: "numeric",
     });
   }
 
@@ -123,11 +109,6 @@
     if (priority === "high") return "High priority";
     if (priority === "low") return "Low priority";
     return "Medium priority";
-  }
-
-  function reminderChipText(reminder) {
-    const time = formatTimeRange(reminder.startTime, reminder.endTime);
-    return time ? `${time} ${reminder.text}` : reminder.text;
   }
 
   /** @param {unknown} raw */
@@ -232,7 +213,10 @@
       const parsed = JSON.parse(raw);
       if (!parsed || typeof parsed !== "object") return;
       reminders = normalizeReminders(/** @type {any} */ (parsed).reminders);
-      if (typeof /** @type {any} */ (parsed).selectedDate === "string" && ISO_DATE.test(/** @type {any} */ (parsed).selectedDate)) {
+      if (
+        typeof /** @type {any} */ (parsed).selectedDate === "string" &&
+        ISO_DATE.test(/** @type {any} */ (parsed).selectedDate)
+      ) {
         selectedDate = /** @type {any} */ (parsed).selectedDate;
       }
       const selected = parseIso(selectedDate);
@@ -254,27 +238,25 @@
     );
   }
 
-  function categoryName(categoryId) {
+  function categoryExists(categoryId) {
+    return categories.some((cat) => cat.id === categoryId);
+  }
+
+  function categoryLabelById(categoryId) {
     const c = categories.find((cat) => cat.id === categoryId);
     return c ? c.name : "Uncategorized";
   }
 
-  function activeTasks() {
-    return todos.filter((todo) => !todo.completed);
-  }
-
-  function activeTasksForDate(iso) {
-    return activeTasks().filter((todo) => todo.dueDate === iso);
+  function todosDueOn(iso) {
+    return todos.filter((todo) => todo.dueDate === iso);
   }
 
   function remindersForDate(iso) {
     return reminders
       .filter((reminder) => reminder.date === iso)
-      .sort((a, b) => (a.startTime || a.endTime || "99:99").localeCompare(b.startTime || b.endTime || "99:99"));
-  }
-
-  function unscheduledActiveTasks() {
-    return activeTasks().filter((todo) => !todo.dueDate);
+      .sort((a, b) =>
+        (a.startTime || a.endTime || "99:99").localeCompare(b.startTime || b.endTime || "99:99")
+      );
   }
 
   function selectDate(iso) {
@@ -334,85 +316,84 @@
     render();
   }
 
-  function completeTask(todoId) {
+  function toggleTask(todoId) {
     const todo = todos.find((t) => t.id === todoId);
     if (!todo) return;
-    todo.completed = true;
+    todo.completed = !todo.completed;
+    saveTodoState();
+    render();
+  }
+
+  function removeTask(todoId) {
+    todos = todos.filter((t) => t.id !== todoId);
     saveTodoState();
     render();
   }
 
   function renderCalendarGrid() {
     calendarTitleEl.textContent = formatMonthTitle(calYear, calMonth);
-    const totalActive = activeTasks().length;
-    const scheduledActive = activeTasks().filter((todo) => todo.dueDate).length;
-    calendarMetaEl.textContent = `${reminders.length} reminders · ${scheduledActive} scheduled active tasks · ${totalActive} active total`;
+    const dueThisMonth = todos.filter((todo) => {
+      if (!todo.dueDate) return false;
+      const [y, mo] = todo.dueDate.split("-").map(Number);
+      return y === calYear && mo === calMonth;
+    }).length;
+    const remindersThisMonth = reminders.filter((reminder) => {
+      const [y, mo] = reminder.date.split("-").map(Number);
+      return y === calYear && mo === calMonth;
+    }).length;
+    calendarMetaEl.textContent = `${dueThisMonth} ${dueThisMonth === 1 ? "task" : "tasks"} due · ${remindersThisMonth} ${remindersThisMonth === 1 ? "reminder" : "reminders"}`;
 
-    const monthStart = new Date(calYear, calMonth - 1, 1);
-    const gridStart = addDays(monthStart, -mondayIndex(monthStart));
+    const first = new Date(calYear, calMonth - 1, 1);
+    const pad = mondayIndex(first);
+    const daysInMonth = new Date(calYear, calMonth, 0).getDate();
     const today = todayIso();
 
     calendarGridEl.innerHTML = "";
-    for (let i = 0; i < 42; i++) {
-      const dt = addDays(gridStart, i);
-      const iso = dateToIso(dt);
+
+    for (let i = 0; i < pad; i++) {
+      const hole = document.createElement("div");
+      hole.className = "app-cal-pad";
+      hole.setAttribute("aria-hidden", "true");
+      calendarGridEl.appendChild(hole);
+    }
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const iso = toIsoYmd(calYear, calMonth, day);
+      const dayTasks = todosDueOn(iso);
       const dayReminders = remindersForDate(iso);
-      const dayTasks = activeTasksForDate(iso);
-      const itemCount = dayReminders.length + dayTasks.length;
-
-      const cell = document.createElement("button");
-      cell.type = "button";
-      cell.className = "calendar-day-cell";
-      cell.setAttribute(
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "app-cal-cell";
+      btn.textContent = String(day);
+      btn.setAttribute(
         "aria-label",
-        `${formatLongDate(iso)}. ${dayReminders.length} reminders, ${dayTasks.length} active tasks.`
+        `View tasks due ${formatDueDate(iso)}. ${dayReminders.length} reminders, ${dayTasks.length} tasks.`
       );
-      if (iso === today) cell.classList.add("is-today");
-      if (iso === selectedDate) cell.classList.add("is-selected");
-      if (dt.getMonth() !== calMonth - 1) cell.classList.add("is-outside");
-      cell.addEventListener("click", () => selectDate(iso));
 
-      const number = document.createElement("span");
-      number.className = "calendar-day-number";
-      number.textContent = String(dt.getDate());
+      if (iso === today) btn.classList.add("is-today");
+      if (iso === selectedDate) btn.classList.add("is-day-selected");
 
-      const items = document.createElement("span");
-      items.className = "calendar-day-items";
-
-      const chips = [
-        ...dayReminders.map((reminder) => ({
-          type: "reminder",
-          text: reminderChipText(reminder),
-          priority: reminder.priority,
-        })),
-        ...dayTasks.map((todo) => ({ type: "task", text: todo.text })),
-      ].slice(0, 4);
-
-      chips.forEach((item) => {
-        const chip = document.createElement("span");
-        chip.className = `calendar-chip is-${item.type}`;
-        if (item.type === "reminder") chip.classList.add(`is-priority-${item.priority || "medium"}`);
-        chip.textContent = item.text;
-        items.appendChild(chip);
-      });
-
-      if (itemCount > chips.length) {
-        const more = document.createElement("span");
-        more.className = "calendar-chip is-more";
-        more.textContent = `+${itemCount - chips.length} more`;
-        items.appendChild(more);
-      }
-
-      cell.append(number, items);
-      calendarGridEl.appendChild(cell);
+      btn.addEventListener("click", () => selectDate(iso));
+      calendarGridEl.appendChild(btn);
     }
   }
 
   function renderSelectedDay() {
     const dayReminders = remindersForDate(selectedDate);
-    const dayTasks = activeTasksForDate(selectedDate);
-    selectedDayTitleEl.textContent = formatLongDate(selectedDate);
-    selectedDayMetaEl.textContent = `${dayReminders.length} reminders · ${dayTasks.length} active tasks`;
+    const dayTasks = todosDueOn(selectedDate);
+
+    selectedDayTitleEl.textContent = `Tasks due ${formatDueDate(selectedDate)}`;
+    selectedDayMetaEl.textContent =
+      dayTasks.length === 0 ? "" : `${dayTasks.length} ${dayTasks.length === 1 ? "task" : "tasks"}`;
+
+    taskListEl.innerHTML = "";
+    dayTasks.forEach((todo) => {
+      taskListEl.appendChild(buildTodoItem(todo));
+    });
+    const tasksEmpty = dayTasks.length === 0;
+    taskListEl.hidden = tasksEmpty;
+    taskEmptyEl.hidden = !tasksEmpty;
+    taskEmptyEl.textContent = `No tasks due on ${formatDueDate(selectedDate)}.`;
 
     reminderListEl.innerHTML = "";
     dayReminders.forEach((reminder) => {
@@ -421,23 +402,45 @@
     reminderListEl.hidden = dayReminders.length === 0;
     reminderEmptyEl.hidden = dayReminders.length !== 0;
     reminderEmptyEl.textContent = "No reminders on this day.";
+  }
 
-    taskListEl.innerHTML = "";
-    dayTasks.forEach((todo) => {
-      taskListEl.appendChild(buildTaskItem(todo, true));
-    });
-    taskListEl.hidden = dayTasks.length === 0;
-    taskEmptyEl.hidden = dayTasks.length !== 0;
-    taskEmptyEl.textContent = "No active tasks due on this day.";
+  function buildTodoItem(todo) {
+    const li = document.createElement("li");
+    li.className = "todo-item" + (todo.completed ? " completed" : "");
+    li.dataset.id = todo.id;
 
-    const unscheduled = unscheduledActiveTasks();
-    unscheduledListEl.innerHTML = "";
-    unscheduled.forEach((todo) => {
-      unscheduledListEl.appendChild(buildTaskItem(todo, false));
-    });
-    unscheduledListEl.hidden = unscheduled.length === 0;
-    unscheduledEmptyEl.hidden = unscheduled.length !== 0;
-    unscheduledEmptyEl.textContent = "Every active task has a due date.";
+    const check = document.createElement("input");
+    check.type = "checkbox";
+    check.className = "todo-check";
+    check.checked = todo.completed;
+    check.setAttribute("aria-label", todo.completed ? "Mark as active" : "Mark as done");
+    check.addEventListener("change", () => toggleTask(todo.id));
+
+    const main = document.createElement("div");
+    main.className = "todo-main";
+
+    const label = document.createElement("span");
+    label.className = "todo-label";
+    label.textContent = todo.text;
+    label.addEventListener("click", () => toggleTask(todo.id));
+    main.appendChild(label);
+
+    if (todo.categoryId && categoryExists(todo.categoryId)) {
+      const pill = document.createElement("span");
+      pill.className = "todo-category-pill";
+      pill.textContent = categoryLabelById(todo.categoryId);
+      main.appendChild(pill);
+    }
+
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "todo-delete";
+    del.setAttribute("aria-label", "Delete task");
+    del.textContent = "×";
+    del.addEventListener("click", () => removeTask(todo.id));
+
+    li.append(check, main, del);
+    return li;
   }
 
   function buildReminderItem(reminder) {
@@ -471,40 +474,6 @@
     del.addEventListener("click", () => removeReminder(reminder.id));
 
     li.append(main, del);
-    return li;
-  }
-
-  function buildTaskItem(todo, showDateContext) {
-    const li = document.createElement("li");
-    li.className = "calendar-list-item";
-
-    const check = document.createElement("input");
-    check.type = "checkbox";
-    check.className = "calendar-item-check";
-    check.setAttribute("aria-label", "Mark task as done");
-    check.addEventListener("change", () => completeTask(todo.id));
-
-    const main = document.createElement("div");
-    main.className = "calendar-item-main";
-
-    const text = document.createElement("div");
-    text.className = "calendar-item-text";
-    text.textContent = todo.text;
-    main.appendChild(text);
-
-    const details = [];
-    if (todo.categoryId) details.push(categoryName(todo.categoryId));
-    if (showDateContext && todo.dueDate) details.push(`Due ${formatShortDate(todo.dueDate)}`);
-    if (!showDateContext) details.push("No due date");
-
-    if (details.length > 0) {
-      const sub = document.createElement("div");
-      sub.className = "calendar-item-sub";
-      sub.textContent = details.join(" · ");
-      main.appendChild(sub);
-    }
-
-    li.append(check, main);
     return li;
   }
 

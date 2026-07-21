@@ -1,10 +1,10 @@
 /* Planner page — load after styles.css */
 
 :root {
-  --planner-accent: #6b5b95;
-  --planner-accent-soft: rgba(107, 91, 149, 0.14);
-  --planner-tag: #5a6d9e;
-  --planner-lemon: #d8b80f;
+  --planner-accent: var(--accent);
+  --planner-accent-soft: var(--accent-soft);
+  --planner-tag: var(--secondary);
+  --planner-lemon: var(--highlight);
   --planner-window: var(--glass);
   --planner-card-glass: var(--glass);
   --planner-card-glass-hover: var(--glass-strong);
@@ -12,10 +12,10 @@
 }
 
 :root[data-theme="dark"] {
-  --planner-accent: #b9a8ff;
-  --planner-accent-soft: rgba(185, 168, 255, 0.18);
-  --planner-tag: #a9bdff;
-  --planner-lemon: #f5dc54;
+  --planner-accent: var(--accent);
+  --planner-accent-soft: var(--accent-soft);
+  --planner-tag: var(--accent);
+  --planner-lemon: var(--highlight);
   --planner-window: var(--glass);
   --planner-card-glass: var(--glass);
   --planner-card-glass-hover: var(--glass-strong);
@@ -72,12 +72,21 @@ body.planner-page {
   min-width: 0;
 }
 
+.planner-mode-badge {
+  margin: 0 0 0.35rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
 .planner-title {
   margin: 0;
-  font-size: 1.65rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--planner-accent);
+  font-size: clamp(1.5rem, 3vw, 1.75rem);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  color: var(--text);
   line-height: 1.15;
 }
 
@@ -102,7 +111,7 @@ body.planner-page {
   border-radius: 999px;
   border: 1px solid var(--glass-border);
   background: rgba(107, 91, 149, 0.78);
-  color: #faf8ff;
+  color: var(--on-primary);
   box-shadow: var(--shadow-pop);
   backdrop-filter: blur(12px) saturate(1.06);
   -webkit-backdrop-filter: blur(12px) saturate(1.06);
@@ -148,12 +157,41 @@ body.planner-page {
 }
 
 .planner-board-empty {
-  margin: 0;
-  padding: 2rem 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  margin: 0 auto;
+  padding: 2.4rem 1.25rem;
   text-align: center;
+  max-width: 24rem;
+  min-height: min(42vh, 22rem);
+  border: 1px dashed color-mix(in srgb, var(--glass-border) 80%, var(--border-soft));
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--glass) 70%, transparent);
+}
+
+.planner-board-empty[hidden] {
+  display: none;
+}
+
+.planner-board-empty-title {
+  margin: 0;
+  color: var(--text);
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+}
+
+.planner-board-empty-copy {
+  margin: 0;
   color: var(--text-muted);
-  font-size: 0.92rem;
-  max-width: 22rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.planner-board-empty .planner-add-column-main {
+  margin-top: 0.35rem;
 }
 
 .planner-column {
@@ -611,7 +649,7 @@ body.planner-page {
 
   .planner-board-scroll {
     padding: 0.75rem;
-    border-radius: 14px;
+    border-radius: var(--radius-sm);
   }
 
   .planner-board {
@@ -624,4 +662,87 @@ body.planner-page {
     max-width: none;
     min-height: 14rem;
   }
+}
+
+.planner-team-hint {
+  margin: 0 0 var(--space-sm);
+  padding: 0 0.15rem;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.planner-team-status {
+  margin: 0.35rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.planner-team-status.is-error {
+  color: var(--danger);
+}
+
+.planner-team-board-label {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.planner-card-assignee-chip {
+  margin: 0;
+  padding: 0 0.15rem;
+  color: var(--highlight);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.planner-card-move-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+  margin: 0 0 0.35rem;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.planner-card-move,
+.planner-card-assignee,
+.planner-card-due {
+  width: 100%;
+  margin-top: 0;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  background: var(--glass);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+  box-shadow: var(--shadow-soft);
+}
+
+.planner-card-assignee,
+.planner-card-due {
+  margin-top: 0.55rem;
+}
+
+.planner-card-move:focus,
+.planner-card-assignee:focus,
+.planner-card-due:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--highlight) 48%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--highlight) 22%, transparent),
+    0 0 0 3px color-mix(in srgb, var(--highlight) 18%, transparent);
 }

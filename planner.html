@@ -18,7 +18,7 @@
     <div class="layout">
       <aside class="sidebar" id="sidebar" aria-label="Navigation">
         <div class="sidebar-inner">
-          <div class="sidebar-heading">Planners</div>
+          <div class="sidebar-heading">Personal</div>
           <ul class="category-list" id="planner-workspace-list" role="list"></ul>
           <div class="sidebar-actions">
             <button
@@ -42,6 +42,12 @@
               <button type="button" class="btn btn-category-submit" id="save-planner">Add</button>
             </div>
           </div>
+          <div class="sidebar-heading">Team boards</div>
+          <p class="planner-team-hint" id="planner-team-hint">Sign in and create a workspace in Teamwork to open shared boards.</p>
+          <ul class="category-list" id="planner-team-board-list" role="list"></ul>
+          <div class="sidebar-actions" id="planner-team-board-actions" hidden>
+            <button type="button" class="btn btn-sidebar-add" id="planner-new-team-board">+ New team board</button>
+          </div>
           <div class="sidebar-heading">Pages</div>
           <a href="todo.html" class="sidebar-page-link">To-do list</a>
           <a href="calendar.html" class="sidebar-page-link">Calendar</a>
@@ -56,6 +62,7 @@
           <div class="planner-shell">
             <header class="planner-header">
               <div class="planner-header-text">
+                <p class="planner-mode-badge" id="planner-mode-badge">Personal</p>
                 <h1 class="planner-title" id="planner-month-title"></h1>
                 <p class="planner-meta" id="planner-meta-line"></p>
               </div>
@@ -67,6 +74,15 @@
               </div>
             </header>
             <div class="planner-board-scroll">
+              <div class="planner-board-empty" id="planner-board-empty" hidden>
+                <p class="planner-board-empty-title">Start with a column</p>
+                <p class="planner-board-empty-copy" id="planner-board-empty-copy">
+                  Columns hold cards. Add one to begin organizing this board.
+                </p>
+                <button type="button" class="btn planner-add-column-main" id="planner-empty-add-column">
+                  + Add column
+                </button>
+              </div>
               <div class="planner-board" id="planner-board"></div>
             </div>
           </div>

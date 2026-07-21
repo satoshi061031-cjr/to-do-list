@@ -73,15 +73,60 @@
 
     const desktopQuery = window.matchMedia("(min-width: 820px)");
     let closeTimer = 0;
+    const SIDEBAR_HINT_KEY = "daily-space-sidebar-hint-done-v1";
 
     function isDesktop() {
       return desktopQuery.matches;
+    }
+
+    function sidebarHintDone() {
+      try {
+        return localStorage.getItem(SIDEBAR_HINT_KEY) === "1";
+      } catch (_) {
+        return true;
+      }
+    }
+
+    function markSidebarHintDone() {
+      try {
+        localStorage.setItem(SIDEBAR_HINT_KEY, "1");
+      } catch (_) {
+        /* ignore */
+      }
+      const tip = document.getElementById("sidebar-hint");
+      if (tip) tip.remove();
+    }
+
+    function showSidebarHint() {
+      if (sidebarHintDone()) return;
+      if (isWelcomePath(window.location.pathname)) return;
+      if (!isDesktop()) return;
+      if (document.getElementById("sidebar-hint")) return;
+      if (document.body.classList.contains("welcome-active")) return;
+
+      const tip = document.createElement("div");
+      tip.id = "sidebar-hint";
+      tip.className = "sidebar-hint";
+      tip.setAttribute("role", "status");
+      tip.textContent = "Move to the left edge to open the menu";
+      document.body.appendChild(tip);
+    }
+
+    function noteSidebarAwake() {
+      if (
+        sidebar.classList.contains("is-auto-open") ||
+        sidebar.classList.contains("is-open") ||
+        document.body.classList.contains("sidebar-drawer-open")
+      ) {
+        markSidebarHintDone();
+      }
     }
 
     function openSidebar() {
       if (!isDesktop()) return;
       window.clearTimeout(closeTimer);
       sidebar.classList.add("is-auto-open");
+      markSidebarHintDone();
     }
 
     function closeSidebarSoon(delay) {
@@ -117,15 +162,47 @@
       }
     });
 
+    const classObserver = new MutationObserver(noteSidebarAwake);
+    classObserver.observe(sidebar, { attributes: true, attributeFilter: ["class"] });
+    classObserver.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+
     function syncMode() {
       window.clearTimeout(closeTimer);
       sidebar.classList.remove("is-auto-open");
+      if (isDesktop()) showSidebarHint();
+      else {
+        const tip = document.getElementById("sidebar-hint");
+        if (tip) tip.remove();
+      }
     }
 
     if (desktopQuery.addEventListener) {
       desktopQuery.addEventListener("change", syncMode);
     } else if (desktopQuery.addListener) {
       desktopQuery.addListener(syncMode);
+    }
+
+    showSidebarHint();
+
+    const trigger = document.getElementById("sidebar-trigger");
+    if (trigger) {
+      trigger.addEventListener(
+        "click",
+        function (event) {
+          if (!isDesktop()) return;
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          const open = sidebar.classList.contains("is-auto-open");
+          if (open) {
+            sidebar.classList.remove("is-auto-open");
+            trigger.setAttribute("aria-expanded", "false");
+          } else {
+            openSidebar();
+            trigger.setAttribute("aria-expanded", "true");
+          }
+        },
+        true
+      );
     }
   }
 
@@ -218,19 +295,29 @@
     const label = url.searchParams.get("label") || "Google user";
     const email = url.searchParams.get("email") || "";
     const message = url.searchParams.get("message") || "";
+    const isWeChat =
+      String(provider).toLowerCase() === "wechat" || String(email).toLowerCase().startsWith("wechat:");
     let succeeded = false;
 
     if (status === "success") {
       succeeded = true;
       saveAuthState({
         provider,
-        label: email ? `${label} (${email})` : label,
+        label: isWeChat || !email ? label : `${label} (${email})`,
         email,
-        mailProvider: provider.toLowerCase(),
+        mailProvider: isWeChat
+          ? ""
+          : String(provider).toLowerCase().includes("google")
+            ? "gmail"
+            : String(provider).toLowerCase().includes("outlook")
+              ? "outlook"
+              : "",
       });
-      linkMailAccountFromAuth(provider, email, label).catch(function () {
-        /* Best-effort sync so sign-in UX remains smooth. */
-      });
+      if (!isWeChat) {
+        linkMailAccountFromAuth(provider, email, label).catch(function () {
+          /* Best-effort sync so sign-in UX remains smooth. */
+        });
+      }
     } else if (message) {
       window.alert(message);
     }
@@ -345,31 +432,22 @@
             </span>
             <span>Sign in with Outlook</span>
           </button>
+          <button type="button" class="auth-provider" data-provider="wechat">
+            <span class="auth-provider-icon auth-provider-icon-wechat" aria-hidden="true">微</span>
+            <span>Sign in with WeChat</span>
+          </button>
         </div>
-        <div class="auth-divider" aria-hidden="true"><span>OR</span></div>
-        <button type="button" class="auth-alt-trigger">Continue with phone or email</button>
-        <form class="auth-phone-form" hidden>
-          <label class="auth-phone-label" for="auth-phone-input">Phone number</label>
-          <div class="auth-phone-row">
-            <input id="auth-phone-input" class="auth-phone-input" type="tel" inputmode="tel" placeholder="+1 555 000 0000" />
-            <button type="submit" class="auth-phone-submit">Continue</button>
-          </div>
-        </form>
         <button type="button" class="auth-logout" hidden>Sign out</button>
-        <p class="auth-note">OAuth needs a backend or auth service before these providers can become real sign-ins.</p>
       </section>
     `;
     document.body.appendChild(modal);
 
-    const phoneForm = modal.querySelector(".auth-phone-form");
-    const phoneInput = modal.querySelector(".auth-phone-input");
     const logoutButton = modal.querySelector(".auth-logout");
-    const altTrigger = modal.querySelector(".auth-alt-trigger");
 
     function renderAuth() {
       const state = readAuthState();
       authLabel.textContent = state ? state.label : "Sign in";
-      authHint.textContent = state ? state.provider : "Google, Outlook, phone";
+      authHint.textContent = state ? state.provider : "Google, Outlook, or WeChat";
       if (!state) {
         authSync.hidden = true;
       } else if (userSnapshotLastSyncedAt) {
@@ -397,7 +475,6 @@
       renderAuth();
       modal.hidden = false;
       document.body.classList.add("auth-modal-open");
-      if (phoneForm instanceof HTMLFormElement) phoneForm.hidden = true;
       const firstProvider = modal.querySelector(".auth-provider");
       if (firstProvider) firstProvider.focus();
     }
@@ -406,12 +483,6 @@
       modal.hidden = true;
       document.body.classList.remove("auth-modal-open");
       authButton.focus();
-    }
-
-    function login(provider, label) {
-      saveAuthState({ provider, label });
-      renderAuth();
-      closeModal();
     }
 
     async function disconnectLinkedMailbox(authState) {
@@ -468,6 +539,24 @@
       window.location.href = payload.authUrl;
     }
 
+    async function startWeChatSignIn() {
+      const response = await fetch("/api/auth/wechat/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          returnTo: window.location.pathname + window.location.search,
+        }),
+      });
+      const payload = await response.json().catch(function () {
+        return {};
+      });
+      if (!response.ok) {
+        throw new Error((payload && payload.error) || "WeChat sign-in failed.");
+      }
+      if (!payload.authUrl) throw new Error("Missing WeChat authorization URL.");
+      window.location.href = payload.authUrl;
+    }
+
     authButton.addEventListener("click", openModal);
 
     modal.addEventListener("click", function (event) {
@@ -481,6 +570,10 @@
           startGoogleSignIn().catch(function (error) {
             window.alert(error instanceof Error ? error.message : "Google sign-in failed.");
           });
+        } else if (provider === "wechat") {
+          startWeChatSignIn().catch(function (error) {
+            window.alert(error instanceof Error ? error.message : "WeChat sign-in failed.");
+          });
         } else {
           startOutlookSignIn().catch(function (error) {
             window.alert(error instanceof Error ? error.message : "Outlook sign-in failed.");
@@ -488,26 +581,6 @@
         }
       }
     });
-
-    if (phoneForm && phoneInput) {
-      phoneForm.addEventListener("submit", function (event) {
-        event.preventDefault();
-        const phone = phoneInput.value.trim();
-        if (!phone) {
-          phoneInput.focus();
-          return;
-        }
-        login("Phone", phone);
-      });
-    }
-
-    if (altTrigger && phoneForm && phoneInput) {
-      altTrigger.addEventListener("click", function () {
-        if (!(phoneForm instanceof HTMLFormElement) || !(phoneInput instanceof HTMLInputElement)) return;
-        phoneForm.hidden = false;
-        phoneInput.focus();
-      });
-    }
 
     if (logoutButton) {
       logoutButton.addEventListener("click", async function () {
@@ -749,7 +822,7 @@
       const providerButton = target.closest("[data-welcome-provider]");
       if (!providerButton) return;
       const provider = providerButton.getAttribute("data-welcome-provider");
-      if (provider !== "google" && provider !== "outlook") return;
+      if (provider !== "google" && provider !== "outlook" && provider !== "wechat") return;
       startWelcomeSignIn(provider).catch(function (error) {
         window.alert(error instanceof Error ? error.message : "Sign-in failed.");
       });
@@ -1010,6 +1083,226 @@
     refreshUserSnapshotSession(false);
   }
 
+  function setupNotifications() {
+    if (document.getElementById("notif-bell")) return;
+    if (document.body.classList.contains("welcome-active")) return;
+    if (isWelcomePath(window.location.pathname)) return;
+
+    const root = document.createElement("div");
+    root.className = "notif-root";
+    root.id = "notif-root";
+    root.hidden = true;
+
+    const bell = document.createElement("button");
+    bell.type = "button";
+    bell.id = "notif-bell";
+    bell.className = "notif-bell";
+    bell.setAttribute("aria-label", "Notifications");
+    bell.setAttribute("aria-expanded", "false");
+    bell.setAttribute("aria-haspopup", "true");
+    bell.innerHTML =
+      '<span class="notif-bell-glyph" aria-hidden="true">N</span><span class="notif-bell-dot" hidden></span>';
+
+    const panel = document.createElement("div");
+    panel.className = "notif-panel";
+    panel.hidden = true;
+    panel.setAttribute("role", "dialog");
+    panel.setAttribute("aria-label", "Notifications");
+    panel.innerHTML = `
+      <header class="notif-panel-header">
+        <h2 class="notif-panel-title">Notifications</h2>
+        <button type="button" class="notif-mark-all" id="notif-mark-all">Mark all read</button>
+      </header>
+      <ul class="notif-list" id="notif-list"></ul>
+      <p class="notif-empty" id="notif-empty" hidden>No notifications yet.</p>
+    `;
+
+    root.append(bell, panel);
+    document.body.appendChild(root);
+
+    const listEl = panel.querySelector("#notif-list");
+    const emptyEl = panel.querySelector("#notif-empty");
+    const markAllBtn = panel.querySelector("#notif-mark-all");
+    const dotEl = bell.querySelector(".notif-bell-dot");
+
+    let items = [];
+    let unreadCount = 0;
+    let pollTimer = 0;
+    let open = false;
+
+    async function apiRequest(path, init) {
+      const response = await fetch(path, init);
+      const payload = await response.json().catch(function () {
+        return {};
+      });
+      if (!response.ok) throw new Error(payload.error || "Request failed");
+      return payload;
+    }
+
+    function formatRelative(iso) {
+      const t = Date.parse(iso || "");
+      if (!Number.isFinite(t)) return "";
+      const diff = Date.now() - t;
+      const mins = Math.round(diff / 60000);
+      if (mins < 1) return "just now";
+      if (mins < 60) return mins + "m ago";
+      const hours = Math.round(mins / 60);
+      if (hours < 24) return hours + "h ago";
+      const days = Math.round(hours / 24);
+      return days + "d ago";
+    }
+
+    function renderList() {
+      listEl.innerHTML = "";
+      if (!items.length) {
+        emptyEl.hidden = false;
+        listEl.hidden = true;
+        return;
+      }
+      emptyEl.hidden = true;
+      listEl.hidden = false;
+      items.forEach(function (item) {
+        const li = document.createElement("li");
+        li.className = "notif-item" + (item.readAt ? "" : " is-unread");
+        li.dataset.id = item.id;
+        const href = (item.meta && item.meta.href) || "/todo.html#assigned";
+        li.innerHTML =
+          '<button type="button" class="notif-item-btn">' +
+          '<strong class="notif-item-title"></strong>' +
+          '<span class="notif-item-body"></span>' +
+          '<span class="notif-item-time"></span>' +
+          "</button>";
+        li.querySelector(".notif-item-title").textContent = item.title || "Notification";
+        li.querySelector(".notif-item-body").textContent = item.body || "";
+        li.querySelector(".notif-item-time").textContent = formatRelative(item.createdAt);
+        li.querySelector(".notif-item-btn").addEventListener("click", async function () {
+          try {
+            if (!item.readAt) {
+              await apiRequest("/api/me/notifications/" + encodeURIComponent(item.id) + "/read", {
+                method: "POST",
+              });
+              item.readAt = new Date().toISOString();
+              unreadCount = Math.max(0, unreadCount - 1);
+              updateChrome();
+              renderList();
+            }
+          } catch (_) {
+            /* ignore */
+          }
+          closePanel();
+          if (href.indexOf("/") === 0 && href.indexOf("//") !== 0) {
+            if (window.location.pathname + window.location.hash === href) {
+              window.dispatchEvent(new CustomEvent("daily-space-open-assigned"));
+            } else {
+              window.location.href = href;
+            }
+          }
+        });
+        listEl.appendChild(li);
+      });
+    }
+
+    function updateChrome() {
+      const signedIn = Boolean(currentUserId());
+      root.hidden = !signedIn;
+      if (!signedIn) {
+        closePanel();
+        return;
+      }
+      const hasUnread = unreadCount > 0;
+      dotEl.hidden = !hasUnread;
+      bell.classList.toggle("has-unread", hasUnread);
+      bell.setAttribute(
+        "aria-label",
+        hasUnread ? "Notifications, " + unreadCount + " unread" : "Notifications"
+      );
+      document.body.classList.toggle("has-notif-bell", signedIn);
+    }
+
+    async function refresh() {
+      if (!currentUserId()) {
+        items = [];
+        unreadCount = 0;
+        updateChrome();
+        return;
+      }
+      try {
+        const payload = await apiRequest("/api/me/notifications?limit=30");
+        items = Array.isArray(payload.notifications) ? payload.notifications : [];
+        unreadCount = Number(payload.unreadCount) || 0;
+        updateChrome();
+        if (open) renderList();
+      } catch (_) {
+        updateChrome();
+      }
+    }
+
+    function openPanel() {
+      open = true;
+      panel.hidden = false;
+      bell.setAttribute("aria-expanded", "true");
+      renderList();
+      refresh();
+    }
+
+    function closePanel() {
+      open = false;
+      panel.hidden = true;
+      bell.setAttribute("aria-expanded", "false");
+    }
+
+    bell.addEventListener("click", function (event) {
+      event.stopPropagation();
+      if (open) closePanel();
+      else openPanel();
+    });
+
+    markAllBtn.addEventListener("click", async function (event) {
+      event.stopPropagation();
+      try {
+        await apiRequest("/api/me/notifications/read-all", { method: "POST" });
+        items = items.map(function (item) {
+          return Object.assign({}, item, { readAt: item.readAt || new Date().toISOString() });
+        });
+        unreadCount = 0;
+        updateChrome();
+        renderList();
+      } catch (_) {
+        /* ignore */
+      }
+    });
+
+    document.addEventListener("click", function (event) {
+      if (!open) return;
+      if (root.contains(event.target)) return;
+      closePanel();
+    });
+
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape" && open) closePanel();
+    });
+
+    window.addEventListener("daily-space-auth-updated", function () {
+      refresh();
+    });
+
+    document.addEventListener("visibilitychange", function () {
+      if (!document.hidden) refresh();
+    });
+
+    function startPoll() {
+      window.clearInterval(pollTimer);
+      pollTimer = window.setInterval(function () {
+        if (document.hidden) return;
+        refresh();
+      }, 30000);
+    }
+
+    updateChrome();
+    refresh();
+    startPoll();
+  }
+
   function setupSharedUi() {
     setupThemeToggle();
     setupAutoSidebar();
@@ -1017,6 +1310,7 @@
     setupUserSnapshotSync();
     setupGreeting();
     setupWelcomeExperience();
+    setupNotifications();
   }
 
   applyTheme(storedTheme());
