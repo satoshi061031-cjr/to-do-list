@@ -12,6 +12,7 @@
   ];
   const USER_SNAPSHOT_INTERVAL_MS = 30000;
   const USER_LOCAL_CACHE_PREFIX = "daily-space-user-cache-v1:";
+  const USER_BASELINE_PREFIX = "daily-space-user-baseline-v1:";
   const USER_LAST_ID_STORAGE = "daily-space-last-user-v1";
   const DARK = "dark";
   const LIGHT = "light";
@@ -21,6 +22,10 @@
   let userSnapshotBaseline = "";
   let userSnapshotLastSyncedAt = "";
   let userSnapshotStatus = "idle";
+
+  function isBrowserOnline() {
+    return typeof navigator === "undefined" || navigator.onLine !== false;
+  }
 
   function storedTheme() {
     try {
@@ -465,15 +470,21 @@
       authHint.textContent = state ? state.provider : "Google, Outlook, or WeChat";
       if (!state) {
         authSync.hidden = true;
+      } else if (userSnapshotStatus === "offline" || !isBrowserOnline()) {
+        authSync.hidden = false;
+        authSync.textContent = "Cloud sync: offline — saved on this device";
+      } else if (userSnapshotStatus === "conflict") {
+        authSync.hidden = false;
+        authSync.textContent = "Cloud sync: kept this device’s changes";
+      } else if (userSnapshotStatus === "syncing") {
+        authSync.hidden = false;
+        authSync.textContent = "Cloud sync: syncing…";
+      } else if (userSnapshotStatus === "error") {
+        authSync.hidden = false;
+        authSync.textContent = "Cloud sync: failed — will retry";
       } else if (userSnapshotLastSyncedAt) {
         authSync.hidden = false;
         authSync.textContent = `Cloud sync: ${formatSyncTime(userSnapshotLastSyncedAt)}`;
-      } else if (userSnapshotStatus === "syncing") {
-        authSync.hidden = false;
-        authSync.textContent = "Cloud sync: syncing...";
-      } else if (userSnapshotStatus === "error") {
-        authSync.hidden = false;
-        authSync.textContent = "Cloud sync: unavailable";
       } else {
         authSync.hidden = false;
         authSync.textContent = "Cloud sync: ready";
@@ -918,6 +929,41 @@
     }
   }
 
+  function readPersistedBaseline(userId) {
+    if (!userId) return "";
+    try {
+      return String(localStorage.getItem(`${USER_BASELINE_PREFIX}${userId}`) || "");
+    } catch (_) {
+      return "";
+    }
+  }
+
+  function writePersistedBaseline(userId, signature) {
+    if (!userId) return;
+    try {
+      if (signature) localStorage.setItem(`${USER_BASELINE_PREFIX}${userId}`, signature);
+      else localStorage.removeItem(`${USER_BASELINE_PREFIX}${userId}`);
+    } catch (_) {
+      /* ignore inaccessible local cache */
+    }
+  }
+
+  function setSyncedBaseline(userId, payload) {
+    const signature = userSnapshotSignature(payload);
+    userSnapshotBaseline = signature;
+    writePersistedBaseline(userId, signature);
+    return signature;
+  }
+
+  function payloadHasAppData(payload) {
+    if (!payload || typeof payload !== "object") return false;
+    return USER_SNAPSHOT_KEYS.some(function (key) {
+      if (key === STORAGE_THEME) return false;
+      const value = payload[key];
+      return typeof value === "string" && value.length > 2;
+    });
+  }
+
   function formatSyncTime(iso) {
     if (!iso) return "Never";
     const dt = new Date(iso);
@@ -961,6 +1007,14 @@
   async function loadSnapshotForCurrentUser() {
     const userId = currentUserId();
     if (!userId) return;
+    if (!isBrowserOnline()) {
+      userSnapshotUserId = userId;
+      writeLastUserId(userId);
+      userSnapshotBaseline = readPersistedBaseline(userId) || userSnapshotSignature(collectUserSnapshotPayload());
+      userSnapshotStatus = "offline";
+      emitUserSnapshotUpdate();
+      return;
+    }
     const previousUserId = userSnapshotUserId || readLastUserId();
     const localPayload = collectUserSnapshotPayload();
     if (previousUserId && previousUserId !== userId) {
@@ -971,6 +1025,7 @@
     const data = await requestUserSnapshot("GET");
     let nextPayload = data.payload && typeof data.payload === "object" ? data.payload : {};
     let syncedAt = data.updatedAt || "";
+    let conflictKeptLocal = false;
     if (!data.updatedAt) {
       const cachedPayload = readUserLocalCache(userId);
       nextPayload = cachedPayload || (!previousUserId ? localPayload : {});
@@ -980,14 +1035,30 @@
         syncedAt = saved.updatedAt || new Date().toISOString();
       }
     } else {
-      applyUserSnapshotPayload(nextPayload);
+      const remoteSig = userSnapshotSignature(nextPayload);
+      const localSig = userSnapshotSignature(localPayload);
+      const baselineSig = readPersistedBaseline(userId) || userSnapshotBaseline;
+      const localDirty = Boolean(baselineSig) && localSig !== baselineSig;
+      if (
+        localDirty &&
+        localSig !== remoteSig &&
+        payloadHasAppData(localPayload)
+      ) {
+        // Offline (or failed) local edits conflict with cloud — keep this device and push.
+        conflictKeptLocal = true;
+        nextPayload = localPayload;
+        const saved = await requestUserSnapshot("PUT", { payload: localPayload });
+        syncedAt = saved.updatedAt || new Date().toISOString();
+      } else {
+        applyUserSnapshotPayload(nextPayload);
+      }
     }
     userSnapshotUserId = userId;
     writeLastUserId(userId);
     writeUserLocalCache(userId, collectUserSnapshotPayload());
-    userSnapshotBaseline = userSnapshotSignature(collectUserSnapshotPayload());
+    setSyncedBaseline(userId, collectUserSnapshotPayload());
     userSnapshotLastSyncedAt = syncedAt;
-    userSnapshotStatus = "ok";
+    userSnapshotStatus = conflictKeptLocal ? "conflict" : "ok";
     emitUserSnapshotUpdate();
   }
 
@@ -995,6 +1066,12 @@
     if (userSnapshotInFlight || document.hidden) return;
     const userId = currentUserId();
     if (!userId) return;
+    if (!isBrowserOnline()) {
+      writeUserLocalCache(userId, collectUserSnapshotPayload());
+      userSnapshotStatus = "offline";
+      emitUserSnapshotUpdate();
+      return;
+    }
     userSnapshotInFlight = true;
     userSnapshotStatus = "syncing";
     emitUserSnapshotUpdate();
@@ -1012,14 +1089,15 @@
       }
       const saved = await requestUserSnapshot("PUT", { payload });
       if (saved && saved.ok) {
-        userSnapshotBaseline = signature;
+        setSyncedBaseline(userId, payload);
         userSnapshotLastSyncedAt = saved.updatedAt || new Date().toISOString();
         writeUserLocalCache(userId, payload);
       }
       userSnapshotStatus = "ok";
       emitUserSnapshotUpdate();
     } catch (_) {
-      userSnapshotStatus = "error";
+      writeUserLocalCache(userId, collectUserSnapshotPayload());
+      userSnapshotStatus = isBrowserOnline() ? "error" : "offline";
       emitUserSnapshotUpdate();
     } finally {
       userSnapshotInFlight = false;
@@ -1033,6 +1111,11 @@
     const signature = userSnapshotSignature(payload);
     if (signature === userSnapshotBaseline) return;
     writeUserLocalCache(userId, payload);
+    if (!isBrowserOnline()) {
+      userSnapshotStatus = "offline";
+      emitUserSnapshotUpdate();
+      return;
+    }
     const body = JSON.stringify({ payload });
     if (new Blob([body]).size > 60 * 1024) return;
     fetch("/api/user/snapshot", {
@@ -1078,7 +1161,8 @@
         await loadSnapshotForCurrentUser();
       } catch (_) {
         /* keep UX responsive even if sync unavailable */
-        userSnapshotStatus = "error";
+        writeUserLocalCache(userId, collectUserSnapshotPayload());
+        userSnapshotStatus = isBrowserOnline() ? "error" : "offline";
         emitUserSnapshotUpdate();
       }
     } else {
@@ -1095,6 +1179,16 @@
       else userSnapshotTick();
     });
     window.addEventListener("pagehide", flushUserSnapshotOnPageHide);
+    window.addEventListener("online", function () {
+      if (!currentUserId()) return;
+      userSnapshotTick();
+    });
+    window.addEventListener("offline", function () {
+      if (!currentUserId()) return;
+      writeUserLocalCache(currentUserId(), collectUserSnapshotPayload());
+      userSnapshotStatus = "offline";
+      emitUserSnapshotUpdate();
+    });
     refreshUserSnapshotSession(false);
   }
 

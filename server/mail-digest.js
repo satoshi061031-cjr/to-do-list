@@ -2,7 +2,7 @@ const { isAgentConfigured, getAgentConfig, callOpenAiChat, extractJsonObject } =
 
 const MAX_MESSAGES = 20;
 
-function fallbackDigest(messages) {
+function fallbackDigest(messages, reason) {
   const count = messages.length;
   const digest =
     count === 0
@@ -17,17 +17,27 @@ function fallbackDigest(messages) {
       ? snippet.slice(0, 160)
       : String(message.subject || "(No subject)").slice(0, 120);
   }
-  return { digest, summaries, summarized: false };
+  return {
+    digest,
+    summaries,
+    summarized: false,
+    fallbackReason: reason || "llm_failed",
+  };
 }
 
 async function summarizeInboxMessages(messages, todayIso) {
   const rows = Array.isArray(messages) ? messages.slice(0, MAX_MESSAGES) : [];
   if (!rows.length) {
-    return { digest: "Inbox is quiet — no recent messages.", summaries: {}, summarized: false };
+    return {
+      digest: "Inbox is quiet — no recent messages.",
+      summaries: {},
+      summarized: false,
+      fallbackReason: "empty",
+    };
   }
 
   if (!isAgentConfigured()) {
-    return fallbackDigest(rows);
+    return fallbackDigest(rows, "agent_not_configured");
   }
 
   const { apiKey, baseUrl, model } = getAgentConfig();
@@ -61,12 +71,12 @@ async function summarizeInboxMessages(messages, todayIso) {
     const content = await callOpenAiChat({ apiKey, baseUrl, model, system, user });
     const parsed = extractJsonObject(content);
     if (!parsed || typeof parsed !== "object") {
-      return fallbackDigest(rows);
+      return fallbackDigest(rows, "llm_failed");
     }
     const digest =
       typeof parsed.digest === "string" && parsed.digest.trim()
         ? parsed.digest.trim().slice(0, 400)
-        : fallbackDigest(rows).digest;
+        : fallbackDigest(rows, "llm_failed").digest;
     const summaries = {};
     const items = Array.isArray(parsed.items) ? parsed.items : [];
     for (const item of items) {
@@ -84,10 +94,11 @@ async function summarizeInboxMessages(messages, todayIso) {
     }
     return { digest, summaries, summarized: true };
   } catch (_) {
-    return fallbackDigest(rows);
+    return fallbackDigest(rows, "llm_failed");
   }
 }
 
 module.exports = {
   summarizeInboxMessages,
+  fallbackDigest,
 };

@@ -246,8 +246,14 @@
       }
       if (!silent) {
         if (payload.summarized) setInboxStatus("Inbox updated with AI digest.");
-        else if (payload.agentConfigured === false)
+        else if (
+          payload.fallbackReason === "agent_not_configured" ||
+          payload.agentConfigured === false
+        )
           setInboxStatus("Inbox updated. Set GROQ_API_KEY for richer AI digests.");
+        else if (payload.fallbackReason === "llm_failed")
+          setInboxStatus("Inbox updated with snippet fallback (AI digest unavailable).");
+        else if (payload.fallbackReason === "empty") setInboxStatus("Inbox is quiet.");
         else setInboxStatus("Inbox updated.");
       } else {
         setInboxStatus("");

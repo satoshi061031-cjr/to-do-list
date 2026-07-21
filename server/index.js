@@ -835,7 +835,10 @@ async function handleApi(request, response, url) {
       /^\d{4}-\d{2}-\d{2}$/.test(url.searchParams.get("today") || "")
         ? url.searchParams.get("today")
         : new Date().toISOString().slice(0, 10);
-    const { digest, summaries, summarized } = await summarizeInboxMessages(messages, today);
+    const { digest, summaries, summarized, fallbackReason } = await summarizeInboxMessages(
+      messages,
+      today
+    );
     sendJson(response, {
       account: {
         id: account.id,
@@ -844,6 +847,7 @@ async function handleApi(request, response, url) {
       },
       digest,
       summarized,
+      fallbackReason: fallbackReason || null,
       agentConfigured: isAgentConfigured(),
       messages: messages.map((item) => ({
         ...item,

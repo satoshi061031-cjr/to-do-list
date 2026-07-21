@@ -20,6 +20,12 @@ Live app: start at `/todo.html` (PWA start URL). Welcome screen: `/` or `/index.
 
 Guest mode works locally with `localStorage`; collaboration, mail, and cloud sync need a signed-in session.
 
+## Reliability
+
+- **Cloud sync:** offline edits stay on-device; Account shows `offline` / `failed — will retry` / `kept this device’s changes` when local and cloud diverge after offline work.
+- **Mail digest:** if AI summarization is unset or fails, inbox still loads with snippet fallback and a clear status line.
+- **Smoke:** `npm test` includes a critical-path check (today’s task → calendar-visible due date → mail-shaped `todo_add`).
+
 ## Run locally
 
 ```sh
