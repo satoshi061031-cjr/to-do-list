@@ -497,8 +497,8 @@ body::after {
 
 .theme-toggle {
   position: fixed;
-  right: 1rem;
-  bottom: 1rem;
+  right: max(1rem, env(safe-area-inset-right, 0px));
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
   z-index: 260;
   display: inline-flex;
   align-items: center;
@@ -534,8 +534,8 @@ body::after {
 
 .language-toggle {
   position: fixed;
-  top: max(1rem, env(safe-area-inset-top));
-  right: 1rem;
+  top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
+  right: max(1rem, env(safe-area-inset-right, 0px));
   z-index: 265;
   min-width: 3.4rem;
   height: 2.25rem;
@@ -561,8 +561,8 @@ body.has-notif-bell .language-toggle {
 
 .notif-root {
   position: fixed;
-  top: max(1rem, env(safe-area-inset-top));
-  right: 1rem;
+  top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
+  right: max(1rem, env(safe-area-inset-right, 0px));
   z-index: 266;
 }
 
@@ -801,8 +801,8 @@ body.todo-agent-open.has-notif-bell .language-toggle {
 
 .sidebar-trigger {
   position: fixed;
-  top: 0.75rem;
-  left: 0.75rem;
+  top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
+  left: max(0.75rem, env(safe-area-inset-left, 0px));
   z-index: 210;
   font: inherit;
   font-weight: 700;
@@ -2957,8 +2957,60 @@ body.todo-agent-open .notif-root {
     right: 1rem;
     visibility: hidden;
   }
+}
+
+/* Mobile: drop expensive blur stacks for snappier paint (PWA / phone). */
+@media (max-width: 819px) {
+  body::before {
+    filter: none;
+    transform: none;
+    inset: 0;
+    opacity: 0.55;
+  }
+
+  .sidebar,
+  .sidebar-inner,
+  .app-module,
+  .app-calendar-panel,
+  .todo-item,
+  .auth-card,
+  .auth-modal-backdrop,
+  .calendar-month-card,
+  .calendar-day-panel,
+  .calendar-list-item,
+  .planner-card,
+  .planner-board-empty,
+  .deadline-trigger,
+  .calendar-popover,
+  .due-day-page-sheet,
+  .filters,
+  .todo-source-switch,
+  .sidebar-trigger,
+  .theme-toggle,
+  .language-toggle,
+  .btn,
+  .category-btn,
+  .filter-btn {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
 
   .todo-agent-messages {
     max-height: none;
   }
+}
+
+/* Native Capacitor / notched phones: keep chrome below system bars. */
+html.is-native-shell .sidebar-trigger,
+body.is-native-shell .sidebar-trigger,
+html.is-native-shell .language-toggle,
+body.is-native-shell .language-toggle,
+html.is-native-shell .notif-root,
+body.is-native-shell .notif-root {
+  top: calc(env(safe-area-inset-top, 0px) + 0.85rem);
+}
+
+html.is-native-shell .theme-toggle,
+body.is-native-shell .theme-toggle {
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
 }

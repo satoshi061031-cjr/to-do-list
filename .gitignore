@@ -2,3 +2,12 @@
 .env
 node_modules/
 server/data/
+www/
+android/.gradle/
+android/app/build/
+android/build/
+android/capacitor-cordova-android-plugins/build/
+ios/App/Pods/
+ios/App/build/
+*.keystore
+*.jks

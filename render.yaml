@@ -12,9 +12,17 @@ services:
         value: 22.12.0
       - key: DISABLE_STOCK_SCHEDULER
         value: "1"
+      - key: GOOGLE_SIGNIN_CLIENT_ID
+        sync: false
+      - key: GOOGLE_SIGNIN_CLIENT_SECRET
+        sync: false
       - key: GOOGLE_OAUTH_CLIENT_ID
         sync: false
       - key: GOOGLE_OAUTH_CLIENT_SECRET
+        sync: false
+      - key: MICROSOFT_SIGNIN_CLIENT_ID
+        sync: false
+      - key: MICROSOFT_SIGNIN_CLIENT_SECRET
         sync: false
       - key: MICROSOFT_OAUTH_CLIENT_ID
         sync: false

@@ -506,7 +506,7 @@ async function handleApi(request, response, url) {
     });
     sendJson(response, {
       ok: true,
-      authUrl: buildOauthAuthUrl("gmail", providerConfig, state, ""),
+      authUrl: buildSignInAuthUrl("google", providerConfig, state),
     });
     return;
   }
@@ -613,7 +613,7 @@ async function handleApi(request, response, url) {
     });
     sendJson(response, {
       ok: true,
-      authUrl: buildOauthAuthUrl("outlook", providerConfig, state, ""),
+      authUrl: buildSignInAuthUrl("outlook", providerConfig, state),
     });
     return;
   }
@@ -677,16 +677,10 @@ async function handleApi(request, response, url) {
         userId: email,
         provider: "outlook",
         email,
-        accessToken: sealToken(token.access_token),
-        refreshToken: token.refresh_token ? sealToken(token.refresh_token) : null,
-        tokenType: token.token_type || "Bearer",
-        scope: token.scope || null,
-        expiresAt: token.expires_in ? new Date(Date.now() + Number(token.expires_in) * 1000).toISOString() : null,
         profile: {
           source: "linked-user-auth",
           displayName: label,
           id: profile.id || tokenClaims.oid || null,
-          raw: profile,
         },
       });
       sendRedirect(
@@ -1438,32 +1432,12 @@ function getOauthProviderConfig(provider, request) {
 
 function getGoogleSignInConfig(request) {
   const baseUrl = getBaseUrl(request);
-  const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
+  const clientId = process.env.GOOGLE_SIGNIN_CLIENT_ID || process.env.GOOGLE_OAUTH_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_SIGNIN_CLIENT_SECRET || process.env.GOOGLE_OAUTH_CLIENT_SECRET;
   const redirectUri = process.env.GOOGLE_SIGNIN_REDIRECT_URI || `${baseUrl}/api/auth/google/callback`;
   if (!clientId || !clientSecret) {
-    const error = new Error("Google OAuth env is missing (GOOGLE_OAUTH_CLIENT_ID / GOOGLE_OAUTH_CLIENT_SECRET).");
-    error.statusCode = 500;
-    throw error;
-  }
-  return {
-    clientId,
-    clientSecret,
-    redirectUri,
-    scope: "openid email profile",
-    authUrl: "https://accounts.google.com/o/oauth2/v2/auth",
-    tokenUrl: "https://oauth2.googleapis.com/token",
-  };
-}
-
-function getOutlookSignInConfig(request) {
-  const baseUrl = getBaseUrl(request);
-  const clientId = process.env.MICROSOFT_OAUTH_CLIENT_ID;
-  const clientSecret = process.env.MICROSOFT_OAUTH_CLIENT_SECRET;
-  const redirectUri = process.env.MICROSOFT_SIGNIN_REDIRECT_URI || `${baseUrl}/api/auth/outlook/callback`;
-  if (!clientId || !clientSecret) {
     const error = new Error(
-      "Microsoft OAuth env is missing (MICROSOFT_OAUTH_CLIENT_ID / MICROSOFT_OAUTH_CLIENT_SECRET)."
+      "Google sign-in env is missing (GOOGLE_SIGNIN_CLIENT_ID / GOOGLE_SIGNIN_CLIENT_SECRET, or GOOGLE_OAUTH_* fallback)."
     );
     error.statusCode = 500;
     throw error;
@@ -1472,7 +1446,31 @@ function getOutlookSignInConfig(request) {
     clientId,
     clientSecret,
     redirectUri,
-    scope: "offline_access openid profile email User.Read Mail.Read",
+    // Identity only — never request Gmail scopes on the login client.
+    scope: "openid email profile",
+    authUrl: "https://accounts.google.com/o/oauth2/v2/auth",
+    tokenUrl: "https://oauth2.googleapis.com/token",
+  };
+}
+
+function getOutlookSignInConfig(request) {
+  const baseUrl = getBaseUrl(request);
+  const clientId = process.env.MICROSOFT_SIGNIN_CLIENT_ID || process.env.MICROSOFT_OAUTH_CLIENT_ID;
+  const clientSecret = process.env.MICROSOFT_SIGNIN_CLIENT_SECRET || process.env.MICROSOFT_OAUTH_CLIENT_SECRET;
+  const redirectUri = process.env.MICROSOFT_SIGNIN_REDIRECT_URI || `${baseUrl}/api/auth/outlook/callback`;
+  if (!clientId || !clientSecret) {
+    const error = new Error(
+      "Microsoft sign-in env is missing (MICROSOFT_SIGNIN_CLIENT_ID / MICROSOFT_SIGNIN_CLIENT_SECRET, or MICROSOFT_OAUTH_* fallback)."
+    );
+    error.statusCode = 500;
+    throw error;
+  }
+  return {
+    clientId,
+    clientSecret,
+    redirectUri,
+    // Identity / profile only — Mail.Read stays on the mail OAuth client.
+    scope: "openid profile email User.Read",
     authUrl: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
     tokenUrl: "https://login.microsoftonline.com/common/oauth2/v2.0/token",
   };
@@ -1574,6 +1572,24 @@ function resolveDisplayName(profile, tokenClaims, email, fallback) {
     return email.split("@")[0];
   }
   return fallback;
+}
+
+function buildSignInAuthUrl(provider, config, state) {
+  const params = new URLSearchParams({
+    response_type: "code",
+    client_id: config.clientId,
+    redirect_uri: config.redirectUri,
+    scope: config.scope,
+    state,
+  });
+  if (provider === "google") {
+    // Do not set include_granted_scopes — that would pull prior Gmail grants into login.
+    params.set("prompt", "select_account");
+  } else if (provider === "outlook") {
+    params.set("response_mode", "query");
+    params.set("prompt", "select_account");
+  }
+  return `${config.authUrl}?${params.toString()}`;
 }
 
 function buildOauthAuthUrl(provider, config, state, emailHint) {

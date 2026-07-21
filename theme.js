@@ -49,6 +49,21 @@
     const icon = toggle.querySelector(".theme-toggle-icon");
     if (label) label.textContent = isDark ? "Light" : "Dark";
     if (icon) icon.textContent = isDark ? "L" : "D";
+
+    const cap = window.Capacitor;
+    if (cap && typeof cap.isNativePlatform === "function" && cap.isNativePlatform()) {
+      const statusBar = cap.Plugins && cap.Plugins.StatusBar;
+      if (statusBar) {
+        try {
+          statusBar.setStyle({ style: isDark ? "LIGHT" : "DARK" });
+          if (typeof statusBar.setBackgroundColor === "function") {
+            statusBar.setBackgroundColor({ color: isDark ? "#131412" : "#e7e9ea" });
+          }
+        } catch (_) {
+          /* ignore */
+        }
+      }
+    }
   }
 
   function setupThemeToggle() {
@@ -1303,7 +1318,119 @@
     startPoll();
   }
 
+  function ensurePwaShell() {
+    const head = document.head;
+    if (!head) return;
+
+    function ensureMeta(name, content) {
+      let el = head.querySelector('meta[name="' + name + '"]');
+      if (!el) {
+        el = document.createElement("meta");
+        el.setAttribute("name", name);
+        head.appendChild(el);
+      }
+      el.setAttribute("content", content);
+    }
+
+    ensureMeta("theme-color", "#35322e");
+    ensureMeta("mobile-web-app-capable", "yes");
+    ensureMeta("apple-mobile-web-app-capable", "yes");
+    ensureMeta("apple-mobile-web-app-status-bar-style", "black-translucent");
+    ensureMeta("apple-mobile-web-app-title", "Daily Space");
+
+    const viewport = head.querySelector('meta[name="viewport"]');
+    if (viewport) {
+      const current = String(viewport.getAttribute("content") || "");
+      if (!/viewport-fit\s*=/.test(current)) {
+        viewport.setAttribute(
+          "content",
+          (current ? current.replace(/\s*$/, "") + ", " : "") + "viewport-fit=cover"
+        );
+      }
+    }
+
+    if (!head.querySelector('link[rel="manifest"]')) {
+      const manifest = document.createElement("link");
+      manifest.rel = "manifest";
+      manifest.href = "manifest.json";
+      head.appendChild(manifest);
+    }
+
+    if (!head.querySelector('link[rel="apple-touch-icon"]')) {
+      const icon = document.createElement("link");
+      icon.rel = "apple-touch-icon";
+      icon.href = "android-chrome-192x192.png";
+      head.appendChild(icon);
+    }
+  }
+
+  function registerServiceWorker() {
+    if (!("serviceWorker" in navigator)) return;
+    const cap = window.Capacitor;
+    if (cap && typeof cap.isNativePlatform === "function" && cap.isNativePlatform()) {
+      // Native shell already caches via WebView / HTTP; avoid competing SWs.
+      return;
+    }
+    const run = function () {
+      navigator.serviceWorker.register("sw.js").catch(function () {
+        /* Offline shell is best-effort. */
+      });
+    };
+    if (document.readyState === "complete") run();
+    else window.addEventListener("load", run, { once: true });
+  }
+
+  function setupNativeShell() {
+    const cap = window.Capacitor;
+    if (!cap || typeof cap.isNativePlatform !== "function" || !cap.isNativePlatform()) {
+      return;
+    }
+
+    document.documentElement.classList.add("is-native-shell");
+    document.body?.classList.add("is-native-shell");
+
+    const plugins = cap.Plugins || {};
+
+    try {
+      if (plugins.StatusBar) {
+        const isDark = document.documentElement.dataset.theme === DARK;
+        plugins.StatusBar.setStyle({ style: isDark ? "LIGHT" : "DARK" });
+        if (typeof plugins.StatusBar.setBackgroundColor === "function") {
+          plugins.StatusBar.setBackgroundColor({
+            color: isDark ? "#131412" : "#e7e9ea",
+          });
+        }
+      }
+    } catch (_) {
+      /* Status bar is optional polish. */
+    }
+
+    try {
+      if (plugins.SplashScreen && typeof plugins.SplashScreen.hide === "function") {
+        plugins.SplashScreen.hide();
+      }
+    } catch (_) {
+      /* ignore */
+    }
+
+    try {
+      if (plugins.App && typeof plugins.App.addListener === "function") {
+        plugins.App.addListener("backButton", function (event) {
+          if (event && event.canGoBack) {
+            window.history.back();
+          } else if (plugins.App.exitApp) {
+            plugins.App.exitApp();
+          }
+        });
+      }
+    } catch (_) {
+      /* ignore */
+    }
+  }
+
   function setupSharedUi() {
+    ensurePwaShell();
+    registerServiceWorker();
     setupThemeToggle();
     setupAutoSidebar();
     setupAuthEntry();
@@ -1311,6 +1438,7 @@
     setupGreeting();
     setupWelcomeExperience();
     setupNotifications();
+    setupNativeShell();
   }
 
   applyTheme(storedTheme());

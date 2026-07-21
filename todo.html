@@ -2,7 +2,7 @@
 <html lang="en">
   <head> <link rel="manifest" href="manifest.json">
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>To-do list</title>
     <script src="theme.js"></script>
     <script src="i18n.js"></script>
@@ -227,13 +227,5 @@
     <script src="app.js"></script>
     <script src="agent-data.js"></script>
     <script src="agent-ui.js"></script>
-    <script>
-      if ("serviceWorker" in navigator) {
-        navigator.serviceWorker
-          .register("sw.js")
-          .then(() => console.log("SW registered"))
-          .catch((err) => console.log("SW error:", err));
-      }
-    </script>
   </body>
 </html>

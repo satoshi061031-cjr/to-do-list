@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Daily Space</string>
+    <string name="title_activity_main">Daily Space</string>
+    <string name="package_name">app.dailyspace.mobile</string>
+    <string name="custom_url_scheme">app.dailyspace.mobile</string>
+</resources>
