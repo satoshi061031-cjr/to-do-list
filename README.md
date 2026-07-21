@@ -11,8 +11,8 @@ Live app: start at `/todo.html` (PWA start URL). Welcome screen: `/` or `/index.
 | **Todo** | Daily Loop hub — due today, overdue, assigned, today’s reminders |
 | **Calendar** | Month + day panel; add tasks for a day; reminders |
 | **Planner** | Personal / team boards; due today & this week strip |
-| **Tally** | Simple expense log + monthly budget |
-| **Teamwork** | Shared workspaces, invites, assignment feed |
+| **Teamwork** | Shared workspaces, invites, assignment feed (device-only private notes optional) |
+| **Tally** | Expense log with spent today / week / month + budget |
 | **Mail** | Connect Gmail/Outlook → pull inbox → AI digest → add as today’s task |
 | **Agent** | Natural-language actions across Todo / Planner / Calendar / Tally (needs LLM key) |
 
@@ -97,4 +97,4 @@ npm test
 
 ## Legacy note
 
-Some stock-watchlist API routes and SQLite tables may still exist in the server for compatibility. There is **no stock UI** in the current product surface; treat those endpoints as legacy unless you rebuild them.
+Stock-watchlist API routes and the scheduler are **removed** from the product server. Unused SQLite stock tables may still exist in the local DB file; they are inert.

@@ -173,6 +173,21 @@
   text-shadow: 0 2px 14px rgba(0, 0, 0, 0.28);
 }
 
+.tally-today-strip {
+  margin-bottom: 0.85rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.tally-today-total {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--text);
+  font-size: clamp(1.65rem, 5.5vw, 2.35rem);
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
 .tally-week-total {
   display: block;
   margin-top: 0.2rem;

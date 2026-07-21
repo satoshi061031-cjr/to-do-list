@@ -16,6 +16,7 @@
   const metaEl = document.getElementById("tally-meta");
   const monthTotalEl = document.getElementById("tally-month-total");
   const weekTotalEl = document.getElementById("tally-week-total");
+  const todayTotalEl = document.getElementById("tally-today-total");
   const budgetInput = document.getElementById("tally-budget");
   const currencyInput = document.getElementById("tally-currency");
   const progressBar = document.getElementById("tally-progress-bar");
@@ -152,6 +153,7 @@
       return date >= start && date <= end;
     });
     const spentThisWeek = total(weekRecords);
+    const spentToday = total(records.filter((record) => record.date === todayIso()));
     const remaining = Math.max(0, budget - monthTotal);
     const percent = budget > 0 ? Math.min(100, (monthTotal / budget) * 100) : 0;
 
@@ -162,6 +164,7 @@
     metaEl.textContent = `${monthRecords.length} records · ${percent.toFixed(0)}% of budget used`;
     monthTotalEl.textContent = currency(monthTotal);
     weekTotalEl.textContent = currency(spentThisWeek);
+    if (todayTotalEl) todayTotalEl.textContent = currency(spentToday);
     budgetInput.value = String(budget);
     currencyInput.value = currencySymbol;
     progressBar.style.width = `${percent}%`;

@@ -4,22 +4,15 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const tls = require("node:tls");
 const {
-  addWatchlist,
   consumeOauthState,
   createOauthState,
   getDb,
   getMailAccountById,
-  getSummary,
   listMailAccounts,
-  listWatchlist,
   removeMailAccount,
   removeMailAccountByProviderEmail,
-  removeWatchlist,
   upsertMailAccount,
-  upsertSymbol,
 } = require("./db");
-const { refreshSymbol, startScheduler } = require("./jobs/scheduler");
-const { searchSymbols } = require("./providers/market");
 const { isAgentConfigured, runTodoAgent } = require("./agent");
 const { runGlobalAgent } = require("./global-agent");
 const { summarizeInboxMessages } = require("./mail-digest");
@@ -66,7 +59,6 @@ const {
 
 const ROOT_DIR = path.resolve(__dirname, "..");
 const PORT = Number(process.env.PORT || 3000);
-const manualRefreshes = new Map();
 const SESSION_COOKIE_NAME = "daily_space_session";
 
 loadEnv();
@@ -80,7 +72,6 @@ const server = http.createServer((request, response) => {
 
 server.listen(PORT, () => {
   console.log(`Daily Space server running at http://localhost:${PORT}`);
-  startScheduler();
 });
 
 async function handleRequest(request, response) {
@@ -445,53 +436,6 @@ async function handleApi(request, response, url) {
       userLabel: session.label || session.email || session.userId,
     });
     sendJson(response, { workspace });
-    return;
-  }
-
-  if (method === "GET" && url.pathname === "/api/stocks/search") {
-    const q = url.searchParams.get("q") || "";
-    sendJson(response, { results: await searchSymbols(q) });
-    return;
-  }
-
-  if (method === "GET" && url.pathname === "/api/watchlist") {
-    sendJson(response, { watchlist: listWatchlist() });
-    return;
-  }
-
-  if (method === "POST" && url.pathname === "/api/watchlist") {
-    const body = await readJson(request);
-    const item = addWatchlist(body.symbol, body.name);
-    upsertSymbol(item);
-    const summary = await refreshSymbol(item.symbol, { deep: true });
-    sendJson(response, { item, summary }, 201);
-    return;
-  }
-
-  const watchlistDelete = url.pathname.match(/^\/api\/watchlist\/([^/]+)$/);
-  if (method === "DELETE" && watchlistDelete) {
-    const removed = removeWatchlist(decodeURIComponent(watchlistDelete[1]));
-    sendJson(response, { removed });
-    return;
-  }
-
-  const summaryMatch = url.pathname.match(/^\/api\/stocks\/([^/]+)\/summary$/);
-  if (method === "GET" && summaryMatch) {
-    const symbol = decodeURIComponent(summaryMatch[1]).toUpperCase();
-    let summary = getSummary(symbol);
-    if (!summary.quote && !summary.signal) {
-      summary = await refreshSymbol(symbol, { deep: true });
-    }
-    sendJson(response, { summary });
-    return;
-  }
-
-  const refreshMatch = url.pathname.match(/^\/api\/stocks\/([^/]+)\/refresh$/);
-  if (method === "POST" && refreshMatch) {
-    const symbol = decodeURIComponent(refreshMatch[1]).toUpperCase();
-    enforceRefreshLimit(symbol);
-    const summary = await refreshSymbol(symbol, { deep: true });
-    sendJson(response, { summary });
     return;
   }
 
@@ -1166,21 +1110,13 @@ async function handleApi(request, response, url) {
   throw error;
 }
 
-function enforceRefreshLimit(symbol) {
-  const now = Date.now();
-  const last = manualRefreshes.get(symbol) || 0;
-  if (now - last < 60_000) {
-    const error = new Error("Manual refresh is limited to once per minute per symbol.");
-    error.statusCode = 429;
-    throw error;
-  }
-  manualRefreshes.set(symbol, now);
-}
-
 function serveStatic(response, pathname) {
   const cleanPath = decodeURIComponent(pathname.split("?")[0]);
   let relative = cleanPath === "/" ? "index.html" : cleanPath.replace(/^\/+/, "");
-  if (relative === "stocks") relative = "stocks.html";
+  if (relative === "stocks" || relative === "stocks.html") {
+    sendText(response, "Stock signals UI was removed. Use Daily Space productivity pages instead.", 410);
+    return;
+  }
 
   const filePath = path.resolve(ROOT_DIR, relative);
   if (!filePath.startsWith(ROOT_DIR)) {

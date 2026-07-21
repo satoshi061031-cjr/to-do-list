@@ -105,24 +105,27 @@
 
           <details class="teamwork-card teamwork-personal-draft" id="teamwork-personal-draft">
             <summary class="teamwork-personal-summary">
-              <span class="teamwork-kicker">On this device</span>
-              <span class="teamwork-personal-summary-title">Private scratchpad</span>
-              <span class="teamwork-personal-summary-note">Not shared with workspace members — local notes only</span>
+              <span class="teamwork-kicker">Device only</span>
+              <span class="teamwork-personal-summary-title">Private notes</span>
+              <span class="teamwork-personal-summary-note">Never synced to workspace members</span>
             </summary>
 
             <div class="teamwork-personal-body">
+              <p class="teamwork-draft-banner">
+                This block stays on this device. For real collaboration use the workspace above and Planner team boards.
+              </p>
               <div class="teamwork-personal-fields">
-                <input id="teamwork-kicker" class="teamwork-inline-input teamwork-eyebrow" data-field="kicker" placeholder="Teamwork" hidden />
+                <input id="teamwork-kicker" class="teamwork-inline-input teamwork-eyebrow" data-field="kicker" placeholder="Notes" hidden />
                 <label class="teamwork-field-label" for="teamwork-title">Title</label>
-                <textarea id="teamwork-title" class="teamwork-inline-input teamwork-card-title" data-field="title" rows="2" placeholder="Name this space…"></textarea>
+                <textarea id="teamwork-title" class="teamwork-inline-input teamwork-card-title" data-field="title" rows="2" placeholder="Name these private notes…"></textarea>
                 <label class="teamwork-field-label" for="teamwork-copy">Description</label>
-                <textarea id="teamwork-copy" class="teamwork-inline-input teamwork-card-copy" data-field="copy" rows="2" placeholder="One quiet sentence about the team…"></textarea>
+                <textarea id="teamwork-copy" class="teamwork-inline-input teamwork-card-copy" data-field="copy" rows="2" placeholder="Optional private description…"></textarea>
                 <input id="teamwork-status-label" class="teamwork-inline-input" data-field="statusLabel" hidden />
                 <input id="teamwork-status-main" class="teamwork-inline-input" data-field="statusMain" hidden />
                 <input id="teamwork-status-sub" class="teamwork-inline-input" data-field="statusSub" hidden />
               </div>
 
-              <div class="teamwork-grid teamwork-grid--draft" aria-label="Personal draft">
+              <div class="teamwork-grid teamwork-grid--draft" aria-label="Private notes">
                 <article class="teamwork-card teamwork-card--quiet">
                   <input id="teamwork-focus-kicker" class="teamwork-inline-input teamwork-kicker" data-field="focusKicker" placeholder="Focus" />
                   <input id="teamwork-focus-title" class="teamwork-inline-input teamwork-card-title" data-field="focusTitle" placeholder="This week’s focus…" />
@@ -130,29 +133,23 @@
                 </article>
 
                 <article class="teamwork-card teamwork-card--quiet">
-                  <input id="teamwork-notes-kicker" class="teamwork-inline-input teamwork-kicker" data-field="notesKicker" placeholder="Sync" />
-                  <input id="teamwork-notes-title" class="teamwork-inline-input teamwork-card-title" data-field="notesTitle" placeholder="Team notes" />
-                  <textarea id="teamwork-notes" class="teamwork-inline-input teamwork-card-copy" data-field="notes" rows="3" placeholder="Shared notes for the team…"></textarea>
-                </article>
-
-                <article class="teamwork-card teamwork-card--quiet teamwork-members">
-                  <input id="teamwork-members-kicker" class="teamwork-inline-input teamwork-kicker" data-field="membersKicker" placeholder="Local members" />
-                  <input id="teamwork-members-title" class="teamwork-inline-input teamwork-card-title" data-field="membersTitle" placeholder="Availability" />
-                  <div class="teamwork-member-list" id="teamwork-member-list"></div>
-                  <p class="teamwork-empty-hint" id="teamwork-members-empty">Add local names for personal planning only.</p>
-                  <form class="teamwork-add-form" id="teamwork-member-form" autocomplete="off">
-                    <input class="teamwork-form-input" id="teamwork-member-name" placeholder="Member name" />
-                    <input class="teamwork-form-input" id="teamwork-member-role" placeholder="Role" />
-                    <button class="btn btn-primary" type="submit">Add</button>
-                  </form>
+                  <input id="teamwork-notes-kicker" class="teamwork-inline-input teamwork-kicker" data-field="notesKicker" placeholder="Notes" />
+                  <input id="teamwork-notes-title" class="teamwork-inline-input teamwork-card-title" data-field="notesTitle" placeholder="Private notes" />
+                  <textarea id="teamwork-notes" class="teamwork-inline-input teamwork-card-copy" data-field="notes" rows="3" placeholder="Private notes on this device…"></textarea>
                 </article>
               </div>
 
-              <section class="teamwork-card teamwork-card--quiet teamwork-task-board" aria-labelledby="teamwork-tasks-title">
-                <input id="teamwork-tasks-kicker" class="teamwork-inline-input teamwork-kicker" data-field="tasksKicker" placeholder="Tasks" />
-                <input id="teamwork-tasks-title" class="teamwork-inline-input teamwork-card-title" data-field="tasksTitle" placeholder="Member task breakdown" />
-                <div class="teamwork-task-grid" id="teamwork-task-grid"></div>
-              </section>
+              <!-- Legacy local fake members/tasks kept in storage for agent compat but hidden from UI -->
+              <div class="teamwork-legacy-draft" hidden>
+                <input id="teamwork-members-kicker" data-field="membersKicker" />
+                <input id="teamwork-members-title" data-field="membersTitle" />
+                <div id="teamwork-member-list"></div>
+                <p id="teamwork-members-empty"></p>
+                <form id="teamwork-member-form"><input id="teamwork-member-name" /><input id="teamwork-member-role" /><button type="submit">Add</button></form>
+                <input id="teamwork-tasks-kicker" data-field="tasksKicker" />
+                <input id="teamwork-tasks-title" data-field="tasksTitle" />
+                <div id="teamwork-task-grid"></div>
+              </div>
             </div>
           </details>
         </div>

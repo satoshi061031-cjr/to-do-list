@@ -552,6 +552,18 @@
   padding-top: var(--space-md);
 }
 
+.teamwork-draft-banner {
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  letter-spacing: 0.02em;
+}
+
 .teamwork-personal-fields {
   display: grid;
   gap: var(--space-sm);

@@ -2,7 +2,7 @@
   const STORAGE_KEY = "teamwork-page-v1";
 
   const defaults = {
-    kicker: "Teamwork",
+    kicker: "Notes",
     title: "",
     copy: "",
     statusLabel: "",
@@ -11,13 +11,13 @@
     focusKicker: "Focus",
     focusTitle: "",
     focusCopy: "",
-    notesKicker: "Sync",
-    notesTitle: "Team notes",
+    notesKicker: "Notes",
+    notesTitle: "Private notes",
     notes: "",
-    membersKicker: "Local members",
+    membersKicker: "Local only",
     membersTitle: "Availability",
     tasksKicker: "Tasks",
-    tasksTitle: "Member task breakdown",
+    tasksTitle: "Local task notes",
     members: [],
   };
 
