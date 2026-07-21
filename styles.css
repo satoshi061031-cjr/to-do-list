@@ -2959,8 +2959,24 @@ body.todo-agent-open .notif-root {
   }
 }
 
-/* Mobile: drop expensive blur stacks for snappier paint (PWA / phone). */
+/* Mobile: drop expensive blur; use denser fills so panels match desktop glass look. */
 @media (max-width: 819px) {
+  :root {
+    --glass: linear-gradient(180deg, rgba(250, 251, 248, 0.94) 0%, rgba(242, 244, 241, 0.9) 100%);
+    --glass-strong: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(247, 249, 247, 0.94) 100%);
+    --surface: rgba(242, 244, 241, 0.96);
+    --surface-muted: rgba(226, 229, 225, 0.94);
+    --surface-hover: rgba(250, 251, 248, 0.98);
+  }
+
+  :root[data-theme="dark"] {
+    --glass: linear-gradient(180deg, rgba(48, 48, 44, 0.96) 0%, rgba(28, 28, 26, 0.94) 100%);
+    --glass-strong: linear-gradient(180deg, rgba(58, 58, 52, 0.98) 0%, rgba(35, 35, 32, 0.96) 100%);
+    --surface: rgba(35, 36, 33, 0.97);
+    --surface-muted: rgba(28, 29, 26, 0.95);
+    --surface-hover: rgba(48, 49, 45, 0.98);
+  }
+
   body::before {
     filter: none;
     transform: none;
@@ -2993,6 +3009,15 @@ body.todo-agent-open .notif-root {
   .filter-btn {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
+  }
+
+  .category-btn,
+  .sidebar-page-link,
+  .sidebar-trigger,
+  .language-toggle,
+  .theme-toggle,
+  .notif-bell {
+    background: var(--surface) !important;
   }
 
   .todo-agent-messages {

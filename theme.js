@@ -1394,6 +1394,10 @@
     try {
       if (plugins.StatusBar) {
         const isDark = document.documentElement.dataset.theme === DARK;
+        // Keep WebView below the status bar so Menu / language are tappable.
+        if (typeof plugins.StatusBar.setOverlaysWebView === "function") {
+          plugins.StatusBar.setOverlaysWebView({ overlay: false });
+        }
         plugins.StatusBar.setStyle({ style: isDark ? "LIGHT" : "DARK" });
         if (typeof plugins.StatusBar.setBackgroundColor === "function") {
           plugins.StatusBar.setBackgroundColor({
