@@ -42,27 +42,27 @@ body.calendar-page {
   margin: 0 0 0.2rem;
   color: var(--highlight);
   font-size: 0.74rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
+  font-weight: 600;
+  letter-spacing: var(--type-label-tracking);
   text-transform: uppercase;
-  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.36);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.14);
 }
 
 .calendar-page .calendar-title {
   margin: 0;
   color: var(--highlight);
   font-size: clamp(1.8rem, 5vw, 3.2rem);
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.06em;
   line-height: 1;
-  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.42);
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.18);
 }
 
 .calendar-page .calendar-meta {
   margin: 0.45rem 0 0;
   color: var(--highlight);
   font-size: 0.86rem;
-  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.36);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.14);
 }
 
 .calendar-nav-actions {
@@ -85,7 +85,7 @@ body.calendar-page {
   background: var(--glass);
   cursor: pointer;
   font: inherit;
-  font-weight: 700;
+  font-weight: 600;
   box-shadow: var(--shadow-soft);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -176,8 +176,8 @@ body.calendar-page {
   margin: 0 0 0.3rem;
   color: var(--text-muted);
   font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
+  font-weight: 600;
+  letter-spacing: var(--type-label-tracking);
   text-transform: uppercase;
 }
 
@@ -221,7 +221,7 @@ body.calendar-page {
   min-width: 0;
   color: var(--text-muted);
   font-size: 0.68rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -291,7 +291,7 @@ body.calendar-page {
 .calendar-todo-link {
   flex-shrink: 0;
   font-size: 0.74rem;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.04em;
   color: var(--accent);
   text-decoration: none;

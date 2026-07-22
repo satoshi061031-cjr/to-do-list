@@ -54,25 +54,34 @@
 
       <main class="main-area">
         <div class="app">
-          <section class="app-calendar-panel app-module" data-module-id="calendar" aria-label="Calendar">
-            <time class="app-calendar-live" id="app-calendar-live" datetime=""></time>
-            <div class="app-calendar-toolbar">
-              <button type="button" class="app-calendar-nav" id="app-cal-prev" aria-label="Previous month">‹</button>
-              <div class="app-calendar-title" id="app-calendar-title"></div>
-              <button type="button" class="app-calendar-nav" id="app-cal-next" aria-label="Next month">›</button>
-              <button type="button" class="btn-app-cal-today" id="app-cal-today">This month</button>
+          <section class="app-atmosphere app-module" data-module-id="atmosphere" aria-label="Clock">
+            <div class="app-clock" aria-hidden="true">
+              <div class="app-clock-face">
+                <span class="app-clock-tick" style="--i: 0"></span>
+                <span class="app-clock-tick" style="--i: 1"></span>
+                <span class="app-clock-tick" style="--i: 2"></span>
+                <span class="app-clock-tick" style="--i: 3"></span>
+                <span class="app-clock-tick" style="--i: 4"></span>
+                <span class="app-clock-tick" style="--i: 5"></span>
+                <span class="app-clock-tick" style="--i: 6"></span>
+                <span class="app-clock-tick" style="--i: 7"></span>
+                <span class="app-clock-tick" style="--i: 8"></span>
+                <span class="app-clock-tick" style="--i: 9"></span>
+                <span class="app-clock-tick" style="--i: 10"></span>
+                <span class="app-clock-tick" style="--i: 11"></span>
+                <div class="app-clock-hand app-clock-hand-hour" id="app-clock-hour"></div>
+                <div class="app-clock-hand app-clock-hand-minute" id="app-clock-minute"></div>
+                <div class="app-clock-hand app-clock-hand-second" id="app-clock-second"></div>
+                <div class="app-clock-pivot"></div>
+              </div>
             </div>
-            <div class="app-cal-weekdays">
-              <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
-            </div>
-            <div class="app-cal-grid" id="app-calendar-grid"></div>
+            <time class="app-clock-digital" id="app-clock-digital" datetime=""></time>
+            <p class="app-clock-date" id="app-clock-date"></p>
           </section>
           <div class="todo-module-stack">
             <section class="task-module app-module" data-module-id="tasks" aria-label="To-do tasks">
               <header class="header">
-                <p class="todo-kicker">Daily Loop</p>
                 <h1 class="title">Today</h1>
-                <p class="subtitle">What’s left — then stop.</p>
               </header>
 
               <section class="daily-loop" id="daily-loop" aria-label="Daily loop">
@@ -97,7 +106,7 @@
                   </button>
                 </div>
                 <ul class="todo-list daily-loop-list" id="daily-loop-list" aria-label="Due today"></ul>
-                <p class="daily-loop-empty" id="daily-loop-empty" hidden>Nothing due today — add a task above.</p>
+                <p class="daily-loop-empty" id="daily-loop-empty" hidden>Nothing due today.</p>
                 <a class="daily-loop-reminders" id="daily-loop-reminders" href="calendar.html" hidden>
                   <div class="daily-loop-reminders-head">
                     <span class="daily-loop-reminders-label">Reminders</span>
@@ -137,7 +146,7 @@
               />
               <button type="submit" class="btn btn-primary add-form-submit">Add</button>
             </div>
-            <p class="composer-hint" id="composer-hint">Enter to add · / commands · ⌘K jump · ? shortcuts</p>
+            <p class="composer-hint" id="composer-hint">⌘K · ?</p>
             <div class="add-form-deadline">
               <div class="deadline-picker">
                 <input type="hidden" id="todo-deadline" value="" />

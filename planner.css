@@ -76,8 +76,8 @@ body.planner-page {
   margin: 0 0 0.35rem;
   color: var(--text-muted);
   font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
+  font-weight: 600;
+  letter-spacing: var(--type-label-tracking);
   text-transform: uppercase;
 }
 
@@ -120,7 +120,7 @@ body.planner-page {
   color: var(--text-muted);
   font: inherit;
   font-size: var(--type-label-size);
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.04em;
   padding: 0.45rem 0.85rem;
   cursor: pointer;
@@ -187,7 +187,7 @@ body.planner-page {
   color: var(--text-muted);
   font: inherit;
   font-size: var(--type-label-size);
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.02em;
   text-decoration: none;
   cursor: pointer;
@@ -318,8 +318,8 @@ body.planner-page {
   margin: 0;
   color: var(--highlight);
   font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
+  font-weight: 600;
+  letter-spacing: var(--type-label-tracking);
   text-transform: uppercase;
 }
 
@@ -389,7 +389,7 @@ body.planner-page {
 }
 
 .planner-add-column-main {
-  font-weight: 700;
+  font-weight: 600;
   font-size: 0.78rem;
   letter-spacing: 0.05em;
   padding: 0.5rem 0.85rem;
@@ -973,7 +973,7 @@ body.planner-page {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--text);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .planner-card-assignee-chip {
@@ -981,8 +981,8 @@ body.planner-page {
   padding: 0 0.15rem;
   color: var(--highlight);
   font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
+  font-weight: 600;
+  letter-spacing: var(--type-label-tracking);
   text-transform: uppercase;
 }
 
@@ -993,7 +993,7 @@ body.planner-page {
   margin: 0 0 0.35rem;
   color: var(--text-muted);
   font-size: 0.68rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }

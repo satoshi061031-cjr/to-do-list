@@ -1,7 +1,7 @@
 ---
 version: alpha
 name: Daily Space
-description: Quiet glass productivity workspace — frosted panels, soft mist backgrounds, condensed display type, and a single warm yellow call-to-action for personal focus and team assignment.
+description: Quiet glass productivity workspace — frosted panels, soft mist backgrounds, light condensed display type, and a single warm yellow call-to-action for personal focus and team assignment.
 colors:
   primary: "#35322e"
   on-primary: "#faf8f4"
@@ -22,26 +22,26 @@ colors:
 typography:
   display:
     fontFamily: Impact, Haettenschweiler, "Franklin Gothic Bold", "Arial Narrow Bold", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif
-    fontSize: 3rem
+    fontSize: 2.5rem
     fontWeight: 400
-    lineHeight: 0.95
+    lineHeight: 1.05
     letterSpacing: 0.01em
   title:
     fontFamily: Impact, Haettenschweiler, "Franklin Gothic Bold", "Arial Narrow Bold", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif
-    fontSize: 1.75rem
+    fontSize: 1.55rem
     fontWeight: 400
     letterSpacing: 0.02em
   body-md:
     fontFamily: Impact, Haettenschweiler, "Franklin Gothic Bold", "Arial Narrow Bold", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif
     fontSize: 1rem
     fontWeight: 400
-    lineHeight: 1.65
+    lineHeight: 1.7
     letterSpacing: 0.02em
   label-caps:
     fontFamily: Impact, Haettenschweiler, "Franklin Gothic Bold", "Arial Narrow Bold", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif
     fontSize: 0.72rem
-    fontWeight: 800
-    letterSpacing: 0.12em
+    fontWeight: 600
+    letterSpacing: 0.08em
 rounded:
   sm: 18px
   md: 24px
@@ -50,8 +50,8 @@ rounded:
 spacing:
   xs: 4px
   sm: 8px
-  md: 16px
-  lg: 24px
+  md: 18px
+  lg: 28px
   xl: 40px
 components:
   button-primary:
@@ -103,9 +103,9 @@ components:
 
 ## Overview
 
-Daily Space is a calm productivity workspace. The visual language is **frosted glass over misty photographic backgrounds**: translucent panels, soft depth, and condensed display typography. Interaction is driven by a single warm yellow accent (`tertiary` / `highlight`), not purple gradients or terracotta brochure looks.
+Daily Space is a calm productivity workspace. The visual language is **frosted glass over misty photographic backgrounds**: translucent panels, soft glass depth, and light condensed display typography. Interaction is driven by a single warm yellow accent (`tertiary` / `highlight`), not purple gradients or terracotta brochure looks.
 
-Prefer atmosphere over dashboard density. First viewports should feel like one composed space — brand/greeting, one primary action area, and quiet supporting modules — not a control panel of cards and stats. Personal tools stay first-class; shared team surfaces should feel quieter than the yellow primary CTA, never a second brand color.
+Prefer atmosphere over dashboard density. Keep typographic weight light — airy titles, softer label caps, and quiet shadows rather than stamped contrast. First viewports should feel like one composed space — brand/greeting, one primary action area, and quiet supporting modules — not a control panel of cards and stats. Personal tools stay first-class; shared team surfaces should feel quieter than the yellow primary CTA, never a second brand color.
 
 ## Colors
 
@@ -124,7 +124,7 @@ Never invent new brand hues. Never hardcode hex in new UI — use `var(--…)` t
 
 ## Typography
 
-Display and UI currently share a condensed Impact-led stack for a bold, stamped voice. Titles can be large and tight (`display` / `title`). Body copy stays readable with generous line-height (`body-md`). Kickers and field labels use `label-caps` with wide tracking and the yellow highlight color.
+Display and UI currently share a condensed Impact-led stack with **light typographic weight**. Titles stay expressive but airier (`display` ~2.5rem, `title` ~1.55rem, slightly open line-height). Body copy uses generous line-height (`body-md` 1.7). Kickers and field labels use `label-caps` at weight 600 with moderate tracking (0.08em) and the yellow highlight color — not ultra-bold stamped caps.
 
 Latin glyphs use Impact / condensed fallbacks first. Chinese (and other CJK) glyphs skip those faces and render through explicit East-Asian fallbacks — `PingFang SC`, `Hiragino Sans GB`, `Microsoft YaHei`, then `Noto Sans SC` — before generic `sans-serif`. Keep this full stack on every typography role; do not rely on bare `sans-serif` alone for Chinese.
 
@@ -139,7 +139,7 @@ Do not switch to Inter, Roboto, Arial, or system-ui as the brand voice.
 
 ## Elevation & Depth
 
-Depth comes from frosted glass, inset highlights, and soft drop shadows — not neon glow stacks.
+Depth comes from frosted glass, inset highlights, and **soft, low-opacity** drop shadows — not neon glow stacks or heavy stamped text shadows on titles.
 
 - Panels: `backdrop-filter` blur + translucent fills (`--glass`, `--glass-strong`).
 - Shadows: `--shadow`, `--shadow-soft`, `--shadow-pop`, `--glow` (warm, subtle).

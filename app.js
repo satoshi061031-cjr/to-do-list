@@ -57,12 +57,11 @@
   const newCatInput = document.getElementById("new-category-name");
   const saveCatBtn = document.getElementById("save-category");
 
-  const appCalendarLive = document.getElementById("app-calendar-live");
-  const appCalendarTitle = document.getElementById("app-calendar-title");
-  const appCalendarGrid = document.getElementById("app-calendar-grid");
-  const appCalPrev = document.getElementById("app-cal-prev");
-  const appCalNext = document.getElementById("app-cal-next");
-  const appCalToday = document.getElementById("app-cal-today");
+  const appClockHour = document.getElementById("app-clock-hour");
+  const appClockMinute = document.getElementById("app-clock-minute");
+  const appClockSecond = document.getElementById("app-clock-second");
+  const appClockDigital = document.getElementById("app-clock-digital");
+  const appClockDate = document.getElementById("app-clock-date");
   const dueDayFilterBar = document.getElementById("due-day-filter-bar");
   const dueDayFilterLabel = document.getElementById("due-day-filter-label");
   const dueDayFilterClear = document.getElementById("due-day-filter-clear");
@@ -370,81 +369,35 @@
   let calYear = new Date().getFullYear();
   let calMonth = new Date().getMonth() + 1;
 
-  let appCalYear = new Date().getFullYear();
-  let appCalMonth = new Date().getMonth() + 1;
-
-  function tickAppCalendarClock() {
+  function tickAtmosphereClock() {
     const now = new Date();
-    appCalendarLive.dateTime = now.toISOString();
-    appCalendarLive.textContent = now.toLocaleString(uiLocale(), {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-      second: "2-digit",
-    });
-  }
+    const hours = now.getHours() % 12;
+    const minutes = now.getMinutes();
+    const seconds = now.getSeconds();
+    const ms = now.getMilliseconds();
+    const secondDeg = seconds * 6 + ms * 0.006;
+    const minuteDeg = minutes * 6 + seconds * 0.1;
+    const hourDeg = hours * 30 + minutes * 0.5;
 
-  function renderAppCalendar() {
-    appCalendarTitle.textContent = new Date(appCalYear, appCalMonth - 1, 1).toLocaleDateString(uiLocale(), {
-      year: "numeric",
-      month: "long",
-    });
+    if (appClockHour) appClockHour.style.transform = `translateX(-50%) rotate(${hourDeg}deg)`;
+    if (appClockMinute) appClockMinute.style.transform = `translateX(-50%) rotate(${minuteDeg}deg)`;
+    if (appClockSecond) appClockSecond.style.transform = `translateX(-50%) rotate(${secondDeg}deg)`;
 
-    const first = new Date(appCalYear, appCalMonth - 1, 1);
-    const pad = mondayIndex(first);
-    const daysInMonth = new Date(appCalYear, appCalMonth, 0).getDate();
-    const selected = deadlineInput.value.trim();
-    const today = todayIso();
-
-    appCalendarGrid.innerHTML = "";
-
-    for (let i = 0; i < pad; i++) {
-      const hole = document.createElement("div");
-      hole.className = "app-cal-pad";
-      hole.setAttribute("aria-hidden", "true");
-      appCalendarGrid.appendChild(hole);
-    }
-
-    for (let day = 1; day <= daysInMonth; day++) {
-      const iso = toIsoYmd(appCalYear, appCalMonth, day);
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "app-cal-cell";
-      btn.textContent = String(day);
-      btn.setAttribute("aria-label", `View tasks due ${formatDueDate(iso)}`);
-
-      if (iso === today) btn.classList.add("is-today");
-      if (iso === selected) btn.classList.add("is-selected");
-      if (iso === viewDueDateFilter) btn.classList.add("is-day-selected");
-
-      btn.addEventListener("click", () => {
-        if (selectedCategoryKey !== "__all__") viewDueDateFilter = iso;
-        openDueDayPage(iso);
+    if (appClockDigital) {
+      appClockDigital.dateTime = now.toISOString();
+      appClockDigital.textContent = now.toLocaleTimeString(uiLocale(), {
+        hour: "numeric",
+        minute: "2-digit",
+        second: "2-digit",
       });
-      appCalendarGrid.appendChild(btn);
     }
-  }
-
-  function shiftAppMonth(delta) {
-    appCalMonth += delta;
-    if (appCalMonth > 12) {
-      appCalMonth = 1;
-      appCalYear += 1;
-    } else if (appCalMonth < 1) {
-      appCalMonth = 12;
-      appCalYear -= 1;
+    if (appClockDate) {
+      appClockDate.textContent = now.toLocaleDateString(uiLocale(), {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+      });
     }
-    renderAppCalendar();
-  }
-
-  function goAppCalendarThisMonth() {
-    const n = new Date();
-    appCalYear = n.getFullYear();
-    appCalMonth = n.getMonth() + 1;
-    renderAppCalendar();
   }
 
   function refreshDeadlineChrome() {
@@ -453,15 +406,11 @@
       deadlineDisplay.textContent = v === todayIso() ? "Today" : formatDueDate(v);
       deadlineDisplay.classList.remove("is-placeholder");
       deadlineClear.hidden = false;
-      const [y, mo] = v.split("-").map(Number);
-      appCalYear = y;
-      appCalMonth = mo;
     } else {
       deadlineDisplay.textContent = "Pick a date…";
       deadlineDisplay.classList.add("is-placeholder");
       deadlineClear.hidden = true;
     }
-    renderAppCalendar();
   }
 
   function resetDeadlineToToday() {
@@ -566,10 +515,6 @@
     shiftMonth(1);
   });
 
-  appCalPrev.addEventListener("click", () => shiftAppMonth(-1));
-  appCalNext.addEventListener("click", () => shiftAppMonth(1));
-  appCalToday.addEventListener("click", () => goAppCalendarThisMonth());
-
   document.addEventListener("mousedown", (e) => {
     if (calendarPanel.hidden) return;
     if (deadlinePicker && !deadlinePicker.contains(/** @type {Node} */ (e.target))) {
@@ -579,11 +524,13 @@
 
   resetDeadlineToToday();
 
-  tickAppCalendarClock();
-  setInterval(tickAppCalendarClock, 1000);
-  setInterval(renderAppCalendar, 60000);
+  tickAtmosphereClock();
+  setInterval(tickAtmosphereClock, 1000);
   document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) tickAppCalendarClock();
+    if (!document.hidden) tickAtmosphereClock();
+  });
+  window.addEventListener("daily-space-locale-changed", () => {
+    tickAtmosphereClock();
   });
 
   function todoMatchesCategory(t) {
@@ -606,7 +553,6 @@
     if (next === "__all__") viewDueDateFilter = null;
     saveAll();
     renderCategorySidebar();
-    renderAppCalendar();
     render();
     if (window.matchMedia("(max-width: 819px)").matches) closeSidebar();
   }
@@ -1032,7 +978,6 @@
     dueDayPageDate = iso;
     dueDayPageRoot.hidden = false;
     document.body.classList.add("due-day-page-open");
-    renderAppCalendar();
     render();
     queueMicrotask(() => dueDayPageCloseBtn.focus());
   }
@@ -1041,7 +986,6 @@
     dueDayPageDate = null;
     dueDayPageRoot.hidden = true;
     document.body.classList.remove("due-day-page-open");
-    renderAppCalendar();
     render();
   }
 
@@ -1234,13 +1178,11 @@
       dailyLoopEmpty.hidden = !showEmpty;
       if (overdueOpen.length > 0) {
         dailyLoopEmpty.textContent =
-          overdueOpen.length === 1
-            ? "Nothing due today — 1 overdue task still needs you."
-            : `Nothing due today — ${overdueOpen.length} overdue tasks still need you.`;
+          overdueOpen.length === 1 ? "1 overdue" : `${overdueOpen.length} overdue`;
       } else if (dueToday.length > 0) {
-        dailyLoopEmpty.textContent = "All caught up for today.";
+        dailyLoopEmpty.textContent = "All caught up.";
       } else {
-        dailyLoopEmpty.textContent = "Nothing due today — add a task above.";
+        dailyLoopEmpty.textContent = "Nothing due today.";
       }
     }
     if (dailyLoopList) dailyLoopList.hidden = showEmpty;
@@ -1465,17 +1407,17 @@
             ? `No tasks in "${categoryLabelById(selectedCategoryKey)}" yet.`
             : "Nothing in this category.";
         } else if (todos.length === 0) {
-          emptyEl.textContent = "Type above to add a task, or press / for commands.";
+          emptyEl.textContent = "Add a task above.";
         } else if (filter === "today") {
           const overdueOpen = todos.filter((t) => isOverdue(t.dueDate, t.completed));
           emptyEl.textContent =
             overdueOpen.length > 0
-              ? `No due-today tasks — ${overdueOpen.length} overdue still open.`
-              : "Nothing due today — add a task above.";
+              ? `${overdueOpen.length} overdue still open.`
+              : "Nothing due today.";
         } else if (filter === "active") {
-          emptyEl.textContent = "Nothing active right now.";
+          emptyEl.textContent = "Nothing active.";
         } else if (filter === "completed") {
-          emptyEl.textContent = "No completed tasks yet.";
+          emptyEl.textContent = "No completed tasks.";
         } else {
           emptyEl.textContent = "Nothing to show.";
         }
@@ -1701,7 +1643,6 @@
     }
     if (viewDueDateFilter) {
       viewDueDateFilter = null;
-      renderAppCalendar();
       render();
       return;
     }
@@ -1721,7 +1662,7 @@
   });
 
   window.addEventListener("daily-space-locale-changed", () => {
-    renderAppCalendar();
+    tickAtmosphereClock();
     renderCalendar();
     renderCategorySidebar();
     render();

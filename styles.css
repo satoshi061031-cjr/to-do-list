@@ -5,9 +5,9 @@
   --bg-spot: rgba(255, 255, 255, 0.76);
   --bg-blob: rgba(92, 98, 98, 0.38);
   --bg-blob-soft: rgba(126, 134, 134, 0.18);
-  --surface: rgba(242, 244, 241, 0.58);
-  --surface-muted: rgba(226, 229, 225, 0.46);
-  --surface-hover: rgba(250, 251, 248, 0.68);
+  --surface: rgba(242, 244, 241, 0.48);
+  --surface-muted: rgba(226, 229, 225, 0.4);
+  --surface-hover: rgba(250, 251, 248, 0.62);
   --border: rgba(255, 255, 255, 0.08);
   --border-soft: rgba(255, 255, 255, 0.05);
   --text: #2c2925;
@@ -30,30 +30,30 @@
   --radius-pill: 999px;
   --space-xs: 4px;
   --space-sm: 8px;
-  --space-md: 16px;
-  --space-lg: 24px;
+  --space-md: 18px;
+  --space-lg: 28px;
   --space-xl: 40px;
-  --glass: radial-gradient(ellipse at 50% 42%, rgba(255, 255, 255, 0.34) 0%, rgba(247, 249, 247, 0.24) 54%, rgba(235, 239, 237, 0.14) 100%);
-  --glass-strong: radial-gradient(ellipse at 50% 42%, rgba(255, 255, 255, 0.44) 0%, rgba(247, 249, 247, 0.34) 54%, rgba(235, 239, 237, 0.22) 100%);
+  --glass: radial-gradient(ellipse at 50% 42%, rgba(255, 255, 255, 0.28) 0%, rgba(247, 249, 247, 0.18) 54%, rgba(235, 239, 237, 0.1) 100%);
+  --glass-strong: radial-gradient(ellipse at 50% 42%, rgba(255, 255, 255, 0.38) 0%, rgba(247, 249, 247, 0.28) 54%, rgba(235, 239, 237, 0.18) 100%);
   --glass-border: rgba(255, 255, 255, 0.08);
-  --inner-light: inset 0 1px 1px rgba(255, 255, 255, 0.34), inset 0 -24px 48px rgba(120, 128, 128, 0.06);
-  --shadow: var(--inner-light), 0 22px 58px rgba(28, 31, 30, 0.1);
-  --shadow-pop: var(--inner-light), 0 34px 88px rgba(28, 31, 30, 0.16);
-  --shadow-soft: var(--inner-light), 0 18px 46px rgba(28, 31, 30, 0.09);
-  --glow: var(--inner-light), 0 20px 56px rgba(245, 248, 246, 0.2), 0 18px 44px rgba(28, 31, 30, 0.1);
+  --inner-light: inset 0 1px 1px rgba(255, 255, 255, 0.28), inset 0 -20px 40px rgba(120, 128, 128, 0.04);
+  --shadow: var(--inner-light), 0 14px 40px rgba(28, 31, 30, 0.06);
+  --shadow-pop: var(--inner-light), 0 22px 56px rgba(28, 31, 30, 0.1);
+  --shadow-soft: var(--inner-light), 0 12px 32px rgba(28, 31, 30, 0.05);
+  --glow: var(--inner-light), 0 14px 40px rgba(245, 248, 246, 0.14), 0 12px 32px rgba(28, 31, 30, 0.06);
   --font-family: Impact, Haettenschweiler, "Franklin Gothic Bold", "Arial Narrow Bold", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
   /* DESIGN.md typography.* */
-  --type-display-size: 3rem;
-  --type-title-size: 1.75rem;
+  --type-display-size: 2.5rem;
+  --type-title-size: 1.55rem;
   --type-body-size: 1rem;
   --type-label-size: 0.72rem;
-  --type-display-lh: 0.95;
-  --type-body-lh: 1.65;
+  --type-display-lh: 1.05;
+  --type-body-lh: 1.7;
   --type-display-tracking: 0.01em;
   --type-title-tracking: 0.02em;
   --type-body-tracking: 0.02em;
-  --type-label-tracking: 0.12em;
-  --type-label-weight: 800;
+  --type-label-tracking: 0.08em;
+  --type-label-weight: 600;
   color-scheme: light;
   font-family: var(--font-family);
 }
@@ -65,9 +65,9 @@
   --bg-spot: rgba(159, 180, 186, 0.08);
   --bg-blob: rgba(0, 0, 0, 0.34);
   --bg-blob-soft: rgba(159, 180, 186, 0.07);
-  --surface: rgba(35, 36, 33, 0.9);
-  --surface-muted: rgba(28, 29, 26, 0.84);
-  --surface-hover: rgba(48, 49, 45, 0.94);
+  --surface: rgba(35, 36, 33, 0.78);
+  --surface-muted: rgba(28, 29, 26, 0.72);
+  --surface-hover: rgba(48, 49, 45, 0.86);
   --border: rgba(255, 255, 255, 0.07);
   --border-soft: rgba(255, 255, 255, 0.04);
   --text: #f2eee5;
@@ -84,14 +84,14 @@
   --tertiary-hover: #e5c235;
   --success: #9bb895;
   --danger: #d7837c;
-  --glass: radial-gradient(ellipse at 50% 42%, rgba(93, 89, 80, 0.32) 0%, rgba(58, 57, 52, 0.24) 58%, rgba(27, 27, 25, 0.16) 100%);
-  --glass-strong: radial-gradient(ellipse at 50% 42%, rgba(112, 106, 94, 0.42) 0%, rgba(72, 70, 64, 0.34) 58%, rgba(32, 32, 29, 0.22) 100%);
+  --glass: radial-gradient(ellipse at 50% 42%, rgba(93, 89, 80, 0.26) 0%, rgba(58, 57, 52, 0.18) 58%, rgba(27, 27, 25, 0.12) 100%);
+  --glass-strong: radial-gradient(ellipse at 50% 42%, rgba(112, 106, 94, 0.34) 0%, rgba(72, 70, 64, 0.26) 58%, rgba(32, 32, 29, 0.16) 100%);
   --glass-border: rgba(255, 255, 255, 0.07);
-  --inner-light: inset 0 1px 1px rgba(255, 255, 255, 0.12), inset 0 -24px 48px rgba(0, 0, 0, 0.08);
-  --shadow: var(--inner-light), 0 22px 58px rgba(0, 0, 0, 0.32);
-  --shadow-pop: var(--inner-light), 0 34px 90px rgba(0, 0, 0, 0.46);
-  --shadow-soft: var(--inner-light), 0 18px 48px rgba(0, 0, 0, 0.3);
-  --glow: var(--inner-light), 0 20px 56px rgba(255, 211, 164, 0.1), 0 20px 46px rgba(0, 0, 0, 0.26);
+  --inner-light: inset 0 1px 1px rgba(255, 255, 255, 0.1), inset 0 -20px 40px rgba(0, 0, 0, 0.06);
+  --shadow: var(--inner-light), 0 14px 40px rgba(0, 0, 0, 0.22);
+  --shadow-pop: var(--inner-light), 0 22px 56px rgba(0, 0, 0, 0.32);
+  --shadow-soft: var(--inner-light), 0 12px 32px rgba(0, 0, 0, 0.2);
+  --glow: var(--inner-light), 0 14px 40px rgba(255, 211, 164, 0.08), 0 14px 36px rgba(0, 0, 0, 0.18);
   color-scheme: dark;
 }
 
@@ -357,7 +357,7 @@ body::after {
   aspect-ratio: 1;
   border-radius: 50%;
   font-size: 1rem;
-  font-weight: 750;
+  font-weight: 600;
 }
 
 .welcome-provider-google .welcome-provider-mark {
@@ -396,7 +396,7 @@ body::after {
   color: var(--text);
   border: 1px solid color-mix(in srgb, var(--text) 28%, transparent);
   background: color-mix(in srgb, var(--text) 10%, transparent);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 :root[data-theme="dark"] .welcome-enter:hover {
@@ -536,7 +536,7 @@ body::after {
   padding: 0.6rem 0.85rem;
   font: inherit;
   font-size: 0.74rem;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   border: 1px solid var(--border);
@@ -576,7 +576,7 @@ body::after {
   color: var(--text);
   font: inherit;
   font-size: 0.74rem;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.04em;
   cursor: pointer;
   box-shadow: var(--shadow-soft);
@@ -624,7 +624,7 @@ body.has-notif-bell .language-toggle {
 
 .notif-bell-glyph {
   font-size: 0.78rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.06em;
 }
 
@@ -667,14 +667,14 @@ body.has-notif-bell .language-toggle {
 .notif-panel-title {
   margin: 0;
   font-size: 0.95rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.04em;
 }
 
 .notif-mark-all {
   font: inherit;
   font-size: 0.72rem;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.04em;
   color: var(--accent);
   background: transparent;
@@ -723,7 +723,7 @@ body.has-notif-bell .language-toggle {
 
 .notif-item-title {
   font-size: 0.84rem;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .notif-item-body {
@@ -800,7 +800,7 @@ body.todo-agent-open.has-notif-bell .language-toggle {
   font-weight: 400;
   line-height: var(--type-display-lh);
   letter-spacing: var(--type-display-tracking);
-  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.42);
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.18);
 }
 
 .app-greeting-time {
@@ -809,7 +809,7 @@ body.todo-agent-open.has-notif-bell .language-toggle {
   font-size: var(--type-label-size);
   line-height: 1.3;
   letter-spacing: var(--type-label-tracking);
-  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.36);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.14);
 }
 
 .layout {
@@ -835,7 +835,7 @@ body.todo-agent-open.has-notif-bell .language-toggle {
   left: max(0.75rem, env(safe-area-inset-left, 0px));
   z-index: 210;
   font: inherit;
-  font-weight: 700;
+  font-weight: 600;
   font-size: 0.62rem;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -952,7 +952,7 @@ body.todo-agent-open.has-notif-bell .language-toggle {
   color: var(--accent);
   font: inherit;
   font-size: var(--type-label-size);
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: var(--type-body-tracking);
   text-align: left;
   cursor: pointer;
@@ -970,7 +970,7 @@ body.todo-agent-open.has-notif-bell .language-toggle {
   color: var(--highlight);
   font: inherit;
   font-size: inherit;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: inherit;
   cursor: pointer;
   text-decoration: underline;
@@ -979,7 +979,7 @@ body.todo-agent-open.has-notif-bell .language-toggle {
 .sidebar-today-link {
   margin-bottom: var(--space-xs);
   color: var(--highlight);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .category-list {
@@ -1033,7 +1033,7 @@ body.todo-agent-open.has-notif-bell .language-toggle {
 
 .category-badge {
   font-size: 0.72rem;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-muted);
 }
 
@@ -1078,7 +1078,7 @@ body.todo-agent-open.has-notif-bell .language-toggle {
   width: 100%;
   padding: 0.55rem 0.72rem;
   font: inherit;
-  font-weight: 700;
+  font-weight: 600;
   font-size: 0.74rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1129,7 +1129,7 @@ body.todo-agent-open.has-notif-bell .language-toggle {
   flex-shrink: 0;
   padding: 0.55rem 0.72rem;
   font: inherit;
-  font-weight: 700;
+  font-weight: 600;
   font-size: 0.74rem;
   letter-spacing: 0.06em;
   border: none;
@@ -1310,7 +1310,7 @@ body.todo-agent-open.has-notif-bell .language-toggle {
 
 .sidebar-auth-label {
   font-size: 0.9rem;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .sidebar-auth-hint {
@@ -1461,7 +1461,7 @@ body.todo-agent-open.has-notif-bell .language-toggle {
   color: var(--text);
   font: inherit;
   font-size: 0.72rem;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -1478,7 +1478,7 @@ body.shortcut-go-armed::after {
   background: var(--glass);
   color: var(--text);
   font-size: var(--type-label-size);
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.08em;
   box-shadow: var(--shadow-soft);
   pointer-events: none;
@@ -1526,8 +1526,8 @@ body.shortcut-go-armed::after {
   margin: 0 0 0.2rem;
   color: var(--text-muted);
   font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
+  font-weight: 600;
+  letter-spacing: var(--type-label-tracking);
   text-transform: uppercase;
 }
 
@@ -1564,7 +1564,7 @@ body.shortcut-go-armed::after {
   box-shadow: var(--shadow-soft);
   cursor: pointer;
   font: inherit;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .auth-provider {
@@ -1599,7 +1599,7 @@ body.shortcut-go-armed::after {
   color: var(--on-primary);
   background: color-mix(in srgb, var(--success) 88%, var(--primary));
   font-size: 0.72rem;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .auth-divider {
@@ -1624,7 +1624,7 @@ body.shortcut-go-armed::after {
   background: var(--surface);
   color: var(--text-muted);
   font-size: 0.68rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.08em;
 }
 
@@ -1638,7 +1638,7 @@ body.shortcut-go-armed::after {
   box-shadow: var(--shadow-soft);
   cursor: pointer;
   font: inherit;
-  font-weight: 700;
+  font-weight: 600;
   padding: 0.75rem 1rem;
 }
 
@@ -1660,8 +1660,8 @@ body.shortcut-go-armed::after {
   margin-bottom: 0.35rem;
   color: var(--text-muted);
   font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
+  font-weight: 600;
+  letter-spacing: var(--type-label-tracking);
   text-transform: uppercase;
 }
 
@@ -1730,7 +1730,7 @@ body.shortcut-go-armed::after {
   width: 100%;
   max-width: min(90vw, 1120px);
   margin: 0 auto;
-  padding: clamp(2.5rem, 6vh, 4.5rem) 1.25rem;
+  padding: clamp(2.75rem, 7vh, 5rem) 1.35rem;
 }
 
 .welcome-card,
@@ -1814,6 +1814,125 @@ body.shortcut-go-armed::after {
   -webkit-backdrop-filter: blur(14px) saturate(1.08);
 }
 
+/* Todo left clock: atmosphere beside Today */
+.app-atmosphere {
+  margin-bottom: 0;
+  margin-top: 0;
+  padding: var(--space-md);
+  background: color-mix(in srgb, var(--surface) 58%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border-soft) 80%, transparent);
+  border-radius: var(--radius);
+  box-shadow: none;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: var(--space-sm);
+}
+
+.app-clock {
+  width: min(100%, 13.5rem);
+  font-size: 1rem;
+}
+
+.app-clock-face {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 1px solid var(--glass-border);
+  background:
+    radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--highlight) 16%, transparent), transparent 42%),
+    color-mix(in srgb, var(--surface) 78%, transparent);
+  box-shadow: var(--shadow-soft);
+}
+
+.app-clock-tick {
+  position: absolute;
+  inset: 0;
+  transform: rotate(calc(var(--i) * 30deg));
+  pointer-events: none;
+}
+
+.app-clock-tick::before {
+  content: "";
+  position: absolute;
+  top: 0.65rem;
+  left: 50%;
+  width: 0.12rem;
+  height: 0.52rem;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--text-muted) 70%, transparent);
+  transform: translateX(-50%);
+}
+
+.app-clock-tick:nth-child(3n + 1)::before {
+  height: 0.72rem;
+  background: color-mix(in srgb, var(--text) 55%, transparent);
+}
+
+.app-clock-hand {
+  position: absolute;
+  left: 50%;
+  bottom: 50%;
+  transform-origin: bottom center;
+  border-radius: var(--radius-pill);
+  background: var(--text);
+}
+
+.app-clock-hand-hour {
+  width: 0.22rem;
+  height: 28%;
+  background: var(--primary);
+  opacity: 0.9;
+}
+
+.app-clock-hand-minute {
+  width: 0.16rem;
+  height: 38%;
+  background: var(--accent);
+  opacity: 0.92;
+}
+
+.app-clock-hand-second {
+  width: 0.1rem;
+  height: 42%;
+  background: var(--highlight);
+  opacity: 0.95;
+}
+
+.app-clock-pivot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0.55rem;
+  height: 0.55rem;
+  margin: -0.28rem 0 0 -0.28rem;
+  border-radius: 50%;
+  background: var(--highlight);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--on-tertiary) 18%, transparent);
+}
+
+.app-clock-digital {
+  margin: 0;
+  color: var(--text);
+  font-size: clamp(1.35rem, 3.2vw, 1.85rem);
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  text-align: center;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.12);
+}
+
+.app-clock-date {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  letter-spacing: var(--type-label-tracking);
+  text-transform: uppercase;
+  text-align: center;
+}
+
 .app-calendar-panel {
   margin-bottom: 0;
   padding: 0.65rem 0.8rem;
@@ -1872,7 +1991,7 @@ body.shortcut-go-armed::after {
 .btn-app-cal-today {
   font: inherit;
   font-size: 0.68rem;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   padding: 0.18rem 0.38rem;
@@ -1894,7 +2013,7 @@ body.shortcut-go-armed::after {
   gap: 2px;
   margin-bottom: 0.18rem;
   font-size: 0.58rem;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-muted);
   text-align: center;
   letter-spacing: 0.04em;
@@ -1945,7 +2064,7 @@ body.shortcut-go-armed::after {
 
 .app-cal-cell.is-day-selected {
   background: color-mix(in srgb, var(--accent) 16%, transparent);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .app-cal-cell.is-day-selected.is-selected {
@@ -1975,7 +2094,7 @@ body.shortcut-go-armed::after {
   flex-shrink: 0;
   padding: 0.35rem 0.55rem;
   font-size: 0.72rem;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   border: 1px solid var(--border);
@@ -2019,7 +2138,7 @@ body.shortcut-go-armed::after {
 .daily-loop-progress {
   margin: 0;
   font-size: var(--type-body-size);
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: var(--type-body-tracking);
   text-transform: none;
   color: var(--highlight);
@@ -2276,18 +2395,18 @@ body.todo-source-assigned .evening-review {
   font-weight: var(--type-label-weight);
   letter-spacing: var(--type-label-tracking);
   text-transform: uppercase;
-  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.28);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.12);
   opacity: 0.9;
 }
 
 .title {
   margin: 0 0 0.3rem;
-  font-size: clamp(1.45rem, 3.4vw, 1.95rem);
+  font-size: clamp(var(--type-title-size), 3.2vw, 1.75rem);
   font-weight: 400;
-  letter-spacing: 0.02em;
-  line-height: 1.05;
-  color: rgba(255, 255, 255, 0.92);
-  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.42);
+  letter-spacing: var(--type-title-tracking);
+  line-height: var(--type-display-lh);
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.18);
 }
 
 .subtitle {
@@ -2298,7 +2417,7 @@ body.todo-source-assigned .evening-review {
   font-weight: 400;
   letter-spacing: 0.02em;
   line-height: 1.45;
-  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.36);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.14);
 }
 
 .add-form {
@@ -2341,6 +2460,7 @@ body.todo-source-assigned .evening-review {
   letter-spacing: var(--type-label-tracking);
   text-transform: uppercase;
   font-weight: var(--type-label-weight);
+  opacity: 0.55;
 }
 
 .add-form-notion .todo-input {
@@ -2692,7 +2812,7 @@ body.todo-source-assigned .evening-review {
   gap: 2px;
   margin-bottom: 0.35rem;
   font-size: 0.68rem;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-muted);
   text-align: center;
   letter-spacing: 0.04em;
@@ -2808,7 +2928,7 @@ body.todo-source-assigned .evening-review {
 
 .btn {
   font: inherit;
-  font-weight: 700;
+  font-weight: 600;
   font-size: 0.82rem;
   padding: 0.65rem 1.15rem;
   border: none;
@@ -2823,7 +2943,7 @@ body.todo-source-assigned .evening-review {
   background: var(--tertiary);
   color: var(--on-tertiary);
   border-radius: var(--radius-pill);
-  font-weight: 800;
+  font-weight: 600;
   border: 1px solid color-mix(in srgb, var(--on-tertiary) 16%, transparent);
 }
 
@@ -2889,7 +3009,7 @@ body.todo-source-assigned .evening-review {
 .todo-source-btn.is-active {
   background: var(--accent-soft);
   color: var(--accent);
-  font-weight: 800;
+  font-weight: 600;
   box-shadow: var(--shadow-soft);
 }
 
@@ -2909,7 +3029,7 @@ body.todo-source-assigned .evening-review {
   letter-spacing: 0.04em;
 }
 
-body.todo-source-assigned .app-calendar-panel {
+body.todo-source-assigned .app-atmosphere {
   display: none;
 }
 
@@ -2946,7 +3066,7 @@ body.todo-source-assigned .app-calendar-panel {
 .filter-btn.is-active {
   background: var(--tertiary);
   color: var(--on-tertiary);
-  font-weight: 800;
+  font-weight: 600;
   border: 1px solid color-mix(in srgb, var(--on-tertiary) 16%, transparent);
   box-shadow: var(--shadow-soft);
 }
@@ -3205,7 +3325,7 @@ body.due-day-page-open {
 .due-day-page-title {
   margin: 0;
   font-size: 1.35rem;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.02em;
   line-height: 1.25;
   color: var(--text);
@@ -3260,6 +3380,7 @@ body.due-day-page-open {
 
 .sidebar,
 .app-calendar-panel,
+.app-atmosphere,
 .todo-item,
 .calendar-popover,
 .due-day-page-sheet,
@@ -3346,7 +3467,7 @@ body.due-day-page-open {
   border: 1px solid color-mix(in srgb, var(--on-tertiary) 16%, transparent);
   box-shadow: var(--shadow-pop);
   border-radius: var(--radius-pill);
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .btn-primary:hover,
@@ -3389,9 +3510,9 @@ body.due-day-page-open {
 
 .app {
   display: grid;
-  grid-template-columns: minmax(17rem, 0.9fr) minmax(22rem, 1.25fr);
+  grid-template-columns: minmax(13.5rem, 0.72fr) minmax(22rem, 1.45fr);
   align-items: center;
-  gap: var(--space-md) 1.15rem;
+  gap: var(--space-md) 1.35rem;
 }
 
 .app-greeting {
@@ -3403,6 +3524,10 @@ body.due-day-page-open {
   align-content: start;
   gap: 1rem;
   min-width: 0;
+}
+
+.app-atmosphere {
+  justify-self: stretch;
 }
 
 .app-calendar-panel,
@@ -3486,6 +3611,20 @@ body.due-day-page-open {
     padding-left: 1rem;
   }
 
+  .todo-module-stack {
+    order: 1;
+    gap: 0.85rem;
+  }
+
+  .app-atmosphere {
+    order: 2;
+    margin-top: 0;
+    max-width: 16rem;
+    width: 100%;
+    justify-self: center;
+    padding: var(--space-sm) var(--space-md);
+  }
+
   .app-greeting {
     margin-bottom: var(--space-sm);
     padding: 0;
@@ -3511,10 +3650,6 @@ body.due-day-page-open {
 
   .daily-loop-focus {
     width: 100%;
-  }
-
-  .todo-module-stack {
-    gap: 0.85rem;
   }
 
   .backdrop {
@@ -3698,7 +3833,7 @@ body.todo-agent-open .notif-root {
 .todo-agent-title {
   margin: 0.15rem 0 0;
   font-size: 1.05rem;
-  font-weight: 750;
+  font-weight: 600;
   color: var(--text);
 }
 
@@ -3790,7 +3925,7 @@ body.todo-agent-open .notif-root {
   color: var(--text);
   box-shadow: var(--shadow-soft);
   font: inherit;
-  font-weight: 700;
+  font-weight: 600;
   padding: 0.62rem 0.9rem;
   cursor: pointer;
 }
@@ -3854,6 +3989,7 @@ body.todo-agent-open .notif-root {
   .sidebar,
   .task-module,
   .app-calendar-panel,
+  .app-atmosphere,
   .todo-item,
   .auth-card,
   .calendar-month-card,

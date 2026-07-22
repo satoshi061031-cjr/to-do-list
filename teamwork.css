@@ -73,10 +73,10 @@
   margin: 0 0 0.35rem;
   color: var(--highlight);
   font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
+  font-weight: 600;
+  letter-spacing: var(--type-label-tracking);
   text-transform: uppercase;
-  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.28);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.12);
 }
 
 .teamwork-title {
@@ -209,7 +209,7 @@
 .teamwork-card-title {
   color: var(--text);
   font-size: 1.35rem;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.15;
 }
 
@@ -238,7 +238,7 @@
 .teamwork-status-main {
   color: var(--text);
   font-size: 1.65rem;
-  font-weight: 800;
+  font-weight: 600;
   line-height: 1;
 }
 
@@ -298,7 +298,7 @@
 
 .teamwork-member-row span {
   color: var(--text);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .teamwork-member-row strong {
@@ -315,7 +315,7 @@
 .teamwork-member-role {
   color: var(--highlight);
   font-size: 0.78rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -695,7 +695,7 @@
   color: var(--text);
   font: inherit;
   font-size: 0.72rem;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.04em;
 }
 
@@ -708,7 +708,7 @@
   cursor: pointer;
   font: inherit;
   font-size: 0.72rem;
-  font-weight: 700;
+  font-weight: 600;
   padding: 0.35rem 0.65rem;
 }
 
@@ -755,7 +755,7 @@
   justify-self: end;
   color: var(--highlight);
   font-size: 0.68rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -769,7 +769,7 @@
   cursor: pointer;
   font: inherit;
   font-size: 0.72rem;
-  font-weight: 800;
+  font-weight: 600;
   padding: 0.4rem 0.7rem;
 }
 
@@ -826,8 +826,8 @@
 .teamwork-assignment-list span {
   color: var(--highlight);
   font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
+  font-weight: 600;
+  letter-spacing: var(--type-label-tracking);
   text-transform: uppercase;
 }
 
