@@ -393,26 +393,25 @@ body.planner-page {
   font-size: 0.78rem;
   letter-spacing: 0.05em;
   padding: 0.5rem 0.85rem;
-  border-radius: 999px;
-  border: 1px solid var(--glass-border);
-  background: rgba(107, 91, 149, 0.78);
-  color: var(--on-primary);
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  background: var(--tertiary);
+  color: var(--on-tertiary);
   box-shadow: var(--shadow-pop);
-  backdrop-filter: blur(12px) saturate(1.06);
-  -webkit-backdrop-filter: blur(12px) saturate(1.06);
   cursor: pointer;
-  transition: filter 0.15s, transform 0.16s, box-shadow 0.16s;
+  transition: background 0.15s, transform 0.16s, box-shadow 0.16s;
 }
 
 .planner-add-column-main:hover {
-  filter: brightness(1.06);
+  background: var(--tertiary-hover);
   box-shadow: var(--glow);
   transform: translateY(-1px);
+  filter: none;
 }
 
 .planner-add-column-main:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px var(--planner-accent-soft);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--highlight) 35%, transparent);
 }
 
 .planner-board-scroll {

@@ -16,8 +16,6 @@
 
   /** @type {Category[]} */
   let categories = [];
-  /** @type {Record<string, string>} */
-  let illustrationsByCategory = {};
 
   /** `"__all__"` or a category id */
   /** @type {string} */
@@ -58,11 +56,6 @@
   const addCatPanel = document.getElementById("add-category-panel");
   const newCatInput = document.getElementById("new-category-name");
   const saveCatBtn = document.getElementById("save-category");
-  const illustrationUpload = document.getElementById("illustration-upload");
-  const chooseIllustrationBtn = document.getElementById("choose-illustration");
-  const illustrationImage = document.getElementById("illustration-image");
-  const illustrationPlaceholder = document.getElementById("illustration-placeholder");
-  const deleteIllustrationBtn = document.getElementById("delete-illustration");
 
   const appCalendarLive = document.getElementById("app-calendar-live");
   const appCalendarTitle = document.getElementById("app-calendar-title");
@@ -136,13 +129,6 @@
     todos = state.todos;
     categories = state.categories;
     selectedCategoryKey = state.selectedCategoryKey;
-    illustrationsByCategory = state.illustrationsByCategory;
-    if (illustrationsByCategory["__global__"]) {
-      if (!illustrationsByCategory["__all__"]) {
-        illustrationsByCategory["__all__"] = illustrationsByCategory["__global__"];
-      }
-      delete illustrationsByCategory["__global__"];
-    }
     if (!categoryExists(selectedCategoryKey) && selectedCategoryKey !== "__all__") {
       selectedCategoryKey = "__all__";
     }
@@ -163,10 +149,6 @@
         if (p && Array.isArray(p.todos)) {
           const cats = normalizeCategories(p.categories);
           const migratedTodos = normalizeTodosFromStore(p.todos);
-          const migratedIllustrations = normalizeIllustrations(
-            p.illustrationsByCategory,
-            p.illustrationData
-          );
           let sel =
             typeof p.selectedCategoryKey === "string" ? p.selectedCategoryKey : "__all__";
           if (sel !== "__all__" && !cats.some((c) => c.id === sel)) sel = "__all__";
@@ -174,7 +156,6 @@
             todos: migratedTodos,
             categories: cats,
             selectedCategoryKey: sel,
-            illustrationsByCategory: migratedIllustrations,
           };
         }
       }
@@ -185,7 +166,6 @@
           todos: [],
           categories: [],
           selectedCategoryKey: "__all__",
-          illustrationsByCategory: {},
         };
       }
       const parsed = JSON.parse(rawLegacy);
@@ -194,7 +174,6 @@
           todos: [],
           categories: [],
           selectedCategoryKey: "__all__",
-          illustrationsByCategory: {},
         };
       }
       const migrated = parsed.filter(isLegacyTodoLike).map(legacyTodoToNew);
@@ -202,35 +181,14 @@
         todos: migrated,
         categories: [],
         selectedCategoryKey: "__all__",
-        illustrationsByCategory: {},
       };
     } catch {
       return {
         todos: [],
         categories: [],
         selectedCategoryKey: "__all__",
-        illustrationsByCategory: {},
       };
     }
-  }
-
-  function normalizeIllustration(value) {
-    if (typeof value !== "string") return null;
-    if (!value.startsWith("data:image/")) return null;
-    return value;
-  }
-
-  function normalizeIllustrations(byCategory, legacySingle) {
-    const out = {};
-    if (byCategory && typeof byCategory === "object") {
-      for (const [k, v] of Object.entries(byCategory)) {
-        const n = normalizeIllustration(v);
-        if (n) out[k] = n;
-      }
-    }
-    const legacy = normalizeIllustration(legacySingle);
-    if (legacy && !out["__all__"]) out["__all__"] = legacy;
-    return out;
   }
 
   /** @param {any} t */
@@ -275,7 +233,6 @@
       todos,
       categories,
       selectedCategoryKey,
-      illustrationsByCategory,
     };
     localStorage.setItem(STORAGE_APP, JSON.stringify(payload));
     if (localStorage.getItem(STORAGE_LEGACY)) {
@@ -284,21 +241,6 @@
     window.dispatchEvent(
       new CustomEvent("daily-space-agent-data-updated", { detail: { domains: ["todo"] } })
     );
-  }
-
-  function refreshIllustration() {
-    const illustrationData = illustrationsByCategory[selectedCategoryKey] || null;
-    if (!illustrationData) {
-      illustrationImage.hidden = true;
-      illustrationImage.removeAttribute("src");
-      deleteIllustrationBtn.hidden = true;
-      if (illustrationPlaceholder) illustrationPlaceholder.hidden = false;
-      return;
-    }
-    illustrationImage.src = illustrationData;
-    illustrationImage.hidden = false;
-    deleteIllustrationBtn.hidden = false;
-    if (illustrationPlaceholder) illustrationPlaceholder.hidden = true;
   }
 
   function id() {
@@ -664,7 +606,6 @@
     if (next === "__all__") viewDueDateFilter = null;
     saveAll();
     renderCategorySidebar();
-    refreshIllustration();
     renderAppCalendar();
     render();
     if (window.matchMedia("(max-width: 819px)").matches) closeSidebar();
@@ -676,14 +617,12 @@
     if (!window.confirm(`Delete category “${label}”? Tasks in it stay, without a category.`)) return;
     todos = todos.map((t) => (t.categoryId === catId ? { ...t, categoryId: null } : t));
     categories = categories.filter((c) => c.id !== catId);
-    delete illustrationsByCategory[catId];
     if (selectedCategoryKey === catId) {
       selectedCategoryKey = "__all__";
       viewDueDateFilter = null;
     }
     saveAll();
     renderCategorySidebar();
-    refreshIllustration();
     render();
   }
 
@@ -771,44 +710,6 @@
   sidebarTrigger.addEventListener("click", () => toggleSidebar());
   sidebarBackdrop.addEventListener("click", () => closeSidebar());
 
-  chooseIllustrationBtn.addEventListener("click", () => {
-    illustrationUpload.click();
-  });
-
-  deleteIllustrationBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    delete illustrationsByCategory[selectedCategoryKey];
-    saveAll();
-    refreshIllustration();
-  });
-
-  illustrationUpload.addEventListener("change", () => {
-    const file = illustrationUpload.files && illustrationUpload.files[0];
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      window.alert("Please select an image file.");
-      illustrationUpload.value = "";
-      return;
-    }
-    if (file.size > 2 * 1024 * 1024) {
-      window.alert("Please choose an image smaller than 2MB.");
-      illustrationUpload.value = "";
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = typeof reader.result === "string" ? reader.result : null;
-      const normalized = normalizeIllustration(result);
-      if (!normalized) return;
-      illustrationsByCategory[selectedCategoryKey] = normalized;
-      saveAll();
-      refreshIllustration();
-      illustrationUpload.value = "";
-    };
-    reader.readAsDataURL(file);
-  });
-
   function closeAddCategoryPanel() {
     addCatPanel.hidden = true;
     toggleAddCatBtn.setAttribute("aria-expanded", "false");
@@ -834,7 +735,6 @@
     selectedCategoryKey = cat.id;
     saveAll();
     renderCategorySidebar();
-    refreshIllustration();
     render();
     closeAddCategoryPanel();
     closeSidebar();
@@ -1817,7 +1717,6 @@
     if (!domains.includes("todo")) return;
     bootstrap({ persist: false });
     renderCategorySidebar();
-    refreshIllustration();
     render();
   });
 
@@ -1835,7 +1734,6 @@
 
   bootstrap();
   renderCategorySidebar();
-  refreshIllustration();
   resetDeadlineToToday();
   render();
   refreshAssignedForLoop();
@@ -1969,14 +1867,14 @@
   ];
 
   const JUMP_COMMANDS = [
-    { id: "today", label: "Today", hint: "Todo · due today", aliases: ["today", "todo"], run: () => focusTodayList() },
+    { id: "today", label: "Today", hint: "g t", aliases: ["today", "todo"], run: () => focusTodayList() },
     { id: "todo", label: "Todo", hint: "All personal tasks", aliases: ["todo", "tasks"], run: () => setFilter("all") },
     { id: "assigned-jump", label: "Assigned", hint: "Shared tasks", aliases: ["assigned"], run: () => setTodoSource("assigned") },
-    { id: "planner-jump", label: "Planner", hint: "Page", aliases: ["planner"], run: () => { window.location.href = "planner.html"; } },
-    { id: "calendar-jump", label: "Calendar", hint: "Page", aliases: ["calendar"], run: () => { window.location.href = "calendar.html"; } },
-    { id: "tally-jump", label: "Tally book", hint: "Page", aliases: ["tally"], run: () => { window.location.href = "tally.html"; } },
-    { id: "teamwork-jump", label: "Teamwork", hint: "Page", aliases: ["teamwork", "team"], run: () => { window.location.href = "teamwork.html"; } },
-    { id: "mail-jump", label: "Mail", hint: "Page", aliases: ["mail"], run: () => { window.location.href = "mail.html"; } },
+    { id: "planner-jump", label: "Planner", hint: "g p", aliases: ["planner"], run: () => { window.location.href = "planner.html"; } },
+    { id: "calendar-jump", label: "Calendar", hint: "g c", aliases: ["calendar"], run: () => { window.location.href = "calendar.html"; } },
+    { id: "tally-jump", label: "Tally book", hint: "g a", aliases: ["tally"], run: () => { window.location.href = "tally.html"; } },
+    { id: "teamwork-jump", label: "Teamwork", hint: "g w", aliases: ["teamwork", "team"], run: () => { window.location.href = "teamwork.html"; } },
+    { id: "mail-jump", label: "Mail", hint: "g m", aliases: ["mail"], run: () => { window.location.href = "mail.html"; } },
   ];
 
   function filterCommands(list, query) {
@@ -2161,6 +2059,18 @@
     if (e.key === "Escape" && commandPalette && !commandPalette.hidden) {
       e.preventDefault();
       closeCommandPalette();
+    }
+  });
+
+  window.addEventListener("daily-space-shortcut", (event) => {
+    const action = event.detail && event.detail.action;
+    if (action === "new-task") {
+      if (commandPalette && !commandPalette.hidden) closeCommandPalette();
+      input?.focus();
+      return;
+    }
+    if (action === "focus-today") {
+      focusTodayList();
     }
   });
 

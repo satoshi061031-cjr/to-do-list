@@ -201,11 +201,9 @@
       categories,
       selectedCategoryKey:
         typeof todoStore.selectedCategoryKey === "string" ? todoStore.selectedCategoryKey : "__all__",
-      illustrationsByCategory:
-        todoStore.illustrationsByCategory && typeof todoStore.illustrationsByCategory === "object"
-          ? todoStore.illustrationsByCategory
-          : {},
     };
+    delete payload.illustrationsByCategory;
+    delete payload.illustrationData;
     todoStore = payload;
     localStorage.setItem(STORAGE_TODO_APP, JSON.stringify(payload));
   }

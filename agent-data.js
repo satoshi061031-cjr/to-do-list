@@ -125,9 +125,17 @@
     if (!Array.isArray(state.todos)) state.todos = [];
     if (!Array.isArray(state.categories)) state.categories = [];
     if (typeof state.selectedCategoryKey !== "string") state.selectedCategoryKey = "__all__";
-    if (!state.illustrationsByCategory || typeof state.illustrationsByCategory !== "object") {
-      state.illustrationsByCategory = {};
+    // Cover images were removed from the product; drop any leftover blobs from storage.
+    let dirty = false;
+    if (Object.prototype.hasOwnProperty.call(state, "illustrationsByCategory")) {
+      delete state.illustrationsByCategory;
+      dirty = true;
     }
+    if (Object.prototype.hasOwnProperty.call(state, "illustrationData")) {
+      delete state.illustrationData;
+      dirty = true;
+    }
+    if (dirty) write(KEYS.todo, state);
     return state;
   }
 

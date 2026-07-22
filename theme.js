@@ -504,11 +504,11 @@
         authSync.hidden = true;
       } else if (userSnapshotStatus === "offline" || !isBrowserOnline()) {
         authSync.hidden = false;
-        authSync.textContent = "Cloud sync: offline — saved on this device";
+        authSync.textContent = "Offline — saved on this device";
       } else if (userSnapshotStatus === "conflict") {
         authSync.hidden = false;
         authSync.innerHTML =
-          'Cloud sync: local and cloud differ · <button type="button" class="sidebar-auth-sync-action" id="auth-sync-keep-local">Keep local</button> · <button type="button" class="sidebar-auth-sync-action" id="auth-sync-use-cloud">Use cloud</button>';
+          'You edited offline — <button type="button" class="sidebar-auth-sync-action" id="auth-sync-keep-local">Keep this device</button> or <button type="button" class="sidebar-auth-sync-action" id="auth-sync-use-cloud">Use cloud</button>';
         const keepLocal = authSync.querySelector("#auth-sync-keep-local");
         const useCloud = authSync.querySelector("#auth-sync-use-cloud");
         if (keepLocal) {
@@ -533,16 +533,16 @@
         }
       } else if (userSnapshotStatus === "syncing") {
         authSync.hidden = false;
-        authSync.textContent = "Cloud sync: syncing…";
+        authSync.textContent = "Syncing…";
       } else if (userSnapshotStatus === "error") {
         authSync.hidden = false;
-        authSync.textContent = "Cloud sync: failed — will retry";
+        authSync.textContent = "Sync failed — will retry";
       } else if (userSnapshotLastSyncedAt) {
         authSync.hidden = false;
-        authSync.textContent = `Cloud sync: ${formatSyncTime(userSnapshotLastSyncedAt)}`;
+        authSync.textContent = `Synced ${formatSyncTime(userSnapshotLastSyncedAt)}`;
       } else {
         authSync.hidden = false;
-        authSync.textContent = "Cloud sync: ready";
+        authSync.textContent = "Ready to sync";
       }
       authButton.classList.toggle("is-signed-in", !!state);
       if (logoutButton) logoutButton.hidden = !state;
@@ -551,7 +551,7 @@
       if (authTitle) authTitle.textContent = state ? "Account" : "Sign in";
       if (authCopy) {
         authCopy.textContent = state
-          ? "Export your data, resolve sync conflicts from the Account row, or delete this cloud account."
+          ? "Download a copy, fix sync conflicts from the Account row, or delete your cloud account."
           : "Continue with a provider to keep your workspace synced.";
       }
       updateInstallHint();
@@ -1721,11 +1721,305 @@
     }
   }
 
+  function setupPrimaryNav() {
+    const sidebarInner = document.querySelector(".sidebar-inner");
+    if (!sidebarInner || sidebarInner.dataset.navReady === "1") return;
+
+    const headings = Array.from(sidebarInner.querySelectorAll(".sidebar-heading"));
+    const pagesHeading = headings.find(function (el) {
+      return /^pages$/i.test(String(el.textContent || "").trim());
+    });
+    if (!pagesHeading) return;
+
+    const page = (window.location.pathname.split("/").pop() || "todo.html").toLowerCase();
+    const primary = [
+      { href: "todo.html#today", label: "Todo", match: /^todo\.html$/ },
+      { href: "calendar.html", label: "Calendar", match: /^calendar\.html$/ },
+      { href: "planner.html", label: "Planner", match: /^planner\.html$/ },
+      { href: "mail.html", label: "Mail", match: /^mail\.html$/ },
+    ];
+    const secondary = [
+      { href: "tally.html", label: "Tally book", match: /^tally\.html$/ },
+      { href: "teamwork.html", label: "Teamwork", match: /^teamwork\.html$/ },
+    ];
+
+    let cursor = pagesHeading.nextElementSibling;
+    while (cursor) {
+      if (cursor.classList.contains("sidebar-heading") || cursor.classList.contains("sidebar-auth")) {
+        break;
+      }
+      const next = cursor.nextElementSibling;
+      if (
+        cursor.matches("a.sidebar-page-link") ||
+        cursor.matches("details.sidebar-more") ||
+        cursor.matches(".sidebar-nav-primary")
+      ) {
+        cursor.remove();
+      }
+      cursor = next;
+    }
+
+    const frag = document.createDocumentFragment();
+    primary.forEach(function (item) {
+      const a = document.createElement("a");
+      a.href = item.href;
+      a.className = "sidebar-page-link";
+      a.textContent = item.label;
+      if (item.match.test(page)) {
+        a.classList.add("is-active");
+        a.setAttribute("aria-current", "page");
+      }
+      frag.appendChild(a);
+    });
+
+    const more = document.createElement("details");
+    more.className = "sidebar-more";
+    if (secondary.some(function (item) {
+      return item.match.test(page);
+    })) {
+      more.open = true;
+    }
+    const summary = document.createElement("summary");
+    summary.className = "sidebar-more-summary";
+    summary.textContent = "More";
+    more.appendChild(summary);
+    secondary.forEach(function (item) {
+      const a = document.createElement("a");
+      a.href = item.href;
+      a.className = "sidebar-page-link";
+      a.textContent = item.label;
+      if (item.match.test(page)) {
+        a.classList.add("is-active");
+        a.setAttribute("aria-current", "page");
+      }
+      more.appendChild(a);
+    });
+    frag.appendChild(more);
+    pagesHeading.after(frag);
+    sidebarInner.dataset.navReady = "1";
+  }
+
+  function setupKeyboardShortcuts() {
+    const NAV = {
+      t: "todo.html#today",
+      c: "calendar.html",
+      p: "planner.html",
+      m: "mail.html",
+      a: "tally.html",
+      w: "teamwork.html",
+    };
+    let pendingGo = false;
+    let pendingTimer = 0;
+
+    function clearPendingGo() {
+      pendingGo = false;
+      window.clearTimeout(pendingTimer);
+      document.body.classList.remove("shortcut-go-armed");
+    }
+
+    function armGo() {
+      pendingGo = true;
+      document.body.classList.add("shortcut-go-armed");
+      window.clearTimeout(pendingTimer);
+      pendingTimer = window.setTimeout(clearPendingGo, 1400);
+    }
+
+    function isTypingTarget(target) {
+      if (!target || !(target instanceof Element)) return false;
+      const el = target.closest("input, textarea, select, [contenteditable='true'], [contenteditable='']");
+      if (!el) return false;
+      if (el.tagName === "TEXTAREA" || el.tagName === "SELECT") return true;
+      if (el.isContentEditable) return true;
+      if (el.tagName === "INPUT") {
+        const type = String(el.getAttribute("type") || "text").toLowerCase();
+        return (
+          [
+            "button",
+            "submit",
+            "checkbox",
+            "radio",
+            "file",
+            "reset",
+            "range",
+            "color",
+            "hidden",
+          ].indexOf(type) === -1
+        );
+      }
+      return false;
+    }
+
+    function ensureSheet() {
+      let sheet = document.getElementById("shortcuts-sheet");
+      if (sheet) return sheet;
+      sheet = document.createElement("div");
+      sheet.id = "shortcuts-sheet";
+      sheet.className = "shortcuts-sheet";
+      sheet.hidden = true;
+      sheet.innerHTML = `
+        <div class="shortcuts-sheet-backdrop" data-shortcuts-close></div>
+        <section class="shortcuts-sheet-panel" role="dialog" aria-modal="true" aria-labelledby="shortcuts-title">
+          <button type="button" class="shortcuts-sheet-close" data-shortcuts-close aria-label="Close shortcuts">×</button>
+          <p class="shortcuts-sheet-kicker">Daily Space</p>
+          <h2 class="shortcuts-sheet-title" id="shortcuts-title">Keyboard shortcuts</h2>
+          <p class="shortcuts-sheet-copy">Press ? anytime to open this list. Keys are ignored while typing.</p>
+          <div class="shortcuts-sheet-grid">
+            <div class="shortcuts-group">
+              <h3 class="shortcuts-group-title">Go</h3>
+              <ul class="shortcuts-list">
+                <li><kbd>g</kbd> then <kbd>t</kbd><span>Todo · Today</span></li>
+                <li><kbd>g</kbd> then <kbd>c</kbd><span>Calendar</span></li>
+                <li><kbd>g</kbd> then <kbd>p</kbd><span>Planner</span></li>
+                <li><kbd>g</kbd> then <kbd>m</kbd><span>Mail</span></li>
+                <li><kbd>g</kbd> then <kbd>a</kbd><span>Tally book</span></li>
+                <li><kbd>g</kbd> then <kbd>w</kbd><span>Teamwork</span></li>
+              </ul>
+            </div>
+            <div class="shortcuts-group">
+              <h3 class="shortcuts-group-title">Todo</h3>
+              <ul class="shortcuts-list">
+                <li><kbd>n</kbd><span>New task</span></li>
+                <li><kbd>t</kbd><span>Focus today</span></li>
+                <li><kbd>⌘</kbd><kbd>K</kbd><span>Jump palette</span></li>
+                <li><kbd>/</kbd><span>Slash commands</span></li>
+              </ul>
+            </div>
+            <div class="shortcuts-group">
+              <h3 class="shortcuts-group-title">Anywhere</h3>
+              <ul class="shortcuts-list">
+                <li><kbd>?</kbd><span>This help</span></li>
+                <li><kbd>d</kbd><span>Toggle theme</span></li>
+                <li><kbd>Esc</kbd><span>Close panels</span></li>
+              </ul>
+            </div>
+          </div>
+        </section>
+      `;
+      document.body.appendChild(sheet);
+      sheet.addEventListener("click", function (event) {
+        const closeEl = event.target && event.target.closest("[data-shortcuts-close]");
+        if (closeEl) closeSheet();
+      });
+      return sheet;
+    }
+
+    function isOpen() {
+      const sheet = document.getElementById("shortcuts-sheet");
+      return Boolean(sheet && !sheet.hidden);
+    }
+
+    function openSheet() {
+      const sheet = ensureSheet();
+      sheet.hidden = false;
+      clearPendingGo();
+      if (window.DailySpaceI18n && typeof window.DailySpaceI18n.apply === "function") {
+        try {
+          window.DailySpaceI18n.apply(sheet);
+        } catch (_) {
+          /* optional */
+        }
+      }
+    }
+
+    function closeSheet() {
+      const sheet = document.getElementById("shortcuts-sheet");
+      if (sheet) sheet.hidden = true;
+    }
+
+    function toggleTheme() {
+      const nextTheme = document.documentElement.dataset.theme === DARK ? LIGHT : DARK;
+      persistTheme(nextTheme);
+      applyTheme(nextTheme);
+      if (currentUserId()) {
+        userSnapshotBaseline = "";
+        flushUserSnapshotOnPageHide();
+      }
+    }
+
+    function go(href) {
+      clearPendingGo();
+      if (!href) return;
+      const here = (window.location.pathname.split("/").pop() || "todo.html").toLowerCase();
+      const target = String(href).split("#")[0].toLowerCase();
+      if (here === target && String(href).includes("#")) {
+        window.location.hash = String(href).split("#")[1] || "";
+        return;
+      }
+      if (here === target) return;
+      window.location.href = href;
+    }
+
+    document.addEventListener("keydown", function (event) {
+      if (document.body.classList.contains("welcome-active")) return;
+      if (event.defaultPrevented) return;
+
+      if (event.key === "Escape" && isOpen()) {
+        event.preventDefault();
+        closeSheet();
+        return;
+      }
+
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (isTypingTarget(event.target)) {
+        if (pendingGo) clearPendingGo();
+        return;
+      }
+
+      if (event.key === "?" || (event.key === "/" && event.shiftKey)) {
+        event.preventDefault();
+        if (isOpen()) closeSheet();
+        else openSheet();
+        return;
+      }
+
+      if (isOpen()) return;
+
+      const key = String(event.key || "").toLowerCase();
+
+      if (pendingGo) {
+        if (NAV[key]) {
+          event.preventDefault();
+          go(NAV[key]);
+          return;
+        }
+        clearPendingGo();
+        return;
+      }
+
+      if (key === "g" && !event.repeat) {
+        event.preventDefault();
+        armGo();
+        return;
+      }
+
+      if (key === "d" && !event.repeat) {
+        event.preventDefault();
+        toggleTheme();
+        return;
+      }
+
+      if (key === "n" || key === "t") {
+        window.dispatchEvent(
+          new CustomEvent("daily-space-shortcut", {
+            detail: { action: key === "n" ? "new-task" : "focus-today" },
+          })
+        );
+      }
+    });
+
+    window.DailySpaceShortcuts = {
+      openHelp: openSheet,
+      closeHelp: closeSheet,
+    };
+  }
+
   function setupSharedUi() {
     ensurePwaShell();
     registerServiceWorker();
     setupThemeToggle();
     setupAutoSidebar();
+    setupPrimaryNav();
+    setupKeyboardShortcuts();
     setupAuthEntry();
     if (window.DailySpaceLoop) {
       try {
