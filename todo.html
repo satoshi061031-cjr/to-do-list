@@ -18,6 +18,8 @@
     <div class="layout">
       <aside class="sidebar" id="sidebar" aria-label="Categories">
         <div class="sidebar-inner">
+          <div class="sidebar-heading">Workspace</div>
+          <a href="todo.html#today" class="sidebar-page-link sidebar-today-link">Today</a>
           <div class="sidebar-heading">Categories</div>
           <ul class="category-list" id="category-list" role="list"></ul>
           <div class="sidebar-actions">
@@ -38,6 +40,7 @@
           </div>
           <div class="sidebar-planner-block">
             <div class="sidebar-heading">Pages</div>
+            <a href="todo.html" class="sidebar-page-link is-current" aria-current="page">Todo</a>
             <a href="planner.html" class="sidebar-page-link">Planner</a>
             <a href="calendar.html" class="sidebar-page-link">Calendar</a>
             <a href="tally.html" class="sidebar-page-link">Tally book</a>
@@ -118,7 +121,7 @@
                 </a>
               </section>
 
-              <section class="evening-review" id="evening-review" aria-label="Evening review">
+              <section class="evening-review" id="evening-review" aria-label="Evening review" hidden>
                 <div class="evening-review-top">
                   <p class="evening-review-kicker">Evening review</p>
                   <h2 class="evening-review-title" id="evening-review-title">How did today go?</h2>
@@ -132,18 +135,22 @@
                 </div>
               </section>
 
-          <form class="add-form" id="add-form" autocomplete="off">
+          <form class="add-form add-form-notion" id="add-form" autocomplete="off">
             <div class="add-form-row">
+              <span class="composer-glyph" aria-hidden="true">□</span>
               <input
                 type="text"
                 id="todo-input"
                 class="todo-input"
-                placeholder="Add a task…"
+                placeholder="Type a task, or / for commands"
                 maxlength="500"
                 aria-label="New task"
+                aria-controls="todo-slash-menu"
+                aria-autocomplete="list"
               />
-              <button type="submit" class="btn btn-primary">Add</button>
+              <button type="submit" class="btn btn-primary add-form-submit">Add</button>
             </div>
+            <p class="composer-hint" id="composer-hint">Enter to add · / commands · ⌘K / Ctrl+K jump</p>
             <div class="add-form-deadline">
               <div class="deadline-picker">
                 <input type="hidden" id="todo-deadline" value="" />
@@ -207,9 +214,16 @@
                 </div>
               </div>
             </div>
+            <div
+              class="slash-menu"
+              id="todo-slash-menu"
+              hidden
+              role="listbox"
+              aria-label="Commands"
+            ></div>
           </form>
 
-          <div class="toolbar">
+          <div class="toolbar toolbar-quiet">
             <div class="todo-source-switch" role="tablist" aria-label="Task source">
               <button type="button" class="todo-source-btn is-active" data-todo-source="personal" role="tab" aria-selected="true">
                 Personal
@@ -245,7 +259,7 @@
 
             <ul class="todo-list" id="todo-list" aria-live="polite"></ul>
 
-            <p class="empty-state" id="empty-state">No tasks yet—add your first one above.</p>
+            <p class="empty-state" id="empty-state">Type above to add a task, or press / for commands.</p>
 
             <footer class="footer">
               <span id="count-text">0 tasks left</span>
@@ -271,6 +285,29 @@
         </header>
         <ul class="todo-list due-day-page-list" id="due-day-page-list"></ul>
         <p id="due-day-page-empty" class="due-day-page-empty" hidden></p>
+      </div>
+    </div>
+
+    <div
+      class="command-palette"
+      id="todo-command-palette"
+      hidden
+      role="dialog"
+      aria-modal="true"
+      aria-label="Jump"
+    >
+      <div class="command-palette-backdrop" id="todo-command-backdrop"></div>
+      <div class="command-palette-panel">
+        <input
+          type="search"
+          class="command-palette-input"
+          id="todo-command-input"
+          placeholder="Jump to a page or action…"
+          aria-label="Jump search"
+          autocomplete="off"
+        />
+        <ul class="command-palette-list" id="todo-command-list" role="listbox"></ul>
+        <p class="command-palette-empty" id="todo-command-empty" hidden>No matches.</p>
       </div>
     </div>
 

@@ -978,14 +978,35 @@
 
   /**
    * @param {{ id: string; text: string; completed: boolean; dueDate: string | null; categoryId: string | null; boardName?: string; workspaceName?: string; source?: string }} todo
-   * @param {{ showCategoryPill: boolean; showDueBadge: boolean; showBoardMeta?: boolean; allowDelete?: boolean; onToggle?: (id: string) => void }} opts
+   * @param {{ showCategoryPill: boolean; showDueBadge: boolean; showBoardMeta?: boolean; allowDelete?: boolean; allowReorder?: boolean; onToggle?: (id: string) => void }} opts
    */
   function createTodoListItemEl(todo, opts) {
     const onToggle = opts.onToggle || toggle;
     const allowDelete = opts.allowDelete !== false;
+    const allowReorder = Boolean(opts.allowReorder);
     const li = document.createElement("li");
     li.className = "todo-item" + (todo.completed ? " completed" : "");
     li.dataset.id = todo.id;
+    if (allowReorder) {
+      li.draggable = false;
+      li.classList.add("is-reorderable");
+    }
+
+    if (allowReorder) {
+      const handle = document.createElement("button");
+      handle.type = "button";
+      handle.className = "todo-block-handle";
+      handle.setAttribute("aria-label", "Drag to reorder");
+      handle.textContent = "⋮⋮";
+      handle.addEventListener("pointerdown", () => {
+        li.draggable = true;
+      });
+      handle.addEventListener("pointerup", () => {
+        li.draggable = false;
+      });
+      handle.addEventListener("click", (e) => e.preventDefault());
+      li.appendChild(handle);
+    }
 
     const check = document.createElement("input");
     check.type = "checkbox";
@@ -1000,7 +1021,36 @@
     const label = document.createElement("span");
     label.className = "todo-label";
     label.textContent = todo.text;
-    label.addEventListener("click", () => onToggle(todo.id));
+    if (allowDelete && todoSource === "personal") {
+      label.contentEditable = "true";
+      label.spellcheck = false;
+      label.setAttribute("role", "textbox");
+      label.setAttribute("aria-label", "Edit task");
+      let draft = todo.text;
+      label.addEventListener("focus", () => {
+        draft = label.textContent || "";
+        li.classList.add("is-editing");
+      });
+      label.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          label.blur();
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          label.textContent = draft;
+          label.blur();
+        }
+      });
+      label.addEventListener("blur", () => {
+        li.classList.remove("is-editing");
+        const next = String(label.textContent || "").trim().slice(0, 500);
+        if (!next) {
+          label.textContent = draft;
+          return;
+        }
+        if (next !== todo.text) renameTodo(todo.id, next);
+      });
+    }
 
     main.appendChild(label);
 
@@ -1029,6 +1079,8 @@
       main.appendChild(dueEl);
     }
 
+    li.append(check, main);
+
     if (allowDelete) {
       const del = document.createElement("button");
       del.type = "button";
@@ -1036,10 +1088,38 @@
       del.setAttribute("aria-label", "Delete task");
       del.textContent = "×";
       del.addEventListener("click", () => remove(todo.id));
-      li.append(check, main, del);
-    } else {
-      li.append(check, main);
+      li.appendChild(del);
     }
+
+    if (allowReorder) {
+      li.addEventListener("dragstart", (e) => {
+        li.classList.add("is-dragging");
+        e.dataTransfer?.setData("text/plain", todo.id);
+        if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
+      });
+      li.addEventListener("dragend", () => {
+        li.classList.remove("is-dragging");
+        li.draggable = false;
+        listEl.querySelectorAll(".todo-item.is-drop-target").forEach((el) => {
+          el.classList.remove("is-drop-target");
+        });
+      });
+      li.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        li.classList.add("is-drop-target");
+        if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+      });
+      li.addEventListener("dragleave", () => {
+        li.classList.remove("is-drop-target");
+      });
+      li.addEventListener("drop", (e) => {
+        e.preventDefault();
+        li.classList.remove("is-drop-target");
+        const dragId = e.dataTransfer?.getData("text/plain") || "";
+        if (dragId) reorderTodo(dragId, todo.id);
+      });
+    }
+
     return li;
   }
 
@@ -1375,6 +1455,7 @@
             !!todo.categoryId &&
             categoryExists(todo.categoryId),
           showDueBadge: !!todo.dueDate,
+          allowReorder: todoSource === "personal",
         })
       );
     });
@@ -1409,7 +1490,7 @@
             ? `No tasks in "${categoryLabelById(selectedCategoryKey)}" yet.`
             : "Nothing in this category.";
         } else if (todos.length === 0) {
-          emptyEl.textContent = "No tasks yet—add your first one above.";
+          emptyEl.textContent = "Type above to add a task, or press / for commands.";
         } else if (filter === "today") {
           emptyEl.textContent = "Nothing due today.";
         } else if (filter === "active") {
@@ -1578,6 +1659,28 @@
     render();
   }
 
+  function renameTodo(todoId, text) {
+    const t = todos.find((x) => x.id === todoId);
+    if (!t) return;
+    const next = String(text || "").trim().slice(0, 500);
+    if (!next || next === t.text) return;
+    t.text = next;
+    saveAll();
+    renderCategorySidebar();
+    render();
+  }
+
+  function reorderTodo(dragId, dropId) {
+    if (!dragId || !dropId || dragId === dropId) return;
+    const from = todos.findIndex((t) => t.id === dragId);
+    const to = todos.findIndex((t) => t.id === dropId);
+    if (from < 0 || to < 0) return;
+    const [item] = todos.splice(from, 1);
+    todos.splice(to, 0, item);
+    saveAll();
+    render();
+  }
+
   function remove(todoId) {
     todos = todos.filter((x) => x.id !== todoId);
     saveAll();
@@ -1675,12 +1778,305 @@
   form.addEventListener("submit", (e) => {
     e.preventDefault();
     if (todoSource !== "personal") return;
+    if (slashMenu && !slashMenu.hidden) {
+      runSlashSelection();
+      return;
+    }
+    const raw = input.value;
+    if (raw.trim().startsWith("/")) {
+      openSlashMenu(raw.slice(1));
+      return;
+    }
     const due = deadlineInput.value.trim() || todayIso();
     add(input.value, due);
     input.value = "";
     resetDeadlineToToday();
     closeCalendar();
+    closeSlashMenu();
     input.focus();
+  });
+
+  const slashMenu = document.getElementById("todo-slash-menu");
+  const commandPalette = document.getElementById("todo-command-palette");
+  const commandBackdrop = document.getElementById("todo-command-backdrop");
+  const commandInput = document.getElementById("todo-command-input");
+  const commandList = document.getElementById("todo-command-list");
+  const commandEmpty = document.getElementById("todo-command-empty");
+  let slashIndex = 0;
+  let commandIndex = 0;
+
+  const SLASH_COMMANDS = [
+    {
+      id: "due-today",
+      label: "Due today",
+      hint: "Add a task due today",
+      aliases: ["due", "today", "task"],
+      run() {
+        deadlineInput.value = todayIso();
+        syncDeadlineUi();
+        input.value = "";
+        input.focus();
+      },
+    },
+    {
+      id: "filter-today",
+      label: "Show today",
+      hint: "Filter the list to due today",
+      aliases: ["filter", "today"],
+      run() {
+        focusTodayList();
+      },
+    },
+    {
+      id: "filter-active",
+      label: "Show active",
+      hint: "Hide completed tasks",
+      aliases: ["active", "open"],
+      run() {
+        setFilter("active");
+      },
+    },
+    {
+      id: "assigned",
+      label: "Assigned to me",
+      hint: "Open shared assignments",
+      aliases: ["assigned", "team"],
+      run() {
+        setTodoSource("assigned");
+      },
+    },
+    {
+      id: "calendar",
+      label: "Open Calendar",
+      hint: "Jump to calendar",
+      aliases: ["calendar", "cal"],
+      run() {
+        window.location.href = "calendar.html";
+      },
+    },
+    {
+      id: "planner",
+      label: "Open Planner",
+      hint: "Jump to planner boards",
+      aliases: ["planner", "board"],
+      run() {
+        window.location.href = "planner.html";
+      },
+    },
+    {
+      id: "mail",
+      label: "Open Mail",
+      hint: "Jump to mail digest",
+      aliases: ["mail", "inbox"],
+      run() {
+        window.location.href = "mail.html";
+      },
+    },
+    {
+      id: "tally",
+      label: "Open Tally",
+      hint: "Jump to expenses",
+      aliases: ["tally", "money"],
+      run() {
+        window.location.href = "tally.html";
+      },
+    },
+  ];
+
+  const JUMP_COMMANDS = [
+    { id: "today", label: "Today", hint: "Todo · due today", aliases: ["today", "todo"], run: () => focusTodayList() },
+    { id: "todo", label: "Todo", hint: "All personal tasks", aliases: ["todo", "tasks"], run: () => setFilter("all") },
+    { id: "assigned-jump", label: "Assigned", hint: "Shared tasks", aliases: ["assigned"], run: () => setTodoSource("assigned") },
+    { id: "planner-jump", label: "Planner", hint: "Page", aliases: ["planner"], run: () => { window.location.href = "planner.html"; } },
+    { id: "calendar-jump", label: "Calendar", hint: "Page", aliases: ["calendar"], run: () => { window.location.href = "calendar.html"; } },
+    { id: "tally-jump", label: "Tally book", hint: "Page", aliases: ["tally"], run: () => { window.location.href = "tally.html"; } },
+    { id: "teamwork-jump", label: "Teamwork", hint: "Page", aliases: ["teamwork", "team"], run: () => { window.location.href = "teamwork.html"; } },
+    { id: "mail-jump", label: "Mail", hint: "Page", aliases: ["mail"], run: () => { window.location.href = "mail.html"; } },
+  ];
+
+  function filterCommands(list, query) {
+    const q = String(query || "").trim().toLowerCase();
+    if (!q) return list.slice();
+    return list.filter((item) => {
+      const hay = [item.label, item.hint, ...(item.aliases || [])].join(" ").toLowerCase();
+      return hay.includes(q);
+    });
+  }
+
+  function closeSlashMenu() {
+    if (!slashMenu) return;
+    slashMenu.hidden = true;
+    slashMenu.innerHTML = "";
+    slashIndex = 0;
+    input?.removeAttribute("aria-activedescendant");
+  }
+
+  function openSlashMenu(query) {
+    if (!slashMenu) return;
+    const items = filterCommands(SLASH_COMMANDS, query);
+    slashMenu.innerHTML = "";
+    if (!items.length) {
+      slashMenu.hidden = true;
+      return;
+    }
+    slashIndex = Math.min(slashIndex, items.length - 1);
+    items.forEach((item, index) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "slash-menu-item" + (index === slashIndex ? " is-active" : "");
+      btn.id = `slash-item-${item.id}`;
+      btn.setAttribute("role", "option");
+      btn.setAttribute("aria-selected", index === slashIndex ? "true" : "false");
+      btn.innerHTML = `<span class="slash-menu-label">${item.label}</span><span class="slash-menu-hint">${item.hint}</span>`;
+      btn.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        runCommand(item);
+        closeSlashMenu();
+        input.value = "";
+      });
+      slashMenu.appendChild(btn);
+    });
+    slashMenu.hidden = false;
+    const active = slashMenu.querySelector(".slash-menu-item.is-active");
+    if (active) input.setAttribute("aria-activedescendant", active.id);
+  }
+
+  function runCommand(item) {
+    if (!item || typeof item.run !== "function") return;
+    item.run();
+  }
+
+  function runSlashSelection() {
+    if (!slashMenu || slashMenu.hidden) return;
+    const items = Array.from(slashMenu.querySelectorAll(".slash-menu-item"));
+    const active = items[slashIndex] || items[0];
+    if (!active) return;
+    active.dispatchEvent(new Event("mousedown"));
+  }
+
+  function syncDeadlineUi() {
+    refreshDeadlineChrome();
+  }
+
+  function closeCommandPalette() {
+    if (!commandPalette) return;
+    commandPalette.hidden = true;
+    if (commandInput) commandInput.value = "";
+    if (commandList) commandList.innerHTML = "";
+    commandIndex = 0;
+  }
+
+  function renderCommandPalette(query) {
+    if (!commandList || !commandEmpty) return;
+    const items = filterCommands(JUMP_COMMANDS, query);
+    commandList.innerHTML = "";
+    commandEmpty.hidden = items.length > 0;
+    commandIndex = Math.min(commandIndex, Math.max(0, items.length - 1));
+    items.forEach((item, index) => {
+      const li = document.createElement("li");
+      li.className = "command-palette-item" + (index === commandIndex ? " is-active" : "");
+      li.setAttribute("role", "option");
+      li.innerHTML = `<span class="command-palette-label">${item.label}</span><span class="command-palette-hint">${item.hint}</span>`;
+      li.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        closeCommandPalette();
+        runCommand(item);
+      });
+      commandList.appendChild(li);
+    });
+  }
+
+  function openCommandPalette() {
+    if (!commandPalette) return;
+    closeSlashMenu();
+    closeCalendar();
+    commandPalette.hidden = false;
+    commandIndex = 0;
+    renderCommandPalette("");
+    queueMicrotask(() => commandInput?.focus());
+  }
+
+  function runCommandSelection() {
+    if (!commandList) return;
+    const items = Array.from(commandList.querySelectorAll(".command-palette-item"));
+    const active = items[commandIndex] || items[0];
+    if (!active) return;
+    active.dispatchEvent(new Event("mousedown"));
+  }
+
+  input.addEventListener("input", () => {
+    const value = input.value;
+    if (value.startsWith("/")) {
+      openSlashMenu(value.slice(1));
+    } else {
+      closeSlashMenu();
+    }
+  });
+
+  input.addEventListener("keydown", (e) => {
+    if (slashMenu && !slashMenu.hidden) {
+      const count = slashMenu.querySelectorAll(".slash-menu-item").length;
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        slashIndex = (slashIndex + 1) % Math.max(count, 1);
+        openSlashMenu(input.value.slice(1));
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        slashIndex = (slashIndex - 1 + Math.max(count, 1)) % Math.max(count, 1);
+        openSlashMenu(input.value.slice(1));
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        closeSlashMenu();
+        if (input.value.startsWith("/")) input.value = "";
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        runSlashSelection();
+      }
+    }
+  });
+
+  if (commandInput) {
+    commandInput.addEventListener("input", () => {
+      commandIndex = 0;
+      renderCommandPalette(commandInput.value);
+    });
+    commandInput.addEventListener("keydown", (e) => {
+      const count = commandList?.querySelectorAll(".command-palette-item").length || 0;
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        commandIndex = (commandIndex + 1) % Math.max(count, 1);
+        renderCommandPalette(commandInput.value);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        commandIndex = (commandIndex - 1 + Math.max(count, 1)) % Math.max(count, 1);
+        renderCommandPalette(commandInput.value);
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        runCommandSelection();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        closeCommandPalette();
+        input.focus();
+      }
+    });
+  }
+
+  if (commandBackdrop) {
+    commandBackdrop.addEventListener("click", () => closeCommandPalette());
+  }
+
+  document.addEventListener("keydown", (e) => {
+    const meta = e.metaKey || e.ctrlKey;
+    if (meta && String(e.key).toLowerCase() === "k") {
+      e.preventDefault();
+      if (commandPalette && !commandPalette.hidden) closeCommandPalette();
+      else openCommandPalette();
+      return;
+    }
+    if (e.key === "Escape" && commandPalette && !commandPalette.hidden) {
+      e.preventDefault();
+      closeCommandPalette();
+    }
   });
 
   clearBtn.addEventListener("click", clearCompletedInScope);
