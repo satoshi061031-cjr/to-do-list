@@ -279,6 +279,12 @@
   line-height: 1.4;
 }
 
+.mail-today-link {
+  color: var(--highlight);
+  font-weight: 700;
+  text-decoration: underline;
+}
+
 .mail-message-list {
   margin-top: 0.55rem;
   display: grid;

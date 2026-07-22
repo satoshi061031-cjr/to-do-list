@@ -19,7 +19,6 @@
       <aside class="sidebar" id="sidebar" aria-label="Categories">
         <div class="sidebar-inner">
           <div class="sidebar-heading">Workspace</div>
-          <a href="todo.html#today" class="sidebar-page-link sidebar-today-link">Today</a>
           <div class="sidebar-heading">Categories</div>
           <ul class="category-list" id="category-list" role="list"></ul>
           <div class="sidebar-actions">
@@ -111,7 +110,7 @@
                   </button>
                 </div>
                 <ul class="todo-list daily-loop-list" id="daily-loop-list" aria-label="Due today"></ul>
-                <p class="daily-loop-empty" id="daily-loop-empty" hidden>Nothing due today.</p>
+                <p class="daily-loop-empty" id="daily-loop-empty" hidden>Nothing due today — add a task above.</p>
                 <a class="daily-loop-reminders" id="daily-loop-reminders" href="calendar.html" hidden>
                   <div class="daily-loop-reminders-head">
                     <span class="daily-loop-reminders-label">Reminders</span>
@@ -233,10 +232,10 @@
               </button>
             </div>
             <div class="filters" id="todo-status-filters" role="tablist" aria-label="Filter tasks">
-              <button type="button" class="filter-btn" data-filter="today" role="tab" aria-selected="false">
+              <button type="button" class="filter-btn is-active" data-filter="today" role="tab" aria-selected="true">
                 Today
               </button>
-              <button type="button" class="filter-btn is-active" data-filter="all" role="tab" aria-selected="true">
+              <button type="button" class="filter-btn" data-filter="all" role="tab" aria-selected="false">
                 All
               </button>
               <button type="button" class="filter-btn" data-filter="active" role="tab" aria-selected="false">

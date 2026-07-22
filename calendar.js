@@ -529,12 +529,15 @@
     if (perm === "granted") {
       calendarAlertsBtn.textContent = "Reminder alerts on";
       calendarAlertsBtn.disabled = true;
+      calendarAlertsBtn.title = "Browser will notify you for today’s timed reminders while Daily Space is open.";
     } else if (perm === "denied") {
       calendarAlertsBtn.textContent = "Alerts blocked in browser";
       calendarAlertsBtn.disabled = true;
+      calendarAlertsBtn.title = "Enable notifications for this site in browser settings, then reload.";
     } else {
       calendarAlertsBtn.textContent = "Enable reminder alerts";
       calendarAlertsBtn.disabled = false;
+      calendarAlertsBtn.title = "Allow notifications so timed reminders can appear.";
     }
   }
 

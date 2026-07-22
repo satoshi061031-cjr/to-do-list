@@ -1,4 +1,4 @@
-const CACHE_NAME = 'todo-v155';
+const CACHE_NAME = 'todo-v156';
 const SCOPE_PATH = new URL(self.registration.scope).pathname.replace(/\/$/, '');
 const withScope = (path) => `${SCOPE_PATH}${path}`;
 const urlsToCache = [
@@ -86,6 +86,17 @@ function revalidate(request) {
     .catch(() => undefined);
 }
 
+function isShellAsset(url) {
+  const path = url.pathname;
+  return (
+    path.endsWith('.html') ||
+    path.endsWith('.js') ||
+    path.endsWith('.css') ||
+    path.endsWith('/') ||
+    /\/sw\.js$/.test(path)
+  );
+}
+
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   if (request.method !== 'GET') return;
@@ -104,7 +115,31 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // App shell + static assets: cache-first for instant mobile opens, then refresh.
+  // HTML/JS/CSS: network-first so deploys show up without a hard refresh.
+  if (isShellAsset(url) || request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response && response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+          }
+          return response;
+        })
+        .catch(() =>
+          caches.match(request).then((cached) => {
+            if (cached) return cached;
+            if (request.mode === 'navigate') {
+              return caches.match(withScope('/todo.html')).then((fallback) => fallback || Response.error());
+            }
+            return Response.error();
+          })
+        )
+    );
+    return;
+  }
+
+  // Images and other static assets: cache-first for instant mobile opens.
   event.respondWith(
     caches.match(request).then((cached) => {
       const networkPromise = revalidate(request);
@@ -114,9 +149,6 @@ self.addEventListener('fetch', (event) => {
       }
       return networkPromise.then((response) => {
         if (response) return response;
-        if (request.mode === 'navigate') {
-          return caches.match(withScope('/index.html')).then((fallback) => fallback || Response.error());
-        }
         return Response.error();
       });
     })

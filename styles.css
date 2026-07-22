@@ -926,6 +926,38 @@ body.todo-agent-open.has-notif-bell .language-toggle {
   color: var(--text-muted);
 }
 
+.daily-loop-more {
+  margin-top: var(--space-xs);
+  padding: var(--space-xs) 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: var(--type-label-size);
+  font-weight: 700;
+  letter-spacing: var(--type-body-tracking);
+  text-align: left;
+  cursor: pointer;
+}
+
+.daily-loop-more:hover {
+  color: var(--highlight);
+}
+
+.sidebar-auth-sync-action {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--highlight);
+  font: inherit;
+  font-size: inherit;
+  font-weight: 700;
+  letter-spacing: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
 .sidebar-today-link {
   margin-bottom: var(--space-xs);
   color: var(--highlight);

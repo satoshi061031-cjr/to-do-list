@@ -278,7 +278,7 @@
     );
   }
 
-  const DEFAULT_APP_PATH = "/todo.html";
+  const DEFAULT_APP_PATH = "/todo.html#today";
 
   function isWelcomePath(pathname) {
     const path = String(pathname || "/").replace(/\/+$/, "") || "/";
@@ -475,7 +475,19 @@
         authSync.textContent = "Cloud sync: offline — saved on this device";
       } else if (userSnapshotStatus === "conflict") {
         authSync.hidden = false;
-        authSync.textContent = "Cloud sync: kept this device’s changes";
+        authSync.innerHTML =
+          'Cloud sync: kept this device’s changes · <button type="button" class="sidebar-auth-sync-action" id="auth-sync-use-cloud">Use cloud</button>';
+        const useCloud = authSync.querySelector("#auth-sync-use-cloud");
+        if (useCloud) {
+          useCloud.addEventListener("click", function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            applyCloudSnapshotPreferringRemote().catch(function () {
+              userSnapshotStatus = "error";
+              emitUserSnapshotUpdate();
+            });
+          });
+        }
       } else if (userSnapshotStatus === "syncing") {
         authSync.hidden = false;
         authSync.textContent = "Cloud sync: syncing…";
@@ -1002,6 +1014,28 @@
     });
     applyTheme(storedTheme());
     renderGreeting();
+  }
+
+  async function applyCloudSnapshotPreferringRemote() {
+    const userId = currentUserId();
+    if (!userId || !isBrowserOnline()) {
+      userSnapshotStatus = isBrowserOnline() ? "error" : "offline";
+      emitUserSnapshotUpdate();
+      return;
+    }
+    userSnapshotStatus = "syncing";
+    emitUserSnapshotUpdate();
+    const data = await requestUserSnapshot("GET");
+    const nextPayload = data.payload && typeof data.payload === "object" ? data.payload : {};
+    applyUserSnapshotPayload(nextPayload, { clearMissing: true });
+    userSnapshotUserId = userId;
+    writeLastUserId(userId);
+    writeUserLocalCache(userId, collectUserSnapshotPayload());
+    setSyncedBaseline(userId, collectUserSnapshotPayload());
+    userSnapshotLastSyncedAt = data.updatedAt || new Date().toISOString();
+    userSnapshotStatus = "ok";
+    emitUserSnapshotUpdate();
+    window.location.reload();
   }
 
   async function loadSnapshotForCurrentUser() {

@@ -106,7 +106,7 @@
   const eveningReviewAlertsBtn = document.getElementById("evening-review-alerts");
 
   /** @type {"all" | "active" | "completed" | "today"} */
-  let filter = "all";
+  let filter = "today";
 
   /** @type {"personal" | "assigned"} */
   let todoSource = "personal";
@@ -857,6 +857,7 @@
     if (filter === "today") {
       const today = todayIso();
       list = list.filter((t) => t.dueDate === today);
+      list.sort((a, b) => Number(a.completed) - Number(b.completed));
     } else if (filter === "active") {
       list = list.filter((t) => !t.completed);
     } else if (filter === "completed") {
@@ -944,6 +945,7 @@
     if (next !== "personal" && next !== "assigned") return;
     if (todoSource === next) {
       if (next === "assigned") loadAssignedTasks();
+      syncTodoHash();
       return;
     }
     todoSource = next;
@@ -951,9 +953,11 @@
     if (todoSource === "assigned") {
       closeDueDayPage();
       loadAssignedTasks();
+      syncTodoHash();
       return;
     }
     render();
+    syncTodoHash();
   }
 
   async function completeAssignedTask(taskId) {
@@ -1242,12 +1246,35 @@
     return "";
   }
 
+  function syncTodoHash() {
+    let hash = "";
+    if (todoSource === "assigned") hash = "#assigned";
+    else if (filter === "today") hash = "#today";
+    const next = `${window.location.pathname}${window.location.search}${hash}`;
+    const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (current !== next) {
+      window.history.replaceState({}, "", next);
+    }
+  }
+
   function focusTodayList() {
+    if (todoSource !== "personal") setTodoSource("personal");
     setFilter("today");
     queueMicrotask(() => {
-      const target = statusFiltersEl || listEl;
+      const target = dailyLoopEl || statusFiltersEl || listEl;
       if (target && typeof target.scrollIntoView === "function") {
         target.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+      if (input && todoSource === "personal") input.focus();
+    });
+  }
+
+  function openOverdueFocus() {
+    if (todoSource !== "personal") setTodoSource("personal");
+    setFilter("active");
+    queueMicrotask(() => {
+      if (dailyLoopEl && typeof dailyLoopEl.scrollIntoView === "function") {
+        dailyLoopEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
       }
     });
   }
@@ -1304,10 +1331,28 @@
     const showEmpty = dueTodayOpen.length === 0;
     if (dailyLoopEmpty) {
       dailyLoopEmpty.hidden = !showEmpty;
-      dailyLoopEmpty.textContent =
-        dueToday.length > 0 ? "All caught up for today." : "Nothing due today.";
+      if (overdueOpen.length > 0) {
+        dailyLoopEmpty.textContent =
+          overdueOpen.length === 1
+            ? "Nothing due today — 1 overdue task still needs you."
+            : `Nothing due today — ${overdueOpen.length} overdue tasks still need you.`;
+      } else if (dueToday.length > 0) {
+        dailyLoopEmpty.textContent = "All caught up for today.";
+      } else {
+        dailyLoopEmpty.textContent = "Nothing due today — add a task above.";
+      }
     }
     if (dailyLoopList) dailyLoopList.hidden = showEmpty;
+
+    if (dailyLoopList && dueTodayOpen.length > DAILY_LOOP_LIST_LIMIT) {
+      const more = document.createElement("button");
+      more.type = "button";
+      more.className = "daily-loop-more";
+      more.textContent = `+${dueTodayOpen.length - DAILY_LOOP_LIST_LIMIT} more in Today`;
+      more.addEventListener("click", () => focusTodayList());
+      dailyLoopList.appendChild(more);
+      dailyLoopList.hidden = false;
+    }
 
     const reminders = readTodayReminders();
     if (dailyLoopReminders && dailyLoopRemindersList) {
@@ -1396,6 +1441,16 @@
       } else {
         eveningReviewMail.hidden = true;
         eveningReviewMail.textContent = "";
+      }
+    }
+
+    if (eveningReviewFocusBtn) {
+      if (cleared) {
+        eveningReviewFocusBtn.hidden = true;
+      } else {
+        eveningReviewFocusBtn.hidden = false;
+        eveningReviewFocusBtn.textContent =
+          remaining > 0 ? "Focus remaining" : "Add a task for today";
       }
     }
 
@@ -1492,7 +1547,11 @@
         } else if (todos.length === 0) {
           emptyEl.textContent = "Type above to add a task, or press / for commands.";
         } else if (filter === "today") {
-          emptyEl.textContent = "Nothing due today.";
+          const overdueOpen = todos.filter((t) => isOverdue(t.dueDate, t.completed));
+          emptyEl.textContent =
+            overdueOpen.length > 0
+              ? `No due-today tasks — ${overdueOpen.length} overdue still open.`
+              : "Nothing due today — add a task above.";
         } else if (filter === "active") {
           emptyEl.textContent = "Nothing active right now.";
         } else if (filter === "completed") {
@@ -1706,6 +1765,7 @@
       btn.setAttribute("aria-selected", isActive ? "true" : "false");
     });
     render();
+    syncTodoHash();
   }
 
   document.addEventListener("keydown", (e) => {
@@ -1762,8 +1822,8 @@
 
   if (window.location.hash === "#assigned") {
     setTodoSource("assigned");
-  } else if (window.location.hash === "#today") {
-    setFilter("today");
+  } else if (window.location.hash === "#today" || !window.location.hash) {
+    focusTodayList();
   }
 
   window.addEventListener("daily-space-open-assigned", () => {
@@ -1771,8 +1831,13 @@
   });
 
   window.addEventListener("hashchange", () => {
-    if (window.location.hash === "#assigned") setTodoSource("assigned");
-    if (window.location.hash === "#today") setFilter("today");
+    if (window.location.hash === "#assigned") {
+      setTodoSource("assigned");
+      return;
+    }
+    if (window.location.hash === "#today" || window.location.hash === "") {
+      focusTodayList();
+    }
   });
 
   form.addEventListener("submit", (e) => {
@@ -2113,12 +2178,7 @@
   if (dailyLoopPillOverdue) {
     dailyLoopPillOverdue.addEventListener("click", () => {
       if (Number(dailyLoopOverdueCount?.textContent || 0) <= 0) return;
-      setFilter("active");
-      queueMicrotask(() => {
-        if (dailyLoopEl && typeof dailyLoopEl.scrollIntoView === "function") {
-          dailyLoopEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
-        }
-      });
+      openOverdueFocus();
     });
   }
   if (dailyLoopPillAssigned) {

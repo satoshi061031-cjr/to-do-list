@@ -136,6 +136,14 @@
         },
       ]);
       setInboxStatus("Added to today’s to-do list.");
+      if (statusEl) {
+        const link = document.createElement("a");
+        link.href = "todo.html#today";
+        link.className = "mail-today-link";
+        link.textContent = "Open Today";
+        statusEl.appendChild(document.createTextNode(" "));
+        statusEl.appendChild(link);
+      }
       return;
     }
     setInboxStatus("Could not add task on this device.", true);

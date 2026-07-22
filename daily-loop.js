@@ -267,7 +267,7 @@
       if (!line) return;
       if (stats.dueTodayOpen === 0 && stats.overdueOpen === 0) {
         line.textContent =
-          stats.dueTodayDone > 0 ? `Cleared · ${stats.dueTodayDone} done` : "Nothing due";
+          stats.dueTodayDone > 0 ? `All caught up · ${stats.dueTodayDone} done` : "Nothing due";
       } else if (stats.overdueOpen > 0) {
         line.textContent = `${stats.dueTodayOpen} due · ${stats.overdueOpen} overdue`;
       } else {
