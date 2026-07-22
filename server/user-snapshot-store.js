@@ -1,5 +1,9 @@
 const { createClient } = require("@supabase/supabase-js");
-const { getUserSnapshot: getSqliteSnapshot, upsertUserSnapshot: upsertSqliteSnapshot } = require("./db");
+const {
+  getUserSnapshot: getSqliteSnapshot,
+  upsertUserSnapshot: upsertSqliteSnapshot,
+  deleteUserSnapshot: deleteSqliteSnapshot,
+} = require("./db");
 
 const MAX_SNAPSHOT_BYTES = 1024 * 1024;
 const ALLOWED_SNAPSHOT_KEYS = new Set([
@@ -62,6 +66,7 @@ function createSnapshotStore(options = {}) {
       : null);
   const sqliteGet = options.sqliteGet || getSqliteSnapshot;
   const sqliteUpsert = options.sqliteUpsert || upsertSqliteSnapshot;
+  const sqliteDelete = options.sqliteDelete || deleteSqliteSnapshot;
 
   async function migrateLegacySnapshot(userId) {
     const legacy = sqliteGet(userId);
@@ -126,10 +131,25 @@ function createSnapshotStore(options = {}) {
     };
   }
 
+  async function deleteSnapshot(userId) {
+    const id = normalizeUserId(userId);
+    if (!id) throw snapshotError("userId is required.", 400);
+    const sqliteResult = sqliteDelete(id);
+    if (!supabase) return { removed: Boolean(sqliteResult?.removed) };
+
+    const { error, count } = await supabase
+      .from("user_snapshots")
+      .delete({ count: "exact" })
+      .eq("user_id", id);
+    if (error) throw snapshotError(`Supabase delete failed: ${error.message}`, 502);
+    return { removed: Boolean(sqliteResult?.removed) || Number(count || 0) > 0 };
+  }
+
   return {
     configured: Boolean(supabase),
     getSnapshot,
     upsertSnapshot,
+    deleteSnapshot,
   };
 }
 

@@ -17,6 +17,11 @@
   const accountList = document.getElementById("mail-account-list");
   const digestEl = document.getElementById("mail-digest");
   const refreshBtn = document.getElementById("mail-refresh");
+  const aiBanner = document.getElementById("mail-ai-banner");
+  const aiBannerCopy = document.getElementById("mail-ai-banner-copy");
+  const batchBar = document.getElementById("mail-batch-bar");
+  const selectAllEl = document.getElementById("mail-select-all");
+  const addSelectedBtn = document.getElementById("mail-add-selected");
   const connectTitle = document.getElementById("mail-connect-title");
   const connectHint = document.getElementById("mail-connect-hint");
   const connectKicker = document.getElementById("mail-connect-kicker");
@@ -26,7 +31,9 @@
   const POLL_MS = 120000;
   let pollTimer = null;
   let latestMessages = [];
+  let selectedMailIds = new Set();
   let signedIn = false;
+  let agentConfigured = null;
 
   function todayIso() {
     if (window.DailySpaceAgentData && typeof window.DailySpaceAgentData.todayIso === "function") {
@@ -122,31 +129,105 @@
     digestEl.textContent = text;
   }
 
-  function addMailAsTodayTask(message) {
+  function setAiBanner(show, reason) {
+    if (!aiBanner) return;
+    aiBanner.hidden = !show;
+    if (!show || !aiBannerCopy) return;
+    if (reason === "llm_failed") {
+      aiBannerCopy.textContent =
+        "AI digest failed this time — showing snippets. Refresh to retry, or check the server LLM key.";
+    } else {
+      aiBannerCopy.innerHTML =
+        "Inbox still works with snippets. For richer digests, set <code>GROQ_API_KEY</code> in the server environment (local <code>.env</code> or Render), then restart.";
+    }
+  }
+
+  async function refreshAgentStatus() {
+    try {
+      const response = await fetch("/api/agent/status");
+      const data = await response.json().catch(() => ({}));
+      agentConfigured = Boolean(data.configured);
+    } catch (_) {
+      agentConfigured = null;
+    }
+    // Only surface the no-key banner once a mailbox inbox is open.
+    if (agentConfigured === false && accounts.length > 0) {
+      setAiBanner(true, "agent_not_configured");
+    }
+  }
+
+  function mailTaskText(message) {
     const subject = String(message?.subject || "").trim() || "(No subject)";
     const summary = String(message?.summary || message?.snippet || "").trim();
-    const text = summary ? `Mail · ${subject} — ${summary}` : `Mail · ${subject}`;
+    return (summary ? `Mail · ${subject} — ${summary}` : `Mail · ${subject}`).slice(0, 500);
+  }
+
+  function showTodayStatus(baseMessage) {
+    setInboxStatus(baseMessage);
+    if (statusEl) {
+      const link = document.createElement("a");
+      link.href = "todo.html#today";
+      link.className = "mail-today-link";
+      link.textContent = "Open Today";
+      statusEl.appendChild(document.createTextNode(" "));
+      statusEl.appendChild(link);
+    }
+  }
+
+  function addMailAsTodayTask(message) {
+    if (!message) return false;
     if (window.DailySpaceAgentData && typeof window.DailySpaceAgentData.applyActions === "function") {
       window.DailySpaceAgentData.applyActions([
         {
           type: "todo_add",
-          text: text.slice(0, 500),
+          text: mailTaskText(message),
           dueDate: todayIso(),
           categoryName: null,
         },
       ]);
-      setInboxStatus("Added to today’s to-do list.");
-      if (statusEl) {
-        const link = document.createElement("a");
-        link.href = "todo.html#today";
-        link.className = "mail-today-link";
-        link.textContent = "Open Today";
-        statusEl.appendChild(document.createTextNode(" "));
-        statusEl.appendChild(link);
-      }
-      return;
+      showTodayStatus("Added to today’s to-do list.");
+      return true;
     }
     setInboxStatus("Could not add task on this device.", true);
+    return false;
+  }
+
+  function addSelectedAsTodayTasks() {
+    const selected = latestMessages.filter((item) => selectedMailIds.has(item.id));
+    if (!selected.length) {
+      setInboxStatus("Select at least one message.", true);
+      return;
+    }
+    if (!(window.DailySpaceAgentData && typeof window.DailySpaceAgentData.applyActions === "function")) {
+      setInboxStatus("Could not add tasks on this device.", true);
+      return;
+    }
+    window.DailySpaceAgentData.applyActions(
+      selected.map((message) => ({
+        type: "todo_add",
+        text: mailTaskText(message),
+        dueDate: todayIso(),
+        categoryName: null,
+      }))
+    );
+    selectedMailIds.clear();
+    syncBatchBar();
+    renderMessages(latestMessages);
+    showTodayStatus(`Added ${selected.length} message${selected.length === 1 ? "" : "s"} to Today.`);
+  }
+
+  function syncBatchBar() {
+    if (!batchBar || !addSelectedBtn) return;
+    const hasRows = latestMessages.length > 0;
+    batchBar.hidden = !hasRows;
+    const count = selectedMailIds.size;
+    addSelectedBtn.disabled = count === 0;
+    addSelectedBtn.textContent =
+      count > 0 ? `Add ${count} selected to Today` : "Add selected to Today";
+    if (selectAllEl) {
+      selectAllEl.checked = hasRows && count === latestMessages.length;
+      selectAllEl.indeterminate = count > 0 && count < latestMessages.length;
+    }
   }
 
   function renderSwitcher() {
@@ -203,8 +284,11 @@
   function renderMessages(rows) {
     if (!messageList) return;
     latestMessages = Array.isArray(rows) ? rows : [];
+    const validIds = new Set(latestMessages.map((item) => item.id).filter(Boolean));
+    selectedMailIds = new Set([...selectedMailIds].filter((id) => validIds.has(id)));
     if (!latestMessages.length) {
       messageList.innerHTML = `<p class="mail-message-empty">No recent inbox messages.</p>`;
+      syncBatchBar();
       return;
     }
     messageList.innerHTML = latestMessages
@@ -214,7 +298,11 @@
         const time = item.receivedAt ? escapeHtml(formatDate(item.receivedAt)) : "Unknown time";
         const summary = escapeHtml(item.summary || item.snippet || "");
         const id = escapeHtml(item.id || "");
+        const checked = selectedMailIds.has(item.id) ? "checked" : "";
         return `<article class="mail-message-item" data-mail-id="${id}">
+          <label class="mail-message-check">
+            <input type="checkbox" data-mail-check="${id}" ${checked} aria-label="Select ${subject}" />
+          </label>
           <div class="mail-message-main">
             <strong>${subject}</strong>
             <span class="mail-message-from">${from}</span>
@@ -225,6 +313,7 @@
         </article>`;
       })
       .join("");
+    syncBatchBar();
   }
 
   async function request(path, init) {
@@ -253,26 +342,63 @@
         window.DailySpaceLoop.writeCachedMailDigest(payload.digest || "", Boolean(payload.summarized));
       }
       if (!silent) {
-        if (payload.summarized) setInboxStatus("Inbox updated with AI digest.");
-        else if (
+        if (payload.summarized) {
+          setAiBanner(false);
+          setInboxStatus("Inbox updated with AI digest.");
+        } else if (
           payload.fallbackReason === "agent_not_configured" ||
-          payload.agentConfigured === false
-        )
-          setInboxStatus("Inbox updated. Set GROQ_API_KEY for richer AI digests.");
-        else if (payload.fallbackReason === "llm_failed")
+          payload.agentConfigured === false ||
+          agentConfigured === false
+        ) {
+          setAiBanner(true, "agent_not_configured");
+          setInboxStatus("Inbox updated with snippets (AI digest not configured).");
+        } else if (payload.fallbackReason === "llm_failed") {
+          setAiBanner(true, "llm_failed");
           setInboxStatus("Inbox updated with snippet fallback (AI digest unavailable).");
-        else if (payload.fallbackReason === "empty") setInboxStatus("Inbox is quiet.");
-        else setInboxStatus("Inbox updated.");
+        } else if (payload.fallbackReason === "empty") {
+          setAiBanner(agentConfigured === false);
+          setInboxStatus("Inbox is quiet.");
+        } else {
+          setAiBanner(agentConfigured === false);
+          setInboxStatus("Inbox updated.");
+        }
       } else {
         setInboxStatus("");
+        if (
+          payload.fallbackReason === "agent_not_configured" ||
+          payload.agentConfigured === false ||
+          agentConfigured === false
+        ) {
+          setAiBanner(true, "agent_not_configured");
+        } else if (payload.fallbackReason === "llm_failed") {
+          setAiBanner(true, "llm_failed");
+        }
       }
       renderMessages(rows);
     } catch (error) {
       if (requestId !== messagesRequestId) return;
       setDigest("");
-      setInboxStatus(error.message || "Failed to load messages.", true);
+      selectedMailIds.clear();
+      syncBatchBar();
+      const failText = error.message || "Failed to load messages.";
       if (!silent) {
-        messageList.innerHTML = `<p class="mail-message-empty is-error">${escapeHtml(error.message || "Failed to load messages.")}</p>`;
+        setInboxStatus("");
+        if (statusEl) {
+          statusEl.hidden = false;
+          statusEl.classList.add("is-error");
+          statusEl.textContent = "";
+          statusEl.appendChild(document.createTextNode(`${failText} `));
+          const retry = document.createElement("button");
+          retry.type = "button";
+          retry.className = "mail-retry-btn";
+          retry.textContent = "Retry";
+          retry.addEventListener("click", () => loadMessagesForSelected());
+          statusEl.appendChild(retry);
+        }
+        messageList.innerHTML = `<p class="mail-message-empty is-error">${escapeHtml(failText)}</p>
+          <button type="button" class="btn mail-retry-btn" data-mail-retry>Retry</button>`;
+      } else {
+        setInboxStatus(failText, true);
       }
     }
   }
@@ -315,6 +441,9 @@
   function renderSignedOutConnect() {
     signedIn = false;
     accounts = [];
+    selectedMailIds.clear();
+    setAiBanner(false);
+    if (batchBar) batchBar.hidden = true;
     if (emptyConnect) emptyConnect.hidden = false;
     if (inboxPanel) inboxPanel.hidden = true;
     if (managePanel) managePanel.hidden = true;
@@ -456,6 +585,23 @@
     });
   }
 
+  if (selectAllEl) {
+    selectAllEl.addEventListener("change", () => {
+      if (selectAllEl.checked) {
+        latestMessages.forEach((item) => {
+          if (item.id) selectedMailIds.add(item.id);
+        });
+      } else {
+        selectedMailIds.clear();
+      }
+      renderMessages(latestMessages);
+    });
+  }
+
+  if (addSelectedBtn) {
+    addSelectedBtn.addEventListener("click", () => addSelectedAsTodayTasks());
+  }
+
   if (signInSpaceBtn) {
     signInSpaceBtn.addEventListener("click", () => openDailySpaceSignIn());
   }
@@ -477,6 +623,20 @@
       updateHero();
       renderSwitcher();
       await loadMessagesForSelected();
+      return;
+    }
+
+    const retry = target.closest("[data-mail-retry]");
+    if (retry) {
+      loadMessagesForSelected();
+      return;
+    }
+
+    const checkId = target.closest("[data-mail-check]")?.getAttribute("data-mail-check");
+    if (checkId && target instanceof HTMLInputElement && target.type === "checkbox") {
+      if (target.checked) selectedMailIds.add(checkId);
+      else selectedMailIds.delete(checkId);
+      syncBatchBar();
       return;
     }
 
@@ -510,15 +670,17 @@
   });
 
   handleOauthResultFromUrl();
-  loadFromServer().catch((error) => {
-    const message = error.message || "Failed to load mail accounts.";
-    if (/sign in first/i.test(message)) {
-      renderSignedOutConnect();
-      return;
-    }
-    setPageStatus(message, true);
-    if (emptyConnect) emptyConnect.hidden = false;
-    if (inboxPanel) inboxPanel.hidden = true;
-    if (managePanel) managePanel.hidden = true;
+  refreshAgentStatus().finally(() => {
+    loadFromServer().catch((error) => {
+      const message = error.message || "Failed to load mail accounts.";
+      if (/sign in first/i.test(message)) {
+        renderSignedOutConnect();
+        return;
+      }
+      setPageStatus(message, true);
+      if (emptyConnect) emptyConnect.hidden = false;
+      if (inboxPanel) inboxPanel.hidden = true;
+      if (managePanel) managePanel.hidden = true;
+    });
   });
 })();

@@ -60,12 +60,20 @@
   const plannerDueSummaryEl = document.getElementById("planner-due-summary");
   const plannerDueTodayListEl = document.getElementById("planner-due-today-list");
   const plannerDueWeekListEl = document.getElementById("planner-due-week-list");
+  const plannerWeekViewEl = document.getElementById("planner-week-view");
+  const plannerWeekSectionsEl = document.getElementById("planner-week-sections");
+  const plannerWeekEmptyEl = document.getElementById("planner-week-empty");
+  const plannerOpenWeekViewBtn = document.getElementById("planner-open-week-view");
+  const plannerViewBoardBtn = document.getElementById("planner-view-board");
+  const plannerViewWeekBtn = document.getElementById("planner-view-week");
   const plannerEmptyAddColumnBtn = document.getElementById("planner-empty-add-column");
   const plannerMonthTitleEl = document.getElementById("planner-month-title");
   const plannerModeBadgeEl = document.getElementById("planner-mode-badge");
   const plannerMetaLineEl = document.getElementById("planner-meta-line");
   const plannerAddColumnBtn = document.getElementById("planner-add-column");
   const plannerClearDoneBtn = document.getElementById("planner-clear-done");
+  /** @type {"board" | "week"} */
+  let plannerView = "board";
   const plannerTeamStatusEl = document.createElement("p");
   plannerTeamStatusEl.className = "planner-team-status";
   plannerTeamStatusEl.hidden = true;
@@ -102,6 +110,189 @@
     return col ? col.title : "Column";
   }
 
+  function formatDueLabel(iso) {
+    if (!iso) return "";
+    const today = todayIso();
+    if (iso === today) return "Today";
+    if (iso < today) return `Overdue · ${iso.slice(5).replace("-", "/")}`;
+    return iso.slice(5).replace("-", "/");
+  }
+
+  function calendarHrefForDay(iso) {
+    return iso ? `calendar.html#${iso}` : "calendar.html";
+  }
+
+  function sendEntryToTodoToday(entry) {
+    if (!entry || !window.DailySpaceAgentData || typeof window.DailySpaceAgentData.applyActions !== "function") {
+      window.location.href = "todo.html#today";
+      return;
+    }
+    window.DailySpaceAgentData.applyActions([
+      {
+        type: "todo_add",
+        text: String(entry.title || "Planner card").slice(0, 500),
+        dueDate: entry.dueDate && /^\d{4}-\d{2}-\d{2}$/.test(entry.dueDate) ? entry.dueDate : todayIso(),
+      },
+    ]);
+    window.location.href = "todo.html#today";
+  }
+
+  function getDueBuckets() {
+    const today = todayIso();
+    const weekEnd = addDaysIso(today, 7);
+    const open = plannerEntries.filter((e) => !e.completed && e.dueDate);
+    return {
+      today,
+      weekEnd,
+      overdue: open.filter((e) => e.dueDate < today).sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate))),
+      dueToday: open.filter((e) => e.dueDate === today),
+      dueWeek: open
+        .filter((e) => e.dueDate > today && e.dueDate <= weekEnd)
+        .sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate))),
+    };
+  }
+
+  function setPlannerView(next) {
+    if (next !== "board" && next !== "week") return;
+    plannerView = next;
+    if (plannerViewBoardBtn) {
+      plannerViewBoardBtn.classList.toggle("is-active", next === "board");
+      plannerViewBoardBtn.setAttribute("aria-selected", next === "board" ? "true" : "false");
+    }
+    if (plannerViewWeekBtn) {
+      plannerViewWeekBtn.classList.toggle("is-active", next === "week");
+      plannerViewWeekBtn.setAttribute("aria-selected", next === "week" ? "true" : "false");
+    }
+    if (plannerAddColumnBtn) plannerAddColumnBtn.hidden = next === "week";
+    renderPlanner();
+  }
+
+  function buildDueRow(entry, options) {
+    const opts = options || {};
+    const li = document.createElement("li");
+    li.className = "planner-due-row";
+
+    const main = document.createElement("button");
+    main.type = "button";
+    main.className = "planner-due-item";
+    main.textContent = `${entry.title || "Untitled"} · ${columnTitleById(entry.columnId)}`;
+    main.addEventListener("click", () => {
+      setPlannerView("board");
+      focusPlannerEntry(entry.id);
+    });
+
+    const meta = document.createElement("div");
+    meta.className = "planner-due-row-meta";
+
+    if (entry.dueDate) {
+      const cal = document.createElement("a");
+      cal.className = "planner-due-cal-chip";
+      cal.href = calendarHrefForDay(entry.dueDate);
+      cal.textContent = formatDueLabel(entry.dueDate);
+      cal.title = "Open this day in Calendar";
+      meta.appendChild(cal);
+    }
+
+    if (opts.showTodo) {
+      const toTodo = document.createElement("button");
+      toTodo.type = "button";
+      toTodo.className = "planner-due-todo-chip";
+      toTodo.textContent = "To Todo";
+      toTodo.title = "Add as today’s task";
+      toTodo.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        sendEntryToTodoToday(entry);
+      });
+      meta.appendChild(toTodo);
+    }
+
+    li.append(main, meta);
+    return li;
+  }
+
+  function renderDueLoopStrip() {
+    if (!plannerDueStripEl || !plannerDueTodayListEl || !plannerDueWeekListEl) return;
+    if (plannerView === "week") {
+      plannerDueStripEl.hidden = true;
+      return;
+    }
+    const buckets = getDueBuckets();
+    if (buckets.dueToday.length === 0 && buckets.dueWeek.length === 0 && buckets.overdue.length === 0) {
+      plannerDueStripEl.hidden = true;
+      return;
+    }
+    plannerDueStripEl.hidden = false;
+    if (plannerDueSummaryEl) {
+      const parts = [];
+      if (buckets.overdue.length) parts.push(`${buckets.overdue.length} overdue`);
+      parts.push(`${buckets.dueToday.length} today`);
+      parts.push(`${buckets.dueWeek.length} coming up`);
+      plannerDueSummaryEl.textContent = parts.join(" · ");
+    }
+
+    function fillList(listEl, entries) {
+      listEl.innerHTML = "";
+      if (!entries.length) {
+        const empty = document.createElement("li");
+        empty.className = "planner-due-empty";
+        empty.textContent = "None";
+        listEl.appendChild(empty);
+        return;
+      }
+      entries.slice(0, 6).forEach((entry) => {
+        listEl.appendChild(buildDueRow(entry, { showTodo: true }));
+      });
+    }
+
+    const todayList = buckets.overdue.length
+      ? buckets.overdue.concat(buckets.dueToday)
+      : buckets.dueToday;
+    fillList(plannerDueTodayListEl, todayList);
+    fillList(plannerDueWeekListEl, buckets.dueWeek);
+  }
+
+  function renderWeekView() {
+    if (!plannerWeekViewEl || !plannerWeekSectionsEl || !plannerWeekEmptyEl) return;
+    if (plannerView !== "week") {
+      plannerWeekViewEl.hidden = true;
+      return;
+    }
+    plannerWeekViewEl.hidden = false;
+    const buckets = getDueBuckets();
+    plannerWeekSectionsEl.innerHTML = "";
+
+    const sections = [
+      { key: "overdue", title: "Overdue", entries: buckets.overdue },
+      { key: "today", title: "Due today", entries: buckets.dueToday },
+      { key: "week", title: "Rest of week", entries: buckets.dueWeek },
+    ];
+    let total = 0;
+    sections.forEach((section) => {
+      total += section.entries.length;
+      const wrap = document.createElement("section");
+      wrap.className = "planner-week-section";
+      const heading = document.createElement("h3");
+      heading.className = "planner-week-section-title";
+      heading.textContent = `${section.title} · ${section.entries.length}`;
+      const list = document.createElement("ul");
+      list.className = "planner-week-list";
+      if (!section.entries.length) {
+        const empty = document.createElement("li");
+        empty.className = "planner-due-empty";
+        empty.textContent = "None";
+        list.appendChild(empty);
+      } else {
+        section.entries.forEach((entry) => {
+          list.appendChild(buildDueRow(entry, { showTodo: true }));
+        });
+      }
+      wrap.append(heading, list);
+      plannerWeekSectionsEl.appendChild(wrap);
+    });
+    plannerWeekEmptyEl.hidden = total > 0;
+  }
+
   function focusPlannerEntry(entryId) {
     const entry = plannerEntries.find((e) => e.id === entryId);
     if (!entry) return;
@@ -118,48 +309,6 @@
         setTimeout(() => card.classList.remove("is-due-focus"), 1200);
       }
     });
-  }
-
-  function renderDueLoopStrip() {
-    if (!plannerDueStripEl || !plannerDueTodayListEl || !plannerDueWeekListEl) return;
-    const today = todayIso();
-    const weekEnd = addDaysIso(today, 7);
-    const open = plannerEntries.filter((e) => !e.completed && e.dueDate);
-    const dueToday = open.filter((e) => e.dueDate === today);
-    const dueWeek = open.filter((e) => e.dueDate > today && e.dueDate <= weekEnd);
-
-    if (dueToday.length === 0 && dueWeek.length === 0) {
-      plannerDueStripEl.hidden = true;
-      return;
-    }
-    plannerDueStripEl.hidden = false;
-    if (plannerDueSummaryEl) {
-      plannerDueSummaryEl.textContent = `${dueToday.length} today · ${dueWeek.length} this week`;
-    }
-
-    function fillList(listEl, entries) {
-      listEl.innerHTML = "";
-      if (!entries.length) {
-        const empty = document.createElement("li");
-        empty.className = "planner-due-empty";
-        empty.textContent = "None";
-        listEl.appendChild(empty);
-        return;
-      }
-      entries.slice(0, 6).forEach((entry) => {
-        const li = document.createElement("li");
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "planner-due-item";
-        btn.textContent = `${entry.title || "Untitled"} · ${columnTitleById(entry.columnId)}`;
-        btn.addEventListener("click", () => focusPlannerEntry(entry.id));
-        li.appendChild(btn);
-        listEl.appendChild(li);
-      });
-    }
-
-    fillList(plannerDueTodayListEl, dueToday);
-    fillList(plannerDueWeekListEl, dueWeek);
   }
 
   /** @param {unknown} raw */
@@ -896,6 +1045,17 @@
 
     top.append(check, titleWrap, toggle, del);
 
+    if (entry.dueDate) {
+      const dueChip = document.createElement("a");
+      dueChip.className =
+        "planner-card-due-chip" + (entry.dueDate < todayIso() && !entry.completed ? " is-overdue" : "");
+      dueChip.href = calendarHrefForDay(entry.dueDate);
+      dueChip.textContent = formatDueLabel(entry.dueDate);
+      dueChip.title = "Open this day in Calendar";
+      dueChip.addEventListener("click", (e) => e.stopPropagation());
+      card.appendChild(dueChip);
+    }
+
     if (isTeamMode()) {
       const assigneeChip = document.createElement("p");
       assigneeChip.className = "planner-card-assignee-chip";
@@ -974,18 +1134,36 @@
         patchPlannerEntry(entry.id, { assigneeUserId: assignee.value || null });
       });
 
-      const due = document.createElement("input");
-      due.type = "date";
-      due.className = "planner-card-due";
-      due.setAttribute("aria-label", "Due date");
-      due.value = entry.dueDate || "";
-      due.addEventListener("change", () => {
-        patchPlannerEntry(entry.id, { dueDate: due.value || null });
-      });
-      drawerInner.append(assignee, due);
+      drawerInner.append(assignee);
     } else {
       drawerInner.append(tagsInp);
     }
+
+    const dueRow = document.createElement("div");
+    dueRow.className = "planner-card-due-row";
+    const due = document.createElement("input");
+    due.type = "date";
+    due.className = "planner-card-due";
+    due.setAttribute("aria-label", "Due date");
+    due.value = entry.dueDate || "";
+    due.addEventListener("change", () => {
+      patchPlannerEntry(entry.id, { dueDate: due.value || null });
+    });
+    dueRow.appendChild(due);
+    if (entry.dueDate) {
+      const openCal = document.createElement("a");
+      openCal.className = "planner-card-open-cal";
+      openCal.href = calendarHrefForDay(entry.dueDate);
+      openCal.textContent = "Calendar";
+      dueRow.appendChild(openCal);
+      const toTodo = document.createElement("button");
+      toTodo.type = "button";
+      toTodo.className = "planner-card-to-todo";
+      toTodo.textContent = "To Todo";
+      toTodo.addEventListener("click", () => sendEntryToTodoToday(entry));
+      dueRow.appendChild(toTodo);
+    }
+    drawerInner.appendChild(dueRow);
     drawer.appendChild(drawerInner);
     card.append(top, drawer);
     return card;
@@ -1353,10 +1531,12 @@
     plannerClearDoneBtn.hidden = done === 0;
 
     renderDueLoopStrip();
+    renderWeekView();
 
-    if (plannerBoardScrollEl instanceof HTMLElement) plannerBoardScrollEl.hidden = false;
+    const showBoard = plannerView === "board";
+    if (plannerBoardScrollEl instanceof HTMLElement) plannerBoardScrollEl.hidden = !showBoard;
 
-    const isEmpty = plannerColumns.length === 0;
+    const isEmpty = showBoard && plannerColumns.length === 0;
     if (plannerBoardEmptyEl instanceof HTMLElement) {
       plannerBoardEmptyEl.hidden = !isEmpty;
     }
@@ -1432,6 +1612,16 @@
     plannerNewTeamBoardBtn.addEventListener("click", () => {
       createTeamBoard();
     });
+  }
+
+  if (plannerViewBoardBtn) {
+    plannerViewBoardBtn.addEventListener("click", () => setPlannerView("board"));
+  }
+  if (plannerViewWeekBtn) {
+    plannerViewWeekBtn.addEventListener("click", () => setPlannerView("week"));
+  }
+  if (plannerOpenWeekViewBtn) {
+    plannerOpenWeekViewBtn.addEventListener("click", () => setPlannerView("week"));
   }
 
   loadPlannerState();

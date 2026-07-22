@@ -457,12 +457,44 @@
             <span>Sign in with WeChat</span>
           </button>
         </div>
+        <div class="auth-account-actions" hidden>
+          <p class="auth-account-hint">Your data stays on this device and in your cloud snapshot while signed in.</p>
+          <button type="button" class="auth-export">Download my data</button>
+          <button type="button" class="auth-delete">Delete account</button>
+          <p class="auth-install-hint" hidden></p>
+        </div>
         <button type="button" class="auth-logout" hidden>Sign out</button>
       </section>
     `;
     document.body.appendChild(modal);
 
     const logoutButton = modal.querySelector(".auth-logout");
+    const accountActions = modal.querySelector(".auth-account-actions");
+    const exportButton = modal.querySelector(".auth-export");
+    const deleteButton = modal.querySelector(".auth-delete");
+    const installHint = modal.querySelector(".auth-install-hint");
+    const providerList = modal.querySelector(".auth-provider-list");
+    const authTitle = modal.querySelector("#auth-title");
+    const authCopy = modal.querySelector(".auth-copy");
+
+    function updateInstallHint() {
+      if (!installHint) return;
+      const standalone =
+        window.matchMedia &&
+        (window.matchMedia("(display-mode: standalone)").matches ||
+          window.matchMedia("(display-mode: minimal-ui)").matches);
+      const native = Boolean(window.Capacitor && typeof window.Capacitor.isNativePlatform === "function"
+        ? window.Capacitor.isNativePlatform()
+        : window.Capacitor);
+      if (standalone || native) {
+        installHint.hidden = true;
+        installHint.textContent = "";
+        return;
+      }
+      installHint.hidden = false;
+      installHint.textContent =
+        "Install tip: use your browser’s “Install app” or “Add to Home Screen” for a Daily Loop shortcut.";
+    }
 
     function renderAuth() {
       const state = readAuthState();
@@ -476,8 +508,19 @@
       } else if (userSnapshotStatus === "conflict") {
         authSync.hidden = false;
         authSync.innerHTML =
-          'Cloud sync: kept this device’s changes · <button type="button" class="sidebar-auth-sync-action" id="auth-sync-use-cloud">Use cloud</button>';
+          'Cloud sync: local and cloud differ · <button type="button" class="sidebar-auth-sync-action" id="auth-sync-keep-local">Keep local</button> · <button type="button" class="sidebar-auth-sync-action" id="auth-sync-use-cloud">Use cloud</button>';
+        const keepLocal = authSync.querySelector("#auth-sync-keep-local");
         const useCloud = authSync.querySelector("#auth-sync-use-cloud");
+        if (keepLocal) {
+          keepLocal.addEventListener("click", function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            keepLocalSnapshotOverCloud().catch(function () {
+              userSnapshotStatus = "error";
+              emitUserSnapshotUpdate();
+            });
+          });
+        }
         if (useCloud) {
           useCloud.addEventListener("click", function (event) {
             event.preventDefault();
@@ -503,6 +546,15 @@
       }
       authButton.classList.toggle("is-signed-in", !!state);
       if (logoutButton) logoutButton.hidden = !state;
+      if (accountActions) accountActions.hidden = !state;
+      if (providerList) providerList.hidden = Boolean(state);
+      if (authTitle) authTitle.textContent = state ? "Account" : "Sign in";
+      if (authCopy) {
+        authCopy.textContent = state
+          ? "Export your data, resolve sync conflicts from the Account row, or delete this cloud account."
+          : "Continue with a provider to keep your workspace synced.";
+      }
+      updateInstallHint();
       renderGreeting();
     }
 
@@ -513,8 +565,11 @@
       renderAuth();
       modal.hidden = false;
       document.body.classList.add("auth-modal-open");
-      const firstProvider = modal.querySelector(".auth-provider");
-      if (firstProvider) firstProvider.focus();
+      const state = readAuthState();
+      const focusTarget = state
+        ? modal.querySelector(".auth-export") || logoutButton
+        : modal.querySelector(".auth-provider");
+      if (focusTarget) focusTarget.focus();
     }
 
     function closeModal() {
@@ -619,6 +674,48 @@
         }
       }
     });
+
+    if (exportButton) {
+      exportButton.addEventListener("click", async function () {
+        exportButton.setAttribute("disabled", "true");
+        try {
+          await downloadUserDataExport();
+        } catch (error) {
+          window.alert(error instanceof Error ? error.message : "Export failed.");
+        } finally {
+          exportButton.removeAttribute("disabled");
+        }
+      });
+    }
+
+    if (deleteButton) {
+      deleteButton.addEventListener("click", async function () {
+        const confirmed = window.confirm(
+          "Delete this Daily Space account?\n\nThis removes your cloud snapshot and connected mailboxes on the server. This device will be signed out."
+        );
+        if (!confirmed) return;
+        deleteButton.setAttribute("disabled", "true");
+        try {
+          const response = await fetch("/api/user/account", { method: "DELETE" });
+          const payload = await response.json().catch(function () {
+            return {};
+          });
+          if (!response.ok) {
+            throw new Error((payload && payload.error) || "Could not delete account.");
+          }
+          clearAuthState();
+          stopUserSnapshotSync();
+          applyUserSnapshotPayload({}, { clearMissing: true });
+          renderAuth();
+          closeModal();
+          window.location.href = "todo.html#today";
+        } catch (error) {
+          window.alert(error instanceof Error ? error.message : "Could not delete account.");
+        } finally {
+          deleteButton.removeAttribute("disabled");
+        }
+      });
+    }
 
     if (logoutButton) {
       logoutButton.addEventListener("click", async function () {
@@ -1038,6 +1135,58 @@
     window.location.reload();
   }
 
+  async function keepLocalSnapshotOverCloud() {
+    const userId = currentUserId();
+    if (!userId || !isBrowserOnline()) {
+      userSnapshotStatus = isBrowserOnline() ? "error" : "offline";
+      emitUserSnapshotUpdate();
+      return;
+    }
+    userSnapshotStatus = "syncing";
+    emitUserSnapshotUpdate();
+    const payload = collectUserSnapshotPayload();
+    const saved = await requestUserSnapshot("PUT", { payload });
+    userSnapshotUserId = userId;
+    writeLastUserId(userId);
+    writeUserLocalCache(userId, payload);
+    setSyncedBaseline(userId, payload);
+    userSnapshotLastSyncedAt = (saved && saved.updatedAt) || new Date().toISOString();
+    userSnapshotStatus = "ok";
+    emitUserSnapshotUpdate();
+  }
+
+  async function downloadUserDataExport() {
+    const localPayload = collectUserSnapshotPayload();
+    let cloudPayload = null;
+    let cloudUpdatedAt = null;
+    if (currentUserId() && isBrowserOnline()) {
+      try {
+        const data = await requestUserSnapshot("GET");
+        cloudPayload = data.payload && typeof data.payload === "object" ? data.payload : {};
+        cloudUpdatedAt = data.updatedAt || null;
+      } catch (_) {
+        /* fall back to local-only export */
+      }
+    }
+    const exportedAt = new Date().toISOString();
+    const body = {
+      exportedAt,
+      source: "daily-space",
+      local: localPayload,
+      cloud: cloudPayload,
+      cloudUpdatedAt,
+    };
+    const blob = new Blob([JSON.stringify(body, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `daily-space-export-${exportedAt.slice(0, 10)}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
   async function loadSnapshotForCurrentUser() {
     const userId = currentUserId();
     if (!userId) return;
@@ -1059,7 +1208,6 @@
     const data = await requestUserSnapshot("GET");
     let nextPayload = data.payload && typeof data.payload === "object" ? data.payload : {};
     let syncedAt = data.updatedAt || "";
-    let conflictKeptLocal = false;
     if (!data.updatedAt) {
       const cachedPayload = readUserLocalCache(userId);
       nextPayload = cachedPayload || (!previousUserId ? localPayload : {});
@@ -1073,26 +1221,24 @@
       const localSig = userSnapshotSignature(localPayload);
       const baselineSig = readPersistedBaseline(userId) || userSnapshotBaseline;
       const localDirty = Boolean(baselineSig) && localSig !== baselineSig;
-      if (
-        localDirty &&
-        localSig !== remoteSig &&
-        payloadHasAppData(localPayload)
-      ) {
-        // Offline (or failed) local edits conflict with cloud — keep this device and push.
-        conflictKeptLocal = true;
-        nextPayload = localPayload;
-        const saved = await requestUserSnapshot("PUT", { payload: localPayload });
-        syncedAt = saved.updatedAt || new Date().toISOString();
-      } else {
-        applyUserSnapshotPayload(nextPayload);
+      if (localDirty && localSig !== remoteSig && payloadHasAppData(localPayload)) {
+        // Local and cloud diverge — keep showing local until the user chooses.
+        userSnapshotUserId = userId;
+        writeLastUserId(userId);
+        writeUserLocalCache(userId, localPayload);
+        userSnapshotLastSyncedAt = syncedAt;
+        userSnapshotStatus = "conflict";
+        emitUserSnapshotUpdate();
+        return;
       }
+      applyUserSnapshotPayload(nextPayload);
     }
     userSnapshotUserId = userId;
     writeLastUserId(userId);
     writeUserLocalCache(userId, collectUserSnapshotPayload());
     setSyncedBaseline(userId, collectUserSnapshotPayload());
     userSnapshotLastSyncedAt = syncedAt;
-    userSnapshotStatus = conflictKeptLocal ? "conflict" : "ok";
+    userSnapshotStatus = "ok";
     emitUserSnapshotUpdate();
   }
 
@@ -1103,6 +1249,11 @@
     if (!isBrowserOnline()) {
       writeUserLocalCache(userId, collectUserSnapshotPayload());
       userSnapshotStatus = "offline";
+      emitUserSnapshotUpdate();
+      return;
+    }
+    if (userSnapshotStatus === "conflict") {
+      writeUserLocalCache(userId, collectUserSnapshotPayload());
       emitUserSnapshotUpdate();
       return;
     }
@@ -1141,6 +1292,10 @@
   function flushUserSnapshotOnPageHide() {
     const userId = currentUserId();
     if (!userId) return;
+    if (userSnapshotStatus === "conflict") {
+      writeUserLocalCache(userId, collectUserSnapshotPayload());
+      return;
+    }
     const payload = collectUserSnapshotPayload();
     const signature = userSnapshotSignature(payload);
     if (signature === userSnapshotBaseline) return;

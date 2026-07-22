@@ -37,7 +37,7 @@
     "tasksTitle",
   ]);
   const TEAMWORK_DEFAULTS = {
-    kicker: "Teamwork",
+    kicker: "Notes",
     title: "",
     copy: "",
     statusLabel: "",
@@ -46,13 +46,13 @@
     focusKicker: "Focus",
     focusTitle: "",
     focusCopy: "",
-    notesKicker: "Sync",
-    notesTitle: "Team notes",
+    notesKicker: "Notes",
+    notesTitle: "Private notes",
     notes: "",
     membersKicker: "Members",
-    membersTitle: "Availability",
+    membersTitle: "Local draft members",
     tasksKicker: "Tasks",
-    tasksTitle: "Member task breakdown",
+    tasksTitle: "Local draft tasks",
     members: [],
   };
 
@@ -595,10 +595,20 @@
   }
 
   function confirmationText(actions) {
+    const labels = {
+      todo_delete: "Delete to-do",
+      planner_delete_column: "Delete planner column",
+      planner_delete_card: "Delete planner card",
+      calendar_delete_reminder: "Delete reminder",
+      tally_delete_expense: "Delete expense",
+      tally_set_budget: "Change monthly budget",
+      teamwork_delete_member: "Delete local draft member",
+      teamwork_delete_task: "Delete local draft task",
+    };
     const risky = (Array.isArray(actions) ? actions : []).filter((action) => DESTRUCTIVE.has(action?.type));
     if (!risky.length) return "";
     return `Confirm ${risky.length} sensitive change${risky.length === 1 ? "" : "s"}?\n\n${risky
-      .map((action) => `• ${action.type.replaceAll("_", " ")}`)
+      .map((action) => `• ${labels[action.type] || action.type.replaceAll("_", " ")}`)
       .join("\n")}`;
   }
 

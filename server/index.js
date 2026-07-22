@@ -11,6 +11,7 @@ const {
   listMailAccounts,
   removeMailAccount,
   removeMailAccountByProviderEmail,
+  removeAllMailAccountsForUser,
   upsertMailAccount,
 } = require("./db");
 const { isAgentConfigured, runTodoAgent } = require("./agent");
@@ -159,6 +160,39 @@ async function handleApi(request, response, url) {
       ok: true,
       userId: saved.userId,
       updatedAt: saved.updatedAt,
+    });
+    return;
+  }
+
+  if (method === "GET" && url.pathname === "/api/user/export") {
+    enforceUserSession(session);
+    const snapshot = await getUserSnapshotStore().getSnapshot(session.userId);
+    const exportedAt = new Date().toISOString();
+    const body = {
+      ok: true,
+      exportedAt,
+      userId: session.userId,
+      payload: snapshot?.payload || {},
+      updatedAt: snapshot?.updatedAt || null,
+    };
+    response.setHeader(
+      "Content-Disposition",
+      `attachment; filename="daily-space-export-${exportedAt.slice(0, 10)}.json"`
+    );
+    sendJson(response, body);
+    return;
+  }
+
+  if (method === "DELETE" && url.pathname === "/api/user/account") {
+    enforceUserSession(session);
+    const userId = session.userId;
+    const mail = removeAllMailAccountsForUser(userId);
+    const snapshot = await getUserSnapshotStore().deleteSnapshot(userId);
+    clearSessionCookie(response);
+    sendJson(response, {
+      ok: true,
+      removedSnapshot: Boolean(snapshot?.removed),
+      removedMailAccounts: Number(mail?.removed || 0),
     });
     return;
   }
@@ -1263,9 +1297,43 @@ function clearSessionCookie(response) {
 
 function sendError(response, error) {
   const status = error.statusCode || 500;
-  if (status >= 500) console.error(error);
+  if (status >= 500) {
+    console.error(error);
+    notifyCriticalError(error, status);
+  }
   sendJson(response, { error: error.message || "Unexpected server error." }, status);
 }
+
+function notifyCriticalError(error, status) {
+  const webhook = String(process.env.ALERT_WEBHOOK_URL || "").trim();
+  if (!webhook) return;
+  const payload = JSON.stringify({
+    source: "daily-space",
+    status: status || 500,
+    message: error && error.message ? String(error.message).slice(0, 500) : "Unexpected server error",
+    at: new Date().toISOString(),
+  });
+  fetch(webhook, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: payload,
+  }).catch((notifyError) => {
+    console.error("Alert webhook failed:", notifyError);
+  });
+}
+
+function installProcessGuards() {
+  process.on("unhandledRejection", (reason) => {
+    console.error("Unhandled rejection:", reason);
+    notifyCriticalError(reason instanceof Error ? reason : new Error(String(reason)), 500);
+  });
+  process.on("uncaughtException", (error) => {
+    console.error("Uncaught exception:", error);
+    notifyCriticalError(error, 500);
+  });
+}
+
+installProcessGuards();
 
 function readJson(request) {
   return new Promise((resolve, reject) => {

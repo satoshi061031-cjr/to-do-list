@@ -27,12 +27,12 @@
           class="todo-agent-input"
           type="text"
           maxlength="2000"
-          placeholder="Add a task, expense, reminder..."
+          placeholder="Add a task for today…"
           aria-label="Message for Daily Space Agent"
         />
         <button class="todo-agent-send" type="submit">Send</button>
       </form>
-      <p class="todo-agent-hint">Works across Todo, Planner, Calendar, Tally and Teamwork.</p>
+      <p class="todo-agent-hint">Optional helper — best for Todo / today. Also reaches Planner, Calendar, Tally, and private notes.</p>
     </section>
   `;
   document.body.appendChild(panel);
@@ -44,6 +44,7 @@
   const input = panel.querySelector(".todo-agent-input");
   const messagesEl = panel.querySelector(".todo-agent-messages");
   const sendBtn = panel.querySelector(".todo-agent-send");
+  const hintEl = panel.querySelector(".todo-agent-hint");
 
   if (
     !(fab instanceof HTMLButtonElement) ||
@@ -59,6 +60,7 @@
 
   let busy = false;
   let configured = null;
+  let statusMessageShown = false;
 
   function appendMessage(role, text) {
     const bubble = document.createElement("div");
@@ -66,6 +68,17 @@
     bubble.textContent = text;
     messagesEl.appendChild(bubble);
     messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function applyConfiguredUi() {
+    const ready = configured === true;
+    sendBtn.disabled = busy || !ready;
+    input.disabled = !ready;
+    if (hintEl) {
+      hintEl.textContent = ready
+        ? "Optional helper — best for Todo / today. Also reaches Planner, Calendar, Tally, and private notes."
+        : "Agent needs a server LLM key. You can still use Todo, Planner, and the rest without it.";
+    }
   }
 
   function setOpen(open) {
@@ -78,42 +91,66 @@
       if (messagesEl.childElementCount === 0) {
         appendMessage(
           "assistant",
-          "Tell me what to change anywhere in Daily Space. Example: “Record lunch ¥30 in Tally” or “Add a reminder tomorrow at 9:00.”"
+          "I can help with today’s tasks. Try: “Add buy milk today” or “Remind me tomorrow at 9:00.”"
         );
       }
-      input.focus();
-      refreshStatus();
+      refreshStatus({ force: true });
+      if (configured !== false) input.focus();
     } else {
       fab.focus();
     }
   }
 
-  async function refreshStatus() {
-    if (configured != null) return;
+  async function refreshStatus(options) {
+    const force = Boolean(options && options.force);
+    if (!force && configured != null) {
+      applyConfiguredUi();
+      return;
+    }
     try {
       const response = await fetch("/api/agent/status");
       const data = await response.json().catch(function () {
         return {};
       });
       configured = Boolean(data.configured);
-      if (!configured) {
+      if (!configured && !statusMessageShown) {
+        statusMessageShown = true;
         appendMessage(
           "assistant",
-          "Agent is not configured yet. Add GROQ_API_KEY in Render Environment, then redeploy."
+          "Agent is optional and not configured yet. Add GROQ_API_KEY to a local .env or Render Environment, restart the server, then reopen this panel. Todo and other pages still work without it."
         );
       }
     } catch (_) {
       configured = false;
-      appendMessage("assistant", "Could not reach the agent service right now.");
+      if (!statusMessageShown) {
+        statusMessageShown = true;
+        appendMessage("assistant", "Could not reach the agent service right now.");
+      }
     }
+    applyConfiguredUi();
   }
 
   async function sendMessage(raw) {
     const message = String(raw || "").trim();
     if (!message || busy) return;
 
+    if (configured !== true) {
+      await refreshStatus({ force: true });
+      if (configured !== true) {
+        appendMessage(
+          "user",
+          message
+        );
+        appendMessage(
+          "assistant",
+          "Agent is not configured. Add GROQ_API_KEY (local .env or Render), restart, then try again — or add tasks directly in Todo."
+        );
+        return;
+      }
+    }
+
     busy = true;
-    sendBtn.disabled = true;
+    applyConfiguredUi();
     appendMessage("user", message);
     input.value = "";
     appendMessage("assistant", "Working…");
@@ -159,8 +196,8 @@
       else appendMessage("assistant", text);
     } finally {
       busy = false;
-      sendBtn.disabled = false;
-      input.focus();
+      applyConfiguredUi();
+      if (configured === true) input.focus();
     }
   }
 

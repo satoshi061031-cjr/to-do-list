@@ -218,7 +218,7 @@
       if (!parsed || typeof parsed !== "object") return;
       reminders = normalizeReminders(/** @type {any} */ (parsed).reminders);
       // Keep month aligned to last selected day for navigation persistence,
-      // but page open forces today via focusTodayOnOpen().
+      // Selected day may be overridden by URL hash in focusTodayOnOpen().
       if (
         typeof /** @type {any} */ (parsed).selectedDate === "string" &&
         ISO_DATE.test(/** @type {any} */ (parsed).selectedDate)
@@ -234,7 +234,15 @@
   }
 
   function focusTodayOnOpen() {
-    selectedDate = todayIso();
+    const raw = String(window.location.hash || "").replace(/^#/, "");
+    let iso = "";
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) iso = raw;
+    else if (raw.startsWith("day=")) iso = raw.slice(4);
+    if (iso && ISO_DATE.test(iso)) {
+      selectedDate = iso;
+    } else {
+      selectedDate = todayIso();
+    }
     const selected = parseIso(selectedDate);
     calYear = selected.getFullYear();
     calMonth = selected.getMonth() + 1;

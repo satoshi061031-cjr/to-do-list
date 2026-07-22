@@ -11,6 +11,11 @@
     "A new era of focus is here.": "专注的新纪元已经到来。",
     "A new era of": "专注的新纪元",
     "focus is here.": "已经到来。",
+    "Start each day": "每天从",
+    "in Daily Loop.": "Daily Loop 开始。",
+    "One habit.": "一个习惯。",
+    "See what’s due today, clear overdue, and close the day — Todo is the hub.":
+      "看清今天到期、清理逾期、收尾一天——待办是中枢。",
     "Meet Daily Space.": "认识 Daily Space。",
     "Your personal productivity space.": "你的个人效率空间。",
     "Your workspace for personal focus and team assignment.": "兼顾个人专注与团队分派的工作空间。",
@@ -18,6 +23,19 @@
     "Continue with Outlook": "使用 Outlook 继续",
     "Continue with WeChat": "使用微信继续",
     "Enter Daily Space": "进入 Daily Space",
+    "Open Daily Loop": "打开 Daily Loop",
+    "Continue as guest": "以访客身份继续",
+    "Download my data": "下载我的数据",
+    "Delete account": "删除账号",
+    Account: "账户",
+    "Export your data, resolve sync conflicts from the Account row, or delete this cloud account.":
+      "可导出数据、在账户行解决同步冲突，或删除此云端账号。",
+    "Install tip: use your browser’s “Install app” or “Add to Home Screen” for a Daily Loop shortcut.":
+      "安装提示：用浏览器的「安装应用」或「添加到主屏幕」，快捷打开 Daily Loop。",
+    "Your data stays on this device and in your cloud snapshot while signed in.":
+      "登录期间，数据保存在本机，并同步到云端快照。",
+    "Keep local": "保留本机",
+    "Use cloud": "使用云端",
     "Swipe up to enter": "向上滑动进入",
     "Swipe up to continue": "向上滑动继续",
     "Move to the left edge to open the menu": "移到左边缘即可打开菜单",
@@ -28,6 +46,8 @@
     "Device only": "仅本机",
     "Private notes": "私人备注",
     "Never synced to workspace members": "不会同步给工作空间成员",
+    "This block stays on this device. Use the workspace above only to invite people and assign from Planner.":
+      "此区域只保存在本机。上方工作空间仅用于邀请同事，并在 Planner 团队看板指派。",
     "This block stays on this device. For real collaboration use the workspace above and Planner team boards.": "此区域只保存在本机。真正协作请用上方工作空间和 Planner 团队看板。",
     "Spent today": "今日支出",
     "Private scratchpad": "私人草稿本",
@@ -48,7 +68,12 @@
     Calendar: "日历",
     "Tally book": "记账本",
     "Tally Book": "记账本",
-    Teamwork: "团队协作",
+    Teamwork: "指派与笔记",
+    "Notes & light assign": "笔记与轻量指派",
+    "Invite people so you can assign cards from Planner team boards — not a full team suite.":
+      "邀请同事后，可在 Planner 团队看板指派卡片——不是完整协作套件。",
+    "Workspace": "工作空间",
+    "Invite people, then assign work from Planner team boards.": "邀请同事，然后在 Planner 团队看板指派工作。",
     Mail: "邮箱",
     Add: "添加",
     "This month": "本月",
@@ -215,7 +240,13 @@
     Guest: "访客",
     "Daily Space Agent": "Daily Space 助手",
     Send: "发送",
-    "Works across Todo, Planner, Calendar, Tally and Teamwork.": "可操作待办、计划、日历、记账和团队协作。",
+    "Works across Todo, Planner, Calendar, Tally and Teamwork.": "可操作待办、计划、日历、记账和私人笔记。",
+    "Optional helper — best for Todo / today. Also reaches Planner, Calendar, Tally, and private notes.":
+      "可选助手——最适合待办 / 今天，也可改计划、日历、记账和私人笔记。",
+    "Agent needs a server LLM key. You can still use Todo, Planner, and the rest without it.":
+      "Agent 需要服务端 LLM 密钥。没有密钥也能正常使用待办、计划等页面。",
+    "I can help with today’s tasks. Try: “Add buy milk today” or “Remind me tomorrow at 9:00.”":
+      "我可以帮你处理今天的待办。试试：“今天买牛奶”或“明天 9 点提醒我”。",
     "Working…": "处理中…",
     "Cancelled. No changes were applied.": "已取消，没有应用任何更改。",
     "Every active task has a due date.": "所有进行中的任务都已设置日期。",
@@ -342,7 +373,7 @@
     "Expense calendar": "支出日历",
     "Daily expense chart": "每日支出图表",
     "Expense records": "支出记录",
-    "Teamwork overview": "团队协作概览",
+    "Teamwork overview": "指派与笔记概览",
     "Quick authorization": "快捷授权",
     "Add another mailbox": "添加其他邮箱",
     Mailboxes: "邮箱账户",

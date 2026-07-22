@@ -2,6 +2,7 @@
   const STORAGE_TODO = "todo-app-v2";
   const STORAGE_CALENDAR = "calendar-app-v1";
   const STORAGE_MAIL_DIGEST = "daily-space-mail-digest-v1";
+  const STORAGE_TALLY = "tally-book-v1";
   const STORAGE_REMINDER_FIRED = "daily-space-reminder-fired-v1";
   const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
   const TIME_24H = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -123,6 +124,33 @@
       );
     } catch (_) {
       /* ignore */
+    }
+  }
+
+  function readTodaySpend() {
+    try {
+      const raw = localStorage.getItem(STORAGE_TALLY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.records)) return null;
+      const today = todayIso();
+      const currency =
+        typeof parsed.currency === "string" && parsed.currency.trim()
+          ? parsed.currency.trim().slice(0, 8)
+          : "¥";
+      let amount = 0;
+      let count = 0;
+      for (const record of parsed.records) {
+        if (!record || typeof record !== "object") continue;
+        if (record.date !== today) continue;
+        const value = Number(record.amount);
+        if (!Number.isFinite(value)) continue;
+        amount += value;
+        count += 1;
+      }
+      return { amount, currency, count };
+    } catch (_) {
+      return null;
     }
   }
 
@@ -295,6 +323,7 @@
     getTodayStats,
     readCachedMailDigest,
     writeCachedMailDigest,
+    readTodaySpend,
     notificationPermission,
     requestNotificationPermission,
     setupReminderNotifications,

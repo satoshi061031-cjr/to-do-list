@@ -16,6 +16,7 @@ function createFakeSupabase() {
         assert.equal(table, "user_snapshots");
         let selectedUserId = "";
         let pendingRow = null;
+        let mode = "read";
         const builder = {
           select() {
             return builder;
@@ -23,6 +24,11 @@ function createFakeSupabase() {
           eq(column, value) {
             assert.equal(column, "user_id");
             selectedUserId = value;
+            if (mode === "delete") {
+              const existed = rows.has(selectedUserId);
+              rows.delete(selectedUserId);
+              return Promise.resolve({ error: null, count: existed ? 1 : 0 });
+            }
             return builder;
           },
           async maybeSingle() {
@@ -30,6 +36,10 @@ function createFakeSupabase() {
           },
           upsert(row) {
             pendingRow = row;
+            return builder;
+          },
+          delete() {
+            mode = "delete";
             return builder;
           },
           async single() {
@@ -131,4 +141,51 @@ test("snapshot validation filters unknown keys and rejects unsafe payloads", () 
     () => sanitizeSnapshotPayload({ "todo-app-v2": "x".repeat(MAX_SNAPSHOT_BYTES + 1) }),
     /too large/
   );
+});
+
+test("deleteSnapshot removes cloud and sqlite copies", async () => {
+  const fake = createFakeSupabase();
+  let sqliteDeleted = false;
+  const store = createSnapshotStore({
+    supabase: fake.client,
+    sqliteGet: () => null,
+    sqliteUpsert: () => {
+      throw new Error("SQLite should not be used.");
+    },
+    sqliteDelete: (userId) => {
+      assert.equal(userId, "gone@example.com");
+      sqliteDeleted = true;
+      return { removed: true };
+    },
+  });
+
+  await store.upsertSnapshot("gone@example.com", { "todo-theme": "dark" });
+  assert.equal(fake.rows.size, 1);
+  const result = await store.deleteSnapshot("gone@example.com");
+  assert.equal(result.removed, true);
+  assert.equal(fake.rows.size, 0);
+  assert.equal(sqliteDeleted, true);
+});
+
+test("sqlite-only store can delete snapshots", async () => {
+  const rows = new Map();
+  const store = createSnapshotStore({
+    config: { url: "", serviceRoleKey: "" },
+    sqliteGet: (userId) => rows.get(userId) || null,
+    sqliteUpsert: (userId, payload) => {
+      rows.set(userId, { payload, updatedAt: "now" });
+      return { userId, updatedAt: "now" };
+    },
+    sqliteDelete: (userId) => {
+      const existed = rows.has(userId);
+      rows.delete(userId);
+      return { removed: existed };
+    },
+  });
+
+  await store.upsertSnapshot("local-delete@example.com", { "todo-theme": "light" });
+  assert.equal(rows.size, 1);
+  const result = await store.deleteSnapshot("local-delete@example.com");
+  assert.equal(result.removed, true);
+  assert.equal(rows.size, 0);
 });

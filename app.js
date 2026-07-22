@@ -102,6 +102,7 @@
   const eveningReviewSummary = document.getElementById("evening-review-summary");
   const eveningReviewStats = document.getElementById("evening-review-stats");
   const eveningReviewMail = document.getElementById("evening-review-mail");
+  const eveningReviewTally = document.getElementById("evening-review-tally");
   const eveningReviewFocusBtn = document.getElementById("evening-review-focus");
   const eveningReviewAlertsBtn = document.getElementById("evening-review-alerts");
 
@@ -1441,6 +1442,25 @@
       } else {
         eveningReviewMail.hidden = true;
         eveningReviewMail.textContent = "";
+      }
+    }
+
+    if (eveningReviewTally) {
+      const spend =
+        window.DailySpaceLoop && typeof window.DailySpaceLoop.readTodaySpend === "function"
+          ? window.DailySpaceLoop.readTodaySpend()
+          : null;
+      if (spend && spend.count > 0) {
+        const symbol = spend.currency || "¥";
+        const amount = Number(spend.amount);
+        const formatted = Number.isFinite(amount)
+          ? amount.toLocaleString(undefined, { maximumFractionDigits: 2 })
+          : "0";
+        eveningReviewTally.hidden = false;
+        eveningReviewTally.textContent = `Tally · ${symbol}${formatted} today`;
+      } else {
+        eveningReviewTally.hidden = true;
+        eveningReviewTally.textContent = "";
       }
     }
 

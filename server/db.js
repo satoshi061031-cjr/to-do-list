@@ -728,6 +728,20 @@ function getUserSnapshot(userId) {
   };
 }
 
+function deleteUserSnapshot(userId) {
+  const id = String(userId || "").trim().toLowerCase();
+  if (!id) return { removed: false };
+  const result = getDb().prepare("DELETE FROM user_snapshots WHERE user_id = ?").run(id);
+  return { removed: Number(result.changes || 0) > 0 };
+}
+
+function removeAllMailAccountsForUser(userId) {
+  const id = String(userId || "").trim().toLowerCase();
+  if (!id) return { removed: 0 };
+  const result = getDb().prepare("DELETE FROM mail_accounts WHERE user_id = ?").run(id);
+  return { removed: Number(result.changes || 0) };
+}
+
 function upsertUserSnapshot(userId, payload) {
   const id = String(userId || "").trim().toLowerCase();
   if (!id) {
@@ -800,10 +814,12 @@ module.exports = {
   removeMailAccountByProviderEmail,
   removeWatchlist,
   getUserSnapshot,
+  deleteUserSnapshot,
   replaceEvents,
   replaceFilings,
   upsertUserSnapshot,
   upsertMailAccount,
+  removeAllMailAccountsForUser,
   upsertFundamentals,
   upsertQuote,
   upsertSignal,

@@ -1,6 +1,6 @@
 # Daily Space
 
-Quiet glass productivity workspace for personal focus and light team assignment — tasks, planner, calendar, tally, teamwork, mail digest, and an optional AI agent.
+Quiet glass productivity workspace for personal focus — tasks, planner, calendar, tally, light invite/assign, mail digest, and an optional AI agent.
 
 Live app: start at `/todo.html` (PWA start URL). Welcome screen: `/` or `/index.html`.
 
@@ -10,21 +10,31 @@ Live app: start at `/todo.html` (PWA start URL). Welcome screen: `/` or `/index.
 |---|---|
 | **Todo** | Daily Loop hub — due today, overdue, assigned, today’s reminders |
 | **Calendar** | Month + day panel; add tasks for a day; reminders |
-| **Planner** | Personal / team boards; due today & this week strip |
-| **Teamwork** | Shared workspaces, invites, assignment feed (device-only private notes optional) |
-| **Tally** | Expense log with spent today / week / month + budget |
-| **Mail** | Connect Gmail/Outlook → pull inbox → AI digest → add as today’s task |
-| **Agent** | Natural-language actions across Todo / Planner / Calendar / Tally (needs LLM key) |
+| **Planner** | Personal / team boards (flow); Board + This week by due date |
+| **Teamwork** | Private notes on-device + light invite so you can assign from Planner |
+| **Tally** | Expense log; spent today also shows in Evening review |
+| **Mail** | Sign in → connect mailbox → digest → add to Today (batch select supported) |
+| **Agent** | Optional helper for Todo/today and other modules (needs LLM key) |
 
-**Sign-in flow:** Menu → Sign in (Google / Outlook / WeChat) for cloud sync and teamwork. On Mail, sign in to Daily Space first, then connect a mailbox.
+**Sign-in flow:** Menu → Sign in (Google / Outlook / WeChat) for cloud sync and light assign. On Mail, sign in to Daily Space first, then connect a mailbox.
 
-Guest mode works locally with `localStorage`; collaboration, mail, and cloud sync need a signed-in session.
+Guest mode works locally with `localStorage`; mail, cloud sync, and workspace invites need a signed-in session.
 
 ## Reliability
 
-- **Cloud sync:** offline edits stay on-device; Account shows `offline` / `failed — will retry` / `kept this device’s changes` when local and cloud diverge after offline work.
+- **Cloud sync:** offline edits stay on-device; when local and cloud diverge, Account shows **Keep local** / **Use cloud** (nothing overwrites until you choose).
+- **Account data:** signed-in users can **Download my data** or **Delete account** from Account (removes cloud snapshot + mail tokens, then signs out).
 - **Mail digest:** if AI summarization is unset or fails, inbox still loads with snippet fallback and a clear status line.
-- **Smoke:** `npm test` includes a critical-path check (today’s task → calendar-visible due date → mail-shaped `todo_add`).
+- **Alerts:** set `ALERT_WEBHOOK_URL` to receive a POST JSON ping on server 500s / unhandled errors.
+- **Smoke:** `npm test` covers today task → calendar-visible due date → mail-shaped `todo_add`, plus account delete/export helpers.
+
+## Install as PWA
+
+- **Chrome / Edge (desktop):** open the app → browser menu → **Install Daily Space** (or the install icon in the address bar).
+- **Safari (iPhone/iPad):** Share → **Add to Home Screen**.
+- **Android Chrome:** menu → **Install app** / **Add to Home screen**.
+
+Start URL is `/todo.html` (Daily Loop). Account → install tip appears when you are not already in standalone mode.
 
 ## Run locally
 
@@ -72,12 +82,17 @@ Sign-in requests identity scopes only. Mail scopes (`gmail.readonly` / `Mail.Rea
 ### Useful API routes
 
 - Auth: `/api/auth/me`, Google / Outlook / WeChat start + callback
-- Sync: `/api/user/snapshot`
+- Sync: `/api/user/snapshot`, `/api/user/export`, `DELETE /api/user/account`
 - Mail: `/api/mail/accounts`, `…/messages`, `…/digest`, OAuth start/callbacks
 - Agent: `/api/agent`, `/api/agent/status`
 - Teamwork boards / notifications: under `/api/workspaces`, `/api/me/tasks`, `/api/notifications`
 
 ## Mobile (Capacitor)
+
+| Mode | How | What you get |
+|---|---|---|
+| **Remote shell** | set `CAPACITOR_SERVER_URL` to your HTTPS origin | Full app: OAuth, sync, mail, agent |
+| **Bundled `www/`** | leave `CAPACITOR_SERVER_URL` unset | UI smoke only — APIs/OAuth need the live URL |
 
 ```sh
 npm run cap:prepare
@@ -86,19 +101,19 @@ npm run cap:sync
 npm run cap:android   # or cap:ios
 ```
 
-Without `CAPACITOR_SERVER_URL`, the shell loads bundled `www/` (UI only — OAuth/API need the live HTTPS URL).
-
 ## Deploy (Render)
 
 1. Connect the GitHub repo; use `npm start` (or your existing Render Blueprint).
 2. Set `MAIL_OAUTH_BASE_URL` to the Render HTTPS URL.
 3. Set the same OAuth redirect URIs in Google / Microsoft / WeChat consoles.
 4. Set `GROQ_API_KEY` for Agent + Mail digests.
+5. Optional: `ALERT_WEBHOOK_URL` for critical error pings.
 
 ## Test
 
 ```sh
 npm test
+npm run test:e2e   # HTTP critical-path smoke against a local server
 ```
 
 ## Legacy note

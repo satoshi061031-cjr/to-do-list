@@ -20,7 +20,7 @@
       <aside class="sidebar" id="sidebar" aria-label="Navigation">
         <div class="sidebar-inner">
           <div class="sidebar-heading">Pages</div>
-          <a href="todo.html" class="sidebar-page-link">To-do list</a>
+          <a href="todo.html#today" class="sidebar-page-link">Todo</a>
           <a href="planner.html" class="sidebar-page-link">Planner</a>
           <a href="calendar.html" class="sidebar-page-link">Calendar</a>
           <a href="tally.html" class="sidebar-page-link">Tally book</a>
@@ -106,7 +106,24 @@
             </div>
             <div class="mail-account-switcher" id="mail-account-switcher" role="tablist" aria-label="Mailboxes"></div>
             <p class="mail-digest" id="mail-digest" hidden></p>
+            <aside class="mail-ai-banner" id="mail-ai-banner" hidden>
+              <p class="mail-kicker">AI digest</p>
+              <p class="mail-ai-banner-copy" id="mail-ai-banner-copy">
+                Inbox still works with snippets. For richer digests, set <code>GROQ_API_KEY</code> in the server environment
+                (local <code>.env</code> or Render), then restart.
+              </p>
+            </aside>
             <p class="mail-status" id="mail-status" aria-live="polite"></p>
+            <div class="mail-batch-bar" id="mail-batch-bar" hidden>
+              <label class="mail-batch-select-all">
+                <input type="checkbox" id="mail-select-all" />
+                Select all
+              </label>
+              <button type="button" class="btn btn-primary mail-batch-add" id="mail-add-selected" disabled>
+                Add selected to Today
+              </button>
+              <a class="mail-today-link" href="todo.html#today">Open Today</a>
+            </div>
             <div class="mail-message-list" id="mail-message-list"></div>
           </section>
 

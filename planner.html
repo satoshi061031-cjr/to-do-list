@@ -50,7 +50,7 @@
             <button type="button" class="btn btn-sidebar-add" id="planner-new-team-board">+ New team board</button>
           </div>
           <div class="sidebar-heading">Pages</div>
-          <a href="todo.html" class="sidebar-page-link">To-do list</a>
+          <a href="todo.html#today" class="sidebar-page-link">Todo</a>
           <a href="calendar.html" class="sidebar-page-link">Calendar</a>
           <a href="tally.html" class="sidebar-page-link">Tally book</a>
           <a href="teamwork.html" class="sidebar-page-link">Teamwork</a>
@@ -68,6 +68,28 @@
                 <p class="planner-meta" id="planner-meta-line"></p>
               </div>
               <div class="planner-header-actions">
+                <div class="planner-view-switch" role="tablist" aria-label="Planner view">
+                  <button
+                    type="button"
+                    class="planner-view-btn is-active"
+                    id="planner-view-board"
+                    data-planner-view="board"
+                    role="tab"
+                    aria-selected="true"
+                  >
+                    Board
+                  </button>
+                  <button
+                    type="button"
+                    class="planner-view-btn"
+                    id="planner-view-week"
+                    data-planner-view="week"
+                    role="tab"
+                    aria-selected="false"
+                  >
+                    This week
+                  </button>
+                </div>
                 <button type="button" class="btn btn-ghost planner-clear-done" id="planner-clear-done" hidden>
                   Clear completed
                 </button>
@@ -78,6 +100,7 @@
               <div class="planner-due-strip-head">
                 <p class="planner-due-kicker">Due soon</p>
                 <p class="planner-due-summary" id="planner-due-summary"></p>
+                <button type="button" class="planner-due-week-link" id="planner-open-week-view">This week</button>
                 <a class="planner-due-todo-link" href="todo.html#today">Open Today in Todo</a>
               </div>
               <div class="planner-due-groups">
@@ -86,10 +109,22 @@
                   <ul class="planner-due-list" id="planner-due-today-list"></ul>
                 </div>
                 <div class="planner-due-group">
-                  <h3 class="planner-due-label">This week</h3>
+                  <h3 class="planner-due-label">Coming up</h3>
                   <ul class="planner-due-list" id="planner-due-week-list"></ul>
                 </div>
               </div>
+            </section>
+            <section class="planner-week-view" id="planner-week-view" hidden aria-label="This week">
+              <div class="planner-week-head">
+                <p class="planner-week-kicker">This week</p>
+                <p class="planner-week-copy">By due date — open a day in Calendar, or send a card to Todo Today.</p>
+                <div class="planner-week-links">
+                  <a class="planner-due-todo-link" href="todo.html#today">Open Today in Todo</a>
+                  <a class="planner-due-cal-link" href="calendar.html" id="planner-week-calendar-link">Open Calendar</a>
+                </div>
+              </div>
+              <div class="planner-week-sections" id="planner-week-sections"></div>
+              <p class="planner-week-empty" id="planner-week-empty" hidden>No dated open cards this week — add a due date on a card.</p>
             </section>
             <div class="planner-board-scroll">
               <div class="planner-board-empty" id="planner-board-empty" hidden>
@@ -113,8 +148,8 @@
       <span class="theme-toggle-label">Dark</span>
     </button>
 
-    <script src="planner.js"></script>
     <script src="agent-data.js"></script>
     <script src="agent-ui.js"></script>
+    <script src="planner.js"></script>
   </body>
 </html>

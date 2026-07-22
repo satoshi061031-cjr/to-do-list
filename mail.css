@@ -170,6 +170,10 @@
   margin-top: 0.9rem;
 }
 
+.mail-oauth-quick[hidden] {
+  display: none !important;
+}
+
 .mail-oauth-quick--compact {
   margin-top: 0;
   margin-bottom: 1rem;
@@ -285,6 +289,77 @@
   text-decoration: underline;
 }
 
+.mail-ai-banner {
+  margin: var(--space-sm) 0 0;
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+}
+
+.mail-ai-banner[hidden] {
+  display: none !important;
+}
+
+.mail-ai-banner .mail-kicker {
+  margin: 0 0 var(--space-xs);
+}
+
+.mail-ai-banner-copy {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.mail-ai-banner-copy code {
+  font-size: 0.85em;
+}
+
+.mail-batch-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+
+.mail-batch-bar[hidden] {
+  display: none !important;
+}
+
+.mail-batch-select-all {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.mail-retry-btn {
+  display: inline-flex;
+  align-items: center;
+  margin: var(--space-xs) 0 0;
+  padding: 0.25rem 0.65rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-pill);
+  background: var(--surface-muted);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--type-label-size);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.mail-message-check {
+  display: flex;
+  align-items: flex-start;
+  padding-top: 0.2rem;
+  cursor: pointer;
+}
+
 .mail-message-list {
   margin-top: 0.55rem;
   display: grid;
@@ -293,7 +368,7 @@
 
 .mail-message-item {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 0.65rem;
   align-items: start;
   padding: 0.85rem 0.95rem;
@@ -340,10 +415,11 @@
 
 @media (max-width: 640px) {
   .mail-message-item {
-    grid-template-columns: 1fr;
+    grid-template-columns: auto minmax(0, 1fr);
   }
 
   .mail-add-task {
+    grid-column: 1 / -1;
     width: 100%;
   }
 }

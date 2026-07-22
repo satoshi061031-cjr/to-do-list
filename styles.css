@@ -383,8 +383,26 @@ body::after {
   display: flex;
   justify-content: center;
   min-height: 2.6rem;
-  color: rgba(48, 35, 32, 0.68);
+  color: var(--text-muted);
   background: transparent;
+  border-color: transparent;
+}
+
+.welcome-enter:hover {
+  color: var(--text);
+}
+
+:root[data-theme="dark"] .welcome-enter {
+  color: var(--text);
+  border: 1px solid color-mix(in srgb, var(--text) 28%, transparent);
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  font-weight: 700;
+}
+
+:root[data-theme="dark"] .welcome-enter:hover {
+  color: var(--highlight);
+  border-color: color-mix(in srgb, var(--highlight) 55%, transparent);
+  background: color-mix(in srgb, var(--highlight) 12%, transparent);
 }
 
 .welcome-lens {
@@ -1349,7 +1367,9 @@ body.todo-agent-open.has-notif-bell .language-toggle {
 
 .auth-provider,
 .auth-phone-submit,
-.auth-logout {
+.auth-logout,
+.auth-export,
+.auth-delete {
   border: 1px solid var(--glass-border);
   border-radius: 999px;
   background: var(--glass);
@@ -1488,6 +1508,34 @@ body.todo-agent-open.has-notif-bell .language-toggle {
 .auth-logout {
   margin-top: 0.9rem;
   padding: 0.65rem 0.9rem;
+  color: var(--danger);
+}
+
+.auth-account-actions {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 1rem;
+}
+
+.auth-account-actions[hidden] {
+  display: none !important;
+}
+
+.auth-account-hint,
+.auth-install-hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.auth-export,
+.auth-delete {
+  width: 100%;
+  padding: 0.65rem 0.9rem;
+}
+
+.auth-delete {
   color: var(--danger);
 }
 
@@ -2088,7 +2136,8 @@ body.todo-source-assigned .daily-loop {
   display: none;
 }
 
-.evening-review-mail {
+.evening-review-mail,
+.evening-review-tally {
   margin: 0;
   padding: 0;
   border: 0;

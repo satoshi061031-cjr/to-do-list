@@ -100,7 +100,198 @@ body.planner-page {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}
+
+.planner-view-switch {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  background: var(--surface-muted);
+}
+
+.planner-view-btn {
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--type-label-size);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 0.45rem 0.85rem;
+  cursor: pointer;
+}
+
+.planner-view-btn.is-active {
+  background: var(--tertiary);
+  color: var(--on-tertiary);
+}
+
+.planner-due-week-link,
+.planner-due-todo-link,
+.planner-due-cal-link {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.planner-due-week-link:hover,
+.planner-due-todo-link:hover,
+.planner-due-cal-link:hover {
+  color: var(--highlight);
+}
+
+.planner-due-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.planner-due-row .planner-due-item {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
+.planner-due-row-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+}
+
+.planner-due-cal-chip,
+.planner-due-todo-chip,
+.planner-card-due-chip,
+.planner-card-open-cal,
+.planner-card-to-todo {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.45rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-pill);
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--type-label-size);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.planner-due-todo-chip,
+.planner-card-to-todo {
+  color: var(--on-tertiary);
+  background: var(--tertiary);
+  border-color: transparent;
+}
+
+.planner-card-due-chip {
+  margin: 0 var(--space-sm) var(--space-xs);
+  color: var(--accent);
+}
+
+.planner-card-due-chip.is-overdue {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 35%, transparent);
+}
+
+.planner-card-due-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.planner-week-view {
+  margin-bottom: var(--space-md);
+  padding: var(--space-md);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  background: var(--glass);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(12px) saturate(1.06);
+  -webkit-backdrop-filter: blur(12px) saturate(1.06);
+}
+
+.planner-week-view[hidden] {
+  display: none !important;
+}
+
+.planner-week-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.planner-week-kicker {
+  margin: 0;
+  color: var(--highlight);
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  letter-spacing: var(--type-label-tracking);
+  text-transform: uppercase;
+}
+
+.planner-week-copy {
+  margin: 0;
+  flex: 1;
+  min-width: 12rem;
+  color: var(--text-muted);
+  font-size: var(--type-body-size);
+  line-height: 1.4;
+  letter-spacing: var(--type-body-tracking);
+}
+
+.planner-week-links {
+  display: inline-flex;
+  gap: var(--space-md);
+}
+
+.planner-week-sections {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.planner-week-section-title {
+  margin: 0 0 var(--space-sm);
+  color: var(--text);
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  letter-spacing: var(--type-label-tracking);
+  text-transform: uppercase;
+}
+
+.planner-week-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.planner-week-empty {
+  margin: var(--space-sm) 0 0;
+  color: var(--text-muted);
+  font-size: var(--type-body-size);
 }
 
 .planner-due-strip {
@@ -121,19 +312,6 @@ body.planner-page {
   gap: 0.75rem;
   flex-wrap: wrap;
   margin-bottom: 0.65rem;
-}
-
-.planner-due-todo-link {
-  margin-left: auto;
-  color: var(--accent);
-  font-size: 0.74rem;
-  font-weight: 600;
-  text-decoration: none;
-  letter-spacing: 0.02em;
-}
-
-.planner-due-todo-link:hover {
-  color: var(--highlight);
 }
 
 .planner-due-kicker {
