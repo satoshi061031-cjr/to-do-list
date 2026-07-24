@@ -5,7 +5,7 @@ body.calendar-page {
 }
 
 .calendar-page .layout {
-  max-width: min(1320px, 100%);
+  max-width: min(1120px, 100%);
 }
 
 .calendar-page .main-area {
@@ -16,7 +16,7 @@ body.calendar-page {
 
 .calendar-app {
   width: 100%;
-  max-width: min(1180px, 92vw);
+  max-width: min(1120px, 92vw);
   margin: 0 auto;
   padding: 2.25rem 1rem 1.5rem;
   min-height: 100vh;
@@ -55,7 +55,7 @@ body.calendar-page {
   font-weight: 600;
   letter-spacing: -0.06em;
   line-height: 1;
-  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.18);
+  text-shadow: none;
 }
 
 .calendar-page .calendar-meta {

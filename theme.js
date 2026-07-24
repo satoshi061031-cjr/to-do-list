@@ -128,7 +128,9 @@
       tip.id = "sidebar-hint";
       tip.className = "sidebar-hint";
       tip.setAttribute("role", "status");
-      tip.textContent = "Move to the left edge to open the menu";
+      tip.textContent = document.body.classList.contains("has-bento-rail")
+        ? "Use the left rail Menu to open the sidebar"
+        : "Move to the left edge to open the menu";
       document.body.appendChild(tip);
     }
 
@@ -144,6 +146,7 @@
 
     function openSidebar() {
       if (!isDesktop()) return;
+      if (document.body.classList.contains("has-bento-rail")) return;
       window.clearTimeout(closeTimer);
       sidebar.classList.add("is-auto-open");
       markSidebarHintDone();
@@ -209,6 +212,12 @@
       trigger.addEventListener(
         "click",
         function (event) {
+          if (window.DailySpaceBentoRail) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            window.DailySpaceBentoRail.toggleSidebar();
+            return;
+          }
           if (!isDesktop()) return;
           event.preventDefault();
           event.stopImmediatePropagation();

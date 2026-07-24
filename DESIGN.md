@@ -105,7 +105,7 @@ components:
 
 Daily Space is a calm productivity workspace. The visual language is **frosted glass over misty photographic backgrounds**: translucent panels, soft glass depth, and light condensed display typography. Interaction is driven by a single warm yellow accent (`tertiary` / `highlight`), not purple gradients or terracotta brochure looks.
 
-Prefer atmosphere over dashboard density. Keep typographic weight light — airy titles, softer label caps, and quiet shadows rather than stamped contrast. First viewports should feel like one composed space — brand/greeting, one primary action area, and quiet supporting modules — not a control panel of cards and stats. Personal tools stay first-class; shared team surfaces should feel quieter than the yellow primary CTA, never a second brand color.
+Prefer atmosphere over dashboard density. Keep typographic weight light — airy titles, softer label caps, and quiet shadows rather than stamped contrast. First viewports should feel like one composed space — brand/greeting, one primary action area, and quiet supporting modules — not a control panel of cards and stats. Personal tools stay first-class; shared team surfaces should feel quieter than the yellow primary CTA, never a second brand color. A slim page rail is fine when it supports navigation without competing with the Today composition.
 
 ## Colors
 
@@ -136,6 +136,7 @@ Do not switch to Inter, Roboto, Arial, or system-ui as the brand voice.
 - Module gaps use `spacing.md`–`spacing.lg`.
 - Desktop: multi-column grids with breathing room; mobile: single column, extra top padding for the menu trigger.
 - One job per section: one heading, one short supporting line, one primary interaction cluster.
+- Todo hub may use a quiet glass bento layout (slim page rail + light metric tiles + task panel). Keep tokens and Daily Loop controls; do not treat the first viewport as a dense stats dashboard.
 
 ## Elevation & Depth
 

@@ -76,7 +76,7 @@
   font-weight: 600;
   letter-spacing: var(--type-label-tracking);
   text-transform: uppercase;
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.12);
+  text-shadow: none;
 }
 
 .teamwork-title {

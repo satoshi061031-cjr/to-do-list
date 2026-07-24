@@ -56,14 +56,17 @@ function buildSystemPrompt(today) {
     `Today is ${today}. Resolve relative dates against it.`,
     'Phrases like "today", "今天", "tonight", or "今晚" for a task mean dueDate = today.',
     'Phrases like "tomorrow" / "明天" mean the next calendar day.',
+    'When the user names a clock time (e.g. "3pm", "15:00", "下午3点", "三点"), you MUST keep that time.',
+    'Timed reminders / 提醒 / 叫我 / alert me → calendar_add_reminder with startTime as 24h HH:MM (下午3点 = 15:00).',
+    'Timed personal tasks → todo_add with dueDate and dueTime (HH:MM). Do not drop dueTime.',
     "Use IDs from context when available. Otherwise provide a distinctive matchText/name/title.",
     "Do not invent IDs. Do not perform a mutation unless the user clearly requests it.",
     "Destructive deletes are confirmed in the client UI — still only emit them when clearly requested.",
     "Return ONLY valid JSON: {\"reply\":string,\"actions\":Action[]}. The actions value MUST always be a JSON array, even for one action.",
     "Allowed actions and fields:",
-    'todo_add {text,dueDate|null,categoryName|null}',
+    'todo_add {text,dueDate|null,dueTime|null,categoryName|null}',
     'todo_complete|todo_uncomplete|todo_delete {todoId|null,matchText|null}',
-    'todo_update {todoId|null,matchText|null,text?,dueDate?,categoryName?}',
+    'todo_update {todoId|null,matchText|null,text?,dueDate?,dueTime?,categoryName?}',
     'todo_add_category {name}',
     'planner_add_workspace {name}',
     'planner_add_column {workspaceId|null,workspaceName|null,title,emoji|null}',
@@ -85,10 +88,10 @@ function buildSystemPrompt(today) {
     'teamwork_add_task {memberId|null,memberName|null,text}',
     'teamwork_update_task {memberId|null,memberName|null,taskIndex|null,matchText|null,text}',
     'teamwork_delete_task {memberId|null,memberName|null,taskIndex|null,matchText|null}',
-    "Dates must be YYYY-MM-DD, times HH:MM, expense amounts and budgets positive.",
+    "Dates must be YYYY-MM-DD, times HH:MM (24-hour), expense amounts and budgets positive.",
     "For a spending statement such as 'lunch 30 yuan', use tally_add_expense, not todo_add.",
-    "For an appointment or timed activity, use calendar_add_reminder.",
-    "For a general personal task, use todo_add with dueDate when the user mentions today/明天/etc.",
+    "For an appointment, alarm, or timed reminder, use calendar_add_reminder and always include startTime when a clock time was given.",
+    "For a general personal task, use todo_add with dueDate when the user mentions today/明天/etc., and dueTime when they name a clock time.",
   ].join("\n");
 }
 
@@ -105,7 +108,30 @@ function optionalDate(value) {
 }
 
 function optionalTime(value) {
-  return typeof value === "string" && TIME_24H.test(value) ? value : null;
+  return normalizeTime(value);
+}
+
+/** Accept HH:MM, H:MM, HH:MM:SS, and 3pm / 3:00 PM style strings. */
+function normalizeTime(value) {
+  if (typeof value !== "string") return null;
+  const raw = value.trim();
+  if (!raw) return null;
+  if (TIME_24H.test(raw)) return raw;
+  const withSec = raw.match(/^([01]?\d|2[0-3]):([0-5]\d)(?::[0-5]\d)?$/);
+  if (withSec) {
+    return `${String(Number(withSec[1])).padStart(2, "0")}:${withSec[2]}`;
+  }
+  const ampm = raw.match(/^(\d{1,2})(?::([0-5]\d))?\s*(a\.?m\.?|p\.?m\.?)$/i);
+  if (ampm) {
+    let hour = Number(ampm[1]);
+    const minute = ampm[2] || "00";
+    const isPm = /^p/i.test(ampm[3]);
+    if (!Number.isFinite(hour) || hour < 1 || hour > 12) return null;
+    if (hour === 12) hour = isPm ? 12 : 0;
+    else if (isPm) hour += 12;
+    return `${String(hour).padStart(2, "0")}:${minute}`;
+  }
+  return null;
 }
 
 function optionalNumber(value) {
@@ -132,6 +158,7 @@ function normalizeAction(raw) {
     action.text = text(raw.text, 500);
     if (!action.text) return null;
     action.dueDate = optionalDate(raw.dueDate);
+    action.dueTime = optionalTime(raw.dueTime);
     action.categoryName = text(raw.categoryName, 48);
   } else if (type === "todo_add_category") {
     action.name = text(raw.name, 48);
@@ -143,6 +170,7 @@ function normalizeAction(raw) {
     if (type === "todo_update") {
       if (Object.hasOwn(raw, "text")) action.text = text(raw.text, 500);
       if (Object.hasOwn(raw, "dueDate")) action.dueDate = optionalDate(raw.dueDate);
+      if (Object.hasOwn(raw, "dueTime")) action.dueTime = optionalTime(raw.dueTime);
       if (Object.hasOwn(raw, "categoryName")) action.categoryName = text(raw.categoryName, 48);
     }
   } else if (type === "planner_add_workspace") {

@@ -95,7 +95,25 @@
   }
 
   function normalizeTime(value) {
-    return typeof value === "string" && TIME_24H.test(value) ? value : null;
+    if (typeof value !== "string") return null;
+    const raw = value.trim();
+    if (!raw) return null;
+    if (TIME_24H.test(raw)) return raw;
+    const withSec = raw.match(/^([01]?\d|2[0-3]):([0-5]\d)(?::[0-5]\d)?$/);
+    if (withSec) {
+      return `${String(Number(withSec[1])).padStart(2, "0")}:${withSec[2]}`;
+    }
+    const ampm = raw.match(/^(\d{1,2})(?::([0-5]\d))?\s*(a\.?m\.?|p\.?m\.?)$/i);
+    if (ampm) {
+      let hour = Number(ampm[1]);
+      const minute = ampm[2] || "00";
+      const isPm = /^p/i.test(ampm[3]);
+      if (!Number.isFinite(hour) || hour < 1 || hour > 12) return null;
+      if (hour === 12) hour = isPm ? 12 : 0;
+      else if (isPm) hour += 12;
+      return `${String(hour).padStart(2, "0")}:${minute}`;
+    }
+    return null;
   }
 
   function formatTimeRange(startTime, endTime) {

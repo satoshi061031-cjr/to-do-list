@@ -117,6 +117,42 @@ test("applies Todo, Tally, Calendar, Planner and Teamwork actions", () => {
   assert.equal(events.at(-1).type, "daily-space-agent-data-updated");
 });
 
+test("normalizes flexible clock times and keeps dueTime on todos", () => {
+  const { normalizeGlobalResult } = require("../server/global-agent");
+  const result = normalizeGlobalResult(
+    {
+      reply: "ok",
+      actions: [
+        {
+          type: "calendar_add_reminder",
+          text: "Call mom",
+          date: "2026-07-24",
+          startTime: "3:00 PM",
+          priority: "medium",
+        },
+        {
+          type: "todo_add",
+          text: "Submit report",
+          dueDate: "2026-07-24",
+          dueTime: "15:00:00",
+        },
+      ],
+    },
+    "2026-07-24"
+  );
+  assert.equal(result.actions[0].startTime, "15:00");
+  assert.equal(result.actions[1].dueTime, "15:00");
+
+  const { api } = createAgentData();
+  const applied = api.applyActions(result.actions);
+  assert.equal(applied.filter((item) => item.ok).length, 2);
+  const snapshot = api.getSnapshot();
+  assert.equal(snapshot.calendar.reminders[0].startTime, "15:00");
+  assert.equal(snapshot.todo.todos[0].dueTime, "15:00");
+  assert.match(applied[0].label, /15:00/);
+  assert.match(applied[1].label, /15:00/);
+});
+
 test("requires confirmation for deletes and budget changes", () => {
   const { api } = createAgentData();
   assert.equal(api.needsConfirmation([{ type: "tally_set_budget", budget: 500 }]), true);

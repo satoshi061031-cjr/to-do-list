@@ -78,7 +78,7 @@
   font-weight: 400;
   letter-spacing: 0.01em;
   line-height: 0.92;
-  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.18);
+  text-shadow: none;
 }
 
 .mail-copy,

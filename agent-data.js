@@ -8,6 +8,28 @@
   };
   const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
   const TIME_24H = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+  function normalizeTime(value) {
+    if (typeof value !== "string") return null;
+    const raw = value.trim();
+    if (!raw) return null;
+    if (TIME_24H.test(raw)) return raw;
+    const withSec = raw.match(/^([01]?\d|2[0-3]):([0-5]\d)(?::[0-5]\d)?$/);
+    if (withSec) {
+      return `${String(Number(withSec[1])).padStart(2, "0")}:${withSec[2]}`;
+    }
+    const ampm = raw.match(/^(\d{1,2})(?::([0-5]\d))?\s*(a\.?m\.?|p\.?m\.?)$/i);
+    if (ampm) {
+      let hour = Number(ampm[1]);
+      const minute = ampm[2] || "00";
+      const isPm = /^p/i.test(ampm[3]);
+      if (!Number.isFinite(hour) || hour < 1 || hour > 12) return null;
+      if (hour === 12) hour = isPm ? 12 : 0;
+      else if (isPm) hour += 12;
+      return `${String(hour).padStart(2, "0")}:${minute}`;
+    }
+    return null;
+  }
   const DESTRUCTIVE = new Set([
     "todo_delete",
     "planner_delete_column",
@@ -224,6 +246,7 @@
           text: clean(item.text, 300),
           completed: Boolean(item.completed),
           dueDate: validDate(item.dueDate) ? item.dueDate : null,
+          dueTime: normalizeTime(item.dueTime),
           categoryId: typeof item.categoryId === "string" ? item.categoryId : null,
         })),
       },
@@ -241,8 +264,8 @@
           id: reminder.id,
           date: reminder.date,
           text: clean(reminder.text, 200),
-          startTime: reminder.startTime || null,
-          endTime: reminder.endTime || null,
+          startTime: normalizeTime(reminder.startTime),
+          endTime: normalizeTime(reminder.endTime),
           priority: reminder.priority || "medium",
         })),
       },
@@ -334,14 +357,16 @@
           const taskText = clean(action.text, 500);
           if (!taskText) return failure(action, "Task text is required.");
           const category = todoCategory(todo, action.categoryName);
+          const dueTime = normalizeTime(action.dueTime);
           todo.todos.unshift({
             id: uid(),
             text: taskText,
             completed: false,
             dueDate: validDate(action.dueDate) ? action.dueDate : null,
+            dueTime,
             categoryId: category ? category.id : null,
           });
-          success(action, taskText);
+          success(action, dueTime ? `${taskText} · ${dueTime}` : taskText);
         } else if (action.type === "todo_add_category") {
           const category = todoCategory(todo, action.name);
           if (!category) return failure(action, "Category name is required.");
@@ -355,12 +380,13 @@
           if (action.type === "todo_update") {
             if (clean(action.text, 500)) item.text = clean(action.text, 500);
             if (has(action, "dueDate")) item.dueDate = validDate(action.dueDate) ? action.dueDate : null;
+            if (has(action, "dueTime")) item.dueTime = normalizeTime(action.dueTime);
             if (has(action, "categoryName")) {
               const category = todoCategory(todo, action.categoryName);
               item.categoryId = category ? category.id : null;
             }
           }
-          success(action, item.text);
+          success(action, item.dueTime ? `${item.text} · ${item.dueTime}` : item.text);
         } else if (action.type === "planner_add_workspace") {
           const name = clean(action.name, 48);
           if (!name) return failure(action, "Planner name is required.");
@@ -377,7 +403,7 @@
             const column = {
               id: uid(),
               title: clean(action.title, 80) || "New column",
-              emoji: clean(action.emoji, 8) || "📌",
+              emoji: clean(action.emoji, 8) || "",
             };
             board.columns.push(column);
             success(action, column.title);
@@ -399,7 +425,7 @@
           if (action.type === "planner_add_card") {
             if (!column) column = board.columns[0];
             if (!column) {
-              column = { id: uid(), title: clean(action.columnTitle, 80) || "Tasks", emoji: "📌" };
+              column = { id: uid(), title: clean(action.columnTitle, 80) || "Tasks", emoji: "" };
               board.columns.push(column);
             }
             const card = {
@@ -444,8 +470,8 @@
             if (!reminderText || !validDate(action.date)) {
               return failure(action, "Reminder text and date are required.");
             }
-            const start = TIME_24H.test(action.startTime || "") ? action.startTime : null;
-            const end = TIME_24H.test(action.endTime || "") ? action.endTime : null;
+            const start = normalizeTime(action.startTime);
+            const end = normalizeTime(action.endTime);
             if (start && end && end < start) return failure(action, "End time must follow start time.");
             calendar.reminders.unshift({
               id: uid(),
@@ -455,7 +481,7 @@
               endTime: end,
               priority: ["high", "low"].includes(action.priority) ? action.priority : "medium",
             });
-            success(action, reminderText);
+            success(action, start ? `${start} · ${reminderText}` : reminderText);
             return;
           }
           const reminder = matchText(
@@ -471,10 +497,10 @@
             if (clean(action.text, 200)) reminder.text = clean(action.text, 200);
             if (has(action, "date") && validDate(action.date)) reminder.date = action.date;
             if (has(action, "startTime")) {
-              reminder.startTime = TIME_24H.test(action.startTime || "") ? action.startTime : null;
+              reminder.startTime = normalizeTime(action.startTime);
             }
             if (has(action, "endTime")) {
-              reminder.endTime = TIME_24H.test(action.endTime || "") ? action.endTime : null;
+              reminder.endTime = normalizeTime(action.endTime);
             }
             if (has(action, "priority")) {
               reminder.priority = ["high", "low"].includes(action.priority) ? action.priority : "medium";
@@ -483,7 +509,10 @@
               return failure(action, "End time must follow start time.");
             }
           }
-          success(action, reminder.text);
+          success(
+            action,
+            reminder.startTime ? `${reminder.startTime} · ${reminder.text}` : reminder.text
+          );
         } else if (action.type.startsWith("tally_")) {
           if (action.type === "tally_add_expense") {
             const amount = Number(action.amount);

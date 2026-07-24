@@ -27,7 +27,7 @@ body.planner-page {
 }
 
 .planner-page .layout {
-  max-width: min(1280px, 100%);
+  max-width: min(1120px, 100%);
 }
 
 .planner-page .main-area {
@@ -835,7 +835,7 @@ body.planner-page {
   background: transparent;
   padding: 0.12rem 0.28rem;
   margin: -0.12rem 0;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   text-align: left;
 }
 
@@ -857,7 +857,7 @@ body.planner-page {
 .planner-sidebar-row:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--planner-accent-soft);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
 }
 
 .planner-board-scroll,

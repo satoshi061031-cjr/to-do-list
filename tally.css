@@ -1,7 +1,7 @@
 /* Compact, mobile-first Tally Book */
 
 .tally-page .layout {
-  max-width: min(1180px, 100%);
+  max-width: min(1120px, 100%);
 }
 
 .tally-page .main-area {
@@ -170,7 +170,7 @@
   font-weight: 600;
   letter-spacing: var(--type-label-tracking);
   text-transform: uppercase;
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.12);
+  text-shadow: none;
 }
 
 .tally-today-strip {

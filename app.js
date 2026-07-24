@@ -3,15 +3,38 @@
   const STORAGE_LEGACY = "todo-list-v1";
   const STORAGE_CALENDAR = "calendar-app-v1";
   const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+  const TIME_24H = /^([01]\d|2[0-3]):[0-5]\d$/;
   const DAILY_LOOP_LIST_LIMIT = 5;
   const DAILY_LOOP_REMINDER_LIMIT = 4;
+
+  function normalizeTime(value) {
+    if (typeof value !== "string") return null;
+    const raw = value.trim();
+    if (!raw) return null;
+    if (TIME_24H.test(raw)) return raw;
+    const withSec = raw.match(/^([01]?\d|2[0-3]):([0-5]\d)(?::[0-5]\d)?$/);
+    if (withSec) {
+      return `${String(Number(withSec[1])).padStart(2, "0")}:${withSec[2]}`;
+    }
+    const ampm = raw.match(/^(\d{1,2})(?::([0-5]\d))?\s*(a\.?m\.?|p\.?m\.?)$/i);
+    if (ampm) {
+      let hour = Number(ampm[1]);
+      const minute = ampm[2] || "00";
+      const isPm = /^p/i.test(ampm[3]);
+      if (!Number.isFinite(hour) || hour < 1 || hour > 12) return null;
+      if (hour === 12) hour = isPm ? 12 : 0;
+      else if (isPm) hour += 12;
+      return `${String(hour).padStart(2, "0")}:${minute}`;
+    }
+    return null;
+  }
   /** @typedef {{ id: string; name: string }} Category */
 
   function uiLocale() {
     return window.DailySpaceI18n?.localeTag() || "en-US";
   }
 
-  /** @type {{ id: string; text: string; completed: boolean; dueDate: string | null; categoryId: string | null }[]} */
+  /** @type {{ id: string; text: string; completed: boolean; dueDate: string | null; dueTime: string | null; categoryId: string | null }[]} */
   let todos = [];
 
   /** @type {Category[]} */
@@ -110,6 +133,7 @@
    *   text: string;
    *   completed: boolean;
    *   dueDate: string | null;
+   *   dueTime?: string | null;
    *   categoryId: string | null;
    *   boardName?: string;
    *   workspaceName?: string;
@@ -199,10 +223,11 @@
   function legacyTodoToNew(t) {
     let dueDate = null;
     if (typeof t.dueDate === "string" && ISO_DATE.test(t.dueDate)) dueDate = t.dueDate;
+    let dueTime = normalizeTime(t.dueTime);
     let categoryId = null;
     if (typeof t.categoryId === "string" || t.categoryId === null)
       categoryId = t.categoryId;
-    return { id: t.id, text: t.text, completed: t.completed, dueDate, categoryId };
+    return { id: t.id, text: t.text, completed: t.completed, dueDate, dueTime, categoryId };
   }
 
   /** @param {Array | undefined | null} list */
@@ -259,7 +284,7 @@
       out.push({
         id: x.id,
         title: typeof x.title === "string" ? x.title.trim().slice(0, 80) || "Untitled" : "Untitled",
-        emoji: typeof x.emoji === "string" && x.emoji.trim() ? String(x.emoji).trim().slice(0, 8) : "📌",
+        emoji: typeof x.emoji === "string" && x.emoji.trim() ? String(x.emoji).trim().slice(0, 8) : "",
       });
     }
     return out;
@@ -554,7 +579,7 @@
     saveAll();
     renderCategorySidebar();
     render();
-    if (window.matchMedia("(max-width: 819px)").matches) closeSidebar();
+    if (canUseSidebarDrawer()) closeSidebar();
   }
 
   function removeCategory(catId, e) {
@@ -630,31 +655,62 @@
     return window.matchMedia("(max-width: 819px)").matches;
   }
 
+  function isTodoBento() {
+    return document.body.classList.contains("todo-bento");
+  }
+
+  function canUseSidebarDrawer() {
+    return isMobileSidebar() || isTodoBento();
+  }
+
+  function syncSidebarExpanded(open) {
+    const expanded = open ? "true" : "false";
+    sidebarTrigger.setAttribute("aria-expanded", expanded);
+    const menuBtn = document.getElementById("bento-menu-toggle") || document.getElementById("bento-cat-toggle");
+    if (menuBtn) menuBtn.setAttribute("aria-expanded", expanded);
+  }
+
   function openSidebar() {
-    if (!isMobileSidebar()) return;
+    if (window.DailySpaceBentoRail) {
+      window.DailySpaceBentoRail.setSidebarOpen(true);
+      return;
+    }
+    if (!canUseSidebarDrawer()) return;
     sidebarEl.classList.add("is-open");
     sidebarBackdrop.hidden = false;
     sidebarBackdrop.classList.add("is-visible");
     document.body.classList.add("sidebar-drawer-open");
-    sidebarTrigger.setAttribute("aria-expanded", "true");
+    syncSidebarExpanded(true);
   }
 
   function closeSidebar() {
+    if (window.DailySpaceBentoRail) {
+      window.DailySpaceBentoRail.setSidebarOpen(false);
+      return;
+    }
     sidebarEl.classList.remove("is-open");
     sidebarBackdrop.hidden = true;
     sidebarBackdrop.classList.remove("is-visible");
     document.body.classList.remove("sidebar-drawer-open");
-    sidebarTrigger.setAttribute("aria-expanded", "false");
+    syncSidebarExpanded(false);
   }
 
   function toggleSidebar() {
-    if (!isMobileSidebar()) return;
+    if (window.DailySpaceBentoRail) {
+      window.DailySpaceBentoRail.toggleSidebar();
+      return;
+    }
+    if (!canUseSidebarDrawer()) return;
     if (sidebarEl.classList.contains("is-open")) closeSidebar();
     else openSidebar();
   }
 
   sidebarTrigger.addEventListener("click", () => toggleSidebar());
   sidebarBackdrop.addEventListener("click", () => closeSidebar());
+  const bentoMenuToggle = document.getElementById("bento-menu-toggle") || document.getElementById("bento-cat-toggle");
+  if (bentoMenuToggle && !bentoMenuToggle.dataset.railWired) {
+    bentoMenuToggle.addEventListener("click", () => toggleSidebar());
+  }
 
   function closeAddCategoryPanel() {
     addCatPanel.hidden = true;
@@ -828,7 +884,7 @@
   }
 
   /**
-   * @param {{ id: string; text: string; completed: boolean; dueDate: string | null; categoryId: string | null; boardName?: string; workspaceName?: string; source?: string }} todo
+   * @param {{ id: string; text: string; completed: boolean; dueDate: string | null; dueTime?: string | null; categoryId: string | null; boardName?: string; workspaceName?: string; source?: string }} todo
    * @param {{ showCategoryPill: boolean; showDueBadge: boolean; showBoardMeta?: boolean; allowDelete?: boolean; allowReorder?: boolean; onToggle?: (id: string) => void }} opts
    */
   function createTodoListItemEl(todo, opts) {
@@ -919,14 +975,17 @@
       main.appendChild(pill);
     }
 
-    if (opts.showDueBadge && todo.dueDate) {
+    if (opts.showDueBadge && (todo.dueDate || todo.dueTime)) {
       const dueEl = document.createElement("span");
       dueEl.className = "todo-due";
-      const overdue = isOverdue(todo.dueDate, todo.completed);
+      const overdue = todo.dueDate ? isOverdue(todo.dueDate, todo.completed) : false;
       if (overdue) dueEl.classList.add("is-overdue");
-      dueEl.textContent = overdue
-        ? `Overdue · ${formatDueDate(todo.dueDate)}`
-        : `Due ${formatDueDate(todo.dueDate)}`;
+      const datePart = todo.dueDate
+        ? overdue
+          ? `Overdue · ${formatDueDate(todo.dueDate)}`
+          : `Due ${formatDueDate(todo.dueDate)}`
+        : "Due";
+      dueEl.textContent = todo.dueTime ? `${datePart} · ${todo.dueTime}` : datePart;
       main.appendChild(dueEl);
     }
 
@@ -1134,7 +1193,9 @@
 
     const today = todayIso();
     const dueToday = todos.filter((t) => t.dueDate === today);
-    const dueTodayOpen = dueToday.filter((t) => !t.completed);
+    const dueTodayOpen = dueToday
+      .filter((t) => !t.completed)
+      .sort((a, b) => (a.dueTime || "99:99").localeCompare(b.dueTime || "99:99"));
     const dueTodayDone = dueToday.filter((t) => t.completed).length;
     const overdueOpen = todos.filter((t) => isOverdue(t.dueDate, t.completed));
     const assignedDueToday = assignedTasks.filter(
@@ -1167,7 +1228,7 @@
         dailyLoopList.appendChild(
           createTodoListItemEl(todo, {
             showCategoryPill: !!(todo.categoryId && categoryExists(todo.categoryId)),
-            showDueBadge: false,
+            showDueBadge: Boolean(todo.dueTime),
           })
         );
       });
@@ -1445,6 +1506,7 @@
       text: trimmed,
       completed: false,
       dueDate: dueDate && ISO_DATE.test(dueDate) ? dueDate : null,
+      dueTime: null,
       categoryId,
     };
     todos.unshift(item);
@@ -1535,6 +1597,9 @@
             const due = action.dueDate;
             target.dueDate = typeof due === "string" && ISO_DATE.test(due) ? due : null;
           }
+          if (Object.prototype.hasOwnProperty.call(action, "dueTime")) {
+            target.dueTime = normalizeTime(action.dueTime);
+          }
           if (typeof action.categoryName === "string" && action.categoryName.trim()) {
             const cat = ensureCategoryByName(action.categoryName);
             target.categoryId = cat ? cat.id : target.categoryId;
@@ -1558,6 +1623,7 @@
         text: t.text,
         completed: t.completed,
         dueDate: t.dueDate,
+        dueTime: t.dueTime || null,
         categoryId: t.categoryId,
       })),
       categories: categories.map((c) => ({ id: c.id, name: c.name })),
@@ -1646,11 +1712,11 @@
       render();
       return;
     }
-    if (isMobileSidebar() && sidebarEl.classList.contains("is-open")) closeSidebar();
+    if (canUseSidebarDrawer() && sidebarEl.classList.contains("is-open")) closeSidebar();
   });
 
   window.addEventListener("resize", () => {
-    if (!isMobileSidebar()) closeSidebar();
+    if (!isMobileSidebar() && !isTodoBento()) closeSidebar();
   });
 
   window.addEventListener("daily-space-agent-data-updated", (event) => {

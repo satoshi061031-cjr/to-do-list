@@ -214,4 +214,24 @@
   document.addEventListener("keydown", function (event) {
     if (event.key === "Escape" && !sheet.hidden) setOpen(false);
   });
+
+  function mountFabUnderBrand() {
+    const brand = document.querySelector(".bento-rail-brand");
+    if (!(brand instanceof HTMLElement)) return false;
+    fab.classList.add("todo-agent-fab-rail");
+    panel.classList.add("todo-agent-rail-docked");
+    if (fab.previousElementSibling !== brand) {
+      brand.insertAdjacentElement("afterend", fab);
+    }
+    return true;
+  }
+
+  if (!mountFabUnderBrand()) {
+    document.addEventListener("DOMContentLoaded", mountFabUnderBrand);
+    document.addEventListener("dailyspace:bento-rail-ready", mountFabUnderBrand);
+  }
+
+  window.DailySpaceAgentUi = {
+    mountFabUnderBrand,
+  };
 })();

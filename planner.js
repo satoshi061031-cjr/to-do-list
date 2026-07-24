@@ -338,7 +338,7 @@
       out.push({
         id: x.id,
         title: typeof x.title === "string" ? x.title.trim().slice(0, 80) || "Untitled" : "Untitled",
-        emoji: typeof x.emoji === "string" && x.emoji.trim() ? String(x.emoji).trim().slice(0, 8) : "📌",
+        emoji: typeof x.emoji === "string" && x.emoji.trim() ? String(x.emoji).trim().slice(0, 8) : "",
       });
     }
     return out;
@@ -810,7 +810,7 @@
         .catch((error) => setTeamStatus(error.message || "Failed to add column.", true));
       return;
     }
-    const column = { id: id(), title: "New column", emoji: "📌" };
+    const column = { id: id(), title: "New column", emoji: "" };
     plannerColumns.push(column);
     savePlannerState();
     renderPlannerSidebar();
@@ -1365,11 +1365,11 @@
     emojiInp.className = "planner-column-emoji";
     emojiInp.value = col.emoji;
     emojiInp.maxLength = 8;
-    emojiInp.placeholder = "📌";
+    emojiInp.placeholder = "·";
     emojiInp.setAttribute("aria-label", "Column icon");
     emojiInp.title = "Column icon";
     emojiInp.addEventListener("change", () => {
-      updatePlannerColumn(col.id, { emoji: emojiInp.value.trim().slice(0, 8) || "📌" });
+      updatePlannerColumn(col.id, { emoji: emojiInp.value.trim().slice(0, 8) || "" });
     });
 
     const titleInp = document.createElement("input");

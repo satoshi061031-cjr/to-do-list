@@ -35,6 +35,7 @@ const files = [
   "agent-data.js",
   "agent-ui.js",
   "daily-loop.js",
+  "bento-rail.js",
   "light-background.png",
   "dark-background.png",
   "welcome-sticker.png",
