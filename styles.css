@@ -4563,7 +4563,7 @@ body.has-bento-rail .backdrop.is-visible {
 }
 
 body.has-bento-rail .sidebar-trigger {
-  display: inline-flex;
+  display: none;
 }
 
 @media (max-width: 1100px) {
@@ -4615,10 +4615,6 @@ body.has-bento-rail .sidebar-trigger {
     left: 50%;
     bottom: calc(100% + 0.45rem);
     transform: translateX(-50%);
-  }
-
-  body.has-bento-rail .sidebar-trigger {
-    display: inline-flex;
   }
 
   body.has-bento-rail .sidebar {
