@@ -123,7 +123,7 @@
   const eveningReviewAlertsBtn = document.getElementById("evening-review-alerts");
 
   /** @type {"all" | "active" | "completed" | "today"} */
-  let filter = "today";
+  let filter = document.body.classList.contains("todo-mobile") ? "active" : "today";
 
   /** @type {"personal" | "assigned"} */
   let todoSource = "personal";
@@ -757,10 +757,15 @@
     }
   });
 
+  function dueDayFilterApplies() {
+    if (!viewDueDateFilter) return false;
+    if (document.body.classList.contains("todo-mobile")) return true;
+    return selectedCategoryKey !== "__all__";
+  }
+
   function visibleTodosPipeline() {
     let list = todos.filter(todoMatchesCategory);
-    if (viewDueDateFilter && selectedCategoryKey !== "__all__")
-      list = list.filter((t) => t.dueDate === viewDueDateFilter);
+    if (dueDayFilterApplies()) list = list.filter((t) => t.dueDate === viewDueDateFilter);
     if (filter === "today") {
       const today = todayIso();
       list = list.filter((t) => t.dueDate === today);
@@ -775,18 +780,20 @@
 
   function todosInCategoryAndDayScope() {
     let list = todos.filter(todoMatchesCategory);
-    if (viewDueDateFilter && selectedCategoryKey !== "__all__")
-      list = list.filter((t) => t.dueDate === viewDueDateFilter);
+    if (dueDayFilterApplies()) list = list.filter((t) => t.dueDate === viewDueDateFilter);
     return list;
   }
 
   function syncDueDayFilterBar() {
-    if (!viewDueDateFilter || selectedCategoryKey === "__all__") {
+    if (!dueDayFilterBar) return;
+    if (!dueDayFilterApplies()) {
       dueDayFilterBar.hidden = true;
       return;
     }
     dueDayFilterBar.hidden = false;
-    dueDayFilterLabel.textContent = `Tasks due ${formatDueDate(viewDueDateFilter)}`;
+    if (dueDayFilterLabel) {
+      dueDayFilterLabel.textContent = `Tasks due ${formatDueDate(viewDueDateFilter)}`;
+    }
   }
 
   async function apiRequest(path, init) {
@@ -1167,13 +1174,16 @@
 
   function focusTodayList() {
     if (todoSource !== "personal") setTodoSource("personal");
-    setFilter("today");
+    // Mobile Loop "To do" maps to active; desktop Today stays due-today.
+    setFilter(document.body.classList.contains("todo-mobile") ? "active" : "today");
     queueMicrotask(() => {
       const target = dailyLoopEl || statusFiltersEl || listEl;
       if (target && typeof target.scrollIntoView === "function") {
         target.scrollIntoView({ behavior: "smooth", block: "nearest" });
       }
-      if (input && todoSource === "personal") input.focus();
+      if (input && todoSource === "personal" && !document.body.classList.contains("todo-mobile")) {
+        input.focus();
+      }
     });
   }
 
@@ -1476,7 +1486,9 @@
             ? `No tasks in "${categoryLabelById(selectedCategoryKey)}" yet.`
             : "Nothing in this category.";
         } else if (todos.length === 0) {
-          emptyEl.textContent = "Add a task above.";
+          emptyEl.textContent = document.body.classList.contains("todo-mobile")
+            ? "Tap + to add a task."
+            : "Add a task above.";
         } else if (filter === "today") {
           const overdueOpen = todos.filter((t) => isOverdue(t.dueDate, t.completed));
           emptyEl.textContent =
@@ -2130,13 +2142,16 @@
     dailyLoopPillAssigned.addEventListener("click", () => setTodoSource("assigned"));
   }
 
-  dueDayFilterClear.addEventListener("click", () => {
-    viewDueDateFilter = null;
-    closeDueDayPage();
-  });
+  if (dueDayFilterClear) {
+    dueDayFilterClear.addEventListener("click", () => {
+      viewDueDateFilter = null;
+      closeDueDayPage();
+      render();
+    });
+  }
 
-  dueDayPageCloseBtn.addEventListener("click", () => closeDueDayPage());
-  dueDayPageBackdrop.addEventListener("click", () => closeDueDayPage());
+  if (dueDayPageCloseBtn) dueDayPageCloseBtn.addEventListener("click", () => closeDueDayPage());
+  if (dueDayPageBackdrop) dueDayPageBackdrop.addEventListener("click", () => closeDueDayPage());
 
   if (welcomeEnterBtn && welcomeScreen) {
     welcomeEnterBtn.addEventListener("click", () => {
@@ -2145,4 +2160,28 @@
       input.focus();
     });
   }
+
+  function selectDueDay(iso) {
+    if (!iso || iso === todayIso()) {
+      viewDueDateFilter = null;
+      if (document.body.classList.contains("todo-mobile") && filter === "today") {
+        setFilter("active");
+        return;
+      }
+      render();
+      return;
+    }
+    viewDueDateFilter = iso;
+    if (filter === "today") {
+      setFilter("active");
+      return;
+    }
+    render();
+  }
+
+  window.DailySpaceTodo = {
+    selectDueDay,
+    setFilter,
+    openDueDayPage,
+  };
 })();

@@ -137,7 +137,7 @@ Do not switch to Inter, Roboto, Arial, or system-ui as the brand voice.
 - Desktop: multi-column grids with breathing room; mobile: single column, extra top padding for the menu trigger.
 - One job per section: one heading, one short supporting line, one primary interaction cluster.
 - Todo hub may use a quiet glass bento layout (slim page rail + light metric tiles + task panel). Keep tokens and Daily Loop controls; do not treat the first viewport as a dense stats dashboard.
-- Todo mobile uses a separate quiet bento entry (`todo-m.html`) with the same tokens — large-radius tiles, primary/tertiary accents, and a bottom page rail — not a second color system.
+- Todo mobile uses a separate soft Loop home (`todo-m.html`) that can diverge in layout from desktop — greeting, week strip, status pills, white task sheet, floating dock + yellow FAB — while keeping the same color tokens (yellow `tertiary` accent, never a second brand hue).
 
 ## Elevation & Depth
 

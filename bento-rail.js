@@ -169,21 +169,28 @@
     syncBrandMark(rail);
 
     let toggle = document.getElementById("theme-toggle");
-    if (toggle && !rail.contains(toggle)) {
-      toggle.classList.add("bento-rail-theme");
-      rail.appendChild(toggle);
-    } else if (!toggle) {
+    if (!toggle) {
       toggle = document.createElement("button");
       toggle.type = "button";
-      toggle.className = "theme-toggle bento-rail-theme";
+      toggle.className = "theme-toggle";
       toggle.id = "theme-toggle";
       toggle.setAttribute("aria-pressed", "false");
       toggle.innerHTML =
         `<span class="theme-toggle-icon" aria-hidden="true">D</span>` +
         `<span class="theme-toggle-label">Dark</span>`;
-      rail.appendChild(toggle);
+      document.body.appendChild(toggle);
+    }
+
+    if (isNarrow()) {
+      // Keep theme outside the floating dock on mobile.
+      if (rail.contains(toggle)) document.body.appendChild(toggle);
+      toggle.classList.remove("bento-rail-theme");
+      if (!toggle.closest(".m-hero")) toggle.classList.add("m-theme-float");
+      else toggle.classList.remove("m-theme-float");
     } else {
+      toggle.classList.remove("m-theme-float");
       toggle.classList.add("bento-rail-theme");
+      if (!rail.contains(toggle)) rail.appendChild(toggle);
     }
 
     markCurrent(rail);

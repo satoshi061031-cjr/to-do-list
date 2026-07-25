@@ -11,9 +11,10 @@
     <script src="i18n.js"></script>
     <script src="bento-rail.js"></script>
     <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="m-dock.css" />
     <link rel="stylesheet" href="todo-mobile.css" />
   </head>
-  <body class="todo-mobile">
+  <body class="todo-mobile todo-loop">
     <button type="button" class="sidebar-trigger" id="sidebar-trigger" aria-controls="sidebar" aria-expanded="false">
       Menu
     </button>
@@ -57,235 +58,173 @@
       </aside>
 
       <main class="main-area">
-        <div class="app bento-shell">
-          <header class="bento-header">
-            <h1 class="title bento-title">Today</h1>
-            <p class="bento-header-hint" id="composer-hint">Focus</p>
+        <div class="app m-shell">
+          <header class="m-hero">
+            <div class="m-hero-copy">
+              <h1 class="m-greet" id="m-greet-title">Hey there</h1>
+              <p class="m-greet-sub">Let's make progress today!</p>
+            </div>
+            <button type="button" class="theme-toggle m-theme" id="theme-toggle" aria-pressed="false" aria-label="Toggle theme">
+              <span class="theme-toggle-icon" aria-hidden="true">☀</span>
+              <span class="theme-toggle-label">Theme</span>
+            </button>
           </header>
 
-          <div class="bento-grid">
-            <div class="daily-loop-pills bento-metrics" id="daily-loop-pills" role="group" aria-label="Today summary">
-              <button type="button" class="daily-loop-pill bento-card bento-card-soft bento-area-due" id="daily-loop-pill-due" data-loop-action="due">
-                <span class="daily-loop-pill-label">Due today</span>
-                <span class="daily-loop-pill-count" id="daily-loop-due-count">0</span>
+          <div class="m-week" id="m-week-strip" role="listbox" aria-label="Week"></div>
+
+          <div class="m-status" id="todo-status-filters" role="tablist" aria-label="Filter tasks">
+            <button type="button" class="filter-btn m-status-btn is-active" data-filter="active" role="tab" aria-selected="true">
+              <span class="m-status-ico" aria-hidden="true">☰</span>
+              To do
+            </button>
+            <button type="button" class="filter-btn m-status-btn" data-filter="completed" role="tab" aria-selected="false">
+              Completed
+            </button>
+            <button type="button" class="filter-btn m-status-btn" data-filter="today" role="tab" aria-selected="false">
+              Pending
+            </button>
+          </div>
+
+          <!-- Kept for app.js Daily Loop wiring; visually folded into the sheet -->
+          <div class="m-sr-only" aria-hidden="true">
+            <div class="daily-loop-pills" id="daily-loop-pills">
+              <button type="button" id="daily-loop-pill-due" data-loop-action="due">
+                <span id="daily-loop-due-count">0</span>
               </button>
-              <button type="button" class="daily-loop-pill bento-card bento-card-ink bento-area-assigned" id="daily-loop-pill-assigned" data-loop-action="assigned">
-                <span class="daily-loop-pill-label">Assigned</span>
-                <span class="daily-loop-pill-count" id="daily-loop-assigned-count">0</span>
+              <button type="button" id="daily-loop-pill-assigned" data-loop-action="assigned">
+                <span id="daily-loop-assigned-count">0</span>
               </button>
-              <button type="button" class="daily-loop-pill bento-card bento-card-soft bento-area-overdue" id="daily-loop-pill-overdue" data-loop-action="overdue">
-                <span class="daily-loop-pill-label">Overdue</span>
-                <span class="daily-loop-pill-count" id="daily-loop-overdue-count">0</span>
+              <button type="button" id="daily-loop-pill-overdue" data-loop-action="overdue">
+                <span id="daily-loop-overdue-count">0</span>
               </button>
             </div>
+            <p id="daily-loop-progress">Done today 0 / 0</p>
+            <div id="daily-loop-progress-fill"></div>
+            <button type="button" id="daily-loop-focus">Focus today</button>
+            <div id="app-clock-hour"></div>
+            <div id="app-clock-minute"></div>
+            <div id="app-clock-second"></div>
+            <time id="app-clock-digital"></time>
+            <p id="app-clock-date"></p>
+          </div>
 
-            <div class="bento-card bento-card-soft bento-area-progress">
-              <p class="bento-card-kicker">Done today</p>
-              <p class="daily-loop-progress" id="daily-loop-progress">Done today 0 / 0</p>
-              <div class="bento-progress-track" aria-hidden="true">
-                <div class="bento-progress-fill" id="daily-loop-progress-fill"></div>
-              </div>
-            </div>
-
-            <div class="bento-card bento-card-accent bento-area-focus">
-              <p class="bento-card-kicker">Focus</p>
-              <p class="bento-focus-copy">Work the list that matters for today.</p>
-              <button type="button" class="btn btn-primary daily-loop-focus" id="daily-loop-focus">
-                Focus today
-              </button>
-            </div>
-
-            <section class="app-atmosphere app-module bento-card bento-card-soft bento-area-clock" data-module-id="atmosphere" aria-label="Clock">
-              <div class="app-clock" aria-hidden="true">
-                <div class="app-clock-face">
-                  <span class="app-clock-tick" style="--i: 0"></span>
-                  <span class="app-clock-tick" style="--i: 1"></span>
-                  <span class="app-clock-tick" style="--i: 2"></span>
-                  <span class="app-clock-tick" style="--i: 3"></span>
-                  <span class="app-clock-tick" style="--i: 4"></span>
-                  <span class="app-clock-tick" style="--i: 5"></span>
-                  <span class="app-clock-tick" style="--i: 6"></span>
-                  <span class="app-clock-tick" style="--i: 7"></span>
-                  <span class="app-clock-tick" style="--i: 8"></span>
-                  <span class="app-clock-tick" style="--i: 9"></span>
-                  <span class="app-clock-tick" style="--i: 10"></span>
-                  <span class="app-clock-tick" style="--i: 11"></span>
-                  <div class="app-clock-hand app-clock-hand-hour" id="app-clock-hour"></div>
-                  <div class="app-clock-hand app-clock-hand-minute" id="app-clock-minute"></div>
-                  <div class="app-clock-hand app-clock-hand-second" id="app-clock-second"></div>
-                  <div class="app-clock-pivot"></div>
+          <section class="m-sheet task-module app-module" data-module-id="tasks" aria-label="To-do tasks">
+            <section class="daily-loop m-loop-block" id="daily-loop" aria-label="Daily loop">
+              <ul class="todo-list daily-loop-list" id="daily-loop-list" aria-label="Due today"></ul>
+              <p class="daily-loop-empty" id="daily-loop-empty" hidden>Nothing due today.</p>
+              <a class="daily-loop-reminders" id="daily-loop-reminders" href="calendar.html" hidden>
+                <div class="daily-loop-reminders-head">
+                  <span class="daily-loop-reminders-label">Reminders</span>
+                  <span class="daily-loop-reminders-link">Open calendar</span>
                 </div>
-              </div>
-              <time class="app-clock-digital" id="app-clock-digital" datetime=""></time>
-              <p class="app-clock-date" id="app-clock-date"></p>
+                <ul class="daily-loop-reminders-list" id="daily-loop-reminders-list"></ul>
+              </a>
             </section>
 
-            <section class="evening-review bento-card bento-card-soft bento-area-evening" id="evening-review" aria-label="Evening review" hidden>
-              <div class="evening-review-top">
-                <p class="evening-review-kicker">Evening review</p>
-                <h2 class="evening-review-title" id="evening-review-title">How did today go?</h2>
-              </div>
-              <p class="evening-review-summary" id="evening-review-summary"></p>
-              <ul class="evening-review-stats" id="evening-review-stats"></ul>
-              <p class="evening-review-mail" id="evening-review-mail" hidden></p>
-              <p class="evening-review-tally" id="evening-review-tally" hidden></p>
-              <div class="evening-review-actions">
-                <button type="button" class="btn btn-primary" id="evening-review-focus">Focus remaining</button>
-                <button type="button" class="btn" id="evening-review-alerts">Enable reminder alerts</button>
-              </div>
-            </section>
+            <div class="todo-source-switch m-source" role="tablist" aria-label="Task source">
+              <button type="button" class="todo-source-btn is-active" data-todo-source="personal" role="tab" aria-selected="true">
+                Personal
+              </button>
+              <button type="button" class="todo-source-btn" data-todo-source="assigned" role="tab" aria-selected="false">
+                Assigned
+              </button>
+            </div>
 
-            <section class="task-module app-module bento-card bento-card-soft bento-area-tasks" data-module-id="tasks" aria-label="To-do tasks">
-              <section class="daily-loop" id="daily-loop" aria-label="Daily loop">
-                <ul class="todo-list daily-loop-list" id="daily-loop-list" aria-label="Due today"></ul>
-                <p class="daily-loop-empty" id="daily-loop-empty" hidden>Nothing due today.</p>
-                <a class="daily-loop-reminders" id="daily-loop-reminders" href="calendar.html" hidden>
-                  <div class="daily-loop-reminders-head">
-                    <span class="daily-loop-reminders-label">Reminders</span>
-                    <span class="daily-loop-reminders-link">Open calendar</span>
-                  </div>
-                  <ul class="daily-loop-reminders-list" id="daily-loop-reminders-list"></ul>
-                </a>
-              </section>
+            <ul class="todo-list m-todo-list" id="todo-list" aria-live="polite"></ul>
+            <p class="empty-state" id="empty-state">Tap + to add a task.</p>
+            <footer class="footer m-footer">
+              <span id="count-text">0 tasks left</span>
+              <button type="button" class="btn btn-ghost" id="clear-completed" hidden>Clear completed</button>
+            </footer>
 
-              <form class="add-form add-form-notion" id="add-form" autocomplete="off">
-                <div class="add-form-row">
-                  <span class="composer-glyph" aria-hidden="true">□</span>
-                  <input
-                    type="text"
-                    id="todo-input"
-                    class="todo-input"
-                    placeholder="Type a task, or / for commands"
-                    maxlength="500"
-                    aria-label="New task"
-                    aria-controls="todo-slash-menu"
-                    aria-autocomplete="list"
-                  />
-                  <button type="submit" class="btn btn-primary add-form-submit">Add</button>
-                </div>
-                <div class="add-form-deadline">
-                  <div class="deadline-picker">
-                    <input type="hidden" id="todo-deadline" value="" />
-                    <div class="deadline-field">
-                      <button
-                        type="button"
-                        class="deadline-trigger"
-                        id="deadline-trigger"
-                        aria-expanded="false"
-                        aria-haspopup="dialog"
-                        aria-controls="calendar-panel"
-                        aria-label="Due date"
-                      >
-                        <span class="deadline-trigger-text" id="deadline-display">Pick a date…</span>
-                        <svg
-                          class="deadline-trigger-icon"
-                          width="20"
-                          height="20"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2"
-                          stroke-linecap="round"
-                          aria-hidden="true"
-                        >
-                          <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                          <line x1="16" y1="2" x2="16" y2="6" />
-                          <line x1="8" y1="2" x2="8" y2="6" />
-                          <line x1="3" y1="10" x2="21" y2="10" />
-                        </svg>
-                      </button>
-                      <button
-                        type="button"
-                        class="deadline-clear-btn"
-                        id="deadline-clear"
-                        hidden
-                        aria-label="Clear due date"
-                      >
-                        ×
-                      </button>
-                    </div>
-                    <div
-                      class="calendar-popover"
-                      id="calendar-panel"
-                      hidden
-                      role="dialog"
-                      aria-modal="true"
-                      aria-label="Pick a due date"
+            <p class="todo-assigned-hint" id="todo-assigned-hint" hidden>
+              Shared tasks assigned to you from Planner team boards.
+            </p>
+            <div class="due-day-filter-bar" id="due-day-filter-bar" hidden>
+              <span class="due-day-filter-label" id="due-day-filter-label"></span>
+              <button type="button" class="btn due-day-filter-clear" id="due-day-filter-clear">Clear day</button>
+            </div>
+          </section>
+
+          <section class="evening-review m-evening" id="evening-review" aria-label="Evening review" hidden>
+            <div class="evening-review-top">
+              <p class="evening-review-kicker">Evening review</p>
+              <h2 class="evening-review-title" id="evening-review-title">How did today go?</h2>
+            </div>
+            <p class="evening-review-summary" id="evening-review-summary"></p>
+            <ul class="evening-review-stats" id="evening-review-stats"></ul>
+            <p class="evening-review-mail" id="evening-review-mail" hidden></p>
+            <p class="evening-review-tally" id="evening-review-tally" hidden></p>
+            <div class="evening-review-actions">
+              <button type="button" class="btn btn-primary" id="evening-review-focus">Focus remaining</button>
+              <button type="button" class="btn" id="evening-review-alerts">Enable reminder alerts</button>
+            </div>
+          </section>
+
+          <div class="m-composer" id="m-composer" hidden>
+            <form class="add-form add-form-notion" id="add-form" autocomplete="off">
+              <div class="add-form-row">
+                <span class="composer-glyph" aria-hidden="true">□</span>
+                <input
+                  type="text"
+                  id="todo-input"
+                  class="todo-input"
+                  placeholder="What do you need to do?"
+                  maxlength="500"
+                  aria-label="New task"
+                  aria-controls="todo-slash-menu"
+                  aria-autocomplete="list"
+                />
+                <button type="submit" class="btn btn-primary add-form-submit">Add</button>
+              </div>
+              <div class="add-form-deadline">
+                <div class="deadline-picker">
+                  <input type="hidden" id="todo-deadline" value="" />
+                  <div class="deadline-field">
+                    <button
+                      type="button"
+                      class="deadline-trigger"
+                      id="deadline-trigger"
+                      aria-expanded="false"
+                      aria-haspopup="dialog"
+                      aria-controls="calendar-panel"
+                      aria-label="Due date"
                     >
-                      <div class="calendar-header">
-                        <button type="button" class="calendar-nav" id="cal-prev" aria-label="Previous month">
-                          ‹
-                        </button>
-                        <div class="calendar-title" id="calendar-title"></div>
-                        <button type="button" class="calendar-nav" id="cal-next" aria-label="Next month">›</button>
-                      </div>
-                      <div class="app-cal-weekdays">
-                        <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
-                      </div>
-                      <div class="app-cal-grid" id="calendar-grid"></div>
+                      <span class="deadline-trigger-text" id="deadline-display">Pick a date…</span>
+                    </button>
+                    <button type="button" class="deadline-clear-btn" id="deadline-clear" hidden aria-label="Clear due date">
+                      ×
+                    </button>
+                  </div>
+                  <div
+                    class="calendar-popover"
+                    id="calendar-panel"
+                    hidden
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Pick a due date"
+                  >
+                    <div class="calendar-header">
+                      <button type="button" class="calendar-nav" id="cal-prev" aria-label="Previous month">‹</button>
+                      <div class="calendar-title" id="calendar-title"></div>
+                      <button type="button" class="calendar-nav" id="cal-next" aria-label="Next month">›</button>
                     </div>
+                    <div class="app-cal-weekdays">
+                      <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+                    </div>
+                    <div class="app-cal-grid" id="calendar-grid"></div>
                   </div>
                 </div>
-                <div
-                  class="slash-menu"
-                  id="todo-slash-menu"
-                  hidden
-                  role="listbox"
-                  aria-label="Commands"
-                ></div>
-              </form>
-
-              <div class="toolbar toolbar-quiet">
-                <div class="todo-source-switch" role="tablist" aria-label="Task source">
-                  <button type="button" class="todo-source-btn is-active" data-todo-source="personal" role="tab" aria-selected="true">
-                    Personal
-                  </button>
-                  <button type="button" class="todo-source-btn" data-todo-source="assigned" role="tab" aria-selected="false">
-                    Assigned to me
-                  </button>
-                </div>
-                <div class="filters" id="todo-status-filters" role="tablist" aria-label="Filter tasks">
-                  <button type="button" class="filter-btn is-active" data-filter="today" role="tab" aria-selected="true">
-                    Today
-                  </button>
-                  <button type="button" class="filter-btn" data-filter="all" role="tab" aria-selected="false">
-                    All
-                  </button>
-                  <button type="button" class="filter-btn" data-filter="active" role="tab" aria-selected="false">
-                    Active
-                  </button>
-                  <button type="button" class="filter-btn" data-filter="completed" role="tab" aria-selected="false">
-                    Done
-                  </button>
-                </div>
-                <button type="button" class="btn btn-ghost" id="clear-completed" hidden>Clear completed</button>
               </div>
-              <p class="todo-assigned-hint" id="todo-assigned-hint" hidden>
-                Shared tasks assigned to you from Planner team boards.
-              </p>
-
-              <div class="due-day-filter-bar" id="due-day-filter-bar" hidden>
-                <span class="due-day-filter-label" id="due-day-filter-label"></span>
-                <button type="button" class="btn due-day-filter-clear" id="due-day-filter-clear">Clear day</button>
-              </div>
-
-              <ul class="todo-list" id="todo-list" aria-live="polite"></ul>
-
-              <p class="empty-state" id="empty-state">Type above to add a task, or press / for commands.</p>
-
-              <footer class="footer">
-                <span id="count-text">0 tasks left</span>
-              </footer>
-            </section>
+              <div class="slash-menu" id="todo-slash-menu" hidden role="listbox" aria-label="Commands"></div>
+            </form>
+            <button type="button" class="m-composer-close" id="m-composer-close">Done</button>
           </div>
         </div>
       </main>
     </div>
 
-    <button type="button" class="theme-toggle" id="theme-toggle" aria-pressed="false">
-      <span class="theme-toggle-icon" aria-hidden="true">D</span>
-      <span class="theme-toggle-label">Dark</span>
-    </button>
+    <button type="button" class="m-fab" id="m-fab-add" aria-label="Add task">+</button>
 
     <div id="due-day-page" class="due-day-page" hidden role="dialog" aria-modal="true" aria-labelledby="due-day-page-title">
       <div class="due-day-page-backdrop" id="due-day-page-backdrop" tabindex="-1" aria-hidden="true"></div>
@@ -300,14 +239,7 @@
       </div>
     </div>
 
-    <div
-      class="command-palette"
-      id="todo-command-palette"
-      hidden
-      role="dialog"
-      aria-modal="true"
-      aria-label="Jump"
-    >
+    <div class="command-palette" id="todo-command-palette" hidden role="dialog" aria-modal="true" aria-label="Jump">
       <div class="command-palette-backdrop" id="todo-command-backdrop"></div>
       <div class="command-palette-panel">
         <input
@@ -323,7 +255,10 @@
       </div>
     </div>
 
+    <p id="composer-hint" class="m-sr-only" hidden>Focus</p>
+
     <script src="app.js"></script>
+    <script src="todo-mobile.js"></script>
     <script src="agent-data.js"></script>
     <script src="agent-ui.js"></script>
   </body>

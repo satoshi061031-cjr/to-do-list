@@ -4579,51 +4579,7 @@ body.has-bento-rail .sidebar-trigger {
 }
 
 @media (max-width: 819px) {
-  body.has-bento-rail .layout {
-    flex-direction: column;
-    padding: var(--space-sm);
-    max-width: none;
-  }
-
-  body.has-bento-rail .bento-rail {
-    position: fixed;
-    left: 50%;
-    bottom: max(0.65rem, env(safe-area-inset-bottom, 0px));
-    z-index: 220;
-    flex-direction: row;
-    width: auto;
-    max-width: calc(100vw - 1.25rem);
-    transform: translateX(-50%);
-    padding: 0.45rem 0.55rem;
-    gap: 0.2rem;
-  }
-
-  body.has-bento-rail .bento-rail-nav {
-    flex-direction: row;
-    margin-top: 0;
-    flex: 0 1 auto;
-  }
-
-  body.has-bento-rail .bento-rail-brand,
-  body.has-bento-rail .bento-rail-link,
-  body.has-bento-rail .bento-rail-theme.theme-toggle {
-    width: 2.35rem;
-    height: 2.35rem;
-  }
-
-  body.has-bento-rail .bento-rail-more-panel {
-    left: 50%;
-    bottom: calc(100% + 0.45rem);
-    transform: translateX(-50%);
-  }
-
-  body.has-bento-rail .sidebar {
-    left: 0.75rem;
-    right: 0.75rem;
-    width: auto;
-    top: calc(env(safe-area-inset-top, 0px) + 3.5rem);
-    bottom: calc(env(safe-area-inset-bottom, 0px) + 5.25rem);
-  }
+  /* Mobile dock visuals live in m-dock.css (shared with Calendar / Planner / Mail). */
 
   body.todo-bento .app.bento-shell {
     padding: var(--space-md);
