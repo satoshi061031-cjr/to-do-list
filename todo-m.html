@@ -1,17 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head> <link rel="manifest" href="manifest.json">
+  <head>
+    <link rel="manifest" href="manifest.json" />
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>To-do list</title>
+    <title>Today · Daily Space</title>
     <script src="device-route.js"></script>
     <script src="daily-loop.js"></script>
     <script src="theme.js"></script>
     <script src="i18n.js"></script>
     <script src="bento-rail.js"></script>
     <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="todo-mobile.css" />
   </head>
-  <body class="todo-bento">
+  <body class="todo-mobile">
     <button type="button" class="sidebar-trigger" id="sidebar-trigger" aria-controls="sidebar" aria-expanded="false">
       Menu
     </button>
@@ -41,7 +43,7 @@
           </div>
           <div class="sidebar-planner-block">
             <div class="sidebar-heading">Pages</div>
-            <a href="todo.html#today" class="sidebar-page-link is-current" aria-current="page">Todo</a>
+            <a href="todo-m.html#today" class="sidebar-page-link is-current" aria-current="page">Todo</a>
             <a href="calendar.html" class="sidebar-page-link">Calendar</a>
             <a href="planner.html" class="sidebar-page-link">Planner</a>
             <a href="mail.html" class="sidebar-page-link">Mail</a>
@@ -58,7 +60,7 @@
         <div class="app bento-shell">
           <header class="bento-header">
             <h1 class="title bento-title">Today</h1>
-            <p class="bento-header-hint" id="composer-hint">⌘K · ?</p>
+            <p class="bento-header-hint" id="composer-hint">Focus</p>
           </header>
 
           <div class="bento-grid">
@@ -67,13 +69,29 @@
                 <span class="daily-loop-pill-label">Due today</span>
                 <span class="daily-loop-pill-count" id="daily-loop-due-count">0</span>
               </button>
-              <button type="button" class="daily-loop-pill bento-card bento-card-soft bento-area-assigned" id="daily-loop-pill-assigned" data-loop-action="assigned">
+              <button type="button" class="daily-loop-pill bento-card bento-card-ink bento-area-assigned" id="daily-loop-pill-assigned" data-loop-action="assigned">
                 <span class="daily-loop-pill-label">Assigned</span>
                 <span class="daily-loop-pill-count" id="daily-loop-assigned-count">0</span>
               </button>
               <button type="button" class="daily-loop-pill bento-card bento-card-soft bento-area-overdue" id="daily-loop-pill-overdue" data-loop-action="overdue">
                 <span class="daily-loop-pill-label">Overdue</span>
                 <span class="daily-loop-pill-count" id="daily-loop-overdue-count">0</span>
+              </button>
+            </div>
+
+            <div class="bento-card bento-card-soft bento-area-progress">
+              <p class="bento-card-kicker">Done today</p>
+              <p class="daily-loop-progress" id="daily-loop-progress">Done today 0 / 0</p>
+              <div class="bento-progress-track" aria-hidden="true">
+                <div class="bento-progress-fill" id="daily-loop-progress-fill"></div>
+              </div>
+            </div>
+
+            <div class="bento-card bento-card-accent bento-area-focus">
+              <p class="bento-card-kicker">Focus</p>
+              <p class="bento-focus-copy">Work the list that matters for today.</p>
+              <button type="button" class="btn btn-primary daily-loop-focus" id="daily-loop-focus">
+                Focus today
               </button>
             </div>
 
@@ -101,19 +119,6 @@
               <time class="app-clock-digital" id="app-clock-digital" datetime=""></time>
               <p class="app-clock-date" id="app-clock-date"></p>
             </section>
-
-            <div class="bento-card bento-card-soft bento-area-progress">
-              <p class="bento-card-kicker">Done today</p>
-              <p class="daily-loop-progress" id="daily-loop-progress">Done today 0 / 0</p>
-            </div>
-
-            <div class="bento-card bento-card-soft bento-area-focus">
-              <p class="bento-card-kicker">Focus</p>
-              <p class="bento-focus-copy">Work the list that matters for today.</p>
-              <button type="button" class="btn btn-primary daily-loop-focus" id="daily-loop-focus">
-                Focus today
-              </button>
-            </div>
 
             <section class="evening-review bento-card bento-card-soft bento-area-evening" id="evening-review" aria-label="Evening review" hidden>
               <div class="evening-review-top">

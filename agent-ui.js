@@ -4,7 +4,8 @@
 
   function currentPage() {
     const name = window.location.pathname.split("/").pop() || "index.html";
-    return name.replace(/\.html$/i, "") || "welcome";
+    const page = name.replace(/\.html$/i, "") || "welcome";
+    return page === "todo-m" ? "todo" : page;
   }
 
   const panel = document.createElement("div");

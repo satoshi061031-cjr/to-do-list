@@ -101,6 +101,7 @@
 
   const dailyLoopEl = document.getElementById("daily-loop");
   const dailyLoopProgress = document.getElementById("daily-loop-progress");
+  const dailyLoopProgressFill = document.getElementById("daily-loop-progress-fill");
   const dailyLoopFocusBtn = document.getElementById("daily-loop-focus");
   const dailyLoopPillDue = document.getElementById("daily-loop-pill-due");
   const dailyLoopPillOverdue = document.getElementById("daily-loop-pill-overdue");
@@ -656,7 +657,10 @@
   }
 
   function isTodoBento() {
-    return document.body.classList.contains("todo-bento");
+    return (
+      document.body.classList.contains("todo-bento") ||
+      document.body.classList.contains("todo-mobile")
+    );
   }
 
   function canUseSidebarDrawer() {
@@ -1204,6 +1208,10 @@
 
     if (dailyLoopProgress) {
       dailyLoopProgress.textContent = `Done today ${dueTodayDone} / ${dueToday.length}`;
+    }
+    if (dailyLoopProgressFill) {
+      const pct = dueToday.length ? Math.round((dueTodayDone / dueToday.length) * 100) : 0;
+      dailyLoopProgressFill.style.width = `${pct}%`;
     }
 
     if (dailyLoopDueCount) dailyLoopDueCount.textContent = String(dueTodayOpen.length);

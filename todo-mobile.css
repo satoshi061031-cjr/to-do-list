@@ -1,0 +1,311 @@
+/* Mobile-only Todo bento (todo-m.html). Tokens from DESIGN.md / styles.css. */
+
+body.todo-mobile .sidebar-trigger {
+  display: none;
+}
+
+body.todo-mobile .app.bento-shell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: var(--space-md);
+  padding-top: calc(env(safe-area-inset-top, 0px) + var(--space-md));
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 5.5rem);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+body.todo-mobile .bento-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: 0 var(--space-xs);
+}
+
+body.todo-mobile .bento-title {
+  margin: 0;
+  font-size: clamp(1.85rem, 7vw, 2.35rem);
+  letter-spacing: 0.02em;
+  font-weight: 400;
+}
+
+body.todo-mobile .bento-header-hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--type-label-size, 0.72rem);
+  letter-spacing: var(--type-label-tracking, 0.08em);
+  text-transform: uppercase;
+}
+
+body.todo-mobile .bento-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: minmax(5.5rem, auto);
+  gap: var(--space-md);
+  align-items: stretch;
+}
+
+body.todo-mobile .bento-metrics,
+body.todo-mobile .daily-loop-pills,
+body.todo-mobile .daily-loop-pills:not(:has(.daily-loop-pill:not(.is-empty))) {
+  display: contents;
+}
+
+body.todo-mobile .bento-card {
+  margin: 0;
+  padding: var(--space-md);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  box-shadow: var(--shadow-pop);
+  backdrop-filter: blur(14px) saturate(1.08);
+  -webkit-backdrop-filter: blur(14px) saturate(1.08);
+  text-align: left;
+  min-width: 0;
+}
+
+body.todo-mobile .bento-card-soft {
+  background: var(--glass);
+  color: var(--text);
+}
+
+body.todo-mobile .bento-card-ink {
+  background: var(--primary);
+  color: var(--on-primary);
+  border-color: color-mix(in srgb, var(--on-primary) 12%, transparent);
+}
+
+body.todo-mobile .bento-card-ink .daily-loop-pill-label {
+  color: color-mix(in srgb, var(--on-primary) 72%, transparent);
+}
+
+body.todo-mobile .bento-card-ink .daily-loop-pill-count {
+  color: var(--on-primary);
+}
+
+body.todo-mobile .bento-card-accent {
+  background: var(--tertiary);
+  color: var(--on-tertiary);
+  border-color: color-mix(in srgb, var(--on-tertiary) 10%, transparent);
+}
+
+body.todo-mobile .bento-card-accent .bento-card-kicker {
+  color: var(--on-tertiary);
+}
+
+body.todo-mobile .bento-card-accent .bento-focus-copy {
+  color: color-mix(in srgb, var(--on-tertiary) 78%, transparent);
+}
+
+body.todo-mobile .bento-card-accent .btn-primary {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+body.todo-mobile .bento-card-accent .btn-primary:hover {
+  background: color-mix(in srgb, var(--primary) 88%, black);
+}
+
+body.todo-mobile .bento-card-kicker {
+  margin: 0 0 var(--space-xs);
+  color: var(--highlight);
+  font-size: var(--type-label-size, 0.72rem);
+  font-weight: 600;
+  letter-spacing: var(--type-label-tracking, 0.08em);
+  text-transform: uppercase;
+}
+
+body.todo-mobile .bento-focus-copy {
+  margin: 0 0 var(--space-sm);
+  font-size: var(--type-body-size, 1rem);
+  line-height: 1.45;
+  letter-spacing: 0.02em;
+}
+
+body.todo-mobile .bento-area-due {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+body.todo-mobile .bento-area-assigned {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 100%;
+}
+
+body.todo-mobile .bento-area-overdue {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+body.todo-mobile .bento-area-progress {
+  grid-column: 1 / -1;
+  grid-row: 3;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+body.todo-mobile .bento-area-focus {
+  grid-column: 1;
+  grid-row: 4;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+body.todo-mobile .bento-area-clock {
+  grid-column: 2;
+  grid-row: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  text-align: center;
+}
+
+body.todo-mobile .bento-area-evening[hidden] {
+  display: none !important;
+}
+
+body.todo-mobile .bento-area-evening:not([hidden]) {
+  grid-column: 1 / -1;
+  grid-row: 5;
+}
+
+body.todo-mobile .bento-area-tasks {
+  grid-column: 1 / -1;
+  grid-row: 5;
+}
+
+body.todo-mobile .bento-area-evening:not([hidden]) ~ .bento-area-tasks {
+  grid-row: 6;
+}
+
+body.todo-mobile .daily-loop-pill.bento-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  min-height: 5.75rem;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+body.todo-mobile .daily-loop-pill .daily-loop-pill-label {
+  font-size: var(--type-label-size, 0.72rem);
+  font-weight: 600;
+  letter-spacing: var(--type-label-tracking, 0.08em);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+body.todo-mobile .daily-loop-pill .daily-loop-pill-count {
+  font-size: clamp(1.6rem, 6vw, 2rem);
+  line-height: 1;
+  letter-spacing: 0.01em;
+  color: var(--text);
+}
+
+body.todo-mobile .bento-area-overdue .daily-loop-pill-count,
+body.todo-mobile .daily-loop-pill.has-alert .daily-loop-pill-count {
+  color: var(--highlight);
+}
+
+body.todo-mobile .bento-area-progress .daily-loop-progress {
+  margin: 0;
+  font-size: clamp(1.15rem, 4vw, 1.4rem);
+  line-height: 1.3;
+  color: var(--text);
+}
+
+body.todo-mobile .bento-progress-track {
+  width: 100%;
+  height: 0.35rem;
+  border-radius: var(--radius-pill, 999px);
+  background: color-mix(in srgb, var(--text-muted) 18%, transparent);
+  overflow: hidden;
+}
+
+body.todo-mobile .bento-progress-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: inherit;
+  background: var(--tertiary);
+  transition: width 0.25s ease;
+}
+
+body.todo-mobile .app-atmosphere.bento-card {
+  margin: 0;
+  transform: none;
+  filter: none;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-pop);
+  backdrop-filter: blur(14px) saturate(1.08);
+  -webkit-backdrop-filter: blur(14px) saturate(1.08);
+}
+
+body.todo-mobile .app-atmosphere.bento-card::after {
+  display: none;
+}
+
+body.todo-mobile .app-atmosphere.bento-card:hover {
+  transform: none;
+}
+
+body.todo-mobile .app-clock {
+  width: min(5.5rem, 28vw);
+  height: min(5.5rem, 28vw);
+}
+
+body.todo-mobile .app-clock-digital {
+  font-size: 0.95rem;
+}
+
+body.todo-mobile .app-clock-date {
+  margin: 0;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+body.todo-mobile .task-module.app-module {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  transform: none;
+  filter: none;
+}
+
+body.todo-mobile .task-module.app-module::after {
+  display: none;
+}
+
+body.todo-mobile .task-module.app-module:hover {
+  transform: none;
+}
+
+body.todo-mobile .daily-loop {
+  margin: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.todo-mobile .bento-progress-fill {
+    transition: none;
+  }
+}

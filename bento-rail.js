@@ -16,6 +16,16 @@
       '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h16M4 12h10M4 17h14"/><circle cx="18" cy="12" r="1.5" fill="currentColor" stroke="none"/></svg>',
   };
 
+  function isNarrow() {
+    return window.matchMedia("(max-width: 819px)").matches;
+  }
+
+  function todoHref() {
+    const file = ((location.pathname || "").split("/").pop() || "").toLowerCase();
+    const onMobileTodo = file.includes("todo-m");
+    return isNarrow() || onMobileTodo ? "todo-m.html#today" : "todo.html#today";
+  }
+
   const LINKS = [
     { id: "todo", href: "todo.html#today", title: "Todo", icon: ICON.todo },
     { id: "calendar", href: "calendar.html", title: "Calendar", icon: ICON.calendar },
@@ -31,7 +41,9 @@
     if (file.includes("mail")) return "mail";
     if (file.includes("tally")) return "tally";
     if (file.includes("teamwork")) return "teamwork";
-    if (file.includes("todo") || file === "" || file === "index.html") return "todo";
+    if (file.includes("todo-m") || file.includes("todo") || file === "" || file === "index.html") {
+      return "todo";
+    }
     return "";
   }
 
@@ -109,8 +121,9 @@
 
   function buildNavHtml() {
     const links = LINKS.map((item) => {
+      const href = item.id === "todo" ? todoHref() : item.href;
       return (
-        `<a href="${item.href}" class="bento-rail-link" data-rail-page="${item.id}" title="${item.title}">` +
+        `<a href="${href}" class="bento-rail-link" data-rail-page="${item.id}" title="${item.title}">` +
         item.icon +
         `<span class="bento-rail-sr">${item.title}</span></a>`
       );
@@ -134,7 +147,7 @@
       rail.className = "bento-rail";
       rail.setAttribute("aria-label", "Pages");
       rail.innerHTML =
-        `<a class="bento-rail-brand" href="todo.html#today" title="Daily Space" aria-label="Daily Space"><span data-rail-brand-letter aria-hidden="true">S</span></a>` +
+        `<a class="bento-rail-brand" href="${todoHref()}" title="Daily Space" aria-label="Daily Space"><span data-rail-brand-letter aria-hidden="true">S</span></a>` +
         `<div class="bento-rail-nav">${buildNavHtml()}</div>`;
       layout.insertBefore(rail, layout.firstChild);
     } else {
@@ -142,6 +155,10 @@
       if (nav && !nav.querySelector("[data-rail-page]")) {
         nav.innerHTML = buildNavHtml();
       }
+      const brand = rail.querySelector(".bento-rail-brand");
+      if (brand) brand.setAttribute("href", todoHref());
+      const todoLink = rail.querySelector('.bento-rail-link[data-rail-page="todo"]');
+      if (todoLink) todoLink.setAttribute("href", todoHref());
       // Prefer stable menu id
       const legacy = document.getElementById("bento-cat-toggle");
       if (legacy && !document.getElementById("bento-menu-toggle")) {
