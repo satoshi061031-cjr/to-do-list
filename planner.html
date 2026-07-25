@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="m-dock.css" />
     <link rel="stylesheet" href="planner.css" />
   </head>
-  <body class="planner-page">
+  <body class="planner-page planner-kanban">
     <button type="button" class="sidebar-trigger" id="sidebar-trigger" aria-controls="sidebar" aria-expanded="false">
       Menu
     </button>
@@ -68,40 +68,75 @@
         <div class="planner-view-root">
           <div class="planner-shell">
             <header class="planner-header">
-              <div class="planner-header-text">
-                <p class="planner-mode-badge" id="planner-mode-badge">Personal</p>
-                <h1 class="planner-title" id="planner-month-title"></h1>
-                <p class="planner-meta" id="planner-meta-line"></p>
-              </div>
-              <div class="planner-header-actions">
-                <div class="planner-view-switch" role="tablist" aria-label="Planner view">
+              <h1 class="planner-title" id="planner-month-title">Landing Page</h1>
+              <p class="planner-meta" id="planner-meta-line" hidden></p>
+              <p class="planner-mode-badge" id="planner-mode-badge" hidden>Personal</p>
+              <span id="planner-crumb-board" hidden>Planner</span>
+
+              <div class="planner-toolbar">
+                <div class="planner-view-switch" role="tablist" aria-label="Planner range" data-i18n-ignore>
                   <button
                     type="button"
                     class="planner-view-btn is-active"
-                    id="planner-view-board"
-                    data-planner-view="board"
+                    id="planner-view-day"
+                    data-planner-view="day"
+                    data-label-en="Day"
+                    data-label-zh="日"
                     role="tab"
                     aria-selected="true"
                   >
-                    Board
+                    Day
                   </button>
                   <button
                     type="button"
                     class="planner-view-btn"
                     id="planner-view-week"
                     data-planner-view="week"
+                    data-label-en="Week"
+                    data-label-zh="周"
                     role="tab"
                     aria-selected="false"
                   >
-                    This week
+                    Week
+                  </button>
+                  <button
+                    type="button"
+                    class="planner-view-btn"
+                    id="planner-view-month"
+                    data-planner-view="month"
+                    data-label-en="Month"
+                    data-label-zh="月"
+                    role="tab"
+                    aria-selected="false"
+                  >
+                    Month
+                  </button>
+                  <button
+                    type="button"
+                    class="planner-view-btn"
+                    id="planner-view-year"
+                    data-planner-view="year"
+                    data-label-en="Year"
+                    data-label-zh="年"
+                    role="tab"
+                    aria-selected="false"
+                  >
+                    Year
                   </button>
                 </div>
-                <button type="button" class="btn btn-ghost planner-clear-done" id="planner-clear-done" hidden>
-                  Clear completed
-                </button>
-                <button type="button" class="btn planner-add-column-main" id="planner-add-column">+ Add column</button>
+                <div class="planner-toolbar-actions">
+                  <label class="planner-search">
+                    <span class="planner-search-sr">Search cards</span>
+                    <span class="planner-search-icon" aria-hidden="true"></span>
+                    <input type="search" id="planner-search" placeholder="Search anything…" autocomplete="off" />
+                  </label>
+                  <button type="button" class="btn btn-ghost planner-clear-done" id="planner-clear-done" hidden>
+                    Clear completed
+                  </button>
+                </div>
               </div>
             </header>
+
             <section class="planner-due-strip" id="planner-due-strip" hidden aria-label="Due soon">
               <div class="planner-due-strip-head">
                 <p class="planner-due-kicker">Due soon</p>
@@ -120,18 +155,20 @@
                 </div>
               </div>
             </section>
-            <section class="planner-week-view" id="planner-week-view" hidden aria-label="This week">
+
+            <section class="planner-week-view" id="planner-week-view" hidden aria-label="Planner period">
               <div class="planner-week-head">
-                <p class="planner-week-kicker">This week</p>
-                <p class="planner-week-copy">By due date — open a day in Calendar, or send a card to Todo Today.</p>
+                <p class="planner-week-kicker" id="planner-period-kicker">This week</p>
+                <p class="planner-week-copy" id="planner-period-copy">By due date — open a day in Calendar, or send a card to Todo Today.</p>
                 <div class="planner-week-links">
                   <a class="planner-due-todo-link" href="todo.html#today">Open Today in Todo</a>
                   <a class="planner-due-cal-link" href="calendar.html" id="planner-week-calendar-link">Open Calendar</a>
                 </div>
               </div>
               <div class="planner-week-sections" id="planner-week-sections"></div>
-              <p class="planner-week-empty" id="planner-week-empty" hidden>No dated open cards this week — add a due date on a card.</p>
+              <p class="planner-week-empty" id="planner-week-empty" hidden>No dated open cards in this range — add a due date on a card.</p>
             </section>
+
             <div class="planner-board-scroll">
               <div class="planner-board-empty" id="planner-board-empty" hidden>
                 <p class="planner-board-empty-title">Start with a column</p>

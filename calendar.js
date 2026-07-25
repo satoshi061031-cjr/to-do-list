@@ -20,6 +20,11 @@
   let selectedDate = todayIso();
   let calYear = new Date().getFullYear();
   let calMonth = new Date().getMonth() + 1;
+  /** @type {Date} Monday of the visible week (local noon). */
+  let weekStart = new Date();
+
+  const HOUR_START = 9;
+  const HOUR_END = 18;
 
   const sidebarEl = document.getElementById("sidebar");
   const sidebarTrigger = document.getElementById("sidebar-trigger");
@@ -45,6 +50,12 @@
   const dayTaskInput = document.getElementById("day-task-input");
   const calendarOpenTodo = document.getElementById("calendar-open-todo");
   const calendarAlertsBtn = document.getElementById("calendar-alerts-btn");
+  const weekHeadEl = document.getElementById("week-head");
+  const weekHoursEl = document.getElementById("week-hours");
+  const weekColsEl = document.getElementById("week-cols");
+  const calUpcoming = document.getElementById("cal-upcoming");
+  const calUpcomingText = document.getElementById("cal-upcoming-text");
+  const calUpcomingTime = document.getElementById("cal-upcoming-time");
 
   function id() {
     return typeof crypto !== "undefined" && crypto.randomUUID
@@ -75,6 +86,63 @@
 
   function mondayIndex(date) {
     return (date.getDay() + 6) % 7;
+  }
+
+  function startOfWeek(date) {
+    const d = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0, 0);
+    d.setDate(d.getDate() - mondayIndex(d));
+    return d;
+  }
+
+  function weekDays() {
+    // Work week Mon–Fri to match the reference board.
+    return Array.from({ length: 5 }, (_, i) => {
+      const d = new Date(weekStart);
+      d.setDate(weekStart.getDate() + i);
+      return d;
+    });
+  }
+
+  function weekEndIso() {
+    const end = new Date(weekStart);
+    end.setDate(weekStart.getDate() + 4);
+    return dateToIso(end);
+  }
+
+  function isoInRange(iso, startIso, endIso) {
+    return iso >= startIso && iso <= endIso;
+  }
+
+  function minutesFromMidnight(time) {
+    const [h, m] = time.split(":").map(Number);
+    return h * 60 + m;
+  }
+
+  function eventTone(index) {
+    const tones = ["a", "b", "c"];
+    return tones[index % tones.length];
+  }
+
+  function formatWeekTitle() {
+    const days = weekDays();
+    const start = days[0];
+    const end = days[days.length - 1];
+    const sameMonth = start.getMonth() === end.getMonth();
+    const monthYear = start.toLocaleDateString(uiLocale(), { month: "long", year: "numeric" });
+    const weekNo = Math.ceil(
+      ((start.getTime() - new Date(start.getFullYear(), 0, 1).getTime()) / 86400000 +
+        mondayIndex(new Date(start.getFullYear(), 0, 1)) +
+        1) /
+        7
+    );
+    if (sameMonth) return `${monthYear} / W${weekNo}`;
+    const startLabel = start.toLocaleDateString(uiLocale(), { month: "short", day: "numeric" });
+    const endLabel = end.toLocaleDateString(uiLocale(), {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+    return `${startLabel} – ${endLabel}`;
   }
 
   function formatDueDate(iso) {
@@ -305,20 +373,29 @@
     const dt = parseIso(iso);
     calYear = dt.getFullYear();
     calMonth = dt.getMonth() + 1;
+    weekStart = startOfWeek(dt);
     saveCalendarState();
     render();
   }
 
-  function shiftMonth(delta) {
-    calMonth += delta;
-    if (calMonth > 12) {
-      calMonth = 1;
-      calYear += 1;
-    } else if (calMonth < 1) {
-      calMonth = 12;
-      calYear -= 1;
+  function shiftWeek(delta) {
+    const next = new Date(weekStart);
+    next.setDate(weekStart.getDate() + delta * 7);
+    weekStart = startOfWeek(next);
+    const days = weekDays();
+    const selected = parseIso(selectedDate);
+    const inWeek = days.some((d) => dateToIso(d) === selectedDate);
+    if (!inWeek) {
+      selectedDate = dateToIso(days[0]);
+      calYear = days[0].getFullYear();
+      calMonth = days[0].getMonth() + 1;
+      saveCalendarState();
     }
     render();
+  }
+
+  function shiftMonth(delta) {
+    shiftWeek(delta * 4);
   }
 
   function goToday() {
@@ -372,51 +449,166 @@
   }
 
   function renderCalendarGrid() {
-    calendarTitleEl.textContent = formatMonthTitle(calYear, calMonth);
-    const dueThisMonth = todos.filter((todo) => {
-      if (!todo.dueDate) return false;
-      const [y, mo] = todo.dueDate.split("-").map(Number);
-      return y === calYear && mo === calMonth;
-    }).length;
-    const remindersThisMonth = reminders.filter((reminder) => {
-      const [y, mo] = reminder.date.split("-").map(Number);
-      return y === calYear && mo === calMonth;
-    }).length;
-    calendarMetaEl.textContent = `${dueThisMonth} ${dueThisMonth === 1 ? "task" : "tasks"} due · ${remindersThisMonth} ${remindersThisMonth === 1 ? "reminder" : "reminders"}`;
-
-    const first = new Date(calYear, calMonth - 1, 1);
-    const pad = mondayIndex(first);
-    const daysInMonth = new Date(calYear, calMonth, 0).getDate();
-    const today = todayIso();
-
+    // Month grid kept hidden; week workspace is primary.
+    if (!calendarGridEl || calendarGridEl.hidden) return;
     calendarGridEl.innerHTML = "";
+  }
 
-    for (let i = 0; i < pad; i++) {
-      const hole = document.createElement("div");
-      hole.className = "app-cal-pad";
-      hole.setAttribute("aria-hidden", "true");
-      calendarGridEl.appendChild(hole);
+  function renderWeekGrid() {
+    if (!weekHeadEl || !weekHoursEl || !weekColsEl) return;
+
+    const days = weekDays();
+    const today = todayIso();
+    const startIso = dateToIso(days[0]);
+    const endIso = weekEndIso();
+
+    if (calendarTitleEl) calendarTitleEl.textContent = formatWeekTitle();
+    const dueThisWeek = todos.filter(
+      (todo) => todo.dueDate && isoInRange(todo.dueDate, startIso, endIso)
+    ).length;
+    const remindersThisWeek = reminders.filter((reminder) =>
+      isoInRange(reminder.date, startIso, endIso)
+    ).length;
+    if (calendarMetaEl) {
+      calendarMetaEl.textContent = `${dueThisWeek} ${dueThisWeek === 1 ? "task" : "tasks"} · ${remindersThisWeek} ${remindersThisWeek === 1 ? "reminder" : "reminders"} this week`;
     }
 
-    for (let day = 1; day <= daysInMonth; day++) {
-      const iso = toIsoYmd(calYear, calMonth, day);
-      const dayTasks = todosDueOn(iso);
-      const dayReminders = remindersForDate(iso);
+    weekHeadEl.innerHTML = `<div class="cal-week-corner" aria-hidden="true"></div>`;
+    days.forEach((day) => {
+      const iso = dateToIso(day);
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className = "app-cal-cell";
-      btn.textContent = String(day);
-      btn.setAttribute(
-        "aria-label",
-        `View tasks due ${formatDueDate(iso)}. ${dayReminders.length} reminders, ${dayTasks.length} tasks.`
-      );
-
+      btn.className = "cal-week-day";
       if (iso === today) btn.classList.add("is-today");
-      if (iso === selectedDate) btn.classList.add("is-day-selected");
-
+      if (iso === selectedDate) btn.classList.add("is-selected");
+      const wd = day.toLocaleDateString(uiLocale(), { weekday: "short" });
+      btn.innerHTML =
+        `<span class="cal-week-day-wd">${wd}</span>` +
+        `<span class="cal-week-day-num">${day.getDate()}</span>`;
       btn.addEventListener("click", () => selectDate(iso));
-      calendarGridEl.appendChild(btn);
+      weekHeadEl.appendChild(btn);
+    });
+
+    const hourCount = HOUR_END - HOUR_START;
+    weekHoursEl.style.setProperty("--cal-hour-count", String(hourCount));
+    weekHoursEl.innerHTML = "";
+    for (let h = HOUR_START; h < HOUR_END; h += 1) {
+      const label = document.createElement("div");
+      label.className = "cal-hour-label";
+      const ampm = h >= 12 ? "pm" : "am";
+      const hour12 = ((h + 11) % 12) + 1;
+      label.textContent = `${hour12} ${ampm}`;
+      weekHoursEl.appendChild(label);
     }
+
+    weekColsEl.style.setProperty("--cal-hour-count", String(hourCount));
+    weekColsEl.innerHTML = "";
+    const rangeStart = HOUR_START * 60;
+    const rangeEnd = HOUR_END * 60;
+    const rangeSpan = rangeEnd - rangeStart;
+
+    days.forEach((day, dayIndex) => {
+      const iso = dateToIso(day);
+      const col = document.createElement("div");
+      col.className = "cal-col" + (iso === selectedDate ? " is-selected" : "");
+      col.addEventListener("click", (event) => {
+        if (event.target !== col) return;
+        selectDate(iso);
+        if (reminderStartInput instanceof HTMLInputElement && !reminderStartInput.value) {
+          reminderStartInput.value = "09:00";
+        }
+        if (reminderInput) reminderInput.focus();
+      });
+
+      const dayTasks = todosDueOn(iso).filter((t) => !t.completed);
+      if (dayTasks.length) {
+        const chip = document.createElement("div");
+        chip.className = "cal-allday";
+        chip.textContent =
+          dayTasks.length === 1 ? dayTasks[0].text : `${dayTasks.length} tasks due`;
+        chip.title = dayTasks.map((t) => t.text).join(", ");
+        chip.addEventListener("click", (e) => {
+          e.stopPropagation();
+          selectDate(iso);
+        });
+        col.appendChild(chip);
+      }
+
+      const dayReminders = remindersForDate(iso).filter((r) => r.startTime);
+      dayReminders.forEach((reminder, index) => {
+        const startMin = minutesFromMidnight(reminder.startTime);
+        let endMin = reminder.endTime
+          ? minutesFromMidnight(reminder.endTime)
+          : startMin + 60;
+        if (endMin <= startMin) endMin = startMin + 30;
+        const clampedStart = Math.max(startMin, rangeStart);
+        const clampedEnd = Math.min(endMin, rangeEnd);
+        if (clampedEnd <= rangeStart || clampedStart >= rangeEnd) return;
+
+        const top = ((clampedStart - rangeStart) / rangeSpan) * 100;
+        const height = Math.max(((clampedEnd - clampedStart) / rangeSpan) * 100, 4.5);
+        const block = document.createElement("button");
+        block.type = "button";
+        block.className = "cal-event";
+        block.dataset.tone = eventTone(index + dayIndex);
+        block.style.top = `${top}%`;
+        block.style.height = `${height}%`;
+        block.innerHTML =
+          `<span class="cal-event-title"></span>` +
+          `<span class="cal-event-time"></span>`;
+        block.querySelector(".cal-event-title").textContent = reminder.text;
+        block.querySelector(".cal-event-time").textContent =
+          formatTimeRange(reminder.startTime, reminder.endTime) || reminder.startTime;
+        block.title = "Click to delete reminder";
+        block.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (window.confirm(`Delete reminder “${reminder.text}”?`)) {
+            removeReminder(reminder.id);
+          }
+        });
+        col.appendChild(block);
+      });
+
+      weekColsEl.appendChild(col);
+    });
+  }
+
+  function fillTodoList(listEl, items) {
+    if (!listEl) return;
+    listEl.innerHTML = "";
+    items.forEach((todo) => listEl.appendChild(buildTodoItem(todo)));
+  }
+
+  function renderTodosPanel() {
+    // Side Todos rail removed — selected-day tasks render in the composer.
+  }
+
+  function renderUpcoming() {
+    if (!calUpcoming || !calUpcomingText || !calUpcomingTime) return;
+    const startIso = dateToIso(weekStart);
+    const endIso = weekEndIso();
+    const now = new Date();
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const today = todayIso();
+    const upcoming = reminders
+      .filter((r) => isoInRange(r.date, startIso, endIso) && r.startTime)
+      .filter((r) => {
+        if (r.date > today) return true;
+        if (r.date < today) return false;
+        return minutesFromMidnight(r.startTime) >= nowMin;
+      })
+      .sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime))[0];
+
+    if (!upcoming) {
+      calUpcoming.hidden = true;
+      return;
+    }
+    calUpcoming.hidden = false;
+    calUpcomingText.textContent = upcoming.text;
+    calUpcomingTime.textContent =
+      (upcoming.date === today ? "Today" : formatDueDate(upcoming.date)) +
+      " · " +
+      (formatTimeRange(upcoming.startTime, upcoming.endTime) || upcoming.startTime);
   }
 
   function addTaskForSelectedDay(text) {
@@ -438,32 +630,36 @@
     const dayTasks = todosDueOn(selectedDate);
     const isToday = selectedDate === todayIso();
 
-    selectedDayTitleEl.textContent = isToday
-      ? `Today · ${formatDueDate(selectedDate)}`
-      : `Tasks due ${formatDueDate(selectedDate)}`;
-    selectedDayMetaEl.textContent =
-      dayTasks.length === 0 ? "" : `${dayTasks.length} ${dayTasks.length === 1 ? "task" : "tasks"}`;
+    if (selectedDayTitleEl) {
+      selectedDayTitleEl.textContent = isToday
+        ? `Today · ${formatDueDate(selectedDate)}`
+        : formatDueDate(selectedDate);
+    }
+    if (selectedDayMetaEl) {
+      selectedDayMetaEl.textContent = `${dayTasks.length} ${dayTasks.length === 1 ? "task" : "tasks"} · ${dayReminders.length} ${dayReminders.length === 1 ? "reminder" : "reminders"}`;
+    }
+    if (calendarOpenTodo) calendarOpenTodo.hidden = !isToday;
 
-    if (calendarOpenTodo) {
-      calendarOpenTodo.hidden = !isToday;
+    if (taskListEl) {
+      fillTodoList(taskListEl, dayTasks);
+      taskListEl.hidden = dayTasks.length === 0;
+    }
+    if (taskEmptyEl) {
+      taskEmptyEl.hidden = dayTasks.length !== 0;
+      taskEmptyEl.textContent = `No tasks due on ${formatDueDate(selectedDate)}.`;
     }
 
-    taskListEl.innerHTML = "";
-    dayTasks.forEach((todo) => {
-      taskListEl.appendChild(buildTodoItem(todo));
-    });
-    const tasksEmpty = dayTasks.length === 0;
-    taskListEl.hidden = tasksEmpty;
-    taskEmptyEl.hidden = !tasksEmpty;
-    taskEmptyEl.textContent = `No tasks due on ${formatDueDate(selectedDate)}.`;
-
-    reminderListEl.innerHTML = "";
-    dayReminders.forEach((reminder) => {
-      reminderListEl.appendChild(buildReminderItem(reminder));
-    });
-    reminderListEl.hidden = dayReminders.length === 0;
-    reminderEmptyEl.hidden = dayReminders.length !== 0;
-    reminderEmptyEl.textContent = "No reminders on this day.";
+    if (reminderListEl) {
+      reminderListEl.innerHTML = "";
+      dayReminders.forEach((reminder) => {
+        reminderListEl.appendChild(buildReminderItem(reminder));
+      });
+      reminderListEl.hidden = dayReminders.length === 0;
+    }
+    if (reminderEmptyEl) {
+      reminderEmptyEl.hidden = dayReminders.length !== 0;
+      reminderEmptyEl.textContent = "No reminders on this day.";
+    }
   }
 
   function buildTodoItem(todo) {
@@ -567,7 +763,9 @@
 
   function render() {
     renderCalendarGrid();
+    renderWeekGrid();
     renderSelectedDay();
+    renderUpcoming();
     syncCalendarAlertsButton();
   }
 
@@ -576,43 +774,50 @@
   }
 
   function openSidebar() {
-    if (!isMobileSidebar()) return;
+    if (!isMobileSidebar() || !sidebarEl) return;
     sidebarEl.classList.add("is-open");
-    sidebarBackdrop.hidden = false;
-    sidebarBackdrop.classList.add("is-visible");
+    if (sidebarBackdrop) {
+      sidebarBackdrop.hidden = false;
+      sidebarBackdrop.classList.add("is-visible");
+    }
     document.body.classList.add("sidebar-drawer-open");
-    sidebarTrigger.setAttribute("aria-expanded", "true");
+    if (sidebarTrigger) sidebarTrigger.setAttribute("aria-expanded", "true");
   }
 
   function closeSidebar() {
+    if (!sidebarEl) return;
     sidebarEl.classList.remove("is-open");
-    sidebarBackdrop.hidden = true;
-    sidebarBackdrop.classList.remove("is-visible");
+    if (sidebarBackdrop) {
+      sidebarBackdrop.hidden = true;
+      sidebarBackdrop.classList.remove("is-visible");
+    }
     document.body.classList.remove("sidebar-drawer-open");
-    sidebarTrigger.setAttribute("aria-expanded", "false");
+    if (sidebarTrigger) sidebarTrigger.setAttribute("aria-expanded", "false");
   }
 
   function toggleSidebar() {
-    if (!isMobileSidebar()) return;
+    if (!isMobileSidebar() || !sidebarEl) return;
     if (sidebarEl.classList.contains("is-open")) closeSidebar();
     else openSidebar();
   }
 
-  sidebarTrigger.addEventListener("click", () => toggleSidebar());
-  sidebarBackdrop.addEventListener("click", () => closeSidebar());
-  prevBtn.addEventListener("click", () => shiftMonth(-1));
-  nextBtn.addEventListener("click", () => shiftMonth(1));
-  todayBtn.addEventListener("click", () => goToday());
+  if (sidebarTrigger) sidebarTrigger.addEventListener("click", () => toggleSidebar());
+  if (sidebarBackdrop) sidebarBackdrop.addEventListener("click", () => closeSidebar());
+  if (prevBtn) prevBtn.addEventListener("click", () => shiftWeek(-1));
+  if (nextBtn) nextBtn.addEventListener("click", () => shiftWeek(1));
+  if (todayBtn) todayBtn.addEventListener("click", () => goToday());
 
-  reminderForm.addEventListener("submit", (e) => {
-    e.preventDefault();
-    addReminder(
-      reminderInput.value,
-      reminderStartInput.value,
-      reminderEndInput.value,
-      reminderPriorityInput instanceof HTMLSelectElement ? reminderPriorityInput.value : "medium"
-    );
-  });
+  if (reminderForm) {
+    reminderForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      addReminder(
+        reminderInput.value,
+        reminderStartInput.value,
+        reminderEndInput.value,
+        reminderPriorityInput instanceof HTMLSelectElement ? reminderPriorityInput.value : "medium"
+      );
+    });
+  }
 
   if (dayTaskForm && dayTaskInput) {
     dayTaskForm.addEventListener("submit", (e) => {
@@ -643,6 +848,7 @@
     }
     if (e.key === STORAGE_CALENDAR) {
       loadCalendarState();
+      weekStart = startOfWeek(parseIso(selectedDate));
       render();
     }
   });
@@ -651,6 +857,7 @@
     if (document.hidden) return;
     loadTodoState();
     loadCalendarState();
+    weekStart = startOfWeek(parseIso(selectedDate));
     render();
   });
 
@@ -659,6 +866,7 @@
     if (!domains.includes("calendar") && !domains.includes("todo")) return;
     loadTodoState();
     loadCalendarState();
+    weekStart = startOfWeek(parseIso(selectedDate));
     render();
   });
 
@@ -667,5 +875,6 @@
   loadTodoState();
   loadCalendarState();
   focusTodayOnOpen();
+  weekStart = startOfWeek(parseIso(selectedDate));
   render();
 })();

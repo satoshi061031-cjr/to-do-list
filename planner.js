@@ -63,17 +63,42 @@
   const plannerWeekViewEl = document.getElementById("planner-week-view");
   const plannerWeekSectionsEl = document.getElementById("planner-week-sections");
   const plannerWeekEmptyEl = document.getElementById("planner-week-empty");
+  const plannerPeriodKickerEl = document.getElementById("planner-period-kicker");
+  const plannerPeriodCopyEl = document.getElementById("planner-period-copy");
   const plannerOpenWeekViewBtn = document.getElementById("planner-open-week-view");
-  const plannerViewBoardBtn = document.getElementById("planner-view-board");
+  const plannerViewDayBtn = document.getElementById("planner-view-day");
   const plannerViewWeekBtn = document.getElementById("planner-view-week");
+  const plannerViewMonthBtn = document.getElementById("planner-view-month");
+  const plannerViewYearBtn = document.getElementById("planner-view-year");
   const plannerEmptyAddColumnBtn = document.getElementById("planner-empty-add-column");
   const plannerMonthTitleEl = document.getElementById("planner-month-title");
   const plannerModeBadgeEl = document.getElementById("planner-mode-badge");
+  const plannerCrumbBoardEl = document.getElementById("planner-crumb-board");
   const plannerMetaLineEl = document.getElementById("planner-meta-line");
+  const plannerFilterBtn = document.getElementById("planner-filter-btn");
+  const plannerShareBtn = document.getElementById("planner-share-btn");
   const plannerAddColumnBtn = document.getElementById("planner-add-column");
   const plannerClearDoneBtn = document.getElementById("planner-clear-done");
-  /** @type {"board" | "week"} */
-  let plannerView = "board";
+  const plannerSearchInput = document.getElementById("planner-search");
+  /** @type {"day" | "week" | "month" | "year"} */
+  let plannerView = "day";
+  let plannerSearchQuery = "";
+
+  function isZhLocale() {
+    return window.DailySpaceI18n?.locale?.() === "zh";
+  }
+
+  function syncRangeTabLabels() {
+    const zh = isZhLocale();
+    [plannerViewDayBtn, plannerViewWeekBtn, plannerViewMonthBtn, plannerViewYearBtn].forEach((btn) => {
+      if (!btn) return;
+      const label = zh ? btn.dataset.labelZh : btn.dataset.labelEn;
+      if (label) {
+        btn.textContent = label;
+        btn.setAttribute("aria-label", btn.dataset.labelEn || label);
+      }
+    });
+  }
   const plannerTeamStatusEl = document.createElement("p");
   plannerTeamStatusEl.className = "planner-team-status";
   plannerTeamStatusEl.hidden = true;
@@ -85,6 +110,133 @@
 
   function id() {
     return crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random();
+  }
+
+  function defaultKanbanColumns() {
+    return [
+      { id: id(), title: "Planned", emoji: "○" },
+      { id: id(), title: "In Progress", emoji: "◎" },
+      { id: id(), title: "Done", emoji: "✓" },
+      { id: id(), title: "On Hold", emoji: "◌" },
+    ];
+  }
+
+  function sampleKanbanEntries(columns) {
+    const byTitle = Object.fromEntries(columns.map((c) => [c.title, c.id]));
+    const planned = byTitle.Planned || columns[0]?.id;
+    const progress = byTitle["In Progress"] || columns[1]?.id;
+    const done = byTitle.Done || columns[2]?.id;
+    const hold = byTitle["On Hold"] || columns[3]?.id;
+    const due = (offset) => addDaysIso(todayIso(), offset);
+    const card = (partial) => ({
+      id: id(),
+      title: "",
+      note: "",
+      completed: false,
+      tags: ["#design", "#web"],
+      expanded: false,
+      assigneeUserId: null,
+      dueDate: null,
+      ...partial,
+    });
+    return [
+      card({
+        columnId: planned,
+        title: "Research landing page trends.",
+        note: "Collect references from SaaS and agency sites. Note hierarchy, CTAs, and spacing patterns.",
+        dueDate: due(12),
+        tags: ["#research", "#landing"],
+      }),
+      card({
+        columnId: planned,
+        title: "Draft hero copy options.",
+        note: "Write three headline directions with short supporting lines for review.",
+        dueDate: due(18),
+        tags: ["#copy"],
+      }),
+      card({
+        columnId: progress,
+        title: "Wireframe key sections.",
+        note: "Map hero, proof, features, and footer. Keep one job per section.",
+        dueDate: due(5),
+        tags: ["#wireframe", "#ui"],
+      }),
+      card({
+        columnId: progress,
+        title: "Review color and type tokens.",
+        note: "Align board accents with Daily Space yellow tertiary and soft neutrals.",
+        dueDate: due(3),
+        tags: ["#design"],
+      }),
+      card({
+        columnId: done,
+        title: "Kickoff brief locked.",
+        note: "Goals, audience, and success metrics confirmed with stakeholders.",
+        completed: true,
+        dueDate: due(-2),
+        tags: ["#brief"],
+      }),
+      card({
+        columnId: hold,
+        title: "Motion exploration pack.",
+        note: "Pause until hero direction is approved. Keep two subtle motion ideas ready.",
+        dueDate: due(25),
+        tags: ["#motion"],
+      }),
+    ].filter((entry) => entry.columnId);
+  }
+
+  function entryProgress(entry) {
+    if (entry.completed) return 100;
+    const col = plannerColumns.find((c) => c.id === entry.columnId);
+    const title = (col?.title || "").toLowerCase();
+    if (title.includes("done")) return 100;
+    if (title.includes("progress")) return 50;
+    if (title.includes("hold")) return 25;
+    if (title.includes("planned")) return 0;
+    let p = 0;
+    if (entry.note && entry.note.trim()) p += 40;
+    if (entry.dueDate) p += 30;
+    if (entry.tags && entry.tags.length) p += 30;
+    return Math.min(100, p);
+  }
+
+  function entryMatchesSearch(entry) {
+    const q = plannerSearchQuery.trim().toLowerCase();
+    if (!q) return true;
+    const hay = [entry.title, entry.note, ...(entry.tags || [])].join(" ").toLowerCase();
+    return hay.includes(q);
+  }
+
+  function seedKanbanIfEmpty() {
+    if (isTeamMode()) return false;
+    const DEMO_KEY = "planner-app-demo-v1";
+    let changed = false;
+    if (plannerColumns.length === 0) {
+      plannerColumns = defaultKanbanColumns();
+      changed = true;
+    }
+    const demoDone = localStorage.getItem(DEMO_KEY) === "1";
+    if (plannerEntries.length === 0 && (!demoDone || changed)) {
+      plannerEntries = sampleKanbanEntries(plannerColumns);
+      localStorage.setItem(DEMO_KEY, "1");
+      changed = true;
+    } else if (plannerEntries.length > 0) {
+      localStorage.setItem(DEMO_KEY, "1");
+    }
+    const pl = planners.find((x) => x.id === selectedPlannerId);
+    if (
+      pl &&
+      (!pl.name ||
+        /^my planner$/i.test(pl.name) ||
+        /^untitled$/i.test(pl.name) ||
+        /^planner$/i.test(pl.name) ||
+        /^design for landing page$/i.test(pl.name))
+    ) {
+      pl.name = "Landing Page";
+      changed = true;
+    }
+    return changed;
   }
 
   function todayIso() {
@@ -114,8 +266,94 @@
     if (!iso) return "";
     const today = todayIso();
     if (iso === today) return "Today";
-    if (iso < today) return `Overdue · ${iso.slice(5).replace("-", "/")}`;
-    return iso.slice(5).replace("-", "/");
+    const d = new Date(`${iso}T12:00:00`);
+    if (Number.isNaN(d.getTime())) return iso.slice(5).replace("-", "/");
+    const label = d.toLocaleDateString(uiLocale(), { day: "numeric", month: "short" });
+    if (iso < today) return `Overdue · ${label}`;
+    return label;
+  }
+
+  function columnStatusKey(col) {
+    const title = String(col?.title || "").toLowerCase();
+    if (title.includes("progress")) return "progress";
+    if (title.includes("done")) return "done";
+    if (title.includes("hold")) return "hold";
+    return "planned";
+  }
+
+  function initialsFromLabel(label) {
+    const parts = String(label || "")
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+    if (!parts.length) return "?";
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+
+  function avatarTone(seed) {
+    const tones = [
+      "color-mix(in srgb, var(--secondary) 75%, var(--primary))",
+      "color-mix(in srgb, var(--tertiary) 55%, var(--secondary))",
+      "color-mix(in srgb, var(--success) 55%, var(--secondary))",
+      "color-mix(in srgb, var(--danger) 40%, var(--secondary))",
+      "color-mix(in srgb, var(--accent) 70%, var(--primary))",
+    ];
+    let hash = 0;
+    String(seed || "").split("").forEach((ch) => {
+      hash = (hash + ch.charCodeAt(0) * 17) % tones.length;
+    });
+    return tones[hash];
+  }
+
+  function entryAvatarLabels(entry) {
+    if (isTeamMode()) {
+      const member = teamMembers.find((item) => item.userId === entry.assigneeUserId);
+      if (member?.label) return [member.label];
+      if (entry.assigneeUserId) return [entry.assigneeUserId];
+      return [];
+    }
+    const tags = Array.isArray(entry.tags) ? entry.tags.filter(Boolean) : [];
+    if (tags.length) return tags.slice(0, 3).map((t) => t.replace(/^#/, ""));
+    if (entry.title) return [entry.title];
+    return [];
+  }
+
+  function boardAssigneeLabels() {
+    const labels = [];
+    const seen = new Set();
+    plannerEntries.forEach((entry) => {
+      entryAvatarLabels(entry).forEach((label) => {
+        const key = label.toLowerCase();
+        if (seen.has(key)) return;
+        seen.add(key);
+        labels.push(label);
+      });
+    });
+    return labels;
+  }
+
+  function appendAvatarStack(container, labels, className) {
+    container.innerHTML = "";
+    const shown = labels.slice(0, 3);
+    shown.forEach((label) => {
+      const avatar = document.createElement("span");
+      avatar.className = className;
+      avatar.textContent = initialsFromLabel(label);
+      avatar.title = label;
+      avatar.style.background = avatarTone(label);
+      container.appendChild(avatar);
+    });
+    if (labels.length > 3) {
+      const more = document.createElement("span");
+      more.className = `${className} is-more`;
+      more.textContent = `+${labels.length - 3}`;
+      container.appendChild(more);
+    }
+  }
+
+  function renderAssigneeBar() {
+    /* Assignees live on cards; shell header stays greeting + title only. */
   }
 
   function calendarHrefForDay(iso) {
@@ -153,17 +391,20 @@
   }
 
   function setPlannerView(next) {
-    if (next !== "board" && next !== "week") return;
+    if (next !== "day" && next !== "week" && next !== "month" && next !== "year") return;
     plannerView = next;
-    if (plannerViewBoardBtn) {
-      plannerViewBoardBtn.classList.toggle("is-active", next === "board");
-      plannerViewBoardBtn.setAttribute("aria-selected", next === "board" ? "true" : "false");
-    }
-    if (plannerViewWeekBtn) {
-      plannerViewWeekBtn.classList.toggle("is-active", next === "week");
-      plannerViewWeekBtn.setAttribute("aria-selected", next === "week" ? "true" : "false");
-    }
-    if (plannerAddColumnBtn) plannerAddColumnBtn.hidden = next === "week";
+    const tabs = [
+      [plannerViewDayBtn, "day"],
+      [plannerViewWeekBtn, "week"],
+      [plannerViewMonthBtn, "month"],
+      [plannerViewYearBtn, "year"],
+    ];
+    tabs.forEach(([btn, key]) => {
+      if (!btn) return;
+      const on = next === key;
+      btn.classList.toggle("is-active", on);
+      btn.setAttribute("aria-selected", on ? "true" : "false");
+    });
     renderPlanner();
   }
 
@@ -177,7 +418,7 @@
     main.className = "planner-due-item";
     main.textContent = `${entry.title || "Untitled"} · ${columnTitleById(entry.columnId)}`;
     main.addEventListener("click", () => {
-      setPlannerView("board");
+      setPlannerView("day");
       focusPlannerEntry(entry.id);
     });
 
@@ -212,85 +453,11 @@
   }
 
   function renderDueLoopStrip() {
-    if (!plannerDueStripEl || !plannerDueTodayListEl || !plannerDueWeekListEl) return;
-    if (plannerView === "week") {
-      plannerDueStripEl.hidden = true;
-      return;
-    }
-    const buckets = getDueBuckets();
-    if (buckets.dueToday.length === 0 && buckets.dueWeek.length === 0 && buckets.overdue.length === 0) {
-      plannerDueStripEl.hidden = true;
-      return;
-    }
-    plannerDueStripEl.hidden = false;
-    if (plannerDueSummaryEl) {
-      const parts = [];
-      if (buckets.overdue.length) parts.push(`${buckets.overdue.length} overdue`);
-      parts.push(`${buckets.dueToday.length} today`);
-      parts.push(`${buckets.dueWeek.length} coming up`);
-      plannerDueSummaryEl.textContent = parts.join(" · ");
-    }
-
-    function fillList(listEl, entries) {
-      listEl.innerHTML = "";
-      if (!entries.length) {
-        const empty = document.createElement("li");
-        empty.className = "planner-due-empty";
-        empty.textContent = "None";
-        listEl.appendChild(empty);
-        return;
-      }
-      entries.slice(0, 6).forEach((entry) => {
-        listEl.appendChild(buildDueRow(entry, { showTodo: true }));
-      });
-    }
-
-    const todayList = buckets.overdue.length
-      ? buckets.overdue.concat(buckets.dueToday)
-      : buckets.dueToday;
-    fillList(plannerDueTodayListEl, todayList);
-    fillList(plannerDueWeekListEl, buckets.dueWeek);
+    if (plannerDueStripEl) plannerDueStripEl.hidden = true;
   }
 
   function renderWeekView() {
-    if (!plannerWeekViewEl || !plannerWeekSectionsEl || !plannerWeekEmptyEl) return;
-    if (plannerView !== "week") {
-      plannerWeekViewEl.hidden = true;
-      return;
-    }
-    plannerWeekViewEl.hidden = false;
-    const buckets = getDueBuckets();
-    plannerWeekSectionsEl.innerHTML = "";
-
-    const sections = [
-      { key: "overdue", title: "Overdue", entries: buckets.overdue },
-      { key: "today", title: "Due today", entries: buckets.dueToday },
-      { key: "week", title: "Rest of week", entries: buckets.dueWeek },
-    ];
-    let total = 0;
-    sections.forEach((section) => {
-      total += section.entries.length;
-      const wrap = document.createElement("section");
-      wrap.className = "planner-week-section";
-      const heading = document.createElement("h3");
-      heading.className = "planner-week-section-title";
-      heading.textContent = `${section.title} · ${section.entries.length}`;
-      const list = document.createElement("ul");
-      list.className = "planner-week-list";
-      if (!section.entries.length) {
-        const empty = document.createElement("li");
-        empty.className = "planner-due-empty";
-        empty.textContent = "None";
-        list.appendChild(empty);
-      } else {
-        section.entries.forEach((entry) => {
-          list.appendChild(buildDueRow(entry, { showTodo: true }));
-        });
-      }
-      wrap.append(heading, list);
-      plannerWeekSectionsEl.appendChild(wrap);
-    });
-    plannerWeekEmptyEl.hidden = total > 0;
+    if (plannerWeekViewEl) plannerWeekViewEl.hidden = true;
   }
 
   function focusPlannerEntry(entryId) {
@@ -298,7 +465,7 @@
     if (!entry) return;
     if (!entry.expanded) {
       entry.expanded = true;
-      if (!isTeamMode()) saveAll();
+      if (!isTeamMode()) savePlannerState();
       renderPlanner();
     }
     queueMicrotask(() => {
@@ -364,7 +531,7 @@
             .filter(Boolean)
             .slice(0, 16)
         : [];
-      const expanded = typeof x.expanded === "boolean" ? x.expanded : true;
+      const expanded = typeof x.expanded === "boolean" ? x.expanded : false;
       out.push({
         id: x.id,
         columnId: x.columnId,
@@ -448,11 +615,17 @@
 
   function ensureDefaultV2() {
     const pid = id();
-    planners = [{ id: pid, name: "My planner" }];
+    const columns = defaultKanbanColumns();
+    planners = [{ id: pid, name: "Landing Page" }];
     selectedPlannerId = pid;
-    boards = { [pid]: { columns: [], entries: [] } };
+    boards = { [pid]: { columns, entries: sampleKanbanEntries(columns) } };
     plannerColumns = boards[pid].columns;
     plannerEntries = boards[pid].entries;
+    try {
+      localStorage.setItem("planner-app-demo-v1", "1");
+    } catch (_) {
+      /* ignore */
+    }
   }
 
   function hydrateV2(p) {
@@ -487,17 +660,18 @@
       }
       if (p.version === 2) {
         hydrateV2(p);
-        return;
-      }
-      if (Array.isArray(p.plannerColumns) || Array.isArray(p.plannerEntries)) {
+      } else if (Array.isArray(p.plannerColumns) || Array.isArray(p.plannerEntries)) {
         const v2 = legacyFlatToV2(p);
         localStorage.setItem(STORAGE_PLANNER, JSON.stringify(v2));
         hydrateV2(v2);
-        return;
+      } else {
+        ensureDefaultV2();
       }
-      ensureDefaultV2();
     } catch {
       ensureDefaultV2();
+    }
+    if (seedKanbanIfEmpty()) {
+      /* filled empty board with demo columns/cards */
     }
     savePlannerState();
   }
@@ -528,7 +702,7 @@
       note: task.note || "",
       completed: Boolean(task.completed),
       tags: [],
-      expanded: true,
+      expanded: false,
       assigneeUserId: task.assigneeUserId || null,
       dueDate: task.dueDate || null,
     };
@@ -957,7 +1131,7 @@
     boards[selectedPlannerId] = { columns: plannerColumns, entries: plannerEntries };
     const pid = id();
     planners.push({ id: pid, name: trimmed.slice(0, 48) });
-    boards[pid] = { columns: [], entries: [] };
+    boards[pid] = { columns: defaultKanbanColumns(), entries: [] };
     selectedPlannerId = pid;
     plannerColumns = boards[pid].columns;
     plannerEntries = boards[pid].entries;
@@ -988,14 +1162,24 @@
   }
 
   function entryIsExpanded(entry) {
-    return entry.expanded !== false;
+    return entry.expanded === true;
   }
 
   function buildPlannerCardEl(entry) {
     const expanded = entryIsExpanded(entry);
     const card = document.createElement("article");
-    card.className = "planner-card" + (entry.completed ? " is-done" : "") + (expanded ? "" : " is-collapsed");
+    card.className =
+      "planner-card" +
+      (entry.completed ? " is-done" : "") +
+      (expanded ? "" : " is-collapsed") +
+      (entryMatchesSearch(entry) ? "" : " is-filtered-out");
     card.dataset.entryId = entry.id;
+    card.addEventListener("click", (ev) => {
+      if (expanded) return;
+      if (ev.target.closest("a, button, input, textarea, select, label")) return;
+      patchPlannerEntry(entry.id, { expanded: true });
+      renderPlanner();
+    });
 
     const top = document.createElement("div");
     top.className = "planner-card-top";
@@ -1041,131 +1225,168 @@
     del.className = "planner-card-delete";
     del.textContent = "×";
     del.setAttribute("aria-label", "Remove card");
-    del.addEventListener("click", () => removePlannerEntry(entry.id));
+    del.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      removePlannerEntry(entry.id);
+    });
 
     top.append(check, titleWrap, toggle, del);
+
+    const face = document.createElement("div");
+    face.className = "planner-card-face";
+    const faceTitle = document.createElement("h3");
+    faceTitle.className = "planner-card-face-title";
+    faceTitle.textContent = entry.title || "Untitled";
+    face.appendChild(faceTitle);
+    const notePreview = (entry.note || "").trim();
+    if (notePreview) {
+      const preview = document.createElement("p");
+      preview.className = "planner-card-preview";
+      preview.textContent = notePreview;
+      face.appendChild(preview);
+    }
+
+    const meta = document.createElement("div");
+    meta.className = "planner-card-meta";
+    const metaLeft = document.createElement("div");
+    metaLeft.className = "planner-card-meta-left";
 
     if (entry.dueDate) {
       const dueChip = document.createElement("a");
       dueChip.className =
         "planner-card-due-chip" + (entry.dueDate < todayIso() && !entry.completed ? " is-overdue" : "");
       dueChip.href = calendarHrefForDay(entry.dueDate);
-      dueChip.textContent = formatDueLabel(entry.dueDate);
       dueChip.title = "Open this day in Calendar";
       dueChip.addEventListener("click", (e) => e.stopPropagation());
-      card.appendChild(dueChip);
+      const dueIcon = document.createElement("span");
+      dueIcon.className = "planner-card-due-icon";
+      dueIcon.setAttribute("aria-hidden", "true");
+      const dueText = document.createElement("span");
+      dueText.textContent = formatDueLabel(entry.dueDate);
+      dueChip.append(dueIcon, dueText);
+      metaLeft.appendChild(dueChip);
     }
 
-    if (isTeamMode()) {
-      const assigneeChip = document.createElement("p");
-      assigneeChip.className = "planner-card-assignee-chip";
-      const member = teamMembers.find((item) => item.userId === entry.assigneeUserId);
-      assigneeChip.textContent = member
-        ? member.label
-        : entry.assigneeUserId
-          ? entry.assigneeUserId
-          : "Unassigned";
-      card.appendChild(assigneeChip);
-    }
+    const progress = entryProgress(entry);
+    const progressEl = document.createElement("span");
+    progressEl.className = "planner-card-progress";
+    progressEl.dataset.complete = progress >= 100 ? "true" : "false";
+    progressEl.style.setProperty("--progress", String(progress));
+    if (progress >= 100) progressEl.style.setProperty("--ring-color", "var(--pl-done)");
+    else if (progress >= 50) progressEl.style.setProperty("--ring-color", "var(--pl-progress)");
+    progressEl.innerHTML =
+      '<span class="planner-card-progress-ring" aria-hidden="true"></span>' +
+      `<span>${progress}%</span>`;
+    progressEl.setAttribute("aria-label", `Progress ${progress}%`);
+    meta.append(metaLeft, progressEl);
+
+    const foot = document.createElement("div");
+    foot.className = "planner-card-foot";
+    const avatars = document.createElement("div");
+    avatars.className = "planner-card-avatars";
+    appendAvatarStack(avatars, entryAvatarLabels(entry).slice(0, 3), "planner-card-avatar");
+    foot.appendChild(avatars);
 
     const drawer = document.createElement("div");
     drawer.className = "planner-card-drawer";
-    const drawerInner = document.createElement("div");
-    drawerInner.className = "planner-card-drawer-inner";
+    if (expanded) {
+      const drawerInner = document.createElement("div");
+      drawerInner.className = "planner-card-drawer-inner";
 
-    if (plannerColumns.length > 1) {
-      const moveLabel = document.createElement("label");
-      moveLabel.className = "planner-card-move-label";
-      moveLabel.textContent = "Column";
-      const moveSelect = document.createElement("select");
-      moveSelect.className = "planner-card-move";
-      moveSelect.setAttribute("aria-label", "Move to column");
-      plannerColumns.forEach((col) => {
-        const opt = document.createElement("option");
-        opt.value = col.id;
-        opt.textContent = `${col.emoji ? col.emoji + " " : ""}${col.title}`.trim();
-        if (col.id === entry.columnId) opt.selected = true;
-        moveSelect.appendChild(opt);
+      if (plannerColumns.length > 1) {
+        const moveLabel = document.createElement("label");
+        moveLabel.className = "planner-card-move-label";
+        moveLabel.textContent = "Column";
+        const moveSelect = document.createElement("select");
+        moveSelect.className = "planner-card-move";
+        moveSelect.setAttribute("aria-label", "Move to column");
+        plannerColumns.forEach((col) => {
+          const opt = document.createElement("option");
+          opt.value = col.id;
+          opt.textContent = `${col.emoji ? col.emoji + " " : ""}${col.title}`.trim();
+          if (col.id === entry.columnId) opt.selected = true;
+          moveSelect.appendChild(opt);
+        });
+        moveSelect.addEventListener("change", () => {
+          movePlannerEntry(entry.id, moveSelect.value);
+        });
+        moveLabel.appendChild(moveSelect);
+        drawerInner.appendChild(moveLabel);
+      }
+
+      const noteTa = document.createElement("textarea");
+      noteTa.className = "planner-card-note";
+      noteTa.value = entry.note;
+      noteTa.placeholder = "Notes…";
+      noteTa.rows = 3;
+      noteTa.addEventListener("change", () => {
+        patchPlannerEntry(entry.id, { note: noteTa.value.slice(0, 4000) });
       });
-      moveSelect.addEventListener("change", () => {
-        movePlannerEntry(entry.id, moveSelect.value);
+
+      const tagsInp = document.createElement("input");
+      tagsInp.type = "text";
+      tagsInp.className = "planner-card-tags";
+      tagsInp.value = entry.tags
+        .map((t) => (t.startsWith("#") ? t : "#" + t))
+        .join(", ");
+      tagsInp.placeholder = "Tags: #work, ideas";
+      tagsInp.addEventListener("change", () => {
+        patchPlannerEntry(entry.id, { tags: parseTagsInput(tagsInp.value) });
       });
-      moveLabel.appendChild(moveSelect);
-      drawerInner.appendChild(moveLabel);
+
+      drawerInner.append(noteTa);
+      if (isTeamMode()) {
+        const assignee = document.createElement("select");
+        assignee.className = "planner-card-assignee";
+        assignee.setAttribute("aria-label", "Assignee");
+        const emptyOpt = document.createElement("option");
+        emptyOpt.value = "";
+        emptyOpt.textContent = "Unassigned";
+        assignee.appendChild(emptyOpt);
+        teamMembers.forEach((member) => {
+          const opt = document.createElement("option");
+          opt.value = member.userId;
+          opt.textContent = member.label;
+          if (entry.assigneeUserId === member.userId) opt.selected = true;
+          assignee.appendChild(opt);
+        });
+        assignee.addEventListener("change", () => {
+          patchPlannerEntry(entry.id, { assigneeUserId: assignee.value || null });
+        });
+        drawerInner.append(assignee);
+      } else {
+        drawerInner.append(tagsInp);
+      }
+
+      const dueRow = document.createElement("div");
+      dueRow.className = "planner-card-due-row";
+      const due = document.createElement("input");
+      due.type = "date";
+      due.className = "planner-card-due";
+      due.setAttribute("aria-label", "Due date");
+      due.value = entry.dueDate || "";
+      due.addEventListener("change", () => {
+        patchPlannerEntry(entry.id, { dueDate: due.value || null });
+      });
+      dueRow.appendChild(due);
+      if (entry.dueDate) {
+        const openCal = document.createElement("a");
+        openCal.className = "planner-card-open-cal";
+        openCal.href = calendarHrefForDay(entry.dueDate);
+        openCal.textContent = "Calendar";
+        dueRow.appendChild(openCal);
+        const toTodo = document.createElement("button");
+        toTodo.type = "button";
+        toTodo.className = "planner-card-to-todo";
+        toTodo.textContent = "To Todo";
+        toTodo.addEventListener("click", () => sendEntryToTodoToday(entry));
+        dueRow.appendChild(toTodo);
+      }
+      drawerInner.appendChild(dueRow);
+      drawer.appendChild(drawerInner);
     }
 
-    const noteTa = document.createElement("textarea");
-    noteTa.className = "planner-card-note";
-    noteTa.value = entry.note;
-    noteTa.placeholder = "Notes…";
-    noteTa.rows = 3;
-    noteTa.addEventListener("change", () => {
-      patchPlannerEntry(entry.id, { note: noteTa.value.slice(0, 4000) });
-    });
-
-    const tagsInp = document.createElement("input");
-    tagsInp.type = "text";
-    tagsInp.className = "planner-card-tags";
-    tagsInp.value = entry.tags
-      .map((t) => (t.startsWith("#") ? t : "#" + t))
-      .join(", ");
-    tagsInp.placeholder = "Tags: #work, ideas";
-    tagsInp.addEventListener("change", () => {
-      patchPlannerEntry(entry.id, { tags: parseTagsInput(tagsInp.value) });
-    });
-
-    drawerInner.append(noteTa);
-    if (isTeamMode()) {
-      const assignee = document.createElement("select");
-      assignee.className = "planner-card-assignee";
-      assignee.setAttribute("aria-label", "Assignee");
-      const emptyOpt = document.createElement("option");
-      emptyOpt.value = "";
-      emptyOpt.textContent = "Unassigned";
-      assignee.appendChild(emptyOpt);
-      teamMembers.forEach((member) => {
-        const opt = document.createElement("option");
-        opt.value = member.userId;
-        opt.textContent = member.label;
-        if (entry.assigneeUserId === member.userId) opt.selected = true;
-        assignee.appendChild(opt);
-      });
-      assignee.addEventListener("change", () => {
-        patchPlannerEntry(entry.id, { assigneeUserId: assignee.value || null });
-      });
-
-      drawerInner.append(assignee);
-    } else {
-      drawerInner.append(tagsInp);
-    }
-
-    const dueRow = document.createElement("div");
-    dueRow.className = "planner-card-due-row";
-    const due = document.createElement("input");
-    due.type = "date";
-    due.className = "planner-card-due";
-    due.setAttribute("aria-label", "Due date");
-    due.value = entry.dueDate || "";
-    due.addEventListener("change", () => {
-      patchPlannerEntry(entry.id, { dueDate: due.value || null });
-    });
-    dueRow.appendChild(due);
-    if (entry.dueDate) {
-      const openCal = document.createElement("a");
-      openCal.className = "planner-card-open-cal";
-      openCal.href = calendarHrefForDay(entry.dueDate);
-      openCal.textContent = "Calendar";
-      dueRow.appendChild(openCal);
-      const toTodo = document.createElement("button");
-      toTodo.type = "button";
-      toTodo.className = "planner-card-to-todo";
-      toTodo.textContent = "To Todo";
-      toTodo.addEventListener("click", () => sendEntryToTodoToday(entry));
-      dueRow.appendChild(toTodo);
-    }
-    drawerInner.appendChild(dueRow);
-    drawer.appendChild(drawerInner);
-    card.append(top, drawer);
+    card.append(face, meta, foot, top, drawer);
     return card;
   }
 
@@ -1360,6 +1581,11 @@
     const head = document.createElement("header");
     head.className = "planner-column-head";
 
+    const status = document.createElement("span");
+    status.className = "planner-column-status";
+    status.dataset.status = columnStatusKey(col);
+    status.setAttribute("aria-hidden", "true");
+
     const emojiInp = document.createElement("input");
     emojiInp.type = "text";
     emojiInp.className = "planner-column-emoji";
@@ -1389,7 +1615,7 @@
     delCol.setAttribute("aria-label", `Delete column ${col.title}`);
     delCol.addEventListener("click", () => removePlannerColumn(col.id));
 
-    head.append(emojiInp, titleInp, delCol);
+    head.append(status, emojiInp, titleInp, delCol);
 
     const cardsWrap = document.createElement("div");
     cardsWrap.className = "planner-cards";
@@ -1485,58 +1711,68 @@
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         const columnEl = plannerBoardEl.querySelector(`.planner-column[data-column-id="${columnId}"]`);
-        if (!(columnEl instanceof HTMLElement) || !(plannerAddColumnBtn instanceof HTMLElement)) {
+        const sourceEl =
+          plannerEmptyAddColumnBtn instanceof HTMLElement
+            ? plannerEmptyAddColumnBtn
+            : plannerAddColumnBtn instanceof HTMLElement
+              ? plannerAddColumnBtn
+              : null;
+        if (!(columnEl instanceof HTMLElement) || !sourceEl) {
           dealingColumnId = "";
           return;
         }
-        playColumnDealAnimation(columnEl, plannerAddColumnBtn);
+        playColumnDealAnimation(columnEl, sourceEl);
       });
     });
   }
 
   function renderPlanner() {
+    const boardName = (() => {
+      if (isTeamMode()) {
+        const board = teamBoards.find((item) => item.id === selectedTeamBoardId);
+        return board ? board.name : "Team board";
+      }
+      const pl = planners.find((x) => x.id === selectedPlannerId);
+      return pl ? pl.name : "Planner";
+    })();
+
     if (plannerModeBadgeEl) {
       if (isTeamMode()) {
-        plannerModeBadgeEl.textContent = selectedWorkspaceName
-          ? `Team · ${selectedWorkspaceName}`
-          : "Team board";
+        plannerModeBadgeEl.textContent = selectedWorkspaceName || "Team";
       } else {
         plannerModeBadgeEl.textContent = "Personal";
       }
     }
-
-    if (isTeamMode()) {
-      const board = teamBoards.find((item) => item.id === selectedTeamBoardId);
-      plannerMonthTitleEl.textContent = board ? board.name : "Team board";
-    } else {
-      const pl = planners.find((x) => x.id === selectedPlannerId);
-      plannerMonthTitleEl.textContent = pl ? pl.name : "Planner";
-    }
+    if (plannerCrumbBoardEl) plannerCrumbBoardEl.textContent = boardName;
+    if (plannerMonthTitleEl) plannerMonthTitleEl.textContent = boardName;
 
     const now = new Date();
     const monthLine = now.toLocaleDateString(uiLocale(), { month: "long", year: "numeric" });
     const total = plannerEntries.length;
     const done = plannerEntries.filter((e) => e.completed).length;
-    if (plannerColumns.length === 0) {
-      plannerMetaLineEl.textContent = isTeamMode()
-        ? `${monthLine} · Shared board · add a column, then cards with assignees.`
-        : `${monthLine} · Add a column, then put cards inside it.`;
-    } else if (total === 0) {
-      plannerMetaLineEl.textContent = isTeamMode()
-        ? `${monthLine} · Shared board · add cards and assign people.`
-        : `${monthLine} · Add cards under each column.`;
-    } else {
-      plannerMetaLineEl.textContent = `${monthLine} · ${done} completed · ${total - done} open`;
+    if (plannerMetaLineEl) {
+      if (plannerColumns.length === 0) {
+        plannerMetaLineEl.textContent = isTeamMode()
+          ? `${monthLine} · Shared board · add a column, then cards with assignees.`
+          : `${monthLine} · Add a column, then put cards inside it.`;
+      } else if (total === 0) {
+        plannerMetaLineEl.textContent = isTeamMode()
+          ? `${monthLine} · Shared board · add cards and assign people.`
+          : `${monthLine} · Add cards under each column.`;
+      } else {
+        plannerMetaLineEl.textContent = `${monthLine} · ${done} completed · ${total - done} open`;
+      }
     }
     plannerClearDoneBtn.hidden = done === 0;
+    renderAssigneeBar();
 
     renderDueLoopStrip();
     renderWeekView();
 
-    const showBoard = plannerView === "board";
+    const showBoard = true;
     if (plannerBoardScrollEl instanceof HTMLElement) plannerBoardScrollEl.hidden = !showBoard;
 
-    const isEmpty = showBoard && plannerColumns.length === 0;
+    const isEmpty = plannerColumns.length === 0;
     if (plannerBoardEmptyEl instanceof HTMLElement) {
       plannerBoardEmptyEl.hidden = !isEmpty;
     }
@@ -1556,11 +1792,24 @@
 
   sidebarTrigger.addEventListener("click", () => toggleSidebar());
   sidebarBackdrop.addEventListener("click", () => closeSidebar());
-  plannerAddColumnBtn.addEventListener("click", () => addPlannerColumn());
   if (plannerEmptyAddColumnBtn) {
-    plannerEmptyAddColumnBtn.addEventListener("click", () => addPlannerColumn());
+    plannerEmptyAddColumnBtn.addEventListener("click", () => {
+      if (!isTeamMode() && seedKanbanIfEmpty()) {
+        savePlannerState();
+        renderPlannerSidebar();
+        renderPlanner();
+        return;
+      }
+      addPlannerColumn();
+    });
   }
   plannerClearDoneBtn.addEventListener("click", () => clearPlannerCompleted());
+  if (plannerSearchInput) {
+    plannerSearchInput.addEventListener("input", () => {
+      plannerSearchQuery = plannerSearchInput.value || "";
+      renderPlanner();
+    });
+  }
 
   toggleNewPlannerBtn.addEventListener("click", () => {
     const open = newPlannerPanel.hidden;
@@ -1597,6 +1846,7 @@
   });
 
   window.addEventListener("daily-space-locale-changed", () => {
+    syncRangeTabLabels();
     renderPlannerSidebar();
     renderPlanner();
   });
@@ -1614,17 +1864,24 @@
     });
   }
 
-  if (plannerViewBoardBtn) {
-    plannerViewBoardBtn.addEventListener("click", () => setPlannerView("board"));
+  if (plannerViewDayBtn) {
+    plannerViewDayBtn.addEventListener("click", () => setPlannerView("day"));
   }
   if (plannerViewWeekBtn) {
     plannerViewWeekBtn.addEventListener("click", () => setPlannerView("week"));
+  }
+  if (plannerViewMonthBtn) {
+    plannerViewMonthBtn.addEventListener("click", () => setPlannerView("month"));
+  }
+  if (plannerViewYearBtn) {
+    plannerViewYearBtn.addEventListener("click", () => setPlannerView("year"));
   }
   if (plannerOpenWeekViewBtn) {
     plannerOpenWeekViewBtn.addEventListener("click", () => setPlannerView("week"));
   }
 
   loadPlannerState();
+  syncRangeTabLabels();
   renderPlannerSidebar();
   renderPlanner();
   loadTeamBoards().then(() => renderPlannerSidebar());

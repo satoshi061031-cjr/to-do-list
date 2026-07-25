@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="m-dock.css" />
     <link rel="stylesheet" href="calendar.css" />
   </head>
-  <body class="calendar-page">
+  <body class="calendar-page calendar-week-workspace">
     <button type="button" class="sidebar-trigger" id="sidebar-trigger" aria-controls="sidebar" aria-expanded="false">
       Menu
     </button>
@@ -35,101 +35,98 @@
       </aside>
 
       <main class="main-area">
-        <div class="calendar-app">
-          <header class="calendar-header">
-            <div>
-              <p class="calendar-eyebrow">Today</p>
-              <h1 class="calendar-title" id="calendar-title"></h1>
-              <p class="calendar-meta" id="calendar-meta"></p>
-            </div>
-            <div class="calendar-nav-actions" aria-label="Calendar navigation">
-              <button type="button" class="calendar-nav-btn" id="calendar-prev" aria-label="Previous month">‹</button>
-              <button type="button" class="calendar-today-btn" id="calendar-today">Today</button>
-              <button type="button" class="calendar-nav-btn" id="calendar-next" aria-label="Next month">›</button>
-            </div>
-          </header>
-
-          <div class="calendar-content">
-            <section class="calendar-month-card app-calendar-panel" aria-label="Month calendar">
-              <div class="app-cal-weekdays" aria-hidden="true">
-                <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+        <div class="calendar-app calendar-app-solo">
+          <section class="cal-board" aria-label="Week calendar">
+            <header class="cal-board-head">
+              <div class="cal-board-title-wrap">
+                <h2 class="calendar-title" id="calendar-title"></h2>
+                <p class="calendar-meta" id="calendar-meta"></p>
               </div>
-              <div class="app-cal-grid" id="calendar-grid"></div>
-            </section>
+              <div class="calendar-nav-actions" aria-label="Calendar navigation">
+                <button type="button" class="calendar-nav-btn" id="calendar-prev" aria-label="Previous week">‹</button>
+                <button type="button" class="calendar-today-btn" id="calendar-today">Today</button>
+                <button type="button" class="calendar-nav-btn" id="calendar-next" aria-label="Next week">›</button>
+              </div>
+            </header>
 
-            <aside class="calendar-day-panel" aria-labelledby="selected-day-title">
+            <div class="cal-week" id="week-grid">
+              <div class="cal-week-head" id="week-head"></div>
+              <div class="cal-week-body">
+                <div class="cal-hours" id="week-hours" aria-hidden="true"></div>
+                <div class="cal-cols" id="week-cols"></div>
+              </div>
+            </div>
+
+            <div class="cal-composer" id="cal-composer">
               <div class="selected-day-head">
-                <h2 class="selected-day-title" id="selected-day-title"></h2>
+                <h3 class="selected-day-title" id="selected-day-title"></h3>
                 <p class="selected-day-meta" id="selected-day-meta"></p>
+                <a class="calendar-todo-link" id="calendar-open-todo" href="todo.html#today" hidden>Open Today in Todo</a>
               </div>
 
-              <section class="selected-section" aria-labelledby="tasks-title">
-                <div class="selected-section-head">
-                  <h3 class="selected-section-title" id="tasks-title">Tasks due this day</h3>
-                  <a class="calendar-todo-link" id="calendar-open-todo" href="todo.html#today">Open Today in Todo</a>
+              <form class="day-task-form" id="day-task-form" autocomplete="off">
+                <label class="day-task-label" for="day-task-input">Add a task for this day</label>
+                <div class="day-task-row">
+                  <input
+                    type="text"
+                    id="day-task-input"
+                    class="day-task-input"
+                    placeholder="Add a task for this day…"
+                    maxlength="500"
+                    aria-label="New task for selected day"
+                  />
+                  <button type="submit" class="btn btn-primary day-task-submit">Add</button>
                 </div>
-                <form class="day-task-form" id="day-task-form" autocomplete="off">
-                  <label class="day-task-label" for="day-task-input">Add a task for this day</label>
-                  <div class="day-task-row">
-                    <input
-                      type="text"
-                      id="day-task-input"
-                      class="day-task-input"
-                      placeholder="Add a task for this day…"
-                      maxlength="500"
-                      aria-label="New task for selected day"
-                    />
-                    <button type="submit" class="btn btn-primary day-task-submit">Add</button>
-                  </div>
-                </form>
-                <ul class="todo-list" id="task-list" aria-live="polite"></ul>
-                <p class="calendar-empty" id="task-empty" hidden></p>
-              </section>
+              </form>
+              <ul class="todo-list" id="task-list" aria-live="polite"></ul>
+              <p class="calendar-empty" id="task-empty" hidden></p>
 
-              <section class="selected-section" aria-labelledby="reminders-title">
-                <h3 class="selected-section-title" id="reminders-title">Reminders</h3>
-                <button type="button" class="btn calendar-alerts-btn" id="calendar-alerts-btn">
-                  Enable reminder alerts
-                </button>
-                <form class="reminder-form" id="reminder-form" autocomplete="off">
-                  <label class="reminder-label" for="reminder-input">Add reminder</label>
-                  <div class="reminder-row">
-                    <input
-                      type="text"
-                      id="reminder-input"
-                      class="reminder-input"
-                      placeholder="Reminder text..."
-                      maxlength="200"
-                    />
-                  </div>
-                  <div class="reminder-time-row">
-                    <label class="reminder-time-field">
-                      <span>Start</span>
-                      <input type="time" id="reminder-start-time" class="reminder-time-input" />
-                    </label>
-                    <label class="reminder-time-field">
-                      <span>End</span>
-                      <input type="time" id="reminder-end-time" class="reminder-time-input" />
-                    </label>
-                    <label class="reminder-priority-field">
-                      <span>Priority</span>
-                      <select id="reminder-priority" class="reminder-priority-select">
-                        <option value="high">High</option>
-                        <option value="medium" selected>Medium</option>
-                        <option value="low">Low</option>
-                      </select>
-                    </label>
-                    <button type="submit" class="btn btn-primary reminder-submit">Add</button>
-                  </div>
-                </form>
-                <ul class="calendar-item-list" id="reminder-list"></ul>
-                <p class="calendar-empty" id="reminder-empty" hidden></p>
-              </section>
-            </aside>
-          </div>
+              <form class="reminder-form" id="reminder-form" autocomplete="off">
+                <input
+                  type="text"
+                  id="reminder-input"
+                  class="reminder-input"
+                  placeholder="Add reminder for selected day…"
+                  maxlength="200"
+                  aria-label="Add reminder"
+                />
+                <div class="reminder-time-row">
+                  <label class="reminder-time-field">
+                    <span>Start</span>
+                    <input type="time" id="reminder-start-time" class="reminder-time-input" />
+                  </label>
+                  <label class="reminder-time-field">
+                    <span>End</span>
+                    <input type="time" id="reminder-end-time" class="reminder-time-input" />
+                  </label>
+                  <label class="reminder-priority-field">
+                    <span>Priority</span>
+                    <select id="reminder-priority" class="reminder-priority-select">
+                      <option value="high">High</option>
+                      <option value="medium" selected>Medium</option>
+                      <option value="low">Low</option>
+                    </select>
+                  </label>
+                  <button type="submit" class="btn btn-primary reminder-submit">Add</button>
+                </div>
+              </form>
+              <button type="button" class="btn calendar-alerts-btn" id="calendar-alerts-btn">Enable reminder alerts</button>
+              <ul class="calendar-item-list" id="reminder-list" hidden></ul>
+              <p class="calendar-empty" id="reminder-empty" hidden></p>
+            </div>
+          </section>
         </div>
       </main>
     </div>
+
+    <div class="cal-upcoming" id="cal-upcoming" hidden>
+      <span class="cal-upcoming-kicker">Upcoming</span>
+      <span class="cal-upcoming-text" id="cal-upcoming-text"></span>
+      <span class="cal-upcoming-time" id="cal-upcoming-time"></span>
+    </div>
+
+    <!-- Month grid kept off-screen for any legacy hooks; week view is primary -->
+    <div class="app-cal-grid" id="calendar-grid" hidden aria-hidden="true"></div>
 
     <button type="button" class="theme-toggle" id="theme-toggle" aria-pressed="false">
       <span class="theme-toggle-icon" aria-hidden="true">D</span>
