@@ -1,5 +1,6 @@
 :root {
   --bg: #e7e9ea;
+  --neutral: #e7e9ea; /* DESIGN.md colors.neutral — page wash */
   --bg-accent: #f6f7f7;
   --bg-mid: #d8dcdd;
   --bg-spot: rgba(255, 255, 255, 0.76);
@@ -13,6 +14,7 @@
   --text: #2c2925;
   --text-muted: #6f6a62;
   --accent: #4f6368;
+  --secondary: #4f6368; /* DESIGN.md colors.secondary — slate structure */
   --accent-soft: rgba(79, 99, 104, 0.12);
   --accent-hover: #5d7379;
   --primary: #35322e;
@@ -60,6 +62,7 @@
 
 :root[data-theme="dark"] {
   --bg: #131412;
+  --neutral: #131412;
   --bg-accent: #2a2a25;
   --bg-mid: #1c1d1a;
   --bg-spot: rgba(159, 180, 186, 0.08);
@@ -73,6 +76,7 @@
   --text: #f2eee5;
   --text-muted: #b7afa2;
   --accent: #9fb4ba;
+  --secondary: #9fb4ba;
   --accent-soft: rgba(159, 180, 186, 0.16);
   --accent-hover: #b1c7cd;
   --primary: #eee8dc;
@@ -2231,6 +2235,10 @@ body.shortcut-go-armed::after {
 
 .daily-loop-empty {
   margin: 0;
+  padding: var(--space-md);
+  border: 1px dashed color-mix(in srgb, var(--tertiary) 40%, transparent);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--tertiary) 8%, var(--glass));
   color: var(--text-muted);
   font-size: var(--type-body-size);
   letter-spacing: var(--type-body-tracking);
@@ -3253,11 +3261,16 @@ body.todo-source-assigned .app-atmosphere {
 .empty-state {
   text-align: center;
   color: var(--text-muted);
-  font-size: 0.92rem;
-  margin: 2.25rem 0;
+  font-size: var(--type-body-size);
+  margin: var(--space-lg) 0;
+  padding: var(--space-lg) var(--space-md);
   display: none;
-  letter-spacing: 0.03em;
-  line-height: 1.7;
+  letter-spacing: var(--type-body-tracking, 0.02em);
+  line-height: var(--type-body-lh);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  background: var(--glass);
+  box-shadow: var(--shadow-soft);
 }
 
 .empty-state.is-visible {
@@ -4237,8 +4250,11 @@ body.has-bento-rail .bento-rail-more-link:hover {
   background: var(--accent-soft);
 }
 
-body.has-bento-rail .bento-rail-theme.theme-toggle {
+body.has-bento-rail .bento-rail-theme.theme-toggle,
+body.has-bento-rail .language-toggle.bento-rail-lang {
   position: static;
+  top: auto;
+  right: auto;
   width: 2.65rem;
   height: 2.65rem;
   min-width: 0;
@@ -4251,6 +4267,10 @@ body.has-bento-rail .bento-rail-theme.theme-toggle {
   display: grid;
   place-items: center;
   gap: 0;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
 }
 
 body.has-bento-rail .bento-rail-theme .theme-toggle-label {
@@ -4264,6 +4284,12 @@ body.has-bento-rail .bento-rail-theme .theme-toggle-label {
 body.has-bento-rail .bento-rail-theme .theme-toggle-icon {
   font-size: 0.78rem;
   letter-spacing: 0.04em;
+}
+
+body.has-bento-rail .language-toggle.bento-rail-lang:hover,
+body.has-bento-rail .language-toggle.bento-rail-lang:focus-visible {
+  background: color-mix(in srgb, var(--bento-rail-fg) 14%, transparent);
+  outline: none;
 }
 
 body.has-bento-rail .main-area {

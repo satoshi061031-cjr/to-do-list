@@ -26,9 +26,9 @@
           <a href="calendar.html" class="sidebar-page-link">Calendar</a>
           <a href="planner.html" class="sidebar-page-link">Planner</a>
           <a href="mail.html" class="sidebar-page-link">Mail</a>
-          <details class="sidebar-more" open>
+          <a href="tally.html" class="sidebar-page-link is-active" aria-current="page">Tally book</a>
+          <details class="sidebar-more">
             <summary class="sidebar-more-summary">More</summary>
-            <a href="tally.html" class="sidebar-page-link is-active" aria-current="page">Tally book</a>
             <a href="teamwork.html" class="sidebar-page-link">Teamwork</a>
           </details>
         </div>
@@ -36,6 +36,11 @@
 
       <main class="main-area">
         <div class="tally-app">
+          <header class="tally-intro">
+            <p class="tally-kicker">Tally book</p>
+            <h1 class="tally-heading">Keep today’s spend quiet and clear.</h1>
+          </header>
+
           <header class="tally-topbar">
             <div class="tally-period-switcher" aria-label="Month navigation">
               <button type="button" class="tally-nav-btn" id="tally-prev" aria-label="Previous month">‹</button>
@@ -79,15 +84,23 @@
             <strong class="tally-week-total" id="tally-week-total">¥0.00</strong>
             <p class="tally-meta" id="tally-meta"></p>
             <div class="tally-bars" id="tally-bars"></div>
+            <div class="tally-week-empty" id="tally-week-empty" hidden>
+              <p class="tally-week-empty-kicker">This week</p>
+              <p class="tally-week-empty-copy">No spend logged yet. Tap + to add the first one.</p>
+            </div>
           </section>
 
           <section class="tally-transactions" aria-label="Expense records">
             <div class="tally-records-head">
-              <h1>Transactions</h1>
+              <h2>Transactions</h2>
               <span><b id="tally-month-total">¥0.00</b> this month</span>
             </div>
             <ul class="tally-record-list" id="tally-record-list"></ul>
-            <p class="tally-empty" id="tally-empty"></p>
+            <div class="tally-empty-panel" id="tally-empty-panel" hidden>
+              <p class="tally-empty-kicker">This month</p>
+              <p class="tally-empty" id="tally-empty">No expenses this month.</p>
+              <button type="button" class="btn btn-primary tally-empty-cta" id="tally-empty-cta">Add expense</button>
+            </div>
           </section>
 
           <button type="button" class="tally-add-fab" id="tally-add-open" aria-label="Add expense">+</button>
@@ -97,17 +110,22 @@
             <section class="tally-sheet-panel" role="dialog" aria-modal="true" aria-labelledby="tally-add-title">
               <div class="tally-sheet-head">
                 <div>
-                  <p>New transaction</p>
+                  <p id="tally-sheet-eyebrow">New transaction</p>
                   <h2 id="tally-add-title">Add expense</h2>
                 </div>
-                <button type="button" class="tally-sheet-close" id="tally-add-close" aria-label="Close add expense">×</button>
+                <button type="button" class="tally-sheet-close" id="tally-add-close" aria-label="Close expense sheet">×</button>
               </div>
               <form class="tally-form" id="tally-form" autocomplete="off">
                 <label>Date<input type="date" id="tally-date" required /></label>
                 <label>Amount<input type="number" min="0" step="0.01" id="tally-amount" placeholder="0.00" required /></label>
-                <label>Category<input type="text" id="tally-category" placeholder="Coffee, groceries..." maxlength="40" required /></label>
+                <label class="tally-category-field">
+                  Category
+                  <input type="text" id="tally-category" list="tally-category-options" placeholder="Coffee, groceries..." maxlength="40" required autocomplete="off" />
+                  <datalist id="tally-category-options"></datalist>
+                  <div class="tally-category-suggestions" id="tally-category-suggestions" hidden></div>
+                </label>
                 <label>Note<input type="text" id="tally-note" placeholder="Optional note" maxlength="120" /></label>
-                <button type="submit" class="tally-submit-btn">Add transaction</button>
+                <button type="submit" class="tally-submit-btn" id="tally-submit">Add transaction</button>
               </form>
             </section>
           </div>

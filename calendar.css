@@ -392,6 +392,24 @@ body.calendar-page .sidebar-trigger {
   border-right: 1px solid color-mix(in srgb, var(--primary) 8%, transparent);
 }
 
+.cal-week.is-empty .cal-hours,
+.cal-week.is-empty .cal-cols {
+  min-height: min(18rem, 48vh);
+}
+
+.cal-week-empty {
+  margin: 0;
+  padding: var(--space-sm) var(--space-md) var(--space-md);
+  color: var(--cal-muted);
+  font-size: var(--type-body-size, 1rem);
+  line-height: var(--type-body-lh, 1.7);
+  text-align: center;
+}
+
+.cal-week-empty[hidden] {
+  display: none;
+}
+
 .cal-hour-label {
   height: calc(100% / var(--cal-hour-count));
   padding: 0.25rem 0.35rem 0 0;
@@ -520,6 +538,22 @@ body.calendar-page .sidebar-trigger {
 
 .calendar-todo-link:hover {
   color: var(--cal-accent);
+}
+
+.calendar-empty {
+  margin: var(--space-sm) 0 0;
+  padding: var(--space-md);
+  border: 1px dashed color-mix(in srgb, var(--cal-accent) 40%, transparent);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--cal-accent) 8%, transparent);
+  color: var(--cal-muted);
+  font-size: var(--type-body-size, 1rem);
+  line-height: var(--type-body-lh, 1.7);
+  text-align: center;
+}
+
+.calendar-empty[hidden] {
+  display: none;
 }
 
 .day-task-form {

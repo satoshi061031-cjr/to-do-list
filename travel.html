@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Travel</title>
+    <script src="daily-loop.js"></script>
+    <script src="theme.js"></script>
+    <script src="i18n.js"></script>
+    <script src="bento-rail.js"></script>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="m-dock.css" />
+    <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
+    <link rel="stylesheet" href="travel.css" />
+  </head>
+  <body class="travel-page">
+    <button type="button" class="sidebar-trigger" id="sidebar-trigger" aria-controls="sidebar" aria-expanded="false">
+      Menu
+    </button>
+    <div class="backdrop" id="sidebar-backdrop" hidden aria-hidden="true"></div>
+
+    <div class="layout">
+      <aside class="sidebar" id="sidebar" aria-label="Navigation">
+        <div class="sidebar-inner">
+          <div class="sidebar-heading">Pages</div>
+          <a href="todo.html#today" class="sidebar-page-link">Todo</a>
+          <a href="calendar.html" class="sidebar-page-link">Calendar</a>
+          <a href="planner.html" class="sidebar-page-link">Planner</a>
+          <a href="mail.html" class="sidebar-page-link">Mail</a>
+          <a href="tally.html" class="sidebar-page-link">Tally book</a>
+          <a href="travel.html" class="sidebar-page-link is-active" aria-current="page">Travel</a>
+          <details class="sidebar-more">
+            <summary class="sidebar-more-summary">More</summary>
+            <a href="teamwork.html" class="sidebar-page-link">Teamwork</a>
+          </details>
+        </div>
+      </aside>
+
+      <main class="main-area">
+        <div class="travel-app">
+          <section class="travel-empty" id="travel-empty" hidden>
+            <h1 class="travel-empty-greeting" id="travel-empty-greeting">Good morning</h1>
+            <p class="travel-empty-prompt">Where&rsquo;s your destination?</p>
+            <button type="button" class="btn btn-primary travel-add-btn" id="travel-empty-add">Add</button>
+          </section>
+
+          <section class="travel-workspace" id="travel-workspace" hidden>
+            <div class="travel-map" id="travel-map" role="application" aria-label="Trip map"></div>
+
+            <div class="travel-overlay">
+              <div class="travel-search-bar">
+                <form class="travel-search" id="travel-search-form" autocomplete="off">
+                  <label class="travel-sr" for="travel-search-input">Search place</label>
+                  <input
+                    type="search"
+                    id="travel-search-input"
+                    placeholder="Search a place…"
+                    maxlength="120"
+                  />
+                  <button type="submit" class="travel-search-btn" id="travel-search-btn">Search</button>
+                </form>
+                <p class="travel-map-hint" id="travel-map-hint">Search, or click the map to drop a stop.</p>
+                <ul class="travel-place-results" id="travel-map-results" hidden></ul>
+              </div>
+
+              <aside class="travel-side" aria-label="Stops">
+                <div class="travel-side-chrome" id="travel-side-chrome">
+                  <label class="travel-trip-select-wrap">
+                    <span class="travel-sr">Trip</span>
+                    <select id="travel-trip-select" aria-label="Select trip"></select>
+                  </label>
+                  <button type="button" class="btn btn-primary travel-add-btn" id="travel-new-open">Add</button>
+                </div>
+
+                <div class="travel-side-head">
+                  <div>
+                    <p class="travel-kicker" id="travel-side-place"></p>
+                    <h2 class="travel-side-title" id="travel-side-title"></h2>
+                    <p class="travel-side-meta" id="travel-side-meta"></p>
+                  </div>
+                  <button type="button" class="travel-icon-btn" id="travel-delete-trip" aria-label="Delete trip">×</button>
+                </div>
+
+                <div class="travel-days" id="travel-days" role="tablist" aria-label="Trip days"></div>
+
+                <div class="travel-stops-head">
+                  <h3 id="travel-stops-heading">Stops</h3>
+                  <span id="travel-stops-count"></span>
+                </div>
+                <ul class="travel-stop-list" id="travel-stop-list"></ul>
+                <p class="travel-stops-empty" id="travel-stops-empty" hidden>No stops on this day yet.</p>
+              </aside>
+            </div>
+          </section>
+
+          <div class="travel-sheet" id="travel-new-sheet" hidden>
+            <button type="button" class="travel-sheet-backdrop" id="travel-new-backdrop" aria-label="Close new trip"></button>
+            <section class="travel-sheet-panel" role="dialog" aria-modal="true" aria-labelledby="travel-new-title">
+              <div class="travel-sheet-head">
+                <div>
+                  <p class="travel-kicker">New trip</p>
+                  <h2 id="travel-new-title">Where are you going?</h2>
+                </div>
+                <button type="button" class="travel-sheet-close" id="travel-new-close" aria-label="Close new trip">×</button>
+              </div>
+              <form class="travel-form" id="travel-new-form" autocomplete="off">
+                <label>Trip name<input type="text" id="travel-new-name" placeholder="Japan spring" maxlength="60" required /></label>
+                <label>
+                  Destination
+                  <input type="text" id="travel-new-dest" placeholder="Tokyo, Japan" maxlength="80" required />
+                </label>
+                <label>Start<input type="date" id="travel-new-start" required /></label>
+                <label>End<input type="date" id="travel-new-end" required /></label>
+                <p class="travel-form-note" id="travel-new-note"></p>
+                <button type="submit" class="btn btn-primary travel-submit">Create trip</button>
+              </form>
+            </section>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <button type="button" class="theme-toggle" id="theme-toggle" aria-pressed="false">
+      <span class="theme-toggle-icon" aria-hidden="true">D</span>
+      <span class="theme-toggle-label">Dark</span>
+    </button>
+
+    <script src="vendor/leaflet/leaflet.js"></script>
+    <script src="travel.js"></script>
+  </body>
+</html>

@@ -21,7 +21,7 @@ body.todo-mobile .language-toggle {
 /* Shared dock from bento-rail + m-dock.css; leave room for yellow FAB */
 @media (max-width: 819px) {
   body.todo-mobile.has-bento-rail .bento-rail {
-    width: min(24.5rem, calc(100vw - 5.25rem));
+    width: min(28rem, calc(100vw - 5.25rem));
     margin-right: 3.25rem;
     left: calc(50% - 1.4rem);
   }

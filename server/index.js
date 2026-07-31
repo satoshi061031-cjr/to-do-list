@@ -16,6 +16,7 @@ const {
 } = require("./db");
 const { isAgentConfigured, runTodoAgent } = require("./agent");
 const { runGlobalAgent } = require("./global-agent");
+const { searchTravelPlaces, travelPlacesStatus } = require("./travel-places");
 const { summarizeInboxMessages } = require("./mail-digest");
 const {
   getDefaultStore: getUserSnapshotStore,
@@ -95,7 +96,25 @@ async function handleApi(request, response, url) {
       alphaVantageConfigured: Boolean(process.env.ALPHA_VANTAGE_API_KEY),
       agentConfigured: isAgentConfigured(),
       supabaseConfigured: isSupabaseSnapshotStoreConfigured(),
+      travelPlaces: travelPlacesStatus(),
     });
+    return;
+  }
+
+  if (method === "GET" && url.pathname === "/api/travel/places") {
+    const query = String(url.searchParams.get("q") || "").trim();
+    if (!query) {
+      sendJson(response, { ok: true, places: [], provider: "none" });
+      return;
+    }
+    const result = await searchTravelPlaces({
+      query,
+      lat: url.searchParams.get("lat"),
+      lng: url.searchParams.get("lng"),
+      limit: url.searchParams.get("limit"),
+      lang: url.searchParams.get("lang"),
+    });
+    sendJson(response, { ok: true, ...result });
     return;
   }
 

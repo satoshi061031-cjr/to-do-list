@@ -70,7 +70,7 @@
   const plannerViewWeekBtn = document.getElementById("planner-view-week");
   const plannerViewMonthBtn = document.getElementById("planner-view-month");
   const plannerViewYearBtn = document.getElementById("planner-view-year");
-  const plannerEmptyAddColumnBtn = document.getElementById("planner-empty-add-column");
+  const plannerEmptyAddColumnBtn = null;
   const plannerMonthTitleEl = document.getElementById("planner-month-title");
   const plannerModeBadgeEl = document.getElementById("planner-mode-badge");
   const plannerCrumbBoardEl = document.getElementById("planner-crumb-board");
@@ -119,6 +119,45 @@
       { id: id(), title: "Done", emoji: "✓" },
       { id: id(), title: "On Hold", emoji: "◌" },
     ];
+  }
+
+  const FIXED_COLUMN_SPECS = [
+    { title: "Planned", emoji: "○" },
+    { title: "In Progress", emoji: "◎" },
+    { title: "Done", emoji: "✓" },
+    { title: "On Hold", emoji: "◌" },
+  ];
+
+  function ensureFixedKanbanColumns() {
+    if (isTeamMode()) return false;
+    const byTitle = new Map(
+      plannerColumns.map((col) => [String(col.title || "").trim().toLowerCase(), col])
+    );
+    const next = FIXED_COLUMN_SPECS.map((spec) => {
+      const existing = byTitle.get(spec.title.toLowerCase());
+      if (existing) {
+        existing.title = spec.title;
+        if (!existing.emoji) existing.emoji = spec.emoji;
+        return existing;
+      }
+      return { id: id(), title: spec.title, emoji: spec.emoji };
+    });
+    const fixedIds = new Set(next.map((col) => col.id));
+    const plannedId = next[0].id;
+    let changed = next.length !== plannerColumns.length;
+    plannerColumns.forEach((col) => {
+      if (fixedIds.has(col.id)) return;
+      changed = true;
+      plannerEntries.forEach((entry) => {
+        if (entry.columnId === col.id) entry.columnId = plannedId;
+      });
+    });
+    FIXED_COLUMN_SPECS.forEach((spec, index) => {
+      if (!byTitle.has(spec.title.toLowerCase())) changed = true;
+      if (plannerColumns[index]?.id !== next[index].id) changed = true;
+    });
+    plannerColumns = next;
+    return changed;
   }
 
   function sampleKanbanEntries(columns) {
@@ -186,21 +225,6 @@
     ].filter((entry) => entry.columnId);
   }
 
-  function entryProgress(entry) {
-    if (entry.completed) return 100;
-    const col = plannerColumns.find((c) => c.id === entry.columnId);
-    const title = (col?.title || "").toLowerCase();
-    if (title.includes("done")) return 100;
-    if (title.includes("progress")) return 50;
-    if (title.includes("hold")) return 25;
-    if (title.includes("planned")) return 0;
-    let p = 0;
-    if (entry.note && entry.note.trim()) p += 40;
-    if (entry.dueDate) p += 30;
-    if (entry.tags && entry.tags.length) p += 30;
-    return Math.min(100, p);
-  }
-
   function entryMatchesSearch(entry) {
     const q = plannerSearchQuery.trim().toLowerCase();
     if (!q) return true;
@@ -211,11 +235,7 @@
   function seedKanbanIfEmpty() {
     if (isTeamMode()) return false;
     const DEMO_KEY = "planner-app-demo-v1";
-    let changed = false;
-    if (plannerColumns.length === 0) {
-      plannerColumns = defaultKanbanColumns();
-      changed = true;
-    }
+    let changed = ensureFixedKanbanColumns();
     const demoDone = localStorage.getItem(DEMO_KEY) === "1";
     if (plannerEntries.length === 0 && (!demoDone || changed)) {
       plannerEntries = sampleKanbanEntries(plannerColumns);
@@ -970,49 +990,16 @@
   }
 
   function addPlannerColumn() {
-    if (isTeamMode()) {
-      apiRequest(`/api/boards/${encodeURIComponent(selectedTeamBoardId)}/columns`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: "New column", emoji: "" }),
-      })
-        .then(async () => {
-          await reloadSelectedTeamBoard();
-          renderPlannerSidebar();
-          renderPlanner();
-        })
-        .catch((error) => setTeamStatus(error.message || "Failed to add column.", true));
-      return;
+    if (isTeamMode()) return;
+    if (ensureFixedKanbanColumns()) {
+      savePlannerState();
+      renderPlannerSidebar();
+      renderPlanner();
     }
-    const column = { id: id(), title: "New column", emoji: "" };
-    plannerColumns.push(column);
-    savePlannerState();
-    renderPlannerSidebar();
-    dealingColumnId = column.id;
-    renderPlanner();
-    queueColumnDealAnimation(column.id);
   }
 
-  function removePlannerColumn(columnId) {
-    const col = plannerColumns.find((c) => c.id === columnId);
-    if (!window.confirm(`Delete column “${col ? col.title : "Column"}”?`)) return;
-    if (isTeamMode()) {
-      apiRequest(`/api/boards/${encodeURIComponent(selectedTeamBoardId)}/columns/${encodeURIComponent(columnId)}`, {
-        method: "DELETE",
-      })
-        .then(async () => {
-          await reloadSelectedTeamBoard();
-          renderPlannerSidebar();
-          renderPlanner();
-        })
-        .catch((error) => setTeamStatus(error.message || "Failed to delete column.", true));
-      return;
-    }
-    plannerColumns = plannerColumns.filter((c) => c.id !== columnId);
-    plannerEntries = plannerEntries.filter((e) => e.columnId !== columnId);
-    savePlannerState();
-    renderPlannerSidebar();
-    renderPlanner();
+  function removePlannerColumn() {
+    /* Fixed Planned / In Progress / Done / On Hold columns cannot be removed. */
   }
 
   function addPlannerEntry(columnId) {
@@ -1246,40 +1233,6 @@
       face.appendChild(preview);
     }
 
-    const meta = document.createElement("div");
-    meta.className = "planner-card-meta";
-    const metaLeft = document.createElement("div");
-    metaLeft.className = "planner-card-meta-left";
-
-    if (entry.dueDate) {
-      const dueChip = document.createElement("a");
-      dueChip.className =
-        "planner-card-due-chip" + (entry.dueDate < todayIso() && !entry.completed ? " is-overdue" : "");
-      dueChip.href = calendarHrefForDay(entry.dueDate);
-      dueChip.title = "Open this day in Calendar";
-      dueChip.addEventListener("click", (e) => e.stopPropagation());
-      const dueIcon = document.createElement("span");
-      dueIcon.className = "planner-card-due-icon";
-      dueIcon.setAttribute("aria-hidden", "true");
-      const dueText = document.createElement("span");
-      dueText.textContent = formatDueLabel(entry.dueDate);
-      dueChip.append(dueIcon, dueText);
-      metaLeft.appendChild(dueChip);
-    }
-
-    const progress = entryProgress(entry);
-    const progressEl = document.createElement("span");
-    progressEl.className = "planner-card-progress";
-    progressEl.dataset.complete = progress >= 100 ? "true" : "false";
-    progressEl.style.setProperty("--progress", String(progress));
-    if (progress >= 100) progressEl.style.setProperty("--ring-color", "var(--pl-done)");
-    else if (progress >= 50) progressEl.style.setProperty("--ring-color", "var(--pl-progress)");
-    progressEl.innerHTML =
-      '<span class="planner-card-progress-ring" aria-hidden="true"></span>' +
-      `<span>${progress}%</span>`;
-    progressEl.setAttribute("aria-label", `Progress ${progress}%`);
-    meta.append(metaLeft, progressEl);
-
     const foot = document.createElement("div");
     foot.className = "planner-card-foot";
     const avatars = document.createElement("div");
@@ -1386,7 +1339,7 @@
       drawer.appendChild(drawerInner);
     }
 
-    card.append(face, meta, foot, top, drawer);
+    card.append(face, foot, top, drawer);
     return card;
   }
 
@@ -1602,20 +1555,11 @@
     titleInp.type = "text";
     titleInp.className = "planner-column-title-input";
     titleInp.value = col.title;
+    titleInp.readOnly = true;
     titleInp.setAttribute("aria-label", "Column title");
     titleInp.maxLength = 80;
-    titleInp.addEventListener("change", () => {
-      updatePlannerColumn(col.id, { title: titleInp.value.trim().slice(0, 80) || "Untitled" });
-    });
 
-    const delCol = document.createElement("button");
-    delCol.type = "button";
-    delCol.className = "planner-column-delete";
-    delCol.textContent = "×";
-    delCol.setAttribute("aria-label", `Delete column ${col.title}`);
-    delCol.addEventListener("click", () => removePlannerColumn(col.id));
-
-    head.append(status, emojiInp, titleInp, delCol);
+    head.append(status, emojiInp, titleInp);
 
     const cardsWrap = document.createElement("div");
     cardsWrap.className = "planner-cards";
@@ -1711,17 +1655,12 @@
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         const columnEl = plannerBoardEl.querySelector(`.planner-column[data-column-id="${columnId}"]`);
-        const sourceEl =
-          plannerEmptyAddColumnBtn instanceof HTMLElement
-            ? plannerEmptyAddColumnBtn
-            : plannerAddColumnBtn instanceof HTMLElement
-              ? plannerAddColumnBtn
-              : null;
-        if (!(columnEl instanceof HTMLElement) || !sourceEl) {
+        if (!(columnEl instanceof HTMLElement)) {
           dealingColumnId = "";
           return;
         }
-        playColumnDealAnimation(columnEl, sourceEl);
+        dealingColumnId = "";
+        columnEl.classList.remove("is-dealing");
       });
     });
   }
@@ -1778,8 +1717,8 @@
     }
     if (isEmpty && plannerBoardEmptyCopyEl) {
       plannerBoardEmptyCopyEl.textContent = isTeamMode()
-        ? "Shared columns hold assignable cards. Add a column to begin."
-        : "Columns hold cards. Add one to begin organizing this board.";
+        ? "Shared columns hold assignable cards."
+        : "Setting up Planned, In Progress, Done, and On Hold.";
     }
 
     plannerBoardEl.innerHTML = "";
@@ -1792,17 +1731,6 @@
 
   sidebarTrigger.addEventListener("click", () => toggleSidebar());
   sidebarBackdrop.addEventListener("click", () => closeSidebar());
-  if (plannerEmptyAddColumnBtn) {
-    plannerEmptyAddColumnBtn.addEventListener("click", () => {
-      if (!isTeamMode() && seedKanbanIfEmpty()) {
-        savePlannerState();
-        renderPlannerSidebar();
-        renderPlanner();
-        return;
-      }
-      addPlannerColumn();
-    });
-  }
   plannerClearDoneBtn.addEventListener("click", () => clearPlannerCompleted());
   if (plannerSearchInput) {
     plannerSearchInput.addEventListener("input", () => {

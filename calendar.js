@@ -473,6 +473,12 @@
       calendarMetaEl.textContent = `${dueThisWeek} ${dueThisWeek === 1 ? "task" : "tasks"} · ${remindersThisWeek} ${remindersThisWeek === 1 ? "reminder" : "reminders"} this week`;
     }
 
+    const weekGrid = document.getElementById("week-grid");
+    const weekEmptyEl = document.getElementById("cal-week-empty");
+    const weekIsEmpty = dueThisWeek === 0 && remindersThisWeek === 0;
+    if (weekGrid) weekGrid.classList.toggle("is-empty", weekIsEmpty);
+    if (weekEmptyEl) weekEmptyEl.hidden = !weekIsEmpty;
+
     weekHeadEl.innerHTML = `<div class="cal-week-corner" aria-hidden="true"></div>`;
     days.forEach((day) => {
       const iso = dateToIso(day);

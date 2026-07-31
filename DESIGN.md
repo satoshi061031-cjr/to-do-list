@@ -139,8 +139,9 @@ Do not switch to Inter, Roboto, Arial, or system-ui as the brand voice.
 - Todo hub may use a quiet glass bento layout (slim page rail + light metric tiles + task panel). Keep tokens and Daily Loop controls; do not treat the first viewport as a dense stats dashboard.
 - Todo mobile uses a separate soft Loop home (`todo-m.html`) that can diverge in layout from desktop — greeting, week strip, status pills, white task sheet, floating dock + yellow FAB — while keeping the same color tokens (yellow `tertiary` accent, never a second brand hue).
 - Calendar desktop uses a week workspace: light week time grid with yellow selection/Today accents; timed reminders render as blocks. Selected-day tasks and reminders stay in the board composer (no separate Todos rail).
-- Planner board uses a soft Kanban layout: muted column tracks, white cards with due chips and progress rings, Board/List pills, search, and a yellow `+ Add New` CTA. Seeded columns are Planned / In Progress / Done / On Hold.
-- Planner mirrors a Codomo-style project board **inside the main panel only**: breadcrumb + assignee row, Board/To-do/Table/List toolbar, status-icon columns, and collapsed cards (title, note preview, due, progress, avatars, link/comment counts). Site chrome (bento rail, menu sidebar, greeting) stays the shared Daily Space pattern. Yellow `tertiary` remains the only primary CTA.
+- Planner board uses a soft Kanban layout **inside the main panel only**: glass panel + muted column tracks, glass cards, Day/Week/Month/Year range pills, and search. Fixed columns are Planned / In Progress / Done / On Hold (not deletable). Cards add only via `+ Add card` under a column.
+- Planner header is greeting + title (“Landing Page”). Collapsed cards show title + note preview; expand to edit. Site chrome (bento rail, menu sidebar, greeting) stays the shared Daily Space pattern. Accent remains yellow `tertiary`.
+- Travel is a full-bleed map (Leaflet + OpenStreetMap) with a glass stop panel overlaid on the side: day chips, searchable places, and stop details. Keep yellow markers; do not introduce a second brand hue for map chrome.
 
 ## Elevation & Depth
 

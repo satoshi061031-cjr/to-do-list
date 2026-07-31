@@ -29,8 +29,11 @@
   const categoryInput = document.getElementById("tally-category");
   const noteInput = document.getElementById("tally-note");
   const barsEl = document.getElementById("tally-bars");
+  const weekEmptyEl = document.getElementById("tally-week-empty");
   const recordListEl = document.getElementById("tally-record-list");
   const emptyEl = document.getElementById("tally-empty");
+  const emptyPanelEl = document.getElementById("tally-empty-panel");
+  const emptyCtaBtn = document.getElementById("tally-empty-cta");
   const prevBtn = document.getElementById("tally-prev");
   const nextBtn = document.getElementById("tally-next");
   const todayBtn = document.getElementById("tally-today");
@@ -38,6 +41,14 @@
   const addSheet = document.getElementById("tally-add-sheet");
   const addCloseBtn = document.getElementById("tally-add-close");
   const addBackdrop = document.getElementById("tally-add-backdrop");
+  const sheetEyebrowEl = document.getElementById("tally-sheet-eyebrow");
+  const sheetTitleEl = document.getElementById("tally-add-title");
+  const submitBtn = document.getElementById("tally-submit");
+  const categoryOptionsEl = document.getElementById("tally-category-options");
+  const categorySuggestionsEl = document.getElementById("tally-category-suggestions");
+  /** @type {string | null} */
+  let editingId = null;
+  const CATEGORY_SUGGESTION_LIMIT = 6;
 
   function id() {
     return typeof crypto !== "undefined" && crypto.randomUUID
@@ -154,21 +165,28 @@
     });
     const spentThisWeek = total(weekRecords);
     const spentToday = total(records.filter((record) => record.date === todayIso()));
-    const remaining = Math.max(0, budget - monthTotal);
+    const remaining = budget - monthTotal;
     const percent = budget > 0 ? Math.min(100, (monthTotal / budget) * 100) : 0;
+    const overBudget = remaining < 0;
 
     monthTitleEl.textContent = new Date(viewYear, viewMonth - 1, 1).toLocaleDateString(uiLocale(), {
       year: "numeric",
       month: "long",
     });
-    metaEl.textContent = `${monthRecords.length} records · ${percent.toFixed(0)}% of budget used`;
+    metaEl.textContent = overBudget
+      ? `${monthRecords.length} records · ${currency(Math.abs(remaining))} over budget`
+      : `${monthRecords.length} records · ${percent.toFixed(0)}% of budget used`;
     monthTotalEl.textContent = currency(monthTotal);
     weekTotalEl.textContent = currency(spentThisWeek);
     if (todayTotalEl) todayTotalEl.textContent = currency(spentToday);
     budgetInput.value = String(budget);
     currencyInput.value = currencySymbol;
     progressBar.style.width = `${percent}%`;
-    budgetNoteEl.textContent = `${currency(remaining)} remaining · ${currency(monthTotal)} spent`;
+    progressBar.classList.toggle("is-over", overBudget);
+    budgetNoteEl.textContent = overBudget
+      ? `${currency(Math.abs(remaining))} over · ${currency(monthTotal)} spent`
+      : `${currency(Math.max(0, remaining))} remaining · ${currency(monthTotal)} spent`;
+    budgetNoteEl.classList.toggle("is-over", overBudget);
   }
 
   function renderBars() {
@@ -178,8 +196,13 @@
       const amount = total(records.filter((record) => record.date === dateToIso(date)));
       return { date, amount };
     });
-    const max = Math.max(1, ...days.map((day) => day.amount));
+    const hasWeekSpend = days.some((day) => day.amount > 0);
     barsEl.innerHTML = "";
+    barsEl.hidden = !hasWeekSpend;
+    if (weekEmptyEl) weekEmptyEl.hidden = hasWeekSpend;
+    if (!hasWeekSpend) return;
+
+    const max = Math.max(1, ...days.map((day) => day.amount));
     days.forEach((day) => {
       const bar = document.createElement("div");
       bar.className = "tally-bar";
@@ -223,6 +246,57 @@
     render();
   }
 
+  function openEditRecord(recordId) {
+    const record = records.find((item) => item.id === recordId);
+    if (!record) return;
+    setSheetOpen(true, record);
+  }
+
+  function knownCategories() {
+    const seen = new Map();
+    records.forEach((record) => {
+      const category = String(record.category || "").trim();
+      if (!category || seen.has(category.toLowerCase())) return;
+      seen.set(category.toLowerCase(), category);
+    });
+    return Array.from(seen.values());
+  }
+
+  function syncCategorySuggestions(activeCategory) {
+    const categories = knownCategories();
+    if (categoryOptionsEl) {
+      categoryOptionsEl.innerHTML = categories
+        .map((category) => `<option value="${escapeHtml(category)}"></option>`)
+        .join("");
+    }
+    if (!categorySuggestionsEl) return;
+
+    const active = String(activeCategory || "").trim().toLowerCase();
+    const suggestions = categories
+      .filter((category) => category.toLowerCase() !== active)
+      .slice(0, CATEGORY_SUGGESTION_LIMIT);
+
+    categorySuggestionsEl.innerHTML = "";
+    if (!suggestions.length) {
+      categorySuggestionsEl.hidden = true;
+      return;
+    }
+
+    suggestions.forEach((category) => {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "tally-category-chip";
+      chip.textContent = category;
+      chip.addEventListener("click", () => {
+        categoryInput.value = category;
+        categoryInput.focus();
+        syncCategorySuggestions(category);
+      });
+      categorySuggestionsEl.appendChild(chip);
+    });
+    categorySuggestionsEl.hidden = false;
+  }
+
   function renderRecords() {
     const monthRecords = recordsForMonth(viewYear, viewMonth).sort((a, b) => {
       if (a.date !== b.date) return b.date.localeCompare(a.date);
@@ -247,6 +321,9 @@
       groupRecords.forEach((record) => {
         const row = document.createElement("div");
         row.className = "tally-record";
+        row.setAttribute("role", "button");
+        row.tabIndex = 0;
+        row.setAttribute("aria-label", "Edit record");
         row.innerHTML = `
           <span class="tally-record-icon" aria-hidden="true">${categoryIcon(record.category)}</span>
           <div class="tally-record-main">
@@ -256,14 +333,30 @@
           <div class="tally-record-amount">${currency(record.amount)}</div>
           <button type="button" class="tally-record-delete" aria-label="Delete record">×</button>
         `;
-        row.querySelector(".tally-record-delete").addEventListener("click", () => removeRecord(record.id));
+        const deleteBtn = row.querySelector(".tally-record-delete");
+        deleteBtn.addEventListener("click", (event) => {
+          event.stopPropagation();
+          removeRecord(record.id);
+        });
+        row.addEventListener("click", (event) => {
+          if (event.target.closest(".tally-record-delete")) return;
+          openEditRecord(record.id);
+        });
+        row.addEventListener("keydown", (event) => {
+          if (event.key !== "Enter" && event.key !== " ") return;
+          event.preventDefault();
+          openEditRecord(record.id);
+        });
         card.appendChild(row);
       });
 
       group.append(heading, card);
       recordListEl.appendChild(group);
     });
-    emptyEl.textContent = monthRecords.length ? "" : "No expenses this month.";
+    const isEmpty = monthRecords.length === 0;
+    if (emptyPanelEl) emptyPanelEl.hidden = !isEmpty;
+    if (emptyEl) emptyEl.textContent = isEmpty ? "No expenses this month." : "";
+    recordListEl.hidden = isEmpty;
   }
 
   function render() {
@@ -291,15 +384,46 @@
     render();
   }
 
-  function setSheetOpen(open) {
-    addSheet.hidden = !open;
-    document.body.classList.toggle("tally-sheet-open", open);
-    if (open) {
-      dateInput.value = todayIso();
-      window.requestAnimationFrame(() => amountInput.focus());
-    } else {
-      addOpenBtn.focus();
+  function syncSheetMode() {
+    const editing = Boolean(editingId);
+    if (sheetEyebrowEl) sheetEyebrowEl.textContent = editing ? "Edit transaction" : "New transaction";
+    if (sheetTitleEl) sheetTitleEl.textContent = editing ? "Edit expense" : "Add expense";
+    if (submitBtn) submitBtn.textContent = editing ? "Save changes" : "Add transaction";
+    if (addCloseBtn) {
+      addCloseBtn.setAttribute("aria-label", editing ? "Close edit expense" : "Close add expense");
     }
+  }
+
+  function setSheetOpen(open, record) {
+    if (open) {
+      editingId = record && typeof record.id === "string" ? record.id : null;
+      if (record) {
+        dateInput.value = record.date || todayIso();
+        amountInput.value = Number.isFinite(record.amount) ? String(record.amount) : "";
+        categoryInput.value = record.category || "";
+        noteInput.value = record.note || "";
+      } else {
+        dateInput.value = todayIso();
+        amountInput.value = "";
+        categoryInput.value = "";
+        noteInput.value = "";
+      }
+      syncSheetMode();
+      syncCategorySuggestions(categoryInput.value);
+      addSheet.hidden = false;
+      document.body.classList.add("tally-sheet-open");
+      window.requestAnimationFrame(() => amountInput.focus());
+      return;
+    }
+    editingId = null;
+    syncSheetMode();
+    if (categorySuggestionsEl) {
+      categorySuggestionsEl.hidden = true;
+      categorySuggestionsEl.innerHTML = "";
+    }
+    addSheet.hidden = true;
+    document.body.classList.remove("tally-sheet-open");
+    addOpenBtn.focus();
   }
 
   form.addEventListener("submit", (event) => {
@@ -307,14 +431,29 @@
     const amount = Number(amountInput.value);
     const category = categoryInput.value.trim();
     const date = dateInput.value || todayIso();
+    const note = noteInput.value.trim().slice(0, 120);
     if (!Number.isFinite(amount) || amount <= 0 || !category) return;
-    records.unshift({
-      id: id(),
-      date,
-      amount,
-      category: category.slice(0, 40),
-      note: noteInput.value.trim().slice(0, 120),
-    });
+
+    if (editingId) {
+      const existing = records.find((record) => record.id === editingId);
+      if (!existing) {
+        setSheetOpen(false);
+        return;
+      }
+      existing.date = date;
+      existing.amount = amount;
+      existing.category = category.slice(0, 40);
+      existing.note = note;
+    } else {
+      records.unshift({
+        id: id(),
+        date,
+        amount,
+        category: category.slice(0, 40),
+        note,
+      });
+    }
+
     const recordDate = parseIso(date);
     viewYear = recordDate.getFullYear();
     viewMonth = recordDate.getMonth() + 1;
@@ -350,6 +489,10 @@
   addOpenBtn.addEventListener("click", () => setSheetOpen(true));
   addCloseBtn.addEventListener("click", () => setSheetOpen(false));
   addBackdrop.addEventListener("click", () => setSheetOpen(false));
+  if (emptyCtaBtn) emptyCtaBtn.addEventListener("click", () => setSheetOpen(true));
+  categoryInput.addEventListener("input", () => {
+    if (!addSheet.hidden) syncCategorySuggestions(categoryInput.value);
+  });
 
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && !addSheet.hidden) setSheetOpen(false);

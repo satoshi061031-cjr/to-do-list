@@ -81,6 +81,30 @@
     brand.setAttribute("aria-label", title);
   }
 
+  /** Pin EN/中 into the left rail (desktop) or bottom dock (mobile). */
+  function dockLanguageToggle(rail) {
+    const hostRail = rail || document.querySelector(".bento-rail");
+    if (!hostRail) return;
+    const lang = document.getElementById("language-toggle");
+    if (!lang) return;
+    lang.classList.add("bento-rail-lang");
+    if (isNarrow()) {
+      const nav = hostRail.querySelector(".bento-rail-nav");
+      const host = nav || hostRail;
+      if (!host.contains(lang)) {
+        const theme = host.querySelector(".bento-rail-theme, #theme-toggle");
+        if (theme) host.insertBefore(lang, theme);
+        else host.appendChild(lang);
+      }
+      return;
+    }
+    if (!hostRail.contains(lang)) {
+      const theme = hostRail.querySelector(".bento-rail-theme, #theme-toggle");
+      if (theme) hostRail.insertBefore(lang, theme);
+      else hostRail.appendChild(lang);
+    }
+  }
+
   function syncExpanded(open) {
     const expanded = open ? "true" : "false";
     const trigger = document.getElementById("sidebar-trigger");
@@ -181,17 +205,18 @@
       document.body.appendChild(toggle);
     }
 
+    toggle.classList.remove("m-theme-float");
+    toggle.classList.add("bento-rail-theme");
     if (isNarrow()) {
-      // Keep theme outside the floating dock on mobile.
-      if (rail.contains(toggle)) document.body.appendChild(toggle);
-      toggle.classList.remove("bento-rail-theme");
-      if (!toggle.closest(".m-hero")) toggle.classList.add("m-theme-float");
-      else toggle.classList.remove("m-theme-float");
-    } else {
-      toggle.classList.remove("m-theme-float");
-      toggle.classList.add("bento-rail-theme");
-      if (!rail.contains(toggle)) rail.appendChild(toggle);
+      // Sit with page links inside the bottom dock.
+      const nav = rail.querySelector(".bento-rail-nav");
+      const host = nav || rail;
+      if (!host.contains(toggle)) host.appendChild(toggle);
+    } else if (!rail.contains(toggle)) {
+      rail.appendChild(toggle);
     }
+
+    dockLanguageToggle(rail);
 
     markCurrent(rail);
     if (window.DailySpaceAgentUi && typeof window.DailySpaceAgentUi.mountFabUnderBrand === "function") {
@@ -235,16 +260,36 @@
     });
   }
 
+  function wireLanguageWhenReady() {
+    dockLanguageToggle(document.querySelector(".bento-rail"));
+    if (document.getElementById("language-toggle")) return;
+    const observer = new MutationObserver(() => {
+      if (!document.getElementById("language-toggle")) return;
+      dockLanguageToggle(document.querySelector(".bento-rail"));
+      observer.disconnect();
+    });
+    observer.observe(document.body, { childList: true });
+  }
+
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", wire);
+    document.addEventListener("DOMContentLoaded", () => {
+      wire();
+      wireLanguageWhenReady();
+    });
   } else {
     wire();
+    wireLanguageWhenReady();
   }
+
+  window.addEventListener("resize", () => {
+    dockLanguageToggle(document.querySelector(".bento-rail"));
+  });
 
   window.DailySpaceBentoRail = {
     toggleSidebar,
     setSidebarOpen,
     pageId,
     syncBrandMark,
+    dockLanguageToggle,
   };
 })();

@@ -1,0 +1,14 @@
+---
+description: After any UI work, verify controls do not overlap
+alwaysApply: true
+---
+
+# UI overlap check (required)
+
+After finishing any UI / layout / chrome change:
+
+1. Mentally map every fixed/absolute control on the viewport (Menu, language, theme, dock, FABs, page actions, map controls, sheets).
+2. Ensure no two tappable controls share the same corner or collide at common breakpoints (desktop ~1120px and mobile ~390px).
+3. Prefer consolidating page actions into one panel/cluster; leave site chrome (Menu, language, dock) in reserved safe zones.
+4. If you moved or added overlays (full-bleed maps, drawers, sheets), re-check z-index and hit targets so floating page UI does not cover Menu / language / dock.
+5. Do not consider the task done until overlaps are fixed or explicitly called out to the user.

@@ -10,6 +10,12 @@ This project uses `DESIGN.md` as the single source of truth for all visual decis
 2. Extract tokens from the YAML front matter
 3. Map tokens to this codebase’s CSS variables in `styles.css` / page CSS (`planner.css`, `tally.css`, `teamwork.css`, etc.)
 
+## After finishing any UI change
+
+1. Check for overlapping controls (Menu, language toggle, theme/dock, page actions, map zoom, sheets).
+2. Verify desktop and mobile safe zones — no two tappable controls should share a corner.
+3. Prefer one action cluster per page region; do not stack floating pills on top of site chrome.
+
 ## Token usage rules
 
 - Colors → always from `colors.*` in DESIGN.md, never hardcoded hex

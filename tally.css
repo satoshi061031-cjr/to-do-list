@@ -11,10 +11,34 @@
 }
 
 .tally-app {
-  width: min(100%, 36rem);
+  width: min(100%, 42rem);
   min-height: 100vh;
   margin: 0 auto;
   padding: 3.25rem 1rem 7rem;
+}
+
+.tally-intro {
+  margin: 0 0 var(--space-md);
+  padding: 0 0.2rem;
+}
+
+.tally-kicker {
+  margin: 0 0 var(--space-xs);
+  color: var(--highlight);
+  font-size: var(--type-label-size);
+  font-weight: 600;
+  letter-spacing: var(--type-label-tracking, 0.08em);
+  text-transform: uppercase;
+}
+
+.tally-heading {
+  margin: 0;
+  color: var(--text);
+  font-size: clamp(var(--type-title-size), 4vw, var(--type-display-size));
+  font-weight: 400;
+  letter-spacing: var(--type-display-tracking);
+  line-height: var(--type-display-lh);
+  max-width: 18ch;
 }
 
 .tally-topbar,
@@ -147,10 +171,18 @@
   transition: width 0.25s ease;
 }
 
+.tally-progress span.is-over {
+  background: var(--danger);
+}
+
 .tally-card-note {
   margin: 0.5rem 0 0;
   color: var(--text-muted);
   font-size: 0.75rem;
+}
+
+.tally-card-note.is-over {
+  color: var(--danger);
 }
 
 .tally-overview-card {
@@ -224,6 +256,39 @@
   );
 }
 
+.tally-bars[hidden] {
+  display: none;
+}
+
+.tally-week-empty {
+  margin-top: 1.1rem;
+  padding: var(--space-md);
+  border: 1px dashed color-mix(in srgb, var(--tertiary) 45%, var(--glass-border));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--tertiary) 8%, var(--glass));
+}
+
+.tally-week-empty[hidden] {
+  display: none;
+}
+
+.tally-week-empty-kicker,
+.tally-empty-kicker {
+  margin: 0 0 var(--space-xs);
+  color: var(--highlight);
+  font-size: var(--type-label-size);
+  font-weight: 600;
+  letter-spacing: var(--type-label-tracking, 0.08em);
+  text-transform: uppercase;
+}
+
+.tally-week-empty-copy {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+}
+
 .tally-bar {
   min-width: 0;
   display: grid;
@@ -276,11 +341,12 @@
   padding: 0 0.25rem;
 }
 
-.tally-records-head h1 {
+.tally-records-head h2 {
   margin: 0;
   color: var(--text);
-  font-size: 1.05rem;
-  font-weight: 760;
+  font-size: var(--type-title-size);
+  font-weight: 400;
+  letter-spacing: var(--type-title-tracking, 0.02em);
 }
 
 .tally-records-head > span {
@@ -325,6 +391,14 @@
   align-items: center;
   min-height: 4.15rem;
   padding: 0.65rem 0.75rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.tally-record:hover,
+.tally-record:focus-visible {
+  background: color-mix(in srgb, var(--tertiary) 10%, transparent);
+  outline: none;
 }
 
 .tally-record + .tally-record {
@@ -395,11 +469,31 @@
   background: var(--surface-hover);
 }
 
-.tally-empty {
-  margin: 2rem 0;
-  color: var(--text-muted);
-  font-size: 0.82rem;
+.tally-empty-panel {
+  margin-top: var(--space-md);
+  padding: var(--space-lg) var(--space-md);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  background: var(--glass-strong);
+  box-shadow: var(--shadow-soft);
   text-align: center;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.tally-empty-panel[hidden] {
+  display: none;
+}
+
+.tally-empty {
+  margin: 0 0 var(--space-md);
+  color: var(--text-muted);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+}
+
+.tally-empty-cta {
+  min-width: 9rem;
 }
 
 .tally-add-fab {
@@ -510,6 +604,40 @@
   background: var(--glass);
   color: var(--text);
   font: inherit;
+}
+
+.tally-category-field {
+  grid-column: 1 / -1;
+}
+
+.tally-category-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-top: 0.15rem;
+}
+
+.tally-category-suggestions[hidden] {
+  display: none;
+}
+
+.tally-category-chip {
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--tertiary) 16%, var(--glass));
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--type-label-size);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  padding: 0.35rem 0.7rem;
+}
+
+.tally-category-chip:hover,
+.tally-category-chip:focus-visible {
+  background: color-mix(in srgb, var(--tertiary) 32%, transparent);
+  outline: none;
 }
 
 .tally-submit-btn {

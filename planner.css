@@ -13,12 +13,12 @@
 
 body.planner-page.planner-kanban {
   --pl-page: color-mix(in srgb, var(--neutral) 88%, var(--surface));
-  --pl-panel: color-mix(in srgb, var(--surface) 55%, white);
-  --pl-track: color-mix(in srgb, var(--neutral) 78%, var(--surface));
-  --pl-card: color-mix(in srgb, var(--surface) 35%, white);
+  --pl-panel: var(--glass-strong);
+  --pl-track: color-mix(in srgb, var(--neutral) 70%, transparent);
+  --pl-card: var(--glass-strong);
   --pl-ink: var(--text);
   --pl-muted: var(--text-muted);
-  --pl-line: color-mix(in srgb, var(--primary) 8%, transparent);
+  --pl-line: var(--glass-border);
   --pl-accent: var(--tertiary);
   --pl-on-accent: var(--on-tertiary);
   --pl-progress: var(--tertiary);
@@ -27,11 +27,11 @@ body.planner-page.planner-kanban {
 }
 
 :root[data-theme="dark"] body.planner-page.planner-kanban {
-  --pl-page: color-mix(in srgb, var(--neutral) 40%, #1a1814);
-  --pl-panel: color-mix(in srgb, var(--surface) 70%, #1a1814);
+  --pl-page: color-mix(in srgb, var(--neutral) 40%, var(--on-tertiary));
+  --pl-panel: var(--glass-strong);
   --pl-track: color-mix(in srgb, var(--neutral) 35%, transparent);
-  --pl-card: color-mix(in srgb, var(--surface) 88%, #2c2925);
-  --pl-line: color-mix(in srgb, white 10%, transparent);
+  --pl-card: var(--glass-strong);
+  --pl-line: var(--glass-border);
 }
 
 body.planner-page {
@@ -66,32 +66,34 @@ body.planner-page {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  padding: calc(env(safe-area-inset-top, 0px) + 1.35rem) 1.5rem
+  padding: calc(env(safe-area-inset-top, 0px) + var(--space-lg)) var(--space-md)
     calc(env(safe-area-inset-bottom, 0px) + 5.25rem);
-  max-width: none;
-  margin: 0;
+  max-width: min(1120px, 96vw);
+  margin: 0 auto;
   width: 100%;
   border-radius: var(--radius-lg);
   background: var(--pl-panel);
   border: 1px solid var(--pl-line);
   box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(14px) saturate(1.08);
+  -webkit-backdrop-filter: blur(14px) saturate(1.08);
 }
 
 .planner-header {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  margin-bottom: 1.1rem;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
   flex-shrink: 0;
 }
 
 .planner-title {
   margin: 0;
-  font-size: clamp(1.7rem, 3.2vw, 2.15rem);
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-size: clamp(var(--type-title-size), 3vw, var(--type-display-size));
+  font-weight: 400;
+  letter-spacing: var(--type-display-tracking);
   color: var(--pl-ink);
-  line-height: 1.1;
+  line-height: var(--type-display-lh);
 }
 
 .planner-meta,
@@ -128,8 +130,8 @@ body.planner-page {
   background: transparent;
   color: var(--pl-muted);
   font: inherit;
-  font-size: 0.8rem;
-  font-weight: 600;
+  font-size: var(--type-label-size);
+  font-weight: 400;
   letter-spacing: 0.01em;
   padding: 0.48rem 0.95rem;
   cursor: pointer;
@@ -202,7 +204,7 @@ body.planner-page {
   background: var(--pl-card);
   color: var(--pl-ink);
   font: inherit;
-  font-size: 0.85rem;
+  font-size: var(--type-label-size);
 }
 
 .planner-search input:focus {
@@ -217,8 +219,8 @@ body.planner-page {
   background: var(--pl-card);
   color: var(--pl-ink);
   font: inherit;
-  font-size: 0.8rem;
-  font-weight: 600;
+  font-size: var(--type-label-size);
+  font-weight: 400;
   padding: 0.48rem 0.85rem;
   cursor: pointer;
 }
@@ -234,8 +236,8 @@ body.planner-page {
   background: var(--pl-accent);
   color: var(--pl-on-accent);
   font: inherit;
-  font-size: 0.8rem;
-  font-weight: 700;
+  font-size: var(--type-label-size);
+  font-weight: 400;
   letter-spacing: 0.01em;
   padding: 0.52rem 0.95rem;
   box-shadow: 0 8px 18px color-mix(in srgb, var(--pl-accent) 32%, transparent);
@@ -671,8 +673,8 @@ body.planner-page {
   background: transparent;
   color: var(--pl-ink);
   font: inherit;
-  font-size: 0.95rem;
-  font-weight: 700;
+  font-size: var(--type-body-size);
+  font-weight: 400;
   letter-spacing: 0.01em;
   padding: 0.15rem 0.2rem;
 }
@@ -716,8 +718,10 @@ body.planner-page {
   background: var(--pl-card);
   border: 1px solid var(--pl-line);
   border-radius: var(--radius-md);
-  padding: 0.95rem 0.95rem 0.8rem;
+  padding: var(--space-sm) var(--space-sm) 0.8rem;
   box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(10px) saturate(1.05);
+  -webkit-backdrop-filter: blur(10px) saturate(1.05);
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -765,11 +769,11 @@ body.planner-page {
   background: transparent;
   color: var(--pl-ink);
   font: inherit;
-  font-size: 0.95rem;
-  font-weight: 700;
+  font-size: var(--type-body-size);
+  font-weight: 400;
   letter-spacing: 0.01em;
   padding: 0;
-  line-height: 1.35;
+  line-height: var(--type-body-lh);
   pointer-events: none;
 }
 
@@ -813,10 +817,10 @@ body.planner-page {
 .planner-card-face-title {
   margin: 0;
   color: var(--pl-ink);
-  font-size: 0.95rem;
-  font-weight: 700;
+  font-size: var(--type-body-size);
+  font-weight: 400;
   letter-spacing: 0.01em;
-  line-height: 1.35;
+  line-height: var(--type-body-lh);
 }
 
 .planner-card-meta {
@@ -851,8 +855,8 @@ body.planner-page {
     var(--ring-color, var(--pl-progress)) calc(var(--progress, 0) * 1%),
     color-mix(in srgb, var(--primary) 12%, transparent) 0
   );
-  mask: radial-gradient(circle at center, transparent 55%, #000 56%);
-  -webkit-mask: radial-gradient(circle at center, transparent 55%, #000 56%);
+  mask: radial-gradient(circle at center, transparent 55%, black 56%);
+  -webkit-mask: radial-gradient(circle at center, transparent 55%, black 56%);
 }
 
 .planner-card.is-done .planner-card-progress-ring,
@@ -882,8 +886,8 @@ body.planner-page {
   margin-left: -0.4rem;
   display: grid;
   place-items: center;
-  font-size: 0.58rem;
-  font-weight: 700;
+  font-size: var(--type-label-size);
+  font-weight: 400;
   color: var(--on-primary);
   background: var(--secondary);
 }
@@ -998,8 +1002,8 @@ body.planner-page {
 
 .planner-card-note {
   font: inherit;
-  font-size: 0.8rem;
-  line-height: 1.5;
+  font-size: var(--type-label-size);
+  line-height: var(--type-body-lh);
   width: 100%;
   min-height: 3.2rem;
   resize: vertical;
@@ -1018,7 +1022,7 @@ body.planner-page {
 
 .planner-card-tags {
   font: inherit;
-  font-size: 0.72rem;
+  font-size: var(--type-label-size);
   width: 100%;
   border: none;
   background: transparent;
@@ -1034,8 +1038,8 @@ body.planner-page {
   margin-top: 0.55rem;
   width: 100%;
   font: inherit;
-  font-size: 0.78rem;
-  font-weight: 600;
+  font-size: var(--type-label-size);
+  font-weight: 400;
   padding: 0.55rem;
   border-radius: var(--radius-md);
   border: 0;

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'todo-v197';
+const CACHE_NAME = 'todo-v227';
 const SCOPE_PATH = new URL(self.registration.scope).pathname.replace(/\/$/, '');
 const withScope = (path) => `${SCOPE_PATH}${path}`;
 const urlsToCache = [
@@ -9,6 +9,7 @@ const urlsToCache = [
   '/planner.html',
   '/calendar.html',
   '/tally.html',
+  '/travel.html',
   '/teamwork.html',
   '/mail.html',
   '/manifest.json',
@@ -18,6 +19,7 @@ const urlsToCache = [
   '/planner.css',
   '/calendar.css',
   '/tally.css',
+  '/travel.css',
   '/teamwork.css',
   '/mail.css',
   '/theme.js',
@@ -32,8 +34,16 @@ const urlsToCache = [
   '/planner.js',
   '/calendar.js',
   '/tally.js',
+  '/travel.js',
   '/teamwork.js',
   '/mail.js',
+  '/vendor/leaflet/leaflet.css',
+  '/vendor/leaflet/leaflet.js',
+  '/vendor/leaflet/images/marker-icon.png',
+  '/vendor/leaflet/images/marker-icon-2x.png',
+  '/vendor/leaflet/images/marker-shadow.png',
+  '/vendor/leaflet/images/layers.png',
+  '/vendor/leaflet/images/layers-2x.png',
   '/light-background.png',
   '/dark-background.png',
   '/welcome-sticker.png',
