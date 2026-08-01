@@ -111,6 +111,8 @@ async function handleApi(request, response, url) {
       query,
       lat: url.searchParams.get("lat"),
       lng: url.searchParams.get("lng"),
+      zoom: url.searchParams.get("zoom"),
+      destination: url.searchParams.get("destination"),
       limit: url.searchParams.get("limit"),
       lang: url.searchParams.get("lang"),
     });

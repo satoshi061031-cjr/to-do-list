@@ -56,82 +56,64 @@
       </aside>
 
       <main class="main-area">
-        <div class="app bento-shell">
-          <header class="bento-header">
-            <h1 class="title bento-title">Today</h1>
-            <p class="bento-header-hint" id="composer-hint">⌘K · ?</p>
-          </header>
-
-          <div class="bento-grid">
-            <div class="daily-loop-pills bento-metrics" id="daily-loop-pills" role="group" aria-label="Today summary">
-              <button type="button" class="daily-loop-pill bento-card bento-card-soft bento-area-due" id="daily-loop-pill-due" data-loop-action="due">
-                <span class="daily-loop-pill-label">Due today</span>
-                <span class="daily-loop-pill-count" id="daily-loop-due-count">0</span>
-              </button>
-              <button type="button" class="daily-loop-pill bento-card bento-card-soft bento-area-assigned" id="daily-loop-pill-assigned" data-loop-action="assigned">
-                <span class="daily-loop-pill-label">Assigned</span>
-                <span class="daily-loop-pill-count" id="daily-loop-assigned-count">0</span>
-              </button>
-              <button type="button" class="daily-loop-pill bento-card bento-card-soft bento-area-overdue" id="daily-loop-pill-overdue" data-loop-action="overdue">
-                <span class="daily-loop-pill-label">Overdue</span>
-                <span class="daily-loop-pill-count" id="daily-loop-overdue-count">0</span>
-              </button>
+        <div class="app bento-shell today-shell">
+          <header class="today-hero">
+            <div class="today-hero-copy">
+              <h1 class="title today-title">Today</h1>
+              <p class="daily-loop-progress today-progress" id="daily-loop-progress">Done today 0 / 0</p>
             </div>
-
-            <section class="app-atmosphere app-module bento-card bento-card-soft bento-area-clock" data-module-id="atmosphere" aria-label="Clock">
-              <div class="app-clock" aria-hidden="true">
-                <div class="app-clock-face">
-                  <span class="app-clock-tick" style="--i: 0"></span>
-                  <span class="app-clock-tick" style="--i: 1"></span>
-                  <span class="app-clock-tick" style="--i: 2"></span>
-                  <span class="app-clock-tick" style="--i: 3"></span>
-                  <span class="app-clock-tick" style="--i: 4"></span>
-                  <span class="app-clock-tick" style="--i: 5"></span>
-                  <span class="app-clock-tick" style="--i: 6"></span>
-                  <span class="app-clock-tick" style="--i: 7"></span>
-                  <span class="app-clock-tick" style="--i: 8"></span>
-                  <span class="app-clock-tick" style="--i: 9"></span>
-                  <span class="app-clock-tick" style="--i: 10"></span>
-                  <span class="app-clock-tick" style="--i: 11"></span>
-                  <div class="app-clock-hand app-clock-hand-hour" id="app-clock-hour"></div>
-                  <div class="app-clock-hand app-clock-hand-minute" id="app-clock-minute"></div>
-                  <div class="app-clock-hand app-clock-hand-second" id="app-clock-second"></div>
-                  <div class="app-clock-pivot"></div>
-                </div>
-              </div>
-              <time class="app-clock-digital" id="app-clock-digital" datetime=""></time>
-              <p class="app-clock-date" id="app-clock-date"></p>
-            </section>
-
-            <div class="bento-card bento-card-soft bento-area-progress">
-              <p class="bento-card-kicker">Done today</p>
-              <p class="daily-loop-progress" id="daily-loop-progress">Done today 0 / 0</p>
-            </div>
-
-            <div class="bento-card bento-card-soft bento-area-focus">
-              <p class="bento-card-kicker">Focus</p>
-              <p class="bento-focus-copy">Work the list that matters for today. Add a task below when you’re ready.</p>
+            <div class="today-hero-actions">
               <button type="button" class="btn btn-primary daily-loop-focus" id="daily-loop-focus">
                 Focus today
               </button>
+              <p class="today-hero-hint" id="composer-hint">⌘K · ?</p>
             </div>
+          </header>
 
-            <section class="evening-review bento-card bento-card-soft bento-area-evening" id="evening-review" aria-label="Evening review" hidden>
-              <div class="evening-review-top">
-                <p class="evening-review-kicker">Evening review</p>
-                <h2 class="evening-review-title" id="evening-review-title">How did today go?</h2>
-              </div>
-              <p class="evening-review-summary" id="evening-review-summary"></p>
-              <ul class="evening-review-stats" id="evening-review-stats"></ul>
-              <p class="evening-review-mail" id="evening-review-mail" hidden></p>
-              <p class="evening-review-tally" id="evening-review-tally" hidden></p>
-              <div class="evening-review-actions">
-                <button type="button" class="btn btn-primary" id="evening-review-focus">Focus remaining</button>
-                <button type="button" class="btn" id="evening-review-alerts">Enable reminder alerts</button>
-              </div>
-            </section>
+          <div class="daily-loop-pills today-status" id="daily-loop-pills" role="group" aria-label="Today summary">
+            <button type="button" class="daily-loop-pill today-status-pill" id="daily-loop-pill-due" data-loop-action="due">
+              <span class="daily-loop-pill-label">Due today</span>
+              <span class="daily-loop-pill-count" id="daily-loop-due-count">0</span>
+            </button>
+            <button type="button" class="daily-loop-pill today-status-pill" id="daily-loop-pill-assigned" data-loop-action="assigned">
+              <span class="daily-loop-pill-label">Assigned</span>
+              <span class="daily-loop-pill-count" id="daily-loop-assigned-count">0</span>
+            </button>
+            <button type="button" class="daily-loop-pill today-status-pill" id="daily-loop-pill-overdue" data-loop-action="overdue">
+              <span class="daily-loop-pill-label">Overdue</span>
+              <span class="daily-loop-pill-count" id="daily-loop-overdue-count">0</span>
+            </button>
+          </div>
 
-            <section class="task-module app-module bento-card bento-card-soft bento-area-tasks" data-module-id="tasks" aria-label="To-do tasks">
+          <!-- Kept for app.js clock tick; greeting already shows time. -->
+          <section class="app-atmosphere today-clock-sr" data-module-id="atmosphere" aria-hidden="true">
+            <div class="app-clock">
+              <div class="app-clock-face">
+                <div class="app-clock-hand app-clock-hand-hour" id="app-clock-hour"></div>
+                <div class="app-clock-hand app-clock-hand-minute" id="app-clock-minute"></div>
+                <div class="app-clock-hand app-clock-hand-second" id="app-clock-second"></div>
+              </div>
+            </div>
+            <time class="app-clock-digital" id="app-clock-digital" datetime=""></time>
+            <p class="app-clock-date" id="app-clock-date"></p>
+          </section>
+
+          <section class="evening-review today-evening" id="evening-review" aria-label="Evening review" hidden>
+            <div class="evening-review-top">
+              <p class="evening-review-kicker">Evening review</p>
+              <h2 class="evening-review-title" id="evening-review-title">How did today go?</h2>
+            </div>
+            <p class="evening-review-summary" id="evening-review-summary"></p>
+            <ul class="evening-review-stats" id="evening-review-stats"></ul>
+            <p class="evening-review-mail" id="evening-review-mail" hidden></p>
+            <p class="evening-review-tally" id="evening-review-tally" hidden></p>
+            <div class="evening-review-actions">
+              <button type="button" class="btn btn-primary" id="evening-review-focus">Focus remaining</button>
+              <button type="button" class="btn" id="evening-review-alerts">Enable reminder alerts</button>
+            </div>
+          </section>
+
+          <section class="task-module app-module today-tasks" data-module-id="tasks" aria-label="To-do tasks">
               <section class="daily-loop" id="daily-loop" aria-label="Daily loop">
                 <ul class="todo-list daily-loop-list" id="daily-loop-list" aria-label="Due today"></ul>
                 <p class="daily-loop-empty" id="daily-loop-empty" hidden>Nothing due today.</p>
@@ -273,7 +255,6 @@
                 <span id="count-text">0 tasks left</span>
               </footer>
             </section>
-          </div>
         </div>
       </main>
     </div>

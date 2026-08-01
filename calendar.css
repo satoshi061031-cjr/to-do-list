@@ -38,16 +38,184 @@ body.calendar-page .sidebar-trigger {
   grid-template-columns: minmax(0, 1fr);
   gap: 0;
   width: 100%;
-  max-width: min(1280px, 100%);
+  max-width: min(52rem, 100%);
   margin: 0 auto;
   min-height: calc(100dvh - 1rem);
-  padding: calc(env(safe-area-inset-top, 0px) + 0.75rem) 0.75rem
+  padding: calc(env(safe-area-inset-top, 0px) + 0.75rem) 1rem
     calc(env(safe-area-inset-bottom, 0px) + 5.5rem);
   box-sizing: border-box;
 }
 
 .calendar-app-solo .cal-board {
   margin-left: 0;
+}
+
+/* One composition: hero week + quiet day strip (no nested card stack). */
+.cal-shell .cal-board {
+  gap: var(--space-md);
+  margin: 0;
+  padding: 0.25rem 0.1rem 0.5rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.cal-shell .cal-kicker {
+  margin: 0 0 0.2rem;
+  color: var(--highlight);
+  font-size: var(--type-label-size, 0.72rem);
+  font-weight: 600;
+  letter-spacing: var(--type-label-tracking, 0.08em);
+  text-transform: uppercase;
+}
+
+.cal-shell .calendar-title {
+  font-size: clamp(1.75rem, 3.2vw, 2.35rem);
+  line-height: 1.05;
+}
+
+.cal-shell .cal-week {
+  min-height: 24rem;
+  padding: 0.35rem 0.45rem 0.55rem;
+  border: 1px solid color-mix(in srgb, var(--glass-border) 70%, transparent);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--glass) 55%, transparent);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(12px) saturate(1.05);
+  -webkit-backdrop-filter: blur(12px) saturate(1.05);
+}
+
+.cal-shell .cal-composer {
+  gap: var(--space-md);
+  margin-top: 0.15rem;
+  padding: var(--space-md) 0.15rem 0;
+  border-top: 1px solid color-mix(in srgb, var(--glass-border) 55%, transparent);
+}
+
+.cal-shell .selected-day-head {
+  align-items: flex-end;
+  margin-bottom: 0.15rem;
+}
+
+.cal-shell .selected-day-copy {
+  min-width: 0;
+}
+
+.cal-shell .selected-day-title {
+  font-size: clamp(1.15rem, 2vw, 1.4rem);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+
+.cal-shell .selected-day-meta {
+  margin-top: 0.2rem;
+  font-size: var(--type-label-size, 0.72rem);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.cal-shell .cal-day-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.cal-shell .cal-day-kicker {
+  margin: 0;
+  color: var(--cal-muted);
+  font-size: var(--type-label-size, 0.72rem);
+  font-weight: 600;
+  letter-spacing: var(--type-label-tracking, 0.08em);
+  text-transform: uppercase;
+}
+
+.cal-shell .day-task-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.cal-shell .day-task-form {
+  position: relative;
+}
+
+.cal-shell .day-task-input,
+.cal-shell .reminder-input {
+  border-color: color-mix(in srgb, var(--glass-border) 80%, transparent);
+  background: color-mix(in srgb, var(--surface) 22%, transparent);
+  border-radius: var(--radius-pill);
+}
+
+.cal-shell .reminder-time-input,
+.cal-shell .reminder-priority-select {
+  background: color-mix(in srgb, var(--surface) 28%, transparent);
+  border-color: color-mix(in srgb, var(--glass-border) 80%, transparent);
+}
+
+.cal-shell .calendar-empty {
+  margin: 0;
+  padding: 0.15rem 0.1rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+  font-size: var(--type-label-size, 0.72rem);
+}
+
+.cal-shell .calendar-alerts-btn {
+  align-self: flex-start;
+  min-height: 2rem;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--glass-border) 70%, transparent);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--cal-muted);
+  font-size: var(--type-label-size, 0.72rem);
+  box-shadow: none;
+}
+
+.cal-shell .calendar-alerts-btn:hover {
+  color: var(--cal-ink);
+  border-color: color-mix(in srgb, var(--tertiary) 40%, transparent);
+}
+
+/* Upcoming sits under the week title — not a floating dock pill. */
+.cal-shell .cal-upcoming {
+  position: static;
+  left: auto;
+  bottom: auto;
+  z-index: auto;
+  transform: none;
+  display: inline-flex;
+  max-width: 100%;
+  margin-top: 0.45rem;
+  padding: 0.28rem 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--glass-border) 70%, transparent);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--surface) 18%, transparent);
+  color: var(--cal-ink);
+  box-shadow: none;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.cal-shell .cal-upcoming-kicker {
+  color: var(--highlight);
+}
+
+.cal-shell .cal-upcoming-time {
+  color: var(--cal-muted);
+}
+
+.cal-shell .cal-event {
+  box-shadow: none;
 }
 
 /* Left todos rail (optional; hidden when solo board) */
@@ -674,22 +842,11 @@ body.calendar-page .sidebar-trigger {
   padding: 0;
 }
 
-/* Upcoming dock */
+/* Upcoming (default shell styles live under .cal-shell) */
 .cal-upcoming {
-  position: fixed;
-  left: 50%;
-  bottom: max(4.75rem, calc(env(safe-area-inset-bottom, 0px) + 4.25rem));
-  z-index: 225;
-  transform: translateX(-50%);
   display: flex;
   align-items: center;
   gap: 0.65rem;
-  max-width: min(28rem, calc(100vw - 1.5rem));
-  padding: 0.55rem 0.9rem;
-  border-radius: var(--radius-pill);
-  background: var(--primary);
-  color: var(--on-primary);
-  box-shadow: var(--shadow-pop);
 }
 
 .cal-upcoming[hidden] {

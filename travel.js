@@ -24,6 +24,8 @@
   let activeDay = 1;
   /** @type {string | null} */
   let activeStopId = null;
+  /** @type {string[]} ordered stop ids for Google Maps directions (max 2) */
+  let routeStopIds = [];
   /** @type {import("leaflet").Map | null} */
   let map = null;
   /** @type {import("leaflet").TileLayer | null} */
@@ -59,6 +61,8 @@
   const stopsEmptyEl = document.getElementById("travel-stops-empty");
   const stopsCountEl = document.getElementById("travel-stops-count");
   const stopsHeading = document.getElementById("travel-stops-heading");
+  const routeHintEl = document.getElementById("travel-route-hint");
+  const routeOpenBtn = document.getElementById("travel-route-open");
   const searchForm = document.getElementById("travel-search-form");
   const searchInput = document.getElementById("travel-search-input");
   const mapHint = document.getElementById("travel-map-hint");
@@ -67,6 +71,14 @@
 
   function uiLocale() {
     return window.DailySpaceI18n?.localeTag() || "en-US";
+  }
+
+  function isZh() {
+    return window.DailySpaceI18n?.locale() === "zh";
+  }
+
+  function t(en, zh) {
+    return isZh() ? zh : en;
   }
 
   function id() {
@@ -205,6 +217,12 @@
       params.set("lat", String(near.lat));
       params.set("lng", String(near.lng));
     }
+    if (near && Number.isFinite(near.zoom)) {
+      params.set("zoom", String(near.zoom));
+    }
+    if (near && near.destination) {
+      params.set("destination", String(near.destination).slice(0, 120));
+    }
     const response = await fetch(`${PLACES_API}?${params.toString()}`, {
       headers: { Accept: "application/json" },
     });
@@ -219,6 +237,17 @@
         title: String(place.title || q).slice(0, 80),
         label: String(place.label || place.title || q).slice(0, 180),
       }));
+  }
+
+  function searchNearForTrip(trip) {
+    if (!trip) return null;
+    const center = map?.getCenter?.();
+    return {
+      lat: center && Number.isFinite(center.lat) ? center.lat : trip.lat,
+      lng: center && Number.isFinite(center.lng) ? center.lng : trip.lng,
+      zoom: map?.getZoom?.() || trip.zoom || 12,
+      destination: trip.destination,
+    };
   }
 
   async function geocode(query) {
@@ -265,6 +294,131 @@
     routeLine = null;
   }
 
+  function pruneRouteStops() {
+    const trip = activeTrip();
+    if (!trip) {
+      routeStopIds = [];
+      return;
+    }
+    const valid = new Set(
+      trip.stops.filter((stop) => stop.day === activeDay).map((stop) => stop.id)
+    );
+    routeStopIds = routeStopIds.filter((id) => valid.has(id));
+  }
+
+  function dayStops(trip = activeTrip()) {
+    if (!trip) return [];
+    return trip.stops.filter((stop) => stop.day === activeDay);
+  }
+
+  function googleDirectionsUrl(from, to) {
+    const params = new URLSearchParams({
+      api: "1",
+      origin: `${from.lat},${from.lng}`,
+      destination: `${to.lat},${to.lng}`,
+      travelmode: "transit",
+    });
+    return `https://www.google.com/maps/dir/?${params.toString()}`;
+  }
+
+  /** @returns {{ from: Stop; to: Stop; selected: boolean } | null} */
+  function routePair() {
+    const trip = activeTrip();
+    if (!trip) return null;
+    const stops = dayStops(trip);
+    pruneRouteStops();
+    if (routeStopIds.length === 2) {
+      const from = stops.find((stop) => stop.id === routeStopIds[0]);
+      const to = stops.find((stop) => stop.id === routeStopIds[1]);
+      if (from && to) return { from, to, selected: true };
+    }
+    if (stops.length >= 2) return { from: stops[0], to: stops[1], selected: false };
+    return null;
+  }
+
+  function openExternalUrl(url) {
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.target = "_blank";
+    anchor.rel = "noopener noreferrer";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+  }
+
+  function openGoogleDirections() {
+    const pair = routePair();
+    if (!pair) return;
+    openExternalUrl(googleDirectionsUrl(pair.from, pair.to));
+  }
+
+  function updateRouteAction() {
+    const pair = routePair();
+    const count = routeStopIds.length;
+    const stops = dayStops();
+    if (routeHintEl) {
+      if (count === 1) {
+        routeHintEl.textContent = t(
+          "Tap a second stop to open Google Maps.",
+          "再点一个站点，就会打开 Google Maps。"
+        );
+      } else if (pair?.selected) {
+        routeHintEl.textContent = t(
+          "Route ready — opens Google Maps transit.",
+          "路线已选好 — 可打开 Google Maps 公交路线。"
+        );
+      } else if (stops.length >= 2) {
+        routeHintEl.textContent = t(
+          "Open Maps for stop 1 → 2, or tap two stops to choose.",
+          "可打开 站点1 → 2 的路线，或点选两个站点自定义。"
+        );
+      } else {
+        routeHintEl.textContent = t(
+          "Add two stops, then open transit directions.",
+          "添加两个站点后，可查看公交路线。"
+        );
+      }
+    }
+    if (routeOpenBtn) {
+      routeOpenBtn.hidden = !pair;
+      if (!pair) {
+        routeOpenBtn.textContent = t("Open in Google Maps", "在 Google Maps 打开");
+      } else {
+        const short = (title) => {
+          const text = String(title || "Stop");
+          return text.length > 18 ? `${text.slice(0, 17)}…` : text;
+        };
+        routeOpenBtn.textContent = t(
+          `Maps · ${short(pair.from.title)} → ${short(pair.to.title)}`,
+          `地图 · ${short(pair.from.title)} → ${short(pair.to.title)}`
+        );
+      }
+    }
+  }
+
+  function selectStopForRoute(stopId, { pan = false, openMaps = false } = {}) {
+    const trip = activeTrip();
+    if (!trip) return;
+    const stop = trip.stops.find((item) => item.id === stopId);
+    if (!stop || stop.day !== activeDay) return;
+
+    const existing = routeStopIds.indexOf(stopId);
+    if (existing >= 0) {
+      routeStopIds = routeStopIds.filter((id) => id !== stopId);
+    } else if (routeStopIds.length >= 2) {
+      routeStopIds = [stopId];
+    } else {
+      routeStopIds = [...routeStopIds, stopId];
+    }
+
+    activeStopId = stopId;
+    if (pan) map?.panTo([stop.lat, stop.lng]);
+    updateRouteAction();
+    renderStops();
+    renderMapLayers();
+    if (openMaps && routeStopIds.length === 2) openGoogleDirections();
+  }
+
   function syncMapBasemap() {
     if (!map || !window.L) return;
     const next = basemapSpec();
@@ -297,20 +451,21 @@
     const latLngs = [];
 
     ordered.forEach((stop, index) => {
+      const routeIndex = routeStopIds.indexOf(stop.id);
+      const selected = routeIndex >= 0 || stop.id === activeStopId;
       const marker = window.L.circleMarker([stop.lat, stop.lng], {
-        radius: stop.id === activeStopId ? 10 : 8,
-        color: stop.id === activeStopId ? ink : edge,
-        weight: 2,
+        radius: selected ? 10 : 8,
+        color: routeIndex >= 0 ? ink : edge,
+        weight: routeIndex >= 0 ? 3 : 2,
         fillColor: fill,
         fillOpacity: 0.95,
       });
-      marker.bindTooltip(`${index + 1}. ${stop.title}`, { direction: "top" });
+      const routeLabel =
+        routeIndex === 0 ? "A · " : routeIndex === 1 ? "B · " : "";
+      marker.bindTooltip(`${routeLabel}${index + 1}. ${stop.title}`, { direction: "top" });
       marker.on("click", (event) => {
         if (event.originalEvent) event.originalEvent.stopPropagation();
-        activeStopId = stop.id;
-        renderStops();
-        renderMapLayers();
-        map.panTo([stop.lat, stop.lng]);
+        selectStopForRoute(stop.id, { pan: true, openMaps: true });
       });
       marker.addTo(markerLayer);
       latLngs.push([stop.lat, stop.lng]);
@@ -375,6 +530,11 @@
     };
     trip.stops.push(stop);
     activeStopId = stop.id;
+    const sameDay = trip.stops.filter((item) => item.day === stop.day);
+    // When the day reaches two stops, preselect them so the Maps button appears.
+    if (sameDay.length === 2 && stop.day === activeDay) {
+      routeStopIds = [sameDay[0].id, sameDay[1].id];
+    }
     saveState();
     renderWorkspace();
   }
@@ -384,6 +544,7 @@
     if (!trip) return;
     trip.stops = trip.stops.filter((stop) => stop.id !== stopId);
     if (activeStopId === stopId) activeStopId = null;
+    routeStopIds = routeStopIds.filter((id) => id !== stopId);
     saveState();
     renderWorkspace();
   }
@@ -429,6 +590,7 @@
       chip.addEventListener("click", () => {
         activeDay = day;
         activeStopId = null;
+        routeStopIds = [];
         renderWorkspace();
       });
       daysEl.appendChild(chip);
@@ -445,10 +607,17 @@
     stopsHeading.textContent = `Day ${activeDay} stops`;
 
     dayStops.forEach((stop, index) => {
+      const routeIndex = routeStopIds.indexOf(stop.id);
       const li = document.createElement("li");
-      li.className = "travel-stop" + (stop.id === activeStopId ? " is-active" : "");
+      li.className =
+        "travel-stop" +
+        (stop.id === activeStopId ? " is-active" : "") +
+        (routeIndex === 0 ? " is-route-a" : "") +
+        (routeIndex === 1 ? " is-route-b" : "");
+      const routeBadge =
+        routeIndex === 0 ? "A" : routeIndex === 1 ? "B" : String(index + 1);
       li.innerHTML = `
-        <span class="travel-stop-index">${index + 1}</span>
+        <span class="travel-stop-index">${routeBadge}</span>
         <div>
           <p class="travel-stop-title">${escapeHtml(stop.title)}</p>
           ${stop.note ? `<p class="travel-stop-note">${escapeHtml(stop.note)}</p>` : ""}
@@ -457,10 +626,7 @@
       `;
       li.addEventListener("click", (event) => {
         if (event.target.closest(".travel-stop-delete")) return;
-        activeStopId = stop.id;
-        renderStops();
-        renderMapLayers();
-        map?.panTo([stop.lat, stop.lng]);
+        selectStopForRoute(stop.id, { pan: true, openMaps: true });
       });
       li.querySelector(".travel-stop-delete")?.addEventListener("click", (event) => {
         event.stopPropagation();
@@ -468,6 +634,7 @@
       });
       stopListEl.appendChild(li);
     });
+    updateRouteAction();
   }
 
   function renderPlaceResults(places) {
@@ -541,6 +708,7 @@
     activeTripId = tripSelect.value || null;
     activeDay = 1;
     activeStopId = null;
+    routeStopIds = [];
     clearPlaceResults();
     saveState();
     renderWorkspace();
@@ -554,9 +722,12 @@
     activeTripId = trips[0]?.id || null;
     activeDay = 1;
     activeStopId = null;
+    routeStopIds = [];
     saveState();
     renderWorkspace();
   });
+
+  routeOpenBtn?.addEventListener("click", () => openGoogleDirections());
 
   newForm?.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -597,6 +768,7 @@
       activeTripId = trip.id;
       activeDay = 1;
       activeStopId = null;
+      routeStopIds = [];
       newName.value = "";
       newDest.value = "";
       saveState();
@@ -620,11 +792,7 @@
     clearPlaceResults();
     if (mapHint) mapHint.textContent = "Searching…";
     try {
-      const places = await searchPlaces(
-        query,
-        { lat: trip.lat, lng: trip.lng, destination: trip.destination },
-        8
-      );
+      const places = await searchPlaces(query, searchNearForTrip(trip), 8);
       if (!places.length) {
         if (mapHint) mapHint.textContent = "No places found. Try another search.";
         return;

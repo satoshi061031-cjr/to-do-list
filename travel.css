@@ -81,7 +81,8 @@
 .travel-sheet[hidden],
 .travel-place-results[hidden],
 .travel-stops-empty[hidden],
-.travel-trip-select-wrap[hidden] {
+.travel-trip-select-wrap[hidden],
+.travel-route-btn[hidden] {
   display: none !important;
 }
 
@@ -461,6 +462,40 @@ body.travel-page.has-bento-rail .theme-toggle:not(.bento-rail-theme) {
   font-size: var(--type-label-size);
 }
 
+.travel-route-hint {
+  margin: 0 0 0.35rem;
+  padding: 0 0.1rem;
+  color: var(--text-muted);
+  font-size: var(--type-label-size);
+  line-height: 1.4;
+}
+
+.travel-route-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin: 0 0 0.45rem;
+  padding: 0.55rem 0.75rem;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--tertiary);
+  color: var(--on-tertiary);
+  font: inherit;
+  font-size: var(--type-label-size);
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  text-align: center;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.travel-route-btn:hover {
+  background: var(--tertiary-deep);
+}
+
 .travel-stop-list {
   list-style: none;
   margin: 0;
@@ -489,6 +524,25 @@ body.travel-page.has-bento-rail .theme-toggle:not(.bento-rail-theme) {
 .travel-stop.is-active {
   border-color: color-mix(in srgb, var(--tertiary) 55%, transparent);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--tertiary) 18%, transparent);
+}
+
+.travel-stop.is-route-a,
+.travel-stop.is-route-b {
+  border-color: color-mix(in srgb, var(--primary) 45%, transparent);
+  background: color-mix(in srgb, var(--tertiary) 16%, var(--glass));
+}
+
+.travel-stop.is-route-a .travel-stop-index,
+.travel-stop.is-route-b .travel-stop-index {
+  color: var(--on-tertiary);
+  background: var(--tertiary);
+  border-radius: 50%;
+  width: 1.15rem;
+  height: 1.15rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.62rem;
 }
 
 .travel-stop-index {
