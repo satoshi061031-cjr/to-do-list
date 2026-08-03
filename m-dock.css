@@ -1,23 +1,26 @@
-/* Shared mobile page dock — same items as desktop rail (Todo / Calendar / Planner / Mail / Menu). */
+/* Shared mobile page dock — same primary pages as desktop rail/sidebar:
+   Todo / Calendar / Planner / Mail / Tally + Menu. Theme & language sit beside the pill. */
 
 @media (max-width: 819px) {
   body.has-bento-rail .bento-rail {
     position: fixed;
     left: 50%;
-    bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+    bottom: max(0.55rem, env(safe-area-inset-bottom, 0px));
     z-index: 230;
     flex-direction: row;
+    flex-wrap: nowrap;
     align-items: center;
-    width: min(28rem, calc(100vw - 1.25rem));
+    justify-content: center;
+    gap: 0.35rem;
+    width: min(36rem, calc(100vw - 0.85rem));
     max-width: none;
     transform: translateX(-50%);
-    padding: 0.4rem 0.3rem;
-    gap: 0.08rem;
-    border-radius: var(--radius-pill);
-    background: var(--surface);
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
     color: var(--text-muted);
-    box-shadow: 0 10px 28px color-mix(in srgb, var(--primary) 10%, transparent);
-    border: 1px solid color-mix(in srgb, var(--primary) 6%, transparent);
   }
 
   body.has-bento-rail .bento-rail-brand {
@@ -28,8 +31,14 @@
     flex-direction: row;
     margin-top: 0;
     flex: 1 1 auto;
-    gap: 0.1rem;
-    width: 100%;
+    gap: 0.08rem;
+    width: auto;
+    min-width: 0;
+    padding: 0.35rem 0.28rem;
+    border-radius: var(--radius-pill);
+    background: var(--surface);
+    box-shadow: 0 10px 28px color-mix(in srgb, var(--primary) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--primary) 6%, transparent);
   }
 
   body.has-bento-rail .bento-rail-link {
@@ -38,12 +47,12 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 0.12rem;
+    gap: 0.1rem;
     width: auto;
     height: auto;
-    min-height: 3rem;
+    min-height: 2.85rem;
     min-width: 0;
-    padding: 0.3rem 0.2rem;
+    padding: 0.28rem 0.12rem;
     border-radius: var(--radius-pill);
     color: var(--text-muted);
     background: transparent;
@@ -67,45 +76,46 @@
     width: auto;
     height: auto;
     margin: 0;
-    overflow: visible;
+    overflow: hidden;
     clip: auto;
     white-space: nowrap;
-    font-size: 0.58rem;
-    letter-spacing: 0.02em;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    font-size: 0.52rem;
+    letter-spacing: 0.01em;
   }
 
   body.has-bento-rail .bento-rail-link svg {
-    width: 18px;
-    height: 18px;
+    width: 17px;
+    height: 17px;
+    flex-shrink: 0;
   }
 
-  /* Theme + language live in the bottom dock with page links. */
+  /* Theme + language sit outside the page pill (desktop rail pattern). */
   body.has-bento-rail .theme-toggle.bento-rail-theme,
-  body.has-bento-rail .bento-rail-nav .theme-toggle,
-  body.has-bento-rail .language-toggle.bento-rail-lang,
-  body.has-bento-rail .bento-rail-nav .language-toggle {
+  body.has-bento-rail .language-toggle.bento-rail-lang {
     position: static;
     top: auto;
     right: auto;
-    flex: 1;
+    flex: 0 0 auto;
     display: inline-flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 0.12rem;
-    width: auto;
-    height: auto;
-    min-width: 0;
-    min-height: 3rem;
-    padding: 0.3rem 0.15rem;
-    border: 0;
+    gap: 0.08rem;
+    width: 2.65rem;
+    min-width: 2.65rem;
+    height: 2.85rem;
+    min-height: 2.85rem;
+    padding: 0.2rem;
+    border: 1px solid color-mix(in srgb, var(--primary) 6%, transparent);
     border-radius: var(--radius-pill);
-    background: transparent;
-    box-shadow: none;
+    background: var(--surface);
+    box-shadow: 0 8px 20px color-mix(in srgb, var(--primary) 8%, transparent);
     color: var(--text-muted);
     letter-spacing: 0.02em;
     text-transform: none;
-    font-size: 0.58rem;
+    font-size: 0.52rem;
     font-weight: 600;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
@@ -113,46 +123,42 @@
 
   body.has-bento-rail .theme-toggle.bento-rail-theme:hover,
   body.has-bento-rail .theme-toggle.bento-rail-theme:focus-visible,
-  body.has-bento-rail .bento-rail-nav .theme-toggle:hover,
-  body.has-bento-rail .bento-rail-nav .theme-toggle:focus-visible,
   body.has-bento-rail .language-toggle.bento-rail-lang:hover,
-  body.has-bento-rail .language-toggle.bento-rail-lang:focus-visible,
-  body.has-bento-rail .bento-rail-nav .language-toggle:hover,
-  body.has-bento-rail .bento-rail-nav .language-toggle:focus-visible {
+  body.has-bento-rail .language-toggle.bento-rail-lang:focus-visible {
     color: var(--text);
     background: color-mix(in srgb, var(--tertiary) 14%, transparent);
     outline: none;
   }
 
-  body.has-bento-rail .theme-toggle.bento-rail-theme .theme-toggle-icon,
-  body.has-bento-rail .bento-rail-nav .theme-toggle .theme-toggle-icon {
+  body.has-bento-rail .theme-toggle.bento-rail-theme .theme-toggle-icon {
     position: static;
     width: auto;
     height: auto;
     overflow: visible;
     clip: auto;
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     line-height: 1;
     letter-spacing: 0;
   }
 
-  body.has-bento-rail .theme-toggle.bento-rail-theme .theme-toggle-label,
-  body.has-bento-rail .bento-rail-nav .theme-toggle .theme-toggle-label {
+  body.has-bento-rail .theme-toggle.bento-rail-theme .theme-toggle-label {
     position: static;
     width: auto;
     height: auto;
-    overflow: visible;
+    overflow: hidden;
     clip: auto;
     white-space: nowrap;
-    font-size: 0.58rem;
-    letter-spacing: 0.02em;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    font-size: 0.52rem;
+    letter-spacing: 0.01em;
   }
 
   body.has-bento-rail .layout {
     flex-direction: column;
     padding: var(--space-sm);
     max-width: none;
-    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 5.5rem);
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 6.25rem);
   }
 
   body.has-bento-rail .sidebar {
@@ -160,18 +166,29 @@
     right: 0.75rem;
     width: auto;
     top: calc(env(safe-area-inset-top, 0px) + 3.5rem);
-    bottom: calc(env(safe-area-inset-bottom, 0px) + 5.25rem);
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 5.75rem);
   }
 
   body.has-bento-rail .todo-agent.todo-agent-rail-docked,
   body.has-bento-rail .todo-agent {
-    bottom: calc(env(safe-area-inset-bottom, 0px) + 5.75rem);
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 6.1rem);
     right: max(0.85rem, env(safe-area-inset-right, 0px));
     left: auto;
     top: auto;
   }
+
+  /* Keep evening close chips clear of the fixed dock. */
+  body.has-bento-rail .evening-review:not([hidden]) {
+    margin-bottom: calc(env(safe-area-inset-bottom, 0px) + 1.25rem);
+  }
+
+  body.has-bento-rail .evening-review-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
-:root[data-theme="dark"] body.has-bento-rail .bento-rail {
+:root[data-theme="dark"] body.has-bento-rail .bento-rail-nav,
+:root[data-theme="dark"] body.has-bento-rail .theme-toggle.bento-rail-theme,
+:root[data-theme="dark"] body.has-bento-rail .language-toggle.bento-rail-lang {
   background: color-mix(in srgb, var(--surface) 55%, black);
 }

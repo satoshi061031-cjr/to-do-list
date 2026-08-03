@@ -1,6 +1,6 @@
 /**
- * Persistent left rail for page switching (Todo / Calendar / Planner / Mail + Menu).
- * Injects into `.layout` on every app page that has a sidebar.
+ * Persistent left rail / mobile dock — same primary pages as sidebar (theme.js):
+ * Todo / Calendar / Planner / Mail / Tally + Menu. Teamwork stays under More.
  */
 (function () {
   const ICON = {
@@ -12,6 +12,8 @@
       '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 6h16M4 12h10M4 18h14"/></svg>',
     mail:
       '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 7 9-7"/></svg>',
+    tally:
+      '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 19V5M4 19h16"/><path d="M8 16v-4M12 16V8M16 16v-6"/></svg>',
     menu:
       '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h16M4 12h10M4 17h14"/><circle cx="18" cy="12" r="1.5" fill="currentColor" stroke="none"/></svg>',
   };
@@ -31,7 +33,9 @@
     { id: "calendar", href: "calendar.html", title: "Calendar", icon: ICON.calendar },
     { id: "planner", href: "planner.html", title: "Planner", icon: ICON.planner },
     { id: "mail", href: "mail.html", title: "Mail", icon: ICON.mail },
+    { id: "tally", href: "tally.html", title: "Tally book", icon: ICON.tally },
   ];
+  const RAIL_PAGES_KEY = `${LINKS.map((item) => item.id).join(",")}|v3`;
 
   function pageId() {
     const path = (location.pathname || "").toLowerCase();
@@ -81,28 +85,35 @@
     brand.setAttribute("aria-label", title);
   }
 
-  /** Pin EN/中 into the left rail (desktop) or bottom dock (mobile). */
+  /** Pin EN/中 beside theme on the rail — never inside page links (matches desktop). */
   function dockLanguageToggle(rail) {
     const hostRail = rail || document.querySelector(".bento-rail");
     if (!hostRail) return;
     const lang = document.getElementById("language-toggle");
     if (!lang) return;
     lang.classList.add("bento-rail-lang");
-    if (isNarrow()) {
-      const nav = hostRail.querySelector(".bento-rail-nav");
-      const host = nav || hostRail;
-      if (!host.contains(lang)) {
-        const theme = host.querySelector(".bento-rail-theme, #theme-toggle");
-        if (theme) host.insertBefore(lang, theme);
-        else host.appendChild(lang);
-      }
-      return;
-    }
     if (!hostRail.contains(lang)) {
       const theme = hostRail.querySelector(".bento-rail-theme, #theme-toggle");
       if (theme) hostRail.insertBefore(lang, theme);
       else hostRail.appendChild(lang);
     }
+  }
+
+  function syncNavLinks(nav) {
+    if (!(nav instanceof HTMLElement)) return;
+    const needsRebuild =
+      nav.dataset.railPages !== RAIL_PAGES_KEY ||
+      !nav.querySelector("#bento-menu-toggle") ||
+      LINKS.some((item) => !nav.querySelector(`[data-rail-page="${item.id}"]`));
+    if (!needsRebuild) {
+      const todoLink = nav.querySelector('.bento-rail-link[data-rail-page="todo"]');
+      if (todoLink) todoLink.setAttribute("href", todoHref());
+      return;
+    }
+    nav.innerHTML = buildNavHtml();
+    nav.dataset.railPages = RAIL_PAGES_KEY;
+    const menuBtn = nav.querySelector("#bento-menu-toggle");
+    if (menuBtn) delete menuBtn.dataset.railWired;
   }
 
   function syncExpanded(open) {
@@ -172,17 +183,18 @@
       rail.setAttribute("aria-label", "Pages");
       rail.innerHTML =
         `<a class="bento-rail-brand" href="${todoHref()}" title="Daily Space" aria-label="Daily Space"><span data-rail-brand-letter aria-hidden="true">S</span></a>` +
-        `<div class="bento-rail-nav">${buildNavHtml()}</div>`;
+        `<div class="bento-rail-nav" data-rail-pages="${RAIL_PAGES_KEY}">${buildNavHtml()}</div>`;
       layout.insertBefore(rail, layout.firstChild);
     } else {
-      const nav = rail.querySelector(".bento-rail-nav");
-      if (nav && !nav.querySelector("[data-rail-page]")) {
-        nav.innerHTML = buildNavHtml();
+      let nav = rail.querySelector(".bento-rail-nav");
+      if (!nav) {
+        nav = document.createElement("div");
+        nav.className = "bento-rail-nav";
+        rail.appendChild(nav);
       }
+      syncNavLinks(nav);
       const brand = rail.querySelector(".bento-rail-brand");
       if (brand) brand.setAttribute("href", todoHref());
-      const todoLink = rail.querySelector('.bento-rail-link[data-rail-page="todo"]');
-      if (todoLink) todoLink.setAttribute("href", todoHref());
       // Prefer stable menu id
       const legacy = document.getElementById("bento-cat-toggle");
       if (legacy && !document.getElementById("bento-menu-toggle")) {
@@ -207,14 +219,8 @@
 
     toggle.classList.remove("m-theme-float");
     toggle.classList.add("bento-rail-theme");
-    if (isNarrow()) {
-      // Sit with page links inside the bottom dock.
-      const nav = rail.querySelector(".bento-rail-nav");
-      const host = nav || rail;
-      if (!host.contains(toggle)) host.appendChild(toggle);
-    } else if (!rail.contains(toggle)) {
-      rail.appendChild(toggle);
-    }
+    // Theme sits on the rail (sibling of nav), same as desktop — not inside page links.
+    if (!rail.contains(toggle)) rail.appendChild(toggle);
 
     dockLanguageToggle(rail);
 
