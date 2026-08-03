@@ -93,7 +93,6 @@ async function handleApi(request, response, url) {
     sendJson(response, {
       ok: true,
       now: new Date().toISOString(),
-      alphaVantageConfigured: Boolean(process.env.ALPHA_VANTAGE_API_KEY),
       agentConfigured: isAgentConfigured(),
       supabaseConfigured: isSupabaseSnapshotStoreConfigured(),
       travelPlaces: travelPlacesStatus(),
@@ -1173,7 +1172,7 @@ function serveStatic(response, pathname) {
   const cleanPath = decodeURIComponent(pathname.split("?")[0]);
   let relative = cleanPath === "/" ? "index.html" : cleanPath.replace(/^\/+/, "");
   if (relative === "stocks" || relative === "stocks.html") {
-    sendText(response, "Stock signals UI was removed. Use Daily Space productivity pages instead.", 410);
+    sendText(response, "Stock signals were removed from Daily Space.", 410);
     return;
   }
 

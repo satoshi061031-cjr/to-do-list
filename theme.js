@@ -1747,7 +1747,6 @@
       { href: "planner.html", label: "Planner", match: /^planner\.html$/ },
       { href: "mail.html", label: "Mail", match: /^mail\.html$/ },
       { href: "tally.html", label: "Tally book", match: /^tally\.html$/ },
-      { href: "travel.html", label: "Travel", match: /^travel\.html$/ },
     ];
     const secondary = [
       { href: "teamwork.html", label: "Teamwork", match: /^teamwork\.html$/ },
@@ -1816,7 +1815,6 @@
       p: "planner.html",
       m: "mail.html",
       a: "tally.html",
-      v: "travel.html",
       w: "teamwork.html",
     };
     let pendingGo = false;
@@ -1883,7 +1881,6 @@
                 <li><kbd>g</kbd> then <kbd>p</kbd><span>Planner</span></li>
                 <li><kbd>g</kbd> then <kbd>m</kbd><span>Mail</span></li>
                 <li><kbd>g</kbd> then <kbd>a</kbd><span>Tally book</span></li>
-                <li><kbd>g</kbd> then <kbd>v</kbd><span>Travel</span></li>
                 <li><kbd>g</kbd> then <kbd>w</kbd><span>Teamwork</span></li>
               </ul>
             </div>

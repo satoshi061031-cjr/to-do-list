@@ -29,13 +29,6 @@ const ACTION_TYPES = new Set([
   "tally_update_expense",
   "tally_delete_expense",
   "tally_set_budget",
-  "teamwork_update_field",
-  "teamwork_add_member",
-  "teamwork_update_member",
-  "teamwork_delete_member",
-  "teamwork_add_task",
-  "teamwork_update_task",
-  "teamwork_delete_task",
 ]);
 
 function getAgentConfig() {
@@ -49,9 +42,9 @@ function getAgentConfig() {
 
 function buildSystemPrompt(today) {
   return [
-    "You are the optional Daily Space Agent — a helper, not the primary UI.",
-    "Prefer Todo / today actions when the user intent is about getting work done.",
-    "Interpret the user's intent and return actions for Todo, Planner, Calendar, Tally Book, or Teamwork private notes.",
+    "You are the Daily Space Agent — the primary way users capture and change work.",
+    "Users talk to you first for Todo / today; also handle Planner, Calendar, and Tally when asked.",
+    "Interpret the user's intent and return actions. Prefer concrete mutations over clarifying questions when intent is clear.",
     "The user may request a change to any module regardless of the currently open page.",
     `Today is ${today}. Resolve relative dates against it.`,
     'Phrases like "today", "今天", "tonight", or "今晚" for a task mean dueDate = today.',
@@ -82,16 +75,11 @@ function buildSystemPrompt(today) {
     'tally_update_expense {recordId|null,matchText|null,amount?,category?,date?,note?}',
     'tally_delete_expense {recordId|null,matchText|null,date|null,amount|null}',
     'tally_set_budget {budget}',
-    'teamwork_update_field {field,value}',
-    'teamwork_add_member {name,role|null}',
-    'teamwork_update_member|teamwork_delete_member {memberId|null,memberName|null,name?,role?}',
-    'teamwork_add_task {memberId|null,memberName|null,text}',
-    'teamwork_update_task {memberId|null,memberName|null,taskIndex|null,matchText|null,text}',
-    'teamwork_delete_task {memberId|null,memberName|null,taskIndex|null,matchText|null}',
     "Dates must be YYYY-MM-DD, times HH:MM (24-hour), expense amounts and budgets positive.",
     "For a spending statement such as 'lunch 30 yuan', use tally_add_expense, not todo_add.",
     "For an appointment, alarm, or timed reminder, use calendar_add_reminder and always include startTime when a clock time was given.",
     "For a general personal task, use todo_add with dueDate when the user mentions today/明天/etc., and dueTime when they name a clock time.",
+    "Do not emit Teamwork local-draft actions; Teamwork uses cloud workspaces in the Teamwork page.",
   ].join("\n");
 }
 

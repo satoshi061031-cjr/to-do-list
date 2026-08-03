@@ -2361,11 +2361,50 @@ body.todo-source-assigned .daily-loop {
 }
 
 .evening-review-stats {
-  display: none;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-xs);
+}
+
+.evening-review-stats[hidden] {
+  display: none !important;
 }
 
 .evening-review-stat {
-  display: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: var(--space-sm);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--neutral) 55%, transparent);
+  border: 1px solid color-mix(in srgb, var(--glass-border) 70%, transparent);
+}
+
+.evening-review-stat-value {
+  color: var(--text);
+  font-size: var(--type-title-size);
+  line-height: 1.1;
+}
+
+.evening-review-stat-label {
+  color: var(--text-muted);
+  font-size: var(--type-label-size);
+  letter-spacing: var(--type-label-tracking);
+  text-transform: uppercase;
+}
+
+.evening-review.is-closed {
+  opacity: 0.92;
+}
+
+.evening-review-cal {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .evening-review-mail,
@@ -2390,6 +2429,12 @@ body.todo-source-assigned .daily-loop {
 .evening-review-actions .btn {
   padding: var(--space-sm) var(--space-md);
   font-size: var(--type-label-size);
+}
+
+@media (max-width: 640px) {
+  .evening-review-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 body.todo-source-assigned .evening-review {

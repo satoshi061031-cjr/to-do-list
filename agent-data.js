@@ -561,51 +561,10 @@
           }
           success(action, `${record.category} ${tallyAmount(tally, record.amount)}`);
         } else if (action.type.startsWith("teamwork_")) {
-          if (action.type === "teamwork_update_field") {
-            if (!TEAMWORK_FIELDS.has(action.field)) return failure(action, "Unsupported Teamwork field.");
-            teamwork[action.field] = clean(action.value, action.field === "notes" ? 2000 : 500);
-            success(action, action.field);
-            return;
-          }
-          if (action.type === "teamwork_add_member") {
-            const name = clean(action.name, 80);
-            if (!name) return failure(action, "Member name is required.");
-            teamwork.members.push({
-              id: uid(),
-              name,
-              role: clean(action.role, 80) || "Member",
-              tasks: [],
-            });
-            success(action, name);
-            return;
-          }
-          const member = teamworkMember(teamwork, action);
-          if (!member) return failure(action, "Team member not found.");
-          if (!Array.isArray(member.tasks)) member.tasks = [];
-          if (action.type === "teamwork_update_member") {
-            if (clean(action.name, 80)) member.name = clean(action.name, 80);
-            if (clean(action.role, 80)) member.role = clean(action.role, 80);
-            success(action, member.name);
-          } else if (action.type === "teamwork_delete_member") {
-            teamwork.members = teamwork.members.filter((item) => item.id !== member.id);
-            success(action, member.name);
-          } else if (action.type === "teamwork_add_task") {
-            const task = clean(action.text, 300);
-            if (!task) return failure(action, "Task text is required.");
-            member.tasks.push(task);
-            success(action, `${member.name}: ${task}`);
-          } else {
-            const needle = clean(action.matchText, 300).toLowerCase();
-            let index = Number.isInteger(action.taskIndex) ? action.taskIndex : -1;
-            if (index < 0 && needle) {
-              index = member.tasks.findIndex((task) => clean(task, 300).toLowerCase().includes(needle));
-            }
-            if (index < 0 || index >= member.tasks.length) return failure(action, "Team task not found.");
-            const oldTask = member.tasks[index];
-            if (action.type === "teamwork_update_task") member.tasks[index] = clean(action.text, 300);
-            if (action.type === "teamwork_delete_task") member.tasks.splice(index, 1);
-            success(action, `${member.name}: ${oldTask}`);
-          }
+          failure(
+            action,
+            "Local Teamwork drafts are retired — open Teamwork for cloud workspaces."
+          );
         }
       } catch (_) {
         failure(action, "Action could not be applied.");
@@ -616,7 +575,6 @@
     if (changed.has("planner")) write(KEYS.planner, planner);
     if (changed.has("calendar")) write(KEYS.calendar, calendar);
     if (changed.has("tally")) write(KEYS.tally, tally);
-    if (changed.has("teamwork")) write(KEYS.teamwork, teamwork);
     if (changed.size) {
       window.dispatchEvent(
         new CustomEvent("daily-space-agent-data-updated", {

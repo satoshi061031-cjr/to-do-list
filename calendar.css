@@ -236,6 +236,12 @@ body.calendar-page .calendar-app > .app-greeting {
   border: 1px solid color-mix(in srgb, var(--glass-border) 70%, transparent);
 }
 
+.cal-shell .cal-controls > .cal-view-btn {
+  margin-left: auto;
+  border: 1px solid color-mix(in srgb, var(--glass-border) 70%, transparent);
+  background: color-mix(in srgb, var(--surface) 24%, transparent);
+}
+
 .cal-shell .cal-view-btn {
   min-height: 2rem;
   padding: 0.3rem 0.85rem;
@@ -250,12 +256,13 @@ body.calendar-page .calendar-app > .app-greeting {
   cursor: pointer;
 }
 
-.cal-shell .cal-view-btn.is-active {
+.cal-shell .cal-view-btn.is-active,
+.cal-shell .cal-controls > .cal-view-btn:focus-visible {
   background: var(--primary);
   color: var(--on-primary);
 }
 
-.cal-shell .cal-view-btn:hover:not(.is-active) {
+.cal-shell .cal-view-btn:hover {
   background: color-mix(in srgb, var(--tertiary) 16%, transparent);
 }
 
@@ -1073,6 +1080,11 @@ body.calendar-page .calendar-app > .app-greeting {
     align-items: stretch;
   }
 
+  .cal-shell .cal-controls > .cal-view-btn {
+    margin-left: 0;
+    width: 100%;
+  }
+
   .cal-shell .cal-view-toggle {
     margin-left: 0;
     width: 100%;
@@ -1082,6 +1094,7 @@ body.calendar-page .calendar-app > .app-greeting {
   .cal-shell .cal-view-btn {
     flex: 1 1 auto;
     text-align: center;
+    min-height: 2.5rem;
   }
 
   .cal-shell .cal-range {
@@ -1091,19 +1104,91 @@ body.calendar-page .calendar-app > .app-greeting {
 
   .cal-shell .cal-add-btn {
     width: 100%;
+    min-height: 2.6rem;
+  }
+
+  .cal-shell .cal-search-input {
+    min-height: 2.5rem;
   }
 
   .cal-week-body {
-    min-height: 20rem;
+    min-height: 16rem;
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
   }
 
   .cal-cols {
-    min-width: 32rem;
+    min-width: 28rem;
   }
 
   .cal-week-head {
-    min-width: calc(3.5rem + 32rem);
+    min-width: calc(3.5rem + 28rem);
+  }
+
+  .cal-col {
+    scroll-snap-align: start;
+  }
+
+  .cal-composer {
+    padding-inline: 0.15rem;
+  }
+
+  .cal-composer .reminder-form,
+  .cal-composer .day-task-form {
+    gap: 0.55rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .calendar-page .layout {
+    padding: var(--space-sm);
+  }
+
+  .cal-shell .cal-top {
+    gap: var(--space-sm);
+  }
+
+  .cal-shell .calendar-title {
+    font-size: clamp(1.35rem, 7vw, 1.85rem);
+  }
+
+  .cal-shell .cal-search-chips {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .cal-shell .cal-search-chip {
+    flex: 1 1 0;
+    min-height: 2.25rem;
+  }
+
+  .cal-week {
+    min-height: 14rem;
+  }
+
+  .cal-week-body {
+    min-height: 14rem;
+  }
+
+  .cal-cols {
+    min-width: 24rem;
+  }
+
+  .cal-week-head {
+    min-width: calc(2.75rem + 24rem);
+  }
+
+  .cal-hours {
+    width: 2.75rem;
+  }
+
+  .cal-week-corner {
+    width: 2.75rem;
+  }
+
+  .cal-composer .selected-day-title {
+    font-size: var(--type-title-size);
   }
 }
 

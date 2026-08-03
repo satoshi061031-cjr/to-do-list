@@ -31,18 +31,13 @@
   const sidebarBackdrop = document.getElementById("sidebar-backdrop");
   const calendarTitleEl = document.getElementById("calendar-title");
   const calendarMetaEl = document.getElementById("calendar-meta");
-  const calendarGridEl = document.getElementById("calendar-grid");
   const calendarRangeLabel = document.getElementById("calendar-range-label");
   const calendarAddEventBtn = document.getElementById("calendar-add-event");
   const calSearchInput = document.getElementById("cal-search-input");
   const calSearchForm = document.getElementById("cal-search-form");
-  const viewWeekBtn = document.getElementById("calendar-view-week");
-  const viewMonthBtn = document.getElementById("calendar-view-month");
   const prevBtn = document.getElementById("calendar-prev");
   const nextBtn = document.getElementById("calendar-next");
   const todayBtn = document.getElementById("calendar-today");
-  /** @type {"week" | "month"} */
-  let calView = "week";
   /** @type {"all" | "tasks" | "reminders"} */
   let calFilter = "all";
   let calSearchQuery = "";
@@ -178,25 +173,6 @@
     return "Stay up to date";
   }
 
-  function setCalView(next) {
-    calView = next === "month" ? "month" : "week";
-    if (viewWeekBtn) {
-      viewWeekBtn.classList.toggle("is-active", calView === "week");
-      viewWeekBtn.setAttribute("aria-selected", String(calView === "week"));
-    }
-    if (viewMonthBtn) {
-      viewMonthBtn.classList.toggle("is-active", calView === "month");
-      viewMonthBtn.setAttribute("aria-selected", String(calView === "month"));
-    }
-    if (todayBtn) {
-      todayBtn.classList.toggle("is-active", false);
-      todayBtn.setAttribute("aria-selected", "false");
-    }
-    if (prevBtn) prevBtn.setAttribute("aria-label", calView === "month" ? "Previous month" : "Previous week");
-    if (nextBtn) nextBtn.setAttribute("aria-label", calView === "month" ? "Next month" : "Next week");
-    render();
-  }
-
   function setCalFilter(next) {
     calFilter = next === "tasks" || next === "reminders" ? next : "all";
     document.querySelectorAll(".cal-search-chip").forEach((chip) => {
@@ -209,7 +185,7 @@
     if (calDayBlocks.reminders instanceof HTMLElement) {
       calDayBlocks.reminders.hidden = calFilter === "tasks";
     }
-    renderSelectedDay();
+    render();
   }
 
   function matchesSearch(text) {
@@ -469,12 +445,6 @@
     render();
   }
 
-  function shiftMonth(delta) {
-    const anchor = parseIso(selectedDate);
-    anchor.setMonth(anchor.getMonth() + delta);
-    selectDate(dateToIso(anchor));
-  }
-
   function goToday() {
     selectDate(todayIso());
   }
@@ -525,12 +495,6 @@
     render();
   }
 
-  function renderCalendarGrid() {
-    // Month grid kept hidden; week workspace is primary.
-    if (!calendarGridEl || calendarGridEl.hidden) return;
-    calendarGridEl.innerHTML = "";
-  }
-
   function renderWeekGrid() {
     if (!weekHeadEl || !weekHoursEl || !weekColsEl) return;
 
@@ -542,16 +506,23 @@
     if (calendarTitleEl) calendarTitleEl.textContent = stayUpToDateTitle();
     if (calendarRangeLabel) calendarRangeLabel.textContent = formatWeekRangeLabel();
     const dueThisWeek = todos.filter(
-      (todo) => todo.dueDate && isoInRange(todo.dueDate, startIso, endIso)
+      (todo) =>
+        todo.dueDate &&
+        isoInRange(todo.dueDate, startIso, endIso) &&
+        matchesSearch(todo.text) &&
+        calFilter !== "reminders"
     ).length;
-    const remindersThisWeek = reminders.filter((reminder) =>
-      isoInRange(reminder.date, startIso, endIso)
+    const remindersThisWeek = reminders.filter(
+      (reminder) =>
+        isoInRange(reminder.date, startIso, endIso) &&
+        matchesSearch(reminder.text) &&
+        calFilter !== "tasks"
     ).length;
     if (calendarMetaEl) {
-      calendarMetaEl.textContent =
-        calView === "month"
-          ? `${formatWeekTitle()} · month browse`
-          : `${dueThisWeek} ${dueThisWeek === 1 ? "task" : "tasks"} · ${remindersThisWeek} ${remindersThisWeek === 1 ? "reminder" : "reminders"} this week`;
+      const q = calSearchQuery.trim();
+      calendarMetaEl.textContent = q
+        ? `Filtered · ${dueThisWeek} ${dueThisWeek === 1 ? "task" : "tasks"} · ${remindersThisWeek} ${remindersThisWeek === 1 ? "reminder" : "reminders"}`
+        : `${dueThisWeek} ${dueThisWeek === 1 ? "task" : "tasks"} · ${remindersThisWeek} ${remindersThisWeek === 1 ? "reminder" : "reminders"} this week`;
     }
 
     const weekGrid = document.getElementById("week-grid");
@@ -607,7 +578,9 @@
         if (reminderInput) reminderInput.focus();
       });
 
-      const dayTasks = todosDueOn(iso).filter((t) => !t.completed);
+      const dayTasks = todosDueOn(iso).filter(
+        (t) => !t.completed && matchesSearch(t.text) && calFilter !== "reminders"
+      );
       if (dayTasks.length) {
         const chip = document.createElement("div");
         chip.className = "cal-allday";
@@ -621,7 +594,9 @@
         col.appendChild(chip);
       }
 
-      const dayReminders = remindersForDate(iso).filter((r) => r.startTime);
+      const dayReminders = remindersForDate(iso).filter(
+        (r) => r.startTime && matchesSearch(r.text) && calFilter !== "tasks"
+      );
       dayReminders.forEach((reminder, index) => {
         const startMin = minutesFromMidnight(reminder.startTime);
         let endMin = reminder.endTime
@@ -855,7 +830,6 @@
   }
 
   function render() {
-    renderCalendarGrid();
     renderWeekGrid();
     renderSelectedDay();
     renderUpcoming();
@@ -896,18 +870,13 @@
 
   if (sidebarTrigger) sidebarTrigger.addEventListener("click", () => toggleSidebar());
   if (sidebarBackdrop) sidebarBackdrop.addEventListener("click", () => closeSidebar());
-  if (prevBtn) prevBtn.addEventListener("click", () => (calView === "month" ? shiftMonth(-1) : shiftWeek(-1)));
-  if (nextBtn) nextBtn.addEventListener("click", () => (calView === "month" ? shiftMonth(1) : shiftWeek(1)));
+  if (prevBtn) prevBtn.addEventListener("click", () => shiftWeek(-1));
+  if (nextBtn) nextBtn.addEventListener("click", () => shiftWeek(1));
   if (todayBtn) {
     todayBtn.addEventListener("click", () => {
-      setCalView("week");
       goToday();
-      todayBtn.classList.add("is-active");
-      todayBtn.setAttribute("aria-selected", "true");
     });
   }
-  if (viewWeekBtn) viewWeekBtn.addEventListener("click", () => setCalView("week"));
-  if (viewMonthBtn) viewMonthBtn.addEventListener("click", () => setCalView("month"));
   if (calendarAddEventBtn) {
     calendarAddEventBtn.addEventListener("click", () => {
       setCalFilter(calFilter === "tasks" ? "all" : calFilter);
@@ -928,13 +897,13 @@
     calSearchForm.addEventListener("submit", (event) => {
       event.preventDefault();
       calSearchQuery = calSearchInput instanceof HTMLInputElement ? calSearchInput.value : "";
-      renderSelectedDay();
+      render();
     });
   }
   if (calSearchInput instanceof HTMLInputElement) {
     calSearchInput.addEventListener("input", () => {
       calSearchQuery = calSearchInput.value;
-      renderSelectedDay();
+      render();
     });
   }
 

@@ -10,7 +10,7 @@
     <script src="bento-rail.js"></script>
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="m-dock.css" />
-    <link rel="stylesheet" href="planner.css?v=241" />
+    <link rel="stylesheet" href="planner.css?v=244" />
   </head>
   <body class="planner-page planner-kanban">
     <button type="button" class="sidebar-trigger" id="sidebar-trigger" aria-controls="sidebar" aria-expanded="false">
@@ -74,56 +74,6 @@
               <span id="planner-crumb-board" hidden>Planner</span>
 
               <div class="planner-toolbar">
-                <div class="planner-view-switch" role="tablist" aria-label="Planner range" data-i18n-ignore>
-                  <button
-                    type="button"
-                    class="planner-view-btn is-active"
-                    id="planner-view-day"
-                    data-planner-view="day"
-                    data-label-en="Day"
-                    data-label-zh="日"
-                    role="tab"
-                    aria-selected="true"
-                  >
-                    Day
-                  </button>
-                  <button
-                    type="button"
-                    class="planner-view-btn"
-                    id="planner-view-week"
-                    data-planner-view="week"
-                    data-label-en="Week"
-                    data-label-zh="周"
-                    role="tab"
-                    aria-selected="false"
-                  >
-                    Week
-                  </button>
-                  <button
-                    type="button"
-                    class="planner-view-btn"
-                    id="planner-view-month"
-                    data-planner-view="month"
-                    data-label-en="Month"
-                    data-label-zh="月"
-                    role="tab"
-                    aria-selected="false"
-                  >
-                    Month
-                  </button>
-                  <button
-                    type="button"
-                    class="planner-view-btn"
-                    id="planner-view-year"
-                    data-planner-view="year"
-                    data-label-en="Year"
-                    data-label-zh="年"
-                    role="tab"
-                    aria-selected="false"
-                  >
-                    Year
-                  </button>
-                </div>
                 <div class="planner-toolbar-actions">
                   <label class="planner-search">
                     <span class="planner-search-sr">Search cards</span>
@@ -137,43 +87,11 @@
               </div>
             </header>
 
-            <section class="planner-due-strip" id="planner-due-strip" hidden aria-label="Due soon">
-              <div class="planner-due-strip-head">
-                <p class="planner-due-kicker">Due soon</p>
-                <p class="planner-due-summary" id="planner-due-summary"></p>
-                <button type="button" class="planner-due-week-link" id="planner-open-week-view">This week</button>
-                <a class="planner-due-todo-link" href="todo.html#today">Open Today in Todo</a>
-              </div>
-              <div class="planner-due-groups">
-                <div class="planner-due-group">
-                  <h3 class="planner-due-label">Due today</h3>
-                  <ul class="planner-due-list" id="planner-due-today-list"></ul>
-                </div>
-                <div class="planner-due-group">
-                  <h3 class="planner-due-label">Coming up</h3>
-                  <ul class="planner-due-list" id="planner-due-week-list"></ul>
-                </div>
-              </div>
-            </section>
-
-            <section class="planner-week-view" id="planner-week-view" hidden aria-label="Planner period">
-              <div class="planner-week-head">
-                <p class="planner-week-kicker" id="planner-period-kicker">This week</p>
-                <p class="planner-week-copy" id="planner-period-copy">By due date — open a day in Calendar, or send a card to Todo Today.</p>
-                <div class="planner-week-links">
-                  <a class="planner-due-todo-link" href="todo.html#today">Open Today in Todo</a>
-                  <a class="planner-due-cal-link" href="calendar.html" id="planner-week-calendar-link">Open Calendar</a>
-                </div>
-              </div>
-              <div class="planner-week-sections" id="planner-week-sections"></div>
-              <p class="planner-week-empty" id="planner-week-empty" hidden>No dated open cards in this range — add a due date on a card.</p>
-            </section>
-
             <div class="planner-board-scroll">
               <div class="planner-board-empty" id="planner-board-empty" hidden>
-                <p class="planner-board-empty-title">Loading board…</p>
+                <p class="planner-board-empty-title" id="planner-board-empty-title">No columns yet</p>
                 <p class="planner-board-empty-copy" id="planner-board-empty-copy">
-                  Setting up Planned, In Progress, Done, and On Hold.
+                  Ask the Daily Space agent to set up a board, or add columns here.
                 </p>
               </div>
               <div class="planner-board" id="planner-board"></div>

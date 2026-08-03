@@ -65,9 +65,9 @@
             </div>
             <div class="today-hero-actions">
               <button type="button" class="btn btn-primary daily-loop-focus" id="daily-loop-focus">
-                Focus list
+                Ask agent
               </button>
-              <p class="today-hero-hint" id="composer-hint">Ask the agent to add tasks</p>
+              <p class="today-hero-hint" id="composer-hint">Ask the agent to add tasks — works offline too</p>
             </div>
           </header>
 
@@ -101,25 +101,10 @@
 
           <section class="todo-agent-host" id="todo-agent-host" aria-label="Daily Space Agent"></section>
 
-          <section class="evening-review today-evening" id="evening-review" aria-label="Evening review" hidden>
-            <div class="evening-review-top">
-              <p class="evening-review-kicker">Evening review</p>
-              <h2 class="evening-review-title" id="evening-review-title">How did today go?</h2>
-            </div>
-            <p class="evening-review-summary" id="evening-review-summary"></p>
-            <ul class="evening-review-stats" id="evening-review-stats"></ul>
-            <p class="evening-review-mail" id="evening-review-mail" hidden></p>
-            <p class="evening-review-tally" id="evening-review-tally" hidden></p>
-            <div class="evening-review-actions">
-              <button type="button" class="btn btn-primary" id="evening-review-focus">Focus remaining</button>
-              <button type="button" class="btn" id="evening-review-alerts">Enable reminder alerts</button>
-            </div>
-          </section>
-
           <section class="task-module app-module today-tasks" data-module-id="tasks" aria-label="To-do tasks">
               <section class="daily-loop" id="daily-loop" aria-label="Daily loop">
                 <ul class="todo-list daily-loop-list" id="daily-loop-list" aria-label="Due today"></ul>
-                <p class="daily-loop-empty" id="daily-loop-empty" hidden>Nothing due today — ask the agent above.</p>
+                <p class="daily-loop-empty" id="daily-loop-empty" hidden>Nothing due today — add one with the agent above.</p>
                 <a class="daily-loop-reminders" id="daily-loop-reminders" href="calendar.html" hidden>
                   <div class="daily-loop-reminders-head">
                     <span class="daily-loop-reminders-label">Reminders</span>
@@ -238,12 +223,29 @@
 
               <ul class="todo-list" id="todo-list" aria-live="polite"></ul>
 
-              <p class="empty-state" id="empty-state">Ask the agent above to add a task.</p>
+              <p class="empty-state" id="empty-state">Type a task in the agent above — works even offline.</p>
 
               <footer class="footer">
                 <span id="count-text">0 tasks left</span>
               </footer>
             </section>
+
+          <section class="evening-review today-evening" id="evening-review" aria-label="Evening review" hidden>
+            <div class="evening-review-top">
+              <p class="evening-review-kicker">Close the day</p>
+              <h2 class="evening-review-title" id="evening-review-title">How did today go?</h2>
+            </div>
+            <p class="evening-review-summary" id="evening-review-summary"></p>
+            <ul class="evening-review-stats" id="evening-review-stats" hidden></ul>
+            <p class="evening-review-mail" id="evening-review-mail" hidden></p>
+            <p class="evening-review-tally" id="evening-review-tally" hidden></p>
+            <div class="evening-review-actions">
+              <button type="button" class="btn btn-primary" id="evening-review-focus">Ask agent</button>
+              <button type="button" class="btn" id="evening-review-close" hidden>Mark day closed</button>
+              <a class="btn evening-review-cal" id="evening-review-cal" href="calendar.html" hidden>Open calendar</a>
+              <button type="button" class="btn" id="evening-review-alerts">Enable reminder alerts</button>
+            </div>
+          </section>
         </div>
       </main>
     </div>

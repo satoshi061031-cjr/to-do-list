@@ -120,7 +120,10 @@
   const eveningReviewMail = document.getElementById("evening-review-mail");
   const eveningReviewTally = document.getElementById("evening-review-tally");
   const eveningReviewFocusBtn = document.getElementById("evening-review-focus");
+  const eveningReviewCloseBtn = document.getElementById("evening-review-close");
+  const eveningReviewCalLink = document.getElementById("evening-review-cal");
   const eveningReviewAlertsBtn = document.getElementById("evening-review-alerts");
+  const EVENING_CLOSED_KEY = "daily-space-evening-closed-v1";
 
   /** @type {"all" | "active" | "completed" | "today"} */
   let filter = document.body.classList.contains("todo-mobile") ? "active" : "today";
@@ -1174,22 +1177,28 @@
     }
   }
 
-  function focusTodayList() {
+  function focusTodayList(opts) {
+    const seed = opts && typeof opts.seed === "string" ? opts.seed.trim() : "";
     if (todoSource !== "personal") setTodoSource("personal");
     // Mobile Loop "To do" maps to active; desktop Today stays due-today.
     setFilter(document.body.classList.contains("todo-mobile") ? "active" : "today");
     queueMicrotask(() => {
       const agentPage = document.body.classList.contains("todo-agent-page");
-      const agentInput = agentPage
-        ? document.querySelector(".todo-agent-page-embed .todo-agent-input")
-        : null;
       const target = agentPage
         ? document.getElementById("todo-agent-host") || dailyLoopEl || statusFiltersEl || listEl
         : dailyLoopEl || statusFiltersEl || listEl;
       if (target && typeof target.scrollIntoView === "function") {
         target.scrollIntoView({ behavior: "smooth", block: "nearest" });
       }
+      if (window.DailySpaceAgentUi && typeof window.DailySpaceAgentUi.focusComposer === "function") {
+        window.DailySpaceAgentUi.focusComposer(seed);
+        return;
+      }
+      const agentInput = agentPage
+        ? document.querySelector(".todo-agent-page-embed .todo-agent-input")
+        : null;
       if (agentInput instanceof HTMLInputElement) {
+        if (seed) agentInput.value = seed;
         agentInput.focus();
         return;
       }
@@ -1274,7 +1283,7 @@
         dailyLoopEmpty.textContent = "All caught up.";
       } else {
         dailyLoopEmpty.textContent = document.body.classList.contains("todo-agent-page")
-          ? "Nothing due today — ask the agent above."
+          ? "Nothing due today — add one with the agent above."
           : "Nothing due today.";
       }
     }
@@ -1322,6 +1331,23 @@
     });
   }
 
+  function eveningClosedToday() {
+    try {
+      return localStorage.getItem(EVENING_CLOSED_KEY) === todayIso();
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function markEveningClosed() {
+    try {
+      localStorage.setItem(EVENING_CLOSED_KEY, todayIso());
+    } catch (_) {
+      /* ignore */
+    }
+    renderDailyLoop();
+  }
+
   function renderEveningReview(stats) {
     if (!eveningReviewEl) return;
     if (todoSource === "assigned") {
@@ -1343,27 +1369,48 @@
 
     const remaining = stats.dueTodayOpen + stats.overdueOpen;
     const cleared = stats.dueTodayTotal > 0 && remaining === 0;
+    const closed = eveningClosedToday();
+    const agentPage = document.body.classList.contains("todo-agent-page");
+    eveningReviewEl.classList.toggle("is-closed", closed);
 
     if (eveningReviewTitle) {
-      eveningReviewTitle.textContent = cleared ? "Today looks clear." : "How did today go?";
+      if (closed) eveningReviewTitle.textContent = "Day closed.";
+      else if (cleared) eveningReviewTitle.textContent = "Today looks clear.";
+      else eveningReviewTitle.textContent = "How did today go?";
     }
     if (eveningReviewSummary) {
-      if (cleared) {
-        eveningReviewSummary.textContent = "Nice — due today is done and nothing is overdue.";
+      if (closed) {
+        eveningReviewSummary.textContent = "Nice work — see you tomorrow. Open the agent anytime if something comes up.";
+      } else if (cleared) {
+        eveningReviewSummary.textContent = "Due today is done and nothing is overdue. Mark the day closed when you’re ready.";
       } else if (remaining > 0) {
         const bits = [];
         if (stats.dueTodayOpen > 0) bits.push(`${stats.dueTodayOpen} due left`);
         if (stats.overdueOpen > 0) bits.push(`${stats.overdueOpen} overdue`);
         if (stats.remindersCount > 0) bits.push(`${stats.remindersCount} reminders`);
-        eveningReviewSummary.textContent = `${bits.join(" · ")}. Close what you can before you stop.`;
+        eveningReviewSummary.textContent = `${bits.join(" · ")}. Ask the agent to finish, or clear what you can.`;
       } else {
-        eveningReviewSummary.textContent = "No due-today tasks yet — add one above if you want a light close.";
+        eveningReviewSummary.textContent = agentPage
+          ? "No due-today tasks yet — ask the agent above for a light close, or mark the day closed."
+          : "No due-today tasks yet — add one if you want a light close.";
       }
     }
 
     if (eveningReviewStats) {
       eveningReviewStats.innerHTML = "";
-      eveningReviewStats.hidden = true;
+      const chips = [
+        { label: "Due left", value: stats.dueTodayOpen },
+        { label: "Overdue", value: stats.overdueOpen },
+        { label: "Done today", value: Math.max(0, stats.dueTodayTotal - stats.dueTodayOpen) },
+        { label: "Reminders", value: stats.remindersCount },
+      ];
+      chips.forEach((chip) => {
+        const li = document.createElement("li");
+        li.className = "evening-review-stat";
+        li.innerHTML = `<span class="evening-review-stat-value">${chip.value}</span><span class="evening-review-stat-label">${chip.label}</span>`;
+        eveningReviewStats.appendChild(li);
+      });
+      eveningReviewStats.hidden = closed;
     }
 
     if (eveningReviewMail) {
@@ -1371,7 +1418,7 @@
         window.DailySpaceLoop && typeof window.DailySpaceLoop.readCachedMailDigest === "function"
           ? window.DailySpaceLoop.readCachedMailDigest()
           : null;
-      if (mail && mail.digest) {
+      if (!closed && mail && mail.digest) {
         eveningReviewMail.hidden = false;
         eveningReviewMail.textContent = `Mail · ${mail.digest}`;
       } else {
@@ -1385,7 +1432,7 @@
         window.DailySpaceLoop && typeof window.DailySpaceLoop.readTodaySpend === "function"
           ? window.DailySpaceLoop.readTodaySpend()
           : null;
-      if (spend && spend.count > 0) {
+      if (!closed && spend && spend.count > 0) {
         const symbol = spend.currency || "¥";
         const amount = Number(spend.amount);
         const formatted = Number.isFinite(amount)
@@ -1400,22 +1447,32 @@
     }
 
     if (eveningReviewFocusBtn) {
-      if (cleared) {
+      if (closed) {
         eveningReviewFocusBtn.hidden = true;
-      } else {
+      } else if (remaining > 0) {
         eveningReviewFocusBtn.hidden = false;
-        eveningReviewFocusBtn.textContent =
-          remaining > 0
-            ? "Focus remaining"
-            : document.body.classList.contains("todo-agent-page")
-              ? "Ask the agent"
-              : "Add a task for today";
+        eveningReviewFocusBtn.textContent = agentPage ? "Ask agent to finish" : "Focus remaining";
+      } else if (!cleared) {
+        eveningReviewFocusBtn.hidden = false;
+        eveningReviewFocusBtn.textContent = agentPage ? "Ask agent" : "Add a task for today";
+      } else {
+        eveningReviewFocusBtn.hidden = true;
       }
+    }
+
+    if (eveningReviewCloseBtn) {
+      eveningReviewCloseBtn.hidden = closed || remaining > 0;
+      eveningReviewCloseBtn.disabled = false;
+      eveningReviewCloseBtn.textContent = "Mark day closed";
+    }
+
+    if (eveningReviewCalLink instanceof HTMLElement) {
+      eveningReviewCalLink.hidden = closed || stats.remindersCount <= 0;
     }
 
     if (eveningReviewAlertsBtn && window.DailySpaceLoop) {
       const perm = window.DailySpaceLoop.notificationPermission();
-      if (perm === "unsupported") {
+      if (closed || perm === "unsupported") {
         eveningReviewAlertsBtn.hidden = true;
       } else if (perm === "granted") {
         eveningReviewAlertsBtn.hidden = false;
@@ -1505,7 +1562,7 @@
             : "Nothing in this category.";
         } else if (todos.length === 0) {
           emptyEl.textContent = document.body.classList.contains("todo-agent-page")
-            ? "Ask the agent above to add a task."
+            ? "Type a task in the agent above — works even offline."
             : document.body.classList.contains("todo-mobile")
               ? "Tap + to add a task."
               : "Add a task above.";
@@ -2137,7 +2194,18 @@
     dailyLoopFocusBtn.addEventListener("click", () => focusTodayList());
   }
   if (eveningReviewFocusBtn) {
-    eveningReviewFocusBtn.addEventListener("click", () => focusTodayList());
+    eveningReviewFocusBtn.addEventListener("click", () => {
+      const label = String(eveningReviewFocusBtn.textContent || "");
+      const finish = /finish|收尾/i.test(label);
+      focusTodayList({
+        seed: finish
+          ? "Help me close today — what's left, and what should I finish or defer?"
+          : "",
+      });
+    });
+  }
+  if (eveningReviewCloseBtn) {
+    eveningReviewCloseBtn.addEventListener("click", () => markEveningClosed());
   }
   if (eveningReviewAlertsBtn) {
     eveningReviewAlertsBtn.addEventListener("click", async () => {

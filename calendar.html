@@ -10,7 +10,7 @@
     <script src="bento-rail.js"></script>
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="m-dock.css" />
-    <link rel="stylesheet" href="calendar.css" />
+    <link rel="stylesheet" href="calendar.css?v=244" />
   </head>
   <body class="calendar-page calendar-week-workspace">
     <button type="button" class="sidebar-trigger" id="sidebar-trigger" aria-controls="sidebar" aria-expanded="false">
@@ -36,7 +36,6 @@
 
       <main class="main-area">
         <div class="calendar-app calendar-app-solo cal-shell">
-          <section class="cal-board" aria-label="Week calendar">
           <section class="cal-board" aria-label="Week calendar">
             <header class="cal-top">
               <form class="cal-search" id="cal-search-form" role="search" autocomplete="off">
@@ -79,17 +78,9 @@
                     + Add reminder
                   </button>
 
-                  <div class="cal-view-toggle" role="tablist" aria-label="Calendar view">
-                    <button type="button" class="cal-view-btn" id="calendar-today" role="tab" aria-selected="false" data-cal-view="today">
-                      Today
-                    </button>
-                    <button type="button" class="cal-view-btn is-active" id="calendar-view-week" role="tab" aria-selected="true" data-cal-view="week">
-                      Week
-                    </button>
-                    <button type="button" class="cal-view-btn" id="calendar-view-month" role="tab" aria-selected="false" data-cal-view="month">
-                      Month
-                    </button>
-                  </div>
+                  <button type="button" class="cal-view-btn" id="calendar-today">
+                    Today
+                  </button>
                 </div>
               </div>
             </header>
@@ -172,9 +163,6 @@
         </div>
       </main>
     </div>
-
-    <!-- Month grid kept off-screen for any legacy hooks; week view is primary -->
-    <div class="app-cal-grid" id="calendar-grid" hidden aria-hidden="true"></div>
 
     <button type="button" class="theme-toggle" id="theme-toggle" aria-pressed="false">
       <span class="theme-toggle-icon" aria-hidden="true">D</span>

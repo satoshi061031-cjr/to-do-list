@@ -55,21 +55,8 @@
   const plannerBoardScrollEl = document.querySelector(".planner-board-scroll");
   const plannerBoardEl = document.getElementById("planner-board");
   const plannerBoardEmptyEl = document.getElementById("planner-board-empty");
+  const plannerBoardEmptyTitleEl = document.getElementById("planner-board-empty-title");
   const plannerBoardEmptyCopyEl = document.getElementById("planner-board-empty-copy");
-  const plannerDueStripEl = document.getElementById("planner-due-strip");
-  const plannerDueSummaryEl = document.getElementById("planner-due-summary");
-  const plannerDueTodayListEl = document.getElementById("planner-due-today-list");
-  const plannerDueWeekListEl = document.getElementById("planner-due-week-list");
-  const plannerWeekViewEl = document.getElementById("planner-week-view");
-  const plannerWeekSectionsEl = document.getElementById("planner-week-sections");
-  const plannerWeekEmptyEl = document.getElementById("planner-week-empty");
-  const plannerPeriodKickerEl = document.getElementById("planner-period-kicker");
-  const plannerPeriodCopyEl = document.getElementById("planner-period-copy");
-  const plannerOpenWeekViewBtn = document.getElementById("planner-open-week-view");
-  const plannerViewDayBtn = document.getElementById("planner-view-day");
-  const plannerViewWeekBtn = document.getElementById("planner-view-week");
-  const plannerViewMonthBtn = document.getElementById("planner-view-month");
-  const plannerViewYearBtn = document.getElementById("planner-view-year");
   const plannerEmptyAddColumnBtn = null;
   const plannerMonthTitleEl = document.getElementById("planner-month-title");
   const plannerModeBadgeEl = document.getElementById("planner-mode-badge");
@@ -80,24 +67,10 @@
   const plannerAddColumnBtn = document.getElementById("planner-add-column");
   const plannerClearDoneBtn = document.getElementById("planner-clear-done");
   const plannerSearchInput = document.getElementById("planner-search");
-  /** @type {"day" | "week" | "month" | "year"} */
-  let plannerView = "day";
   let plannerSearchQuery = "";
 
   function isZhLocale() {
     return window.DailySpaceI18n?.locale?.() === "zh";
-  }
-
-  function syncRangeTabLabels() {
-    const zh = isZhLocale();
-    [plannerViewDayBtn, plannerViewWeekBtn, plannerViewMonthBtn, plannerViewYearBtn].forEach((btn) => {
-      if (!btn) return;
-      const label = zh ? btn.dataset.labelZh : btn.dataset.labelEn;
-      if (label) {
-        btn.textContent = label;
-        btn.setAttribute("aria-label", btn.dataset.labelEn || label);
-      }
-    });
   }
   const plannerTeamStatusEl = document.createElement("p");
   plannerTeamStatusEl.className = "planner-team-status";
@@ -160,71 +133,6 @@
     return changed;
   }
 
-  function sampleKanbanEntries(columns) {
-    const byTitle = Object.fromEntries(columns.map((c) => [c.title, c.id]));
-    const planned = byTitle.Planned || columns[0]?.id;
-    const progress = byTitle["In Progress"] || columns[1]?.id;
-    const done = byTitle.Done || columns[2]?.id;
-    const hold = byTitle["On Hold"] || columns[3]?.id;
-    const due = (offset) => addDaysIso(todayIso(), offset);
-    const card = (partial) => ({
-      id: id(),
-      title: "",
-      note: "",
-      completed: false,
-      tags: ["#design", "#web"],
-      expanded: false,
-      assigneeUserId: null,
-      dueDate: null,
-      ...partial,
-    });
-    return [
-      card({
-        columnId: planned,
-        title: "Research landing page trends.",
-        note: "Collect references from SaaS and agency sites. Note hierarchy, CTAs, and spacing patterns.",
-        dueDate: due(12),
-        tags: ["#research", "#landing"],
-      }),
-      card({
-        columnId: planned,
-        title: "Draft hero copy options.",
-        note: "Write three headline directions with short supporting lines for review.",
-        dueDate: due(18),
-        tags: ["#copy"],
-      }),
-      card({
-        columnId: progress,
-        title: "Wireframe key sections.",
-        note: "Map hero, proof, features, and footer. Keep one job per section.",
-        dueDate: due(5),
-        tags: ["#wireframe", "#ui"],
-      }),
-      card({
-        columnId: progress,
-        title: "Review color and type tokens.",
-        note: "Align board accents with Daily Space yellow tertiary and soft neutrals.",
-        dueDate: due(3),
-        tags: ["#design"],
-      }),
-      card({
-        columnId: done,
-        title: "Kickoff brief locked.",
-        note: "Goals, audience, and success metrics confirmed with stakeholders.",
-        completed: true,
-        dueDate: due(-2),
-        tags: ["#brief"],
-      }),
-      card({
-        columnId: hold,
-        title: "Motion exploration pack.",
-        note: "Pause until hero direction is approved. Keep two subtle motion ideas ready.",
-        dueDate: due(25),
-        tags: ["#motion"],
-      }),
-    ].filter((entry) => entry.columnId);
-  }
-
   function entryMatchesSearch(entry) {
     const q = plannerSearchQuery.trim().toLowerCase();
     if (!q) return true;
@@ -234,29 +142,7 @@
 
   function seedKanbanIfEmpty() {
     if (isTeamMode()) return false;
-    const DEMO_KEY = "planner-app-demo-v1";
-    let changed = ensureFixedKanbanColumns();
-    const demoDone = localStorage.getItem(DEMO_KEY) === "1";
-    if (plannerEntries.length === 0 && (!demoDone || changed)) {
-      plannerEntries = sampleKanbanEntries(plannerColumns);
-      localStorage.setItem(DEMO_KEY, "1");
-      changed = true;
-    } else if (plannerEntries.length > 0) {
-      localStorage.setItem(DEMO_KEY, "1");
-    }
-    const pl = planners.find((x) => x.id === selectedPlannerId);
-    if (
-      pl &&
-      (!pl.name ||
-        /^my planner$/i.test(pl.name) ||
-        /^untitled$/i.test(pl.name) ||
-        /^planner$/i.test(pl.name) ||
-        /^design for landing page$/i.test(pl.name))
-    ) {
-      pl.name = "Landing Page";
-      changed = true;
-    }
-    return changed;
+    return ensureFixedKanbanColumns();
   }
 
   function todayIso() {
@@ -280,17 +166,6 @@
   function columnTitleById(columnId) {
     const col = plannerColumns.find((c) => c.id === columnId);
     return col ? col.title : "Column";
-  }
-
-  function formatDueLabel(iso) {
-    if (!iso) return "";
-    const today = todayIso();
-    if (iso === today) return "Today";
-    const d = new Date(`${iso}T12:00:00`);
-    if (Number.isNaN(d.getTime())) return iso.slice(5).replace("-", "/");
-    const label = d.toLocaleDateString(uiLocale(), { day: "numeric", month: "short" });
-    if (iso < today) return `Overdue · ${label}`;
-    return label;
   }
 
   function columnStatusKey(col) {
@@ -393,91 +268,6 @@
       },
     ]);
     window.location.href = "todo.html#today";
-  }
-
-  function getDueBuckets() {
-    const today = todayIso();
-    const weekEnd = addDaysIso(today, 7);
-    const open = plannerEntries.filter((e) => !e.completed && e.dueDate);
-    return {
-      today,
-      weekEnd,
-      overdue: open.filter((e) => e.dueDate < today).sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate))),
-      dueToday: open.filter((e) => e.dueDate === today),
-      dueWeek: open
-        .filter((e) => e.dueDate > today && e.dueDate <= weekEnd)
-        .sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate))),
-    };
-  }
-
-  function setPlannerView(next) {
-    if (next !== "day" && next !== "week" && next !== "month" && next !== "year") return;
-    plannerView = next;
-    const tabs = [
-      [plannerViewDayBtn, "day"],
-      [plannerViewWeekBtn, "week"],
-      [plannerViewMonthBtn, "month"],
-      [plannerViewYearBtn, "year"],
-    ];
-    tabs.forEach(([btn, key]) => {
-      if (!btn) return;
-      const on = next === key;
-      btn.classList.toggle("is-active", on);
-      btn.setAttribute("aria-selected", on ? "true" : "false");
-    });
-    renderPlanner();
-  }
-
-  function buildDueRow(entry, options) {
-    const opts = options || {};
-    const li = document.createElement("li");
-    li.className = "planner-due-row";
-
-    const main = document.createElement("button");
-    main.type = "button";
-    main.className = "planner-due-item";
-    main.textContent = `${entry.title || "Untitled"} · ${columnTitleById(entry.columnId)}`;
-    main.addEventListener("click", () => {
-      setPlannerView("day");
-      focusPlannerEntry(entry.id);
-    });
-
-    const meta = document.createElement("div");
-    meta.className = "planner-due-row-meta";
-
-    if (entry.dueDate) {
-      const cal = document.createElement("a");
-      cal.className = "planner-due-cal-chip";
-      cal.href = calendarHrefForDay(entry.dueDate);
-      cal.textContent = formatDueLabel(entry.dueDate);
-      cal.title = "Open this day in Calendar";
-      meta.appendChild(cal);
-    }
-
-    if (opts.showTodo) {
-      const toTodo = document.createElement("button");
-      toTodo.type = "button";
-      toTodo.className = "planner-due-todo-chip";
-      toTodo.textContent = "To Todo";
-      toTodo.title = "Add as today’s task";
-      toTodo.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        sendEntryToTodoToday(entry);
-      });
-      meta.appendChild(toTodo);
-    }
-
-    li.append(main, meta);
-    return li;
-  }
-
-  function renderDueLoopStrip() {
-    if (plannerDueStripEl) plannerDueStripEl.hidden = true;
-  }
-
-  function renderWeekView() {
-    if (plannerWeekViewEl) plannerWeekViewEl.hidden = true;
   }
 
   function focusPlannerEntry(entryId) {
@@ -636,16 +426,11 @@
   function ensureDefaultV2() {
     const pid = id();
     const columns = defaultKanbanColumns();
-    planners = [{ id: pid, name: "Landing Page" }];
+    planners = [{ id: pid, name: "My board" }];
     selectedPlannerId = pid;
-    boards = { [pid]: { columns, entries: sampleKanbanEntries(columns) } };
+    boards = { [pid]: { columns, entries: [] } };
     plannerColumns = boards[pid].columns;
     plannerEntries = boards[pid].entries;
-    try {
-      localStorage.setItem("planner-app-demo-v1", "1");
-    } catch (_) {
-      /* ignore */
-    }
   }
 
   function hydrateV2(p) {
@@ -1705,20 +1490,21 @@
     plannerClearDoneBtn.hidden = done === 0;
     renderAssigneeBar();
 
-    renderDueLoopStrip();
-    renderWeekView();
-
-    const showBoard = true;
-    if (plannerBoardScrollEl instanceof HTMLElement) plannerBoardScrollEl.hidden = !showBoard;
+    if (plannerBoardScrollEl instanceof HTMLElement) plannerBoardScrollEl.hidden = false;
 
     const isEmpty = plannerColumns.length === 0;
     if (plannerBoardEmptyEl instanceof HTMLElement) {
       plannerBoardEmptyEl.hidden = !isEmpty;
     }
-    if (isEmpty && plannerBoardEmptyCopyEl) {
-      plannerBoardEmptyCopyEl.textContent = isTeamMode()
-        ? "Shared columns hold assignable cards."
-        : "Setting up Planned, In Progress, Done, and On Hold.";
+    if (isEmpty) {
+      if (plannerBoardEmptyTitleEl) {
+        plannerBoardEmptyTitleEl.textContent = isTeamMode() ? "No shared columns yet" : "No columns yet";
+      }
+      if (plannerBoardEmptyCopyEl) {
+        plannerBoardEmptyCopyEl.textContent = isTeamMode()
+          ? "Ask the agent to set up a shared board, or create columns in Teamwork."
+          : "Ask the Daily Space agent to set up Planned, In Progress, Done, and On Hold.";
+      }
     }
 
     plannerBoardEl.innerHTML = "";
@@ -1774,7 +1560,6 @@
   });
 
   window.addEventListener("daily-space-locale-changed", () => {
-    syncRangeTabLabels();
     renderPlannerSidebar();
     renderPlanner();
   });
@@ -1792,24 +1577,7 @@
     });
   }
 
-  if (plannerViewDayBtn) {
-    plannerViewDayBtn.addEventListener("click", () => setPlannerView("day"));
-  }
-  if (plannerViewWeekBtn) {
-    plannerViewWeekBtn.addEventListener("click", () => setPlannerView("week"));
-  }
-  if (plannerViewMonthBtn) {
-    plannerViewMonthBtn.addEventListener("click", () => setPlannerView("month"));
-  }
-  if (plannerViewYearBtn) {
-    plannerViewYearBtn.addEventListener("click", () => setPlannerView("year"));
-  }
-  if (plannerOpenWeekViewBtn) {
-    plannerOpenWeekViewBtn.addEventListener("click", () => setPlannerView("week"));
-  }
-
   loadPlannerState();
-  syncRangeTabLabels();
   renderPlannerSidebar();
   renderPlanner();
   loadTeamBoards().then(() => renderPlannerSidebar());

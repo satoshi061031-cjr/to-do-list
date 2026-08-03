@@ -79,7 +79,7 @@ test("normalizes allowed cross-domain actions and rejects invalid financial data
   assert.equal(result.actions[1].category, "Coffee");
 });
 
-test("applies Todo, Tally, Calendar, Planner and Teamwork actions", () => {
+test("applies Todo, Tally, Calendar, Planner actions; rejects local Teamwork drafts", () => {
   const { api, events } = createAgentData();
   const applied = api.applyActions([
     { type: "todo_add", text: "Buy milk", dueDate: "2026-07-14" },
@@ -101,7 +101,8 @@ test("applies Todo, Tally, Calendar, Planner and Teamwork actions", () => {
     { type: "teamwork_add_member", name: "Alex", role: "Build" },
     { type: "teamwork_add_task", memberName: "Alex", text: "Ship preview" },
   ]);
-  assert.equal(applied.filter((item) => item.ok).length, 6);
+  assert.equal(applied.filter((item) => item.ok).length, 4);
+  assert.equal(applied.filter((item) => item.type.startsWith("teamwork_") && item.ok === false).length, 2);
   const snapshot = api.getSnapshot();
   assert.equal(snapshot.todo.todos[0].text, "Buy milk");
   assert.equal(snapshot.tally.records[0].amount, 28.5);
@@ -109,10 +110,6 @@ test("applies Todo, Tally, Calendar, Planner and Teamwork actions", () => {
   assert.equal(
     Object.values(snapshot.planner.boards).flatMap((board) => board.entries)[0].title,
     "Prepare review"
-  );
-  assert.deepEqual(
-    snapshot.teamwork.members.find((member) => member.name === "Alex").tasks,
-    ["Ship preview"]
   );
   assert.equal(events.at(-1).type, "daily-space-agent-data-updated");
 });

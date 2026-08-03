@@ -8,6 +8,74 @@
     return page === "todo-m" ? "todo" : page;
   }
 
+  function shiftIso(iso, days) {
+    const [y, mo, da] = String(iso || "").split("-").map(Number);
+    if (!y || !mo || !da) return iso;
+    const dt = new Date(y, mo - 1, da);
+    dt.setDate(dt.getDate() + days);
+    const yy = dt.getFullYear();
+    const mm = String(dt.getMonth() + 1).padStart(2, "0");
+    const dd = String(dt.getDate()).padStart(2, "0");
+    return `${yy}-${mm}-${dd}`;
+  }
+
+  /** Lightweight offline capture so Todo never depends on an LLM key. */
+  function localTodoActions(message, today) {
+    const raw = String(message || "").trim();
+    if (!raw) return { actions: [], reply: "" };
+
+    let m = raw.match(/^(?:complete|done|finish|完成|搞定|做完)\s+(.+)/i);
+    if (m) {
+      return {
+        actions: [{ type: "todo_complete", matchText: m[1].trim() }],
+        reply: "Marked complete (offline).",
+      };
+    }
+
+    m = raw.match(/^(?:uncomplete|reopen|恢复|取消完成)\s+(.+)/i);
+    if (m) {
+      return {
+        actions: [{ type: "todo_uncomplete", matchText: m[1].trim() }],
+        reply: "Reopened (offline).",
+      };
+    }
+
+    m = raw.match(/^(?:delete|remove|删除|去掉)\s+(.+)/i);
+    if (m) {
+      return {
+        actions: [{ type: "todo_delete", matchText: m[1].trim() }],
+        reply: "Deleted (offline).",
+      };
+    }
+
+    let text = raw.replace(/^(?:add|create|new|todo|添加|创建|加个|加一下|帮我加)\s+/i, "").trim() || raw;
+    let dueDate = null;
+    if (/\b(today|tonight)\b/i.test(text) || /今天|今晚/.test(text)) {
+      dueDate = today;
+      text = text
+        .replace(/\b(today|tonight)\b/gi, "")
+        .replace(/今天|今晚/g, "")
+        .replace(/\s{2,}/g, " ")
+        .trim();
+    } else if (/\b(tomorrow)\b/i.test(text) || /明天/.test(text)) {
+      dueDate = shiftIso(today, 1);
+      text = text
+        .replace(/\b(tomorrow)\b/gi, "")
+        .replace(/明天/g, "")
+        .replace(/\s{2,}/g, " ")
+        .trim();
+    }
+
+    if (!text) {
+      return { actions: [], reply: "Say what to add — e.g. “buy milk today”." };
+    }
+
+    return {
+      actions: [{ type: "todo_add", text, dueDate, dueTime: null, categoryName: null }],
+      reply: dueDate ? `Added for ${dueDate} (offline).` : "Added (offline).",
+    };
+  }
+
   const pageMode = document.body.classList.contains("todo-agent-page");
   const host = document.getElementById("todo-agent-host");
 
@@ -39,7 +107,7 @@
       <p class="todo-agent-hint">${
         pageMode
           ? "Tell the agent what to add, complete, or reschedule. Your list updates below."
-          : "Optional helper — best for Todo / today. Also reaches Planner, Calendar, Tally, and private notes."
+          : "Primary capture for Todo — also reaches Planner, Calendar, and Tally."
       }</p>
     </section>
   `;
@@ -75,6 +143,15 @@
   let configured = null;
   let statusMessageShown = false;
 
+  function publishStatus() {
+    document.body.dataset.agentConfigured = configured === true ? "1" : "0";
+    document.dispatchEvent(
+      new CustomEvent("daily-space-agent-status", {
+        detail: { configured: configured === true },
+      })
+    );
+  }
+
   function appendMessage(role, text) {
     const bubble = document.createElement("div");
     bubble.className = `todo-agent-msg todo-agent-msg-${role}`;
@@ -85,19 +162,21 @@
 
   function applyConfiguredUi() {
     const ready = configured === true;
-    sendBtn.disabled = busy || !ready;
-    input.disabled = !ready;
+    // Input always works — LLM when ready, local Todo capture otherwise.
+    sendBtn.disabled = busy;
+    input.disabled = false;
     if (hintEl) {
       if (pageMode) {
         hintEl.textContent = ready
           ? "Tell the agent what to add, complete, or reschedule. Your list updates below."
-          : "Agent needs a server LLM key (GROQ_API_KEY). Restart the server after adding it.";
+          : "Offline mode: type a task (e.g. “buy milk today”). Add GROQ_API_KEY for full agent.";
       } else {
         hintEl.textContent = ready
-          ? "Optional helper — best for Todo / today. Also reaches Planner, Calendar, Tally, and private notes."
-          : "Agent needs a server LLM key. You can still use Todo, Planner, and the rest without it.";
+          ? "Primary capture for Todo — also reaches Planner, Calendar, and Tally."
+          : "Offline mode adds Todo items locally. Add GROQ_API_KEY for the full agent.";
       }
     }
+    publishStatus();
   }
 
   function setOpen(open) {
@@ -117,7 +196,7 @@
         );
       }
       refreshStatus({ force: true });
-      if (configured !== false) input.focus();
+      input.focus();
     } else if (!pageMode) {
       fab.focus();
     }
@@ -139,19 +218,44 @@
         statusMessageShown = true;
         appendMessage(
           "assistant",
-          pageMode
-            ? "Agent is not configured yet. Add GROQ_API_KEY to a local .env or Render Environment, restart the server, then refresh."
-            : "Agent is optional and not configured yet. Add GROQ_API_KEY to a local .env or Render Environment, restart the server, then reopen this panel. Todo and other pages still work without it."
+          "Full agent is offline (no GROQ_API_KEY). You can still add, complete, or delete Todo items here — type naturally."
         );
       }
     } catch (_) {
       configured = false;
       if (!statusMessageShown) {
         statusMessageShown = true;
-        appendMessage("assistant", "Could not reach the agent service right now.");
+        appendMessage(
+          "assistant",
+          "Could not reach the agent service. Offline Todo capture still works in this box."
+        );
       }
     }
     applyConfiguredUi();
+  }
+
+  async function sendOffline(message) {
+    const today = typeof api.todayIso === "function" ? api.todayIso() : new Date().toISOString().slice(0, 10);
+    const parsed = localTodoActions(message, today);
+    appendMessage("user", message);
+    input.value = "";
+    if (!parsed.actions.length) {
+      appendMessage("assistant", parsed.reply || "Could not understand that offline. Try “buy milk today”.");
+      return;
+    }
+    if (api.needsConfirmation(parsed.actions)) {
+      const confirmed = window.confirm(api.confirmationText(parsed.actions));
+      if (!confirmed) {
+        appendMessage("assistant", "Cancelled. No changes were applied.");
+        return;
+      }
+    }
+    const applied = api.applyActions(parsed.actions);
+    const ok = applied.filter((a) => a && a.ok !== false).length;
+    appendMessage(
+      "assistant",
+      ok > 0 ? `${parsed.reply}\n\nApplied ${ok} change(s).` : parsed.reply || "Nothing changed."
+    );
   }
 
   async function sendMessage(raw) {
@@ -160,16 +264,19 @@
 
     if (configured !== true) {
       await refreshStatus({ force: true });
-      if (configured !== true) {
-        appendMessage("user", message);
-        appendMessage(
-          "assistant",
-          pageMode
-            ? "Agent is not configured. Add GROQ_API_KEY (local .env or Render), restart, then try again."
-            : "Agent is not configured. Add GROQ_API_KEY (local .env or Render), restart, then try again — or add tasks directly in Todo."
-        );
-        return;
+    }
+
+    if (configured !== true) {
+      busy = true;
+      applyConfiguredUi();
+      try {
+        await sendOffline(message);
+      } finally {
+        busy = false;
+        applyConfiguredUi();
+        input.focus();
       }
+      return;
     }
 
     busy = true;
@@ -214,13 +321,29 @@
       if (thinking) thinking.textContent = summary;
       else appendMessage("assistant", summary);
     } catch (error) {
-      const text = error instanceof Error ? error.message : "Agent request failed.";
-      if (thinking) thinking.textContent = text;
-      else appendMessage("assistant", text);
+      // Network/LLM failure → fall back to local Todo capture so the hub never dead-ends.
+      const today = typeof api.todayIso === "function" ? api.todayIso() : new Date().toISOString().slice(0, 10);
+      const parsed = localTodoActions(message, today);
+      if (parsed.actions.length) {
+        const applied = api.applyActions(parsed.actions);
+        const ok = applied.filter((a) => a && a.ok !== false).length;
+        const text =
+          ok > 0
+            ? `Agent unreachable — applied offline.\n${parsed.reply}`
+            : error instanceof Error
+              ? error.message
+              : "Agent request failed.";
+        if (thinking) thinking.textContent = text;
+        else appendMessage("assistant", text);
+      } else {
+        const text = error instanceof Error ? error.message : "Agent request failed.";
+        if (thinking) thinking.textContent = text;
+        else appendMessage("assistant", text);
+      }
     } finally {
       busy = false;
       applyConfiguredUi();
-      if (configured === true) input.focus();
+      input.focus();
     }
   }
 
@@ -264,9 +387,27 @@
     }
   }
 
+  function focusComposer(seed) {
+    if (!pageMode) setOpen(true);
+    const text = typeof seed === "string" ? seed.trim() : "";
+    if (text) input.value = text;
+    queueMicrotask(function () {
+      input.focus();
+      if (text) {
+        const len = input.value.length;
+        try {
+          input.setSelectionRange(len, len);
+        } catch (_) {
+          /* ignore */
+        }
+      }
+    });
+  }
+
   window.DailySpaceAgentUi = {
     mountFabUnderBrand,
     setOpen,
+    focusComposer,
     isPageMode: pageMode,
   };
 })();
