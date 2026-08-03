@@ -32,9 +32,20 @@
   const calendarTitleEl = document.getElementById("calendar-title");
   const calendarMetaEl = document.getElementById("calendar-meta");
   const calendarGridEl = document.getElementById("calendar-grid");
+  const calendarRangeLabel = document.getElementById("calendar-range-label");
+  const calendarAddEventBtn = document.getElementById("calendar-add-event");
+  const calSearchInput = document.getElementById("cal-search-input");
+  const calSearchForm = document.getElementById("cal-search-form");
+  const viewWeekBtn = document.getElementById("calendar-view-week");
+  const viewMonthBtn = document.getElementById("calendar-view-month");
   const prevBtn = document.getElementById("calendar-prev");
   const nextBtn = document.getElementById("calendar-next");
   const todayBtn = document.getElementById("calendar-today");
+  /** @type {"week" | "month"} */
+  let calView = "week";
+  /** @type {"all" | "tasks" | "reminders"} */
+  let calFilter = "all";
+  let calSearchQuery = "";
   const selectedDayTitleEl = document.getElementById("selected-day-title");
   const selectedDayMetaEl = document.getElementById("selected-day-meta");
   const reminderForm = document.getElementById("reminder-form");
@@ -56,6 +67,10 @@
   const calUpcoming = document.getElementById("cal-upcoming");
   const calUpcomingText = document.getElementById("cal-upcoming-text");
   const calUpcomingTime = document.getElementById("cal-upcoming-time");
+  const calDayBlocks = {
+    tasks: document.querySelector(".cal-day-block:has(#day-task-form)"),
+    reminders: document.querySelector(".cal-day-block:has(#reminder-form)"),
+  };
 
   function id() {
     return typeof crypto !== "undefined" && crypto.randomUUID
@@ -143,6 +158,66 @@
       year: "numeric",
     });
     return `${startLabel} – ${endLabel}`;
+  }
+
+  function formatWeekRangeLabel() {
+    const days = weekDays();
+    const start = days[0];
+    const end = days[days.length - 1];
+    const opts = { month: "short", day: "numeric" };
+    return `${start.toLocaleDateString(uiLocale(), opts)} – ${end.toLocaleDateString(uiLocale(), opts)}`;
+  }
+
+  function stayUpToDateTitle() {
+    const greeting = document.querySelector(".app-greeting-title");
+    if (greeting && greeting.textContent) {
+      const parts = greeting.textContent.split(/[,，]/);
+      const name = parts.length > 1 ? parts.slice(1).join(",").trim() : "";
+      if (name) return `Stay up to date, ${name}`;
+    }
+    return "Stay up to date";
+  }
+
+  function setCalView(next) {
+    calView = next === "month" ? "month" : "week";
+    if (viewWeekBtn) {
+      viewWeekBtn.classList.toggle("is-active", calView === "week");
+      viewWeekBtn.setAttribute("aria-selected", String(calView === "week"));
+    }
+    if (viewMonthBtn) {
+      viewMonthBtn.classList.toggle("is-active", calView === "month");
+      viewMonthBtn.setAttribute("aria-selected", String(calView === "month"));
+    }
+    if (todayBtn) {
+      todayBtn.classList.toggle("is-active", false);
+      todayBtn.setAttribute("aria-selected", "false");
+    }
+    if (prevBtn) prevBtn.setAttribute("aria-label", calView === "month" ? "Previous month" : "Previous week");
+    if (nextBtn) nextBtn.setAttribute("aria-label", calView === "month" ? "Next month" : "Next week");
+    render();
+  }
+
+  function setCalFilter(next) {
+    calFilter = next === "tasks" || next === "reminders" ? next : "all";
+    document.querySelectorAll(".cal-search-chip").forEach((chip) => {
+      const active = chip.getAttribute("data-cal-filter") === calFilter;
+      chip.classList.toggle("is-active", active);
+    });
+    if (calDayBlocks.tasks instanceof HTMLElement) {
+      calDayBlocks.tasks.hidden = calFilter === "reminders";
+    }
+    if (calDayBlocks.reminders instanceof HTMLElement) {
+      calDayBlocks.reminders.hidden = calFilter === "tasks";
+    }
+    renderSelectedDay();
+  }
+
+  function matchesSearch(text) {
+    const q = calSearchQuery.trim().toLowerCase();
+    if (!q) return true;
+    return String(text || "")
+      .toLowerCase()
+      .includes(q);
   }
 
   function formatDueDate(iso) {
@@ -395,7 +470,9 @@
   }
 
   function shiftMonth(delta) {
-    shiftWeek(delta * 4);
+    const anchor = parseIso(selectedDate);
+    anchor.setMonth(anchor.getMonth() + delta);
+    selectDate(dateToIso(anchor));
   }
 
   function goToday() {
@@ -462,7 +539,8 @@
     const startIso = dateToIso(days[0]);
     const endIso = weekEndIso();
 
-    if (calendarTitleEl) calendarTitleEl.textContent = formatWeekTitle();
+    if (calendarTitleEl) calendarTitleEl.textContent = stayUpToDateTitle();
+    if (calendarRangeLabel) calendarRangeLabel.textContent = formatWeekRangeLabel();
     const dueThisWeek = todos.filter(
       (todo) => todo.dueDate && isoInRange(todo.dueDate, startIso, endIso)
     ).length;
@@ -470,7 +548,10 @@
       isoInRange(reminder.date, startIso, endIso)
     ).length;
     if (calendarMetaEl) {
-      calendarMetaEl.textContent = `${dueThisWeek} ${dueThisWeek === 1 ? "task" : "tasks"} · ${remindersThisWeek} ${remindersThisWeek === 1 ? "reminder" : "reminders"} this week`;
+      calendarMetaEl.textContent =
+        calView === "month"
+          ? `${formatWeekTitle()} · month browse`
+          : `${dueThisWeek} ${dueThisWeek === 1 ? "task" : "tasks"} · ${remindersThisWeek} ${remindersThisWeek === 1 ? "reminder" : "reminders"} this week`;
     }
 
     const weekGrid = document.getElementById("week-grid");
@@ -632,8 +713,10 @@
   }
 
   function renderSelectedDay() {
-    const dayReminders = remindersForDate(selectedDate);
-    const dayTasks = todosDueOn(selectedDate);
+    const dayReminders = remindersForDate(selectedDate).filter((reminder) =>
+      matchesSearch(reminder.text)
+    );
+    const dayTasks = todosDueOn(selectedDate).filter((todo) => matchesSearch(todo.text));
     const isToday = selectedDate === todayIso();
 
     if (selectedDayTitleEl) {
@@ -652,7 +735,9 @@
     }
     if (taskEmptyEl) {
       taskEmptyEl.hidden = dayTasks.length !== 0;
-      taskEmptyEl.textContent = `No tasks due on ${formatDueDate(selectedDate)}.`;
+      taskEmptyEl.textContent = calSearchQuery.trim()
+        ? "No matching tasks on this day."
+        : `No tasks due on ${formatDueDate(selectedDate)}.`;
     }
 
     if (reminderListEl) {
@@ -664,7 +749,9 @@
     }
     if (reminderEmptyEl) {
       reminderEmptyEl.hidden = dayReminders.length !== 0;
-      reminderEmptyEl.textContent = "No reminders on this day.";
+      reminderEmptyEl.textContent = calSearchQuery.trim()
+        ? "No matching reminders on this day."
+        : "No reminders on this day.";
     }
   }
 
@@ -809,9 +896,47 @@
 
   if (sidebarTrigger) sidebarTrigger.addEventListener("click", () => toggleSidebar());
   if (sidebarBackdrop) sidebarBackdrop.addEventListener("click", () => closeSidebar());
-  if (prevBtn) prevBtn.addEventListener("click", () => shiftWeek(-1));
-  if (nextBtn) nextBtn.addEventListener("click", () => shiftWeek(1));
-  if (todayBtn) todayBtn.addEventListener("click", () => goToday());
+  if (prevBtn) prevBtn.addEventListener("click", () => (calView === "month" ? shiftMonth(-1) : shiftWeek(-1)));
+  if (nextBtn) nextBtn.addEventListener("click", () => (calView === "month" ? shiftMonth(1) : shiftWeek(1)));
+  if (todayBtn) {
+    todayBtn.addEventListener("click", () => {
+      setCalView("week");
+      goToday();
+      todayBtn.classList.add("is-active");
+      todayBtn.setAttribute("aria-selected", "true");
+    });
+  }
+  if (viewWeekBtn) viewWeekBtn.addEventListener("click", () => setCalView("week"));
+  if (viewMonthBtn) viewMonthBtn.addEventListener("click", () => setCalView("month"));
+  if (calendarAddEventBtn) {
+    calendarAddEventBtn.addEventListener("click", () => {
+      setCalFilter(calFilter === "tasks" ? "all" : calFilter);
+      if (calDayBlocks.reminders instanceof HTMLElement) calDayBlocks.reminders.hidden = false;
+      const composer = document.getElementById("cal-composer");
+      if (composer && typeof composer.scrollIntoView === "function") {
+        composer.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+      if (reminderInput instanceof HTMLInputElement) reminderInput.focus();
+    });
+  }
+  document.querySelectorAll(".cal-search-chip").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      setCalFilter(chip.getAttribute("data-cal-filter") || "all");
+    });
+  });
+  if (calSearchForm) {
+    calSearchForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      calSearchQuery = calSearchInput instanceof HTMLInputElement ? calSearchInput.value : "";
+      renderSelectedDay();
+    });
+  }
+  if (calSearchInput instanceof HTMLInputElement) {
+    calSearchInput.addEventListener("input", () => {
+      calSearchQuery = calSearchInput.value;
+      renderSelectedDay();
+    });
+  }
 
   if (reminderForm) {
     reminderForm.addEventListener("submit", (e) => {
@@ -883,4 +1008,9 @@
   focusTodayOnOpen();
   weekStart = startOfWeek(parseIso(selectedDate));
   render();
+  const refreshHeadline = () => {
+    if (calendarTitleEl) calendarTitleEl.textContent = stayUpToDateTitle();
+  };
+  window.setTimeout(refreshHeadline, 0);
+  window.addEventListener("load", refreshHeadline);
 })();

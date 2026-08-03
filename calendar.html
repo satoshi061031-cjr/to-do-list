@@ -37,21 +37,60 @@
       <main class="main-area">
         <div class="calendar-app calendar-app-solo cal-shell">
           <section class="cal-board" aria-label="Week calendar">
-            <header class="cal-board-head">
-              <div class="cal-board-title-wrap">
-                <p class="cal-kicker">Calendar</p>
-                <h1 class="calendar-title" id="calendar-title"></h1>
-                <p class="calendar-meta" id="calendar-meta"></p>
-                <div class="cal-upcoming" id="cal-upcoming" hidden>
-                  <span class="cal-upcoming-kicker">Upcoming</span>
-                  <span class="cal-upcoming-text" id="cal-upcoming-text"></span>
-                  <span class="cal-upcoming-time" id="cal-upcoming-time"></span>
+          <section class="cal-board" aria-label="Week calendar">
+            <header class="cal-top">
+              <form class="cal-search" id="cal-search-form" role="search" autocomplete="off">
+                <label class="cal-sr" for="cal-search-input">Search schedule</label>
+                <input
+                  type="search"
+                  id="cal-search-input"
+                  class="cal-search-input"
+                  placeholder="Search tasks & reminders…"
+                  maxlength="120"
+                />
+                <div class="cal-search-chips" role="group" aria-label="Search filters">
+                  <button type="button" class="cal-search-chip is-active" data-cal-filter="all">All</button>
+                  <button type="button" class="cal-search-chip" data-cal-filter="tasks">Tasks</button>
+                  <button type="button" class="cal-search-chip" data-cal-filter="reminders">Reminders</button>
                 </div>
-              </div>
-              <div class="calendar-nav-actions" aria-label="Calendar navigation">
-                <button type="button" class="calendar-nav-btn" id="calendar-prev" aria-label="Previous week">‹</button>
-                <button type="button" class="calendar-today-btn" id="calendar-today">Today</button>
-                <button type="button" class="calendar-nav-btn" id="calendar-next" aria-label="Next week">›</button>
+              </form>
+
+              <div class="cal-top-main">
+                <div class="cal-top-copy">
+                  <h1 class="calendar-title" id="calendar-title">Stay up to date</h1>
+                  <p class="calendar-meta" id="calendar-meta"></p>
+                  <div class="cal-upcoming" id="cal-upcoming" hidden>
+                    <span class="cal-upcoming-kicker">Upcoming</span>
+                    <span class="cal-upcoming-text" id="cal-upcoming-text"></span>
+                    <span class="cal-upcoming-time" id="cal-upcoming-time"></span>
+                  </div>
+                </div>
+
+                <div class="cal-toolbar" aria-label="Calendar controls">
+                  <div class="cal-range" role="group" aria-label="Week range">
+                    <button type="button" class="cal-range-nav" id="calendar-prev" aria-label="Previous week">‹</button>
+                    <button type="button" class="cal-range-pill" id="calendar-range" aria-live="polite">
+                      <span id="calendar-range-label">This week</span>
+                    </button>
+                    <button type="button" class="cal-range-nav" id="calendar-next" aria-label="Next week">›</button>
+                  </div>
+
+                  <button type="button" class="btn btn-primary cal-add-btn" id="calendar-add-event">
+                    + Add reminder
+                  </button>
+
+                  <div class="cal-view-toggle" role="tablist" aria-label="Calendar view">
+                    <button type="button" class="cal-view-btn" id="calendar-today" role="tab" aria-selected="false" data-cal-view="today">
+                      Today
+                    </button>
+                    <button type="button" class="cal-view-btn is-active" id="calendar-view-week" role="tab" aria-selected="true" data-cal-view="week">
+                      Week
+                    </button>
+                    <button type="button" class="cal-view-btn" id="calendar-view-month" role="tab" aria-selected="false" data-cal-view="month">
+                      Month
+                    </button>
+                  </div>
+                </div>
               </div>
             </header>
 

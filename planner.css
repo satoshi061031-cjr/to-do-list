@@ -40,6 +40,19 @@ body.planner-page {
 
 .planner-page .layout {
   max-width: none;
+  min-height: 100dvh;
+  height: 100dvh;
+}
+
+body.planner-page.has-bento-rail .layout {
+  max-width: none;
+  width: 100%;
+  margin: 0;
+  height: 100dvh;
+  min-height: 100dvh;
+  padding: var(--space-md);
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-md));
+  box-sizing: border-box;
 }
 
 .planner-page .main-area {
@@ -50,26 +63,40 @@ body.planner-page {
   align-items: stretch;
   justify-content: flex-start;
   min-height: 0;
+  flex: 1;
+  height: 100%;
+}
+
+body.planner-page.has-bento-rail .main-area {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  height: auto;
+  align-self: stretch;
 }
 
 /* —— Main shell (Kanban board only; site chrome stays Daily Space) —— */
 .planner-view-root {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
+  height: 100%;
   display: flex;
   flex-direction: column;
   width: 100%;
+  overflow: hidden;
 }
 
 .planner-shell {
-  flex: 1;
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   min-height: 0;
+  height: 100%;
+  overflow: hidden;
   padding: calc(env(safe-area-inset-top, 0px) + var(--space-lg)) var(--space-md)
-    calc(env(safe-area-inset-bottom, 0px) + 5.25rem);
-  max-width: min(1120px, 96vw);
-  margin: 0 auto;
+    calc(env(safe-area-inset-bottom, 0px) + var(--space-lg));
+  max-width: none;
+  margin: 0;
   width: 100%;
   border-radius: var(--radius-lg);
   background: var(--pl-panel);
@@ -77,6 +104,20 @@ body.planner-page {
   box-shadow: var(--shadow-soft);
   backdrop-filter: blur(14px) saturate(1.08);
   -webkit-backdrop-filter: blur(14px) saturate(1.08);
+}
+
+.planner-shell > .app-greeting {
+  flex-shrink: 0;
+  color: var(--pl-ink);
+  margin: 0 0 var(--space-sm);
+}
+
+.planner-shell > .app-greeting .app-greeting-title {
+  color: var(--pl-ink);
+}
+
+.planner-shell > .app-greeting .app-greeting-time {
+  color: var(--pl-muted);
 }
 
 .planner-header {
@@ -531,15 +572,41 @@ body.planner-page {
 
 /* —— Board —— */
 .planner-board-scroll {
-  flex: 1;
-  min-height: 0;
+  /* height:0 + flex-grow forces this pane to claim leftover shell height */
+  flex: 1 1 0;
+  height: 0;
+  min-height: min(28rem, calc(100dvh - 14rem));
+  position: relative;
   overflow-x: auto;
-  overflow-y: auto;
-  padding: 0.15rem 0.1rem 0.5rem;
+  overflow-y: hidden;
+  padding: 0.15rem 0.1rem 0.35rem;
   border: 0;
   background: transparent;
   box-shadow: none;
   -webkit-overflow-scrolling: touch;
+}
+
+.planner-board-empty {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 2.4rem 1.25rem;
+  text-align: center;
+  max-width: none;
+  min-height: 0;
+  border: 1px dashed var(--pl-line);
+  border-radius: var(--radius-lg);
+  background: var(--pl-card);
+}
+
+.planner-board-empty[hidden] {
+  display: none !important;
 }
 
 .planner-board {
@@ -547,30 +614,14 @@ body.planner-page {
   flex-direction: row;
   flex-wrap: nowrap;
   align-items: stretch;
-  justify-content: flex-start;
-  gap: 1rem;
-  min-height: min(68vh, 34rem);
-  padding: 0.1rem 0.15rem 0.35rem;
-}
-
-.planner-board-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.55rem;
-  margin: 0 auto;
-  padding: 2.4rem 1.25rem;
-  text-align: center;
-  max-width: 24rem;
-  min-height: min(42vh, 22rem);
-  border: 1px dashed var(--pl-line);
-  border-radius: var(--radius-lg);
-  background: var(--pl-card);
-}
-
-.planner-board-empty[hidden] {
-  display: none;
+  justify-content: stretch;
+  gap: 0.85rem;
+  width: 100%;
+  min-width: 100%;
+  height: 100%;
+  min-height: 100%;
+  padding: 0;
+  box-sizing: border-box;
 }
 
 .planner-board-empty-title {
@@ -587,10 +638,14 @@ body.planner-page {
 }
 
 .planner-column {
-  flex: 0 0 17.25rem;
-  width: 17.25rem;
-  max-width: 17.25rem;
-  min-height: 22rem;
+  flex: 1 1 0;
+  width: auto;
+  min-width: 12.5rem;
+  max-width: none;
+  min-height: 0;
+  height: 100%;
+  max-height: 100%;
+  align-self: stretch;
   display: flex;
   flex-direction: column;
   background: var(--pl-track);
@@ -598,6 +653,7 @@ body.planner-page {
   border-radius: var(--radius-lg);
   padding: 0.85rem 0.75rem 0.9rem;
   box-shadow: none;
+  box-sizing: border-box;
 }
 
 .planner-column.is-dealing {
@@ -1036,6 +1092,7 @@ body.planner-page {
 
 .planner-add-card {
   margin-top: 0.55rem;
+  flex-shrink: 0;
   width: 100%;
   font: inherit;
   font-size: var(--type-label-size);
@@ -1171,9 +1228,10 @@ body.planner-page {
   }
 
   .planner-column {
-    flex: 0 0 15.5rem;
-    width: 15.5rem;
-    max-width: 15.5rem;
+    flex: 1 1 0;
+    min-width: 13.5rem;
+    width: auto;
+    max-width: none;
   }
 }
 
@@ -1195,17 +1253,34 @@ body.planner-page {
     flex: 1;
     min-width: 0;
   }
+
+  .planner-board-scroll {
+    overflow-y: auto;
+  }
 }
 
 @media (max-width: 640px) {
+  .planner-board-scroll {
+    height: auto;
+    flex: 1 1 auto;
+    min-height: 18rem;
+    overflow-y: auto;
+  }
+
   .planner-board {
-    gap: 0.85rem;
+    gap: 0.75rem;
+    min-height: 18rem;
+    height: auto;
+    align-items: stretch;
   }
 
   .planner-column {
-    flex: 0 0 14.5rem;
-    width: 14.5rem;
-    max-width: 14.5rem;
+    flex: 0 0 78vw;
+    width: 78vw;
+    max-width: 18rem;
+    min-width: 14rem;
     min-height: 16rem;
+    height: auto;
+    max-height: none;
   }
 }

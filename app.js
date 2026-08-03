@@ -840,8 +840,10 @@
 
   function syncSourceChrome() {
     const isAssigned = todoSource === "assigned";
+    const agentPage = document.body.classList.contains("todo-agent-page");
     document.body.classList.toggle("todo-source-assigned", isAssigned);
-    if (form) form.hidden = isAssigned;
+    // On the agent Todo page the chat is the composer; keep the legacy form hidden.
+    if (form) form.hidden = agentPage || isAssigned;
     if (statusFiltersEl) statusFiltersEl.hidden = isAssigned;
     if (assignedHintEl) assignedHintEl.hidden = !isAssigned;
     if (dailyLoopEl) dailyLoopEl.hidden = isAssigned;
@@ -1177,9 +1179,19 @@
     // Mobile Loop "To do" maps to active; desktop Today stays due-today.
     setFilter(document.body.classList.contains("todo-mobile") ? "active" : "today");
     queueMicrotask(() => {
-      const target = dailyLoopEl || statusFiltersEl || listEl;
+      const agentPage = document.body.classList.contains("todo-agent-page");
+      const agentInput = agentPage
+        ? document.querySelector(".todo-agent-page-embed .todo-agent-input")
+        : null;
+      const target = agentPage
+        ? document.getElementById("todo-agent-host") || dailyLoopEl || statusFiltersEl || listEl
+        : dailyLoopEl || statusFiltersEl || listEl;
       if (target && typeof target.scrollIntoView === "function") {
         target.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+      if (agentInput instanceof HTMLInputElement) {
+        agentInput.focus();
+        return;
       }
       if (input && todoSource === "personal" && !document.body.classList.contains("todo-mobile")) {
         input.focus();
@@ -1261,7 +1273,9 @@
       } else if (dueToday.length > 0) {
         dailyLoopEmpty.textContent = "All caught up.";
       } else {
-        dailyLoopEmpty.textContent = "Nothing due today.";
+        dailyLoopEmpty.textContent = document.body.classList.contains("todo-agent-page")
+          ? "Nothing due today — ask the agent above."
+          : "Nothing due today.";
       }
     }
     if (dailyLoopList) dailyLoopList.hidden = showEmpty;
@@ -1391,7 +1405,11 @@
       } else {
         eveningReviewFocusBtn.hidden = false;
         eveningReviewFocusBtn.textContent =
-          remaining > 0 ? "Focus remaining" : "Add a task for today";
+          remaining > 0
+            ? "Focus remaining"
+            : document.body.classList.contains("todo-agent-page")
+              ? "Ask the agent"
+              : "Add a task for today";
       }
     }
 
@@ -1486,9 +1504,11 @@
             ? `No tasks in "${categoryLabelById(selectedCategoryKey)}" yet.`
             : "Nothing in this category.";
         } else if (todos.length === 0) {
-          emptyEl.textContent = document.body.classList.contains("todo-mobile")
-            ? "Tap + to add a task."
-            : "Add a task above.";
+          emptyEl.textContent = document.body.classList.contains("todo-agent-page")
+            ? "Ask the agent above to add a task."
+            : document.body.classList.contains("todo-mobile")
+              ? "Tap + to add a task."
+              : "Add a task above.";
         } else if (filter === "today") {
           const overdueOpen = todos.filter((t) => isOverdue(t.dueDate, t.completed));
           emptyEl.textContent =

@@ -385,6 +385,20 @@ body.todo-mobile .m-fab {
   cursor: pointer;
 }
 
+body.todo-mobile.todo-agent-page .m-fab[hidden] {
+  display: none !important;
+}
+
+body.todo-mobile .m-agent-host {
+  margin: 0 0 var(--space-md);
+  min-height: 14rem;
+}
+
+body.todo-mobile.todo-agent-page .todo-agent-page-embed .todo-agent-panel {
+  max-height: min(22rem, 48vh);
+  border-radius: var(--radius-lg);
+}
+
 body.todo-mobile .m-fab:active {
   transform: scale(0.96);
 }

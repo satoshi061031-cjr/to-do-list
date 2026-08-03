@@ -8,8 +8,11 @@
     return page === "todo-m" ? "todo" : page;
   }
 
+  const pageMode = document.body.classList.contains("todo-agent-page");
+  const host = document.getElementById("todo-agent-host");
+
   const panel = document.createElement("div");
-  panel.className = "todo-agent";
+  panel.className = "todo-agent" + (pageMode ? " todo-agent-page-embed" : "");
   panel.innerHTML = `
     <button type="button" class="todo-agent-fab" aria-expanded="false" aria-controls="todo-agent-panel" aria-label="Open Daily Space Agent">
       <img class="todo-agent-fab-ghost" src="welcome-sticker.png" alt="" aria-hidden="true" />
@@ -18,7 +21,7 @@
       <header class="todo-agent-header">
         <div>
           <p class="todo-agent-kicker">Daily Space</p>
-          <h2 class="todo-agent-title">Daily Space Agent</h2>
+          <h2 class="todo-agent-title">${pageMode ? "Ask to add a task" : "Daily Space Agent"}</h2>
         </div>
         <button type="button" class="todo-agent-close" aria-label="Close agent">×</button>
       </header>
@@ -28,15 +31,24 @@
           class="todo-agent-input"
           type="text"
           maxlength="2000"
-          placeholder="Add a task for today…"
+          placeholder="${pageMode ? "e.g. Add buy milk today…" : "Add a task for today…"}"
           aria-label="Message for Daily Space Agent"
         />
         <button class="todo-agent-send" type="submit">Send</button>
       </form>
-      <p class="todo-agent-hint">Optional helper — best for Todo / today. Also reaches Planner, Calendar, Tally, and private notes.</p>
+      <p class="todo-agent-hint">${
+        pageMode
+          ? "Tell the agent what to add, complete, or reschedule. Your list updates below."
+          : "Optional helper — best for Todo / today. Also reaches Planner, Calendar, Tally, and private notes."
+      }</p>
     </section>
   `;
-  document.body.appendChild(panel);
+
+  if (pageMode && host instanceof HTMLElement) {
+    host.appendChild(panel);
+  } else {
+    document.body.appendChild(panel);
+  }
 
   const fab = panel.querySelector(".todo-agent-fab");
   const sheet = panel.querySelector(".todo-agent-panel");
@@ -76,13 +88,20 @@
     sendBtn.disabled = busy || !ready;
     input.disabled = !ready;
     if (hintEl) {
-      hintEl.textContent = ready
-        ? "Optional helper — best for Todo / today. Also reaches Planner, Calendar, Tally, and private notes."
-        : "Agent needs a server LLM key. You can still use Todo, Planner, and the rest without it.";
+      if (pageMode) {
+        hintEl.textContent = ready
+          ? "Tell the agent what to add, complete, or reschedule. Your list updates below."
+          : "Agent needs a server LLM key (GROQ_API_KEY). Restart the server after adding it.";
+      } else {
+        hintEl.textContent = ready
+          ? "Optional helper — best for Todo / today. Also reaches Planner, Calendar, Tally, and private notes."
+          : "Agent needs a server LLM key. You can still use Todo, Planner, and the rest without it.";
+      }
     }
   }
 
   function setOpen(open) {
+    if (pageMode) open = true;
     sheet.hidden = !open;
     fab.setAttribute("aria-expanded", String(open));
     fab.setAttribute("aria-label", open ? "Close Daily Space Agent" : "Open Daily Space Agent");
@@ -92,12 +111,14 @@
       if (messagesEl.childElementCount === 0) {
         appendMessage(
           "assistant",
-          "I can help with today’s tasks. Try: “Add buy milk today” or “Remind me tomorrow at 9:00.”"
+          pageMode
+            ? "This is your Todo agent. Try: “Add buy milk today” or “Remind me tomorrow at 9:00.”"
+            : "I can help with today’s tasks. Try: “Add buy milk today” or “Remind me tomorrow at 9:00.”"
         );
       }
       refreshStatus({ force: true });
       if (configured !== false) input.focus();
-    } else {
+    } else if (!pageMode) {
       fab.focus();
     }
   }
@@ -118,7 +139,9 @@
         statusMessageShown = true;
         appendMessage(
           "assistant",
-          "Agent is optional and not configured yet. Add GROQ_API_KEY to a local .env or Render Environment, restart the server, then reopen this panel. Todo and other pages still work without it."
+          pageMode
+            ? "Agent is not configured yet. Add GROQ_API_KEY to a local .env or Render Environment, restart the server, then refresh."
+            : "Agent is optional and not configured yet. Add GROQ_API_KEY to a local .env or Render Environment, restart the server, then reopen this panel. Todo and other pages still work without it."
         );
       }
     } catch (_) {
@@ -138,13 +161,12 @@
     if (configured !== true) {
       await refreshStatus({ force: true });
       if (configured !== true) {
-        appendMessage(
-          "user",
-          message
-        );
+        appendMessage("user", message);
         appendMessage(
           "assistant",
-          "Agent is not configured. Add GROQ_API_KEY (local .env or Render), restart, then try again — or add tasks directly in Todo."
+          pageMode
+            ? "Agent is not configured. Add GROQ_API_KEY (local .env or Render), restart, then try again."
+            : "Agent is not configured. Add GROQ_API_KEY (local .env or Render), restart, then try again — or add tasks directly in Todo."
         );
         return;
       }
@@ -202,21 +224,29 @@
     }
   }
 
-  fab.addEventListener("click", function () {
-    setOpen(sheet.hidden);
-  });
-  closeBtn.addEventListener("click", function () {
-    setOpen(false);
-  });
+  if (pageMode) {
+    fab.hidden = true;
+    closeBtn.hidden = true;
+    setOpen(true);
+  } else {
+    fab.addEventListener("click", function () {
+      setOpen(sheet.hidden);
+    });
+    closeBtn.addEventListener("click", function () {
+      setOpen(false);
+    });
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape" && !sheet.hidden) setOpen(false);
+    });
+  }
+
   form.addEventListener("submit", function (event) {
     event.preventDefault();
     sendMessage(input.value);
   });
-  document.addEventListener("keydown", function (event) {
-    if (event.key === "Escape" && !sheet.hidden) setOpen(false);
-  });
 
   function mountFabUnderBrand() {
+    if (pageMode) return false;
     const brand = document.querySelector(".bento-rail-brand");
     if (!(brand instanceof HTMLElement)) return false;
     fab.classList.add("todo-agent-fab-rail");
@@ -227,12 +257,16 @@
     return true;
   }
 
-  if (!mountFabUnderBrand()) {
-    document.addEventListener("DOMContentLoaded", mountFabUnderBrand);
-    document.addEventListener("dailyspace:bento-rail-ready", mountFabUnderBrand);
+  if (!pageMode) {
+    if (!mountFabUnderBrand()) {
+      document.addEventListener("DOMContentLoaded", mountFabUnderBrand);
+      document.addEventListener("dailyspace:bento-rail-ready", mountFabUnderBrand);
+    }
   }
 
   window.DailySpaceAgentUi = {
     mountFabUnderBrand,
+    setOpen,
+    isPageMode: pageMode,
   };
 })();

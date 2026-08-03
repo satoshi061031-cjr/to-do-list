@@ -3,7 +3,7 @@
   <head> <link rel="manifest" href="manifest.json">
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>To-do list</title>
+    <title>Today · Agent</title>
     <script src="device-route.js"></script>
     <script src="daily-loop.js"></script>
     <script src="theme.js"></script>
@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="m-dock.css" />
   </head>
-  <body class="todo-bento">
+  <body class="todo-bento todo-agent-page">
     <button type="button" class="sidebar-trigger" id="sidebar-trigger" aria-controls="sidebar" aria-expanded="false">
       Menu
     </button>
@@ -56,17 +56,18 @@
       </aside>
 
       <main class="main-area">
-        <div class="app bento-shell today-shell">
+        <div class="app bento-shell today-shell today-agent-shell">
           <header class="today-hero">
             <div class="today-hero-copy">
+              <p class="today-kicker">Daily Space Agent</p>
               <h1 class="title today-title">Today</h1>
               <p class="daily-loop-progress today-progress" id="daily-loop-progress">Done today 0 / 0</p>
             </div>
             <div class="today-hero-actions">
               <button type="button" class="btn btn-primary daily-loop-focus" id="daily-loop-focus">
-                Focus today
+                Focus list
               </button>
-              <p class="today-hero-hint" id="composer-hint">⌘K · ?</p>
+              <p class="today-hero-hint" id="composer-hint">Ask the agent to add tasks</p>
             </div>
           </header>
 
@@ -98,6 +99,8 @@
             <p class="app-clock-date" id="app-clock-date"></p>
           </section>
 
+          <section class="todo-agent-host" id="todo-agent-host" aria-label="Daily Space Agent"></section>
+
           <section class="evening-review today-evening" id="evening-review" aria-label="Evening review" hidden>
             <div class="evening-review-top">
               <p class="evening-review-kicker">Evening review</p>
@@ -116,7 +119,7 @@
           <section class="task-module app-module today-tasks" data-module-id="tasks" aria-label="To-do tasks">
               <section class="daily-loop" id="daily-loop" aria-label="Daily loop">
                 <ul class="todo-list daily-loop-list" id="daily-loop-list" aria-label="Due today"></ul>
-                <p class="daily-loop-empty" id="daily-loop-empty" hidden>Nothing due today.</p>
+                <p class="daily-loop-empty" id="daily-loop-empty" hidden>Nothing due today — ask the agent above.</p>
                 <a class="daily-loop-reminders" id="daily-loop-reminders" href="calendar.html" hidden>
                   <div class="daily-loop-reminders-head">
                     <span class="daily-loop-reminders-label">Reminders</span>
@@ -126,7 +129,8 @@
                 </a>
               </section>
 
-              <form class="add-form add-form-notion" id="add-form" autocomplete="off">
+              <!-- Legacy composer kept for app.js hooks; agent is the add path. -->
+              <form class="add-form add-form-notion today-add-legacy" id="add-form" autocomplete="off" hidden aria-hidden="true">
                 <div class="add-form-row">
                   <span class="composer-glyph" aria-hidden="true">□</span>
                   <input
@@ -138,8 +142,9 @@
                     aria-label="New task"
                     aria-controls="todo-slash-menu"
                     aria-autocomplete="list"
+                    tabindex="-1"
                   />
-                  <button type="submit" class="btn btn-primary add-form-submit">Add</button>
+                  <button type="submit" class="btn btn-primary add-form-submit" tabindex="-1">Add</button>
                 </div>
                 <div class="add-form-deadline">
                   <div class="deadline-picker">
@@ -153,24 +158,9 @@
                         aria-haspopup="dialog"
                         aria-controls="calendar-panel"
                         aria-label="Due date"
+                        tabindex="-1"
                       >
                         <span class="deadline-trigger-text" id="deadline-display">Pick a date…</span>
-                        <svg
-                          class="deadline-trigger-icon"
-                          width="20"
-                          height="20"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2"
-                          stroke-linecap="round"
-                          aria-hidden="true"
-                        >
-                          <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                          <line x1="16" y1="2" x2="16" y2="6" />
-                          <line x1="8" y1="2" x2="8" y2="6" />
-                          <line x1="3" y1="10" x2="21" y2="10" />
-                        </svg>
                       </button>
                       <button
                         type="button"
@@ -178,6 +168,7 @@
                         id="deadline-clear"
                         hidden
                         aria-label="Clear due date"
+                        tabindex="-1"
                       >
                         ×
                       </button>
@@ -191,9 +182,7 @@
                       aria-label="Pick a due date"
                     >
                       <div class="calendar-header">
-                        <button type="button" class="calendar-nav" id="cal-prev" aria-label="Previous month">
-                          ‹
-                        </button>
+                        <button type="button" class="calendar-nav" id="cal-prev" aria-label="Previous month">‹</button>
                         <div class="calendar-title" id="calendar-title"></div>
                         <button type="button" class="calendar-nav" id="cal-next" aria-label="Next month">›</button>
                       </div>
@@ -249,7 +238,7 @@
 
               <ul class="todo-list" id="todo-list" aria-live="polite"></ul>
 
-              <p class="empty-state" id="empty-state">Type above to add a task, or press / for commands.</p>
+              <p class="empty-state" id="empty-state">Ask the agent above to add a task.</p>
 
               <footer class="footer">
                 <span id="count-text">0 tasks left</span>

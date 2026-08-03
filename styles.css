@@ -4508,6 +4508,79 @@ body.todo-bento .daily-loop {
   gap: var(--space-sm);
 }
 
+/* Todo as agent page: chat is the composer; list is the result. */
+body.todo-agent-page .today-kicker {
+  margin: 0 0 0.2rem;
+  color: var(--highlight);
+  font-size: var(--type-label-size, 0.72rem);
+  font-weight: 600;
+  letter-spacing: var(--type-label-tracking, 0.08em);
+  text-transform: uppercase;
+}
+
+body.todo-agent-page .todo-agent-host {
+  min-height: 18rem;
+}
+
+body.todo-agent-page .todo-agent.todo-agent-page-embed {
+  position: static;
+  right: auto;
+  bottom: auto;
+  z-index: auto;
+  display: block;
+  width: 100%;
+  align-items: stretch;
+}
+
+body.todo-agent-page .todo-agent-page-embed .todo-agent-fab,
+body.todo-agent-page .todo-agent-page-embed .todo-agent-close {
+  display: none !important;
+}
+
+body.todo-agent-page .todo-agent-page-embed .todo-agent-panel {
+  position: static;
+  top: auto;
+  right: auto;
+  bottom: auto;
+  width: 100%;
+  max-width: none;
+  height: auto;
+  min-height: 18rem;
+  max-height: min(28rem, 58vh);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+}
+
+body.todo-agent-page.todo-agent-open .main-area,
+body.todo-agent-page.todo-agent-open .theme-toggle,
+body.todo-agent-page.todo-agent-open .language-toggle,
+body.todo-agent-page.todo-agent-open .notif-root {
+  margin-right: 0;
+  right: auto;
+}
+
+body.todo-agent-page .today-add-legacy[hidden] {
+  display: none !important;
+}
+
+body.todo-agent-page .today-tasks {
+  margin-top: 0.15rem;
+}
+
+@media (max-width: 819px) {
+  body.todo-agent-page .todo-agent-page-embed .todo-agent-panel {
+    max-height: min(24rem, 52vh);
+  }
+
+  body.todo-agent-page.todo-agent-open {
+    overflow: auto;
+  }
+
+  body.todo-agent-page.todo-agent-open .main-area {
+    margin-right: 0;
+  }
+}
+
 body.has-bento-rail .sidebar {
   position: fixed;
   top: max(var(--space-md), env(safe-area-inset-top, 0px));

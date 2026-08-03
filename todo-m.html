@@ -14,7 +14,7 @@
     <link rel="stylesheet" href="m-dock.css" />
     <link rel="stylesheet" href="todo-mobile.css" />
   </head>
-  <body class="todo-mobile todo-loop">
+  <body class="todo-mobile todo-loop todo-agent-page">
     <button type="button" class="sidebar-trigger" id="sidebar-trigger" aria-controls="sidebar" aria-expanded="false">
       Menu
     </button>
@@ -71,6 +71,8 @@
           </header>
 
           <div class="m-week" id="m-week-strip" role="listbox" aria-label="Week"></div>
+
+          <section class="todo-agent-host m-agent-host" id="todo-agent-host" aria-label="Daily Space Agent"></section>
 
           <div class="m-status" id="todo-status-filters" role="tablist" aria-label="Filter tasks">
             <button type="button" class="filter-btn m-status-btn is-active" data-filter="active" role="tab" aria-selected="true">
@@ -131,7 +133,7 @@
             </div>
 
             <ul class="todo-list m-todo-list" id="todo-list" aria-live="polite"></ul>
-            <p class="empty-state" id="empty-state">Tap + to add a task.</p>
+            <p class="empty-state" id="empty-state">Ask the agent above to add a task.</p>
             <footer class="footer m-footer">
               <span id="count-text">0 tasks left</span>
               <button type="button" class="btn btn-ghost" id="clear-completed" hidden>Clear completed</button>
@@ -224,7 +226,7 @@
       </main>
     </div>
 
-    <button type="button" class="m-fab" id="m-fab-add" aria-label="Add task">+</button>
+    <button type="button" class="m-fab" id="m-fab-add" aria-label="Add task" hidden tabindex="-1">+</button>
 
     <div id="due-day-page" class="due-day-page" hidden role="dialog" aria-modal="true" aria-labelledby="due-day-page-title">
       <div class="due-day-page-backdrop" id="due-day-page-backdrop" tabindex="-1" aria-hidden="true"></div>

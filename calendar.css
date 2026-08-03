@@ -38,7 +38,7 @@ body.calendar-page .sidebar-trigger {
   grid-template-columns: minmax(0, 1fr);
   gap: 0;
   width: 100%;
-  max-width: min(52rem, 100%);
+  max-width: min(64rem, 100%);
   margin: 0 auto;
   min-height: calc(100dvh - 1rem);
   padding: calc(env(safe-area-inset-top, 0px) + 0.75rem) 1rem
@@ -50,7 +50,24 @@ body.calendar-page .sidebar-trigger {
   margin-left: 0;
 }
 
-/* One composition: hero week + quiet day strip (no nested card stack). */
+/* Hide duplicate auto greeting — headline lives in .cal-top. */
+body.calendar-page .calendar-app > .app-greeting {
+  display: none;
+}
+
+.cal-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* One composition: schedule top bar + week grid + quiet day strip. */
 .cal-shell .cal-board {
   gap: var(--space-md);
   margin: 0;
@@ -61,18 +78,185 @@ body.calendar-page .sidebar-trigger {
   box-shadow: none;
 }
 
-.cal-shell .cal-kicker {
-  margin: 0 0 0.2rem;
-  color: var(--highlight);
+.cal-shell .cal-top {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.cal-shell .cal-search {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.65rem;
+  width: 100%;
+  padding: 0.35rem 0.45rem 0.35rem 0.95rem;
+  border: 1px solid color-mix(in srgb, var(--glass-border) 75%, transparent);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--surface) 22%, transparent);
+  backdrop-filter: blur(12px) saturate(1.05);
+  -webkit-backdrop-filter: blur(12px) saturate(1.05);
+}
+
+.cal-shell .cal-search-input {
+  flex: 1 1 10rem;
+  min-width: 0;
+  min-height: 2.2rem;
+  border: 0;
+  background: transparent;
+  color: var(--cal-ink);
+  font: inherit;
+  font-size: var(--type-body-size, 1rem);
+}
+
+.cal-shell .cal-search-input:focus {
+  outline: none;
+}
+
+.cal-shell .cal-search:focus-within {
+  border-color: color-mix(in srgb, var(--tertiary) 45%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--tertiary) 16%, transparent);
+}
+
+.cal-shell .cal-search-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.cal-shell .cal-search-chip {
+  margin: 0;
+  padding: 0.28rem 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--glass-border) 80%, transparent);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--cal-muted);
+  font: inherit;
   font-size: var(--type-label-size, 0.72rem);
-  font-weight: 600;
-  letter-spacing: var(--type-label-tracking, 0.08em);
+  letter-spacing: 0.04em;
   text-transform: uppercase;
+  cursor: pointer;
+}
+
+.cal-shell .cal-search-chip.is-active,
+.cal-shell .cal-search-chip:hover {
+  border-color: color-mix(in srgb, var(--tertiary) 45%, transparent);
+  color: var(--cal-ink);
+  background: color-mix(in srgb, var(--tertiary) 14%, transparent);
+}
+
+.cal-shell .cal-top-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.cal-shell .cal-top-copy {
+  min-width: 0;
 }
 
 .cal-shell .calendar-title {
-  font-size: clamp(1.75rem, 3.2vw, 2.35rem);
+  margin: 0;
+  font-size: clamp(1.85rem, 3.4vw, 2.45rem);
   line-height: 1.05;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  color: var(--cal-ink);
+}
+
+.cal-shell .calendar-meta {
+  margin: 0.35rem 0 0;
+  color: var(--cal-muted);
+  font-size: var(--type-label-size, 0.72rem);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.cal-shell .cal-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 0.75rem;
+}
+
+.cal-shell .cal-range {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.18rem;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--primary) 88%, transparent);
+  color: var(--on-primary);
+}
+
+.cal-shell .cal-range-nav {
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.cal-shell .cal-range-nav:hover {
+  background: color-mix(in srgb, var(--tertiary) 28%, transparent);
+  color: var(--on-tertiary);
+}
+
+.cal-shell .cal-range-pill {
+  min-height: 2rem;
+  padding: 0.25rem 0.75rem;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: var(--type-label-size, 0.72rem);
+  letter-spacing: 0.03em;
+  cursor: default;
+}
+
+.cal-shell .cal-add-btn {
+  min-height: 2.35rem;
+  padding-inline: 1rem;
+}
+
+.cal-shell .cal-view-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: auto;
+  padding: 0.2rem;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--surface) 24%, transparent);
+  border: 1px solid color-mix(in srgb, var(--glass-border) 70%, transparent);
+}
+
+.cal-shell .cal-view-btn {
+  min-height: 2rem;
+  padding: 0.3rem 0.85rem;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--cal-ink);
+  font: inherit;
+  font-size: var(--type-label-size, 0.72rem);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.cal-shell .cal-view-btn.is-active {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.cal-shell .cal-view-btn:hover:not(.is-active) {
+  background: color-mix(in srgb, var(--tertiary) 16%, transparent);
 }
 
 .cal-shell .cal-week {
@@ -882,6 +1066,31 @@ body.calendar-page .sidebar-trigger {
 @media (max-width: 960px) {
   .calendar-app {
     padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 6.5rem);
+  }
+
+  .cal-shell .cal-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .cal-shell .cal-view-toggle {
+    margin-left: 0;
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .cal-shell .cal-view-btn {
+    flex: 1 1 auto;
+    text-align: center;
+  }
+
+  .cal-shell .cal-range {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .cal-shell .cal-add-btn {
+    width: 100%;
   }
 
   .cal-week-body {
