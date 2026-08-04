@@ -174,6 +174,7 @@
     "Ask the agent to add tasks — works offline too": "让助手添加任务——离线也能用",
     "Type a task in the agent above — works even offline.": "在上方助手里输入任务——离线也能加。",
     "Travel is a preview — not in the main Daily Space loop yet.": "旅行还是预览版 — 暂不在 Daily Space 主循环里。",
+    "Personal trip board — map your stops and days.": "个人行程板 — 规划停靠点与行程日。",
     "Back to Today": "回到今天",
     "Due left": "剩余到期",
     "Done today": "今日完成",

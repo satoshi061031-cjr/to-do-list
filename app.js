@@ -1978,6 +1978,7 @@
     { id: "calendar-jump", label: "Calendar", hint: "g c", aliases: ["calendar"], run: () => { window.location.href = "calendar.html"; } },
     { id: "tally-jump", label: "Tally book", hint: "g a", aliases: ["tally"], run: () => { window.location.href = "tally.html"; } },
     { id: "teamwork-jump", label: "Teamwork", hint: "g w", aliases: ["teamwork", "team"], run: () => { window.location.href = "teamwork.html"; } },
+    { id: "travel-jump", label: "Travel", hint: "g v", aliases: ["travel", "trip"], run: () => { window.location.href = "travel.html"; } },
     { id: "mail-jump", label: "Mail", hint: "g m", aliases: ["mail"], run: () => { window.location.href = "mail.html"; } },
   ];
 
