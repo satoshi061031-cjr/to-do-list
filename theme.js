@@ -1736,13 +1736,13 @@
 
     const headings = Array.from(sidebarInner.querySelectorAll(".sidebar-heading"));
     const pagesHeading = headings.find(function (el) {
-      return /^pages$/i.test(String(el.textContent || "").trim());
+      return /^(pages|页面)$/i.test(String(el.textContent || "").trim());
     });
     if (!pagesHeading) return;
 
     const page = (window.location.pathname.split("/").pop() || "todo.html").toLowerCase();
     const primary = [
-      { href: "todo.html#today", label: "Todo", match: /^todo\.html$/ },
+      { href: "todo.html#today", label: "Todo", match: /^(todo|todo-m)\.html$/ },
       { href: "calendar.html", label: "Calendar", match: /^calendar\.html$/ },
       { href: "planner.html", label: "Planner", match: /^planner\.html$/ },
       { href: "mail.html", label: "Mail", match: /^mail\.html$/ },
@@ -1784,11 +1784,8 @@
 
     const more = document.createElement("details");
     more.className = "sidebar-more";
-    if (secondary.some(function (item) {
-      return item.match.test(page);
-    })) {
-      more.open = true;
-    }
+    // Keep More expanded so Travel / Teamwork stay discoverable.
+    more.open = true;
     const summary = document.createElement("summary");
     summary.className = "sidebar-more-summary";
     summary.textContent = "More";
