@@ -81,7 +81,7 @@
                     />
                   </svg>
                 </span>
-                <span>Sign in with Google</span>
+                <span>Connect Gmail</span>
               </button>
               <button class="mail-oauth-btn" type="button" data-quick-provider="outlook">
                 <span class="mail-oauth-icon" aria-hidden="true">
@@ -95,7 +95,7 @@
                     />
                   </svg>
                 </span>
-                <span>Sign in with Outlook</span>
+                <span>Connect Outlook</span>
               </button>
             </div>
           </section>
@@ -112,11 +112,15 @@
             </div>
             <div class="mail-account-switcher" id="mail-account-switcher" role="tablist" aria-label="Mailboxes"></div>
             <p class="mail-digest" id="mail-digest" hidden></p>
+            <div class="mail-digest-actions" id="mail-digest-actions" hidden>
+              <button type="button" class="btn btn-primary" id="mail-ask-agent">
+                Ask agent to finish from mail
+              </button>
+            </div>
             <aside class="mail-ai-banner" id="mail-ai-banner" hidden>
               <p class="mail-kicker">AI digest</p>
               <p class="mail-ai-banner-copy" id="mail-ai-banner-copy">
-                Inbox still works with snippets. For richer digests, set <code>GROQ_API_KEY</code> in the server environment
-                (local <code>.env</code> or Render), then restart.
+                Smart digest is off right now. Inbox still works with short snippets.
               </p>
             </aside>
             <p class="mail-status" id="mail-status" aria-live="polite"></p>
@@ -161,7 +165,7 @@
                       />
                     </svg>
                   </span>
-                  <span>Sign in with Google</span>
+                  <span>Connect Gmail</span>
                 </button>
                 <button class="mail-oauth-btn" type="button" data-quick-provider="outlook">
                   <span class="mail-oauth-icon" aria-hidden="true">
@@ -175,7 +179,7 @@
                       />
                     </svg>
                   </span>
-                  <span>Sign in with Outlook</span>
+                  <span>Connect Outlook</span>
                 </button>
               </div>
               <div class="mail-account-list" id="mail-account-list"></div>
@@ -191,6 +195,7 @@
       <span class="theme-toggle-label">Dark</span>
     </button>
     <script src="agent-data.js"></script>
+    <script src="agent-ui.js"></script>
     <script src="mail.js"></script>
   </body>
 </html>

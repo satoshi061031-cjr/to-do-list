@@ -558,17 +558,7 @@ async function handleApi(request, response, url) {
       const tokenClaims = parseJwtClaims(token.id_token);
       const email = String(profile.email || tokenClaims.email || "").trim().toLowerCase();
       const label = resolveDisplayName(profile, tokenClaims, email, "Google user");
-      if (isValidEmail(email)) {
-        upsertMailAccount({
-          userId: email,
-          provider: "gmail",
-          email,
-          profile: {
-            source: "linked-user-auth",
-            label,
-          },
-        });
-      }
+      // Identity login only — never invent a readable mailbox without mail OAuth tokens.
       sendRedirect(
         response,
         withQuery(returnTo, {
@@ -672,16 +662,7 @@ async function handleApi(request, response, url) {
         throw Object.assign(new Error("Unable to read email from Microsoft profile."), { statusCode: 502 });
       }
       const label = resolveDisplayName(profile, tokenClaims, email, "Outlook user");
-      upsertMailAccount({
-        userId: email,
-        provider: "outlook",
-        email,
-        profile: {
-          source: "linked-user-auth",
-          displayName: label,
-          id: profile.id || tokenClaims.oid || null,
-        },
-      });
+      // Identity login only — mail read requires a separate mailbox OAuth connect.
       sendRedirect(
         response,
         withQuery(returnTo, {
@@ -819,8 +800,17 @@ async function handleApi(request, response, url) {
     enforceUserSession(session);
     sendJson(response, {
       accounts: listMailAccounts(session.userId).map((account) => ({
-        ...account,
+        id: account.id,
         provider: formatProviderLabel(account.provider),
+        email: account.email,
+        tokenType: account.tokenType,
+        scope: account.scope,
+        expiresAt: account.expiresAt,
+        connectedAt: account.connectedAt,
+        updatedAt: account.updatedAt,
+        hasCredentials: Boolean(account.hasCredentials),
+        needsMailOAuth: Boolean(account.needsMailOAuth),
+        source: account.source || null,
       })),
     });
     return;
@@ -860,7 +850,7 @@ async function handleApi(request, response, url) {
       throw error;
     }
     const limit = Math.max(1, Math.min(50, Number(url.searchParams.get("limit") || 20)));
-    const messages = await fetchRecentMessagesForAccount(account, limit);
+    const messages = await fetchRecentMessagesForAccount(account, limit, request);
     sendJson(response, {
       account: {
         id: account.id,
@@ -883,15 +873,17 @@ async function handleApi(request, response, url) {
       throw error;
     }
     const limit = Math.max(1, Math.min(30, Number(url.searchParams.get("limit") || 12)));
-    const messages = await fetchRecentMessagesForAccount(account, limit);
+    const messages = await fetchRecentMessagesForAccount(account, limit, request);
     const today =
       typeof url.searchParams.get("today") === "string" &&
       /^\d{4}-\d{2}-\d{2}$/.test(url.searchParams.get("today") || "")
         ? url.searchParams.get("today")
         : new Date().toISOString().slice(0, 10);
+    const lang = String(url.searchParams.get("lang") || "").trim() || "en";
     const { digest, summaries, summarized, fallbackReason } = await summarizeInboxMessages(
       messages,
-      today
+      today,
+      { lang }
     );
     sendJson(response, {
       account: {
@@ -950,37 +942,8 @@ async function handleApi(request, response, url) {
 
   if (method === "POST" && url.pathname === "/api/mail/accounts/link-from-auth") {
     enforceUserSession(session);
-    const body = await readJson(request);
-    const provider = normalizeMailProvider(body.provider);
-    const email = String(body.email || "").trim().toLowerCase();
-    const label = String(body.label || "").trim();
-    if (!(provider === "gmail" || provider === "outlook") || !isValidEmail(email)) {
-      const error = new Error("Valid provider and email are required.");
-      error.statusCode = 400;
-      throw error;
-    }
-    const row = upsertMailAccount({
-      userId: session.userId,
-      provider,
-      email,
-      profile: {
-        source: "linked-user-auth",
-        label: label || null,
-      },
-    });
-    sendJson(
-      response,
-      {
-        account: {
-          id: row.id,
-          provider: formatProviderLabel(row.provider),
-          email: row.email,
-          connectedAt: row.connected_at,
-          updatedAt: row.updated_at,
-        },
-      },
-      201
-    );
+    // Identity sign-in must not create a fake "connected" mailbox without mail scopes.
+    sendJson(response, { linked: false, skipped: true, reason: "mail_oauth_required" });
     return;
   }
 
@@ -1028,6 +991,7 @@ async function handleApi(request, response, url) {
   }
 
   if (method === "POST" && url.pathname === "/api/mail/oauth/start") {
+    enforceUserSession(session);
     const body = await readJson(request);
     const provider = normalizeMailProvider(body.provider);
     if (!provider || (provider !== "gmail" && provider !== "outlook")) {
@@ -1049,6 +1013,7 @@ async function handleApi(request, response, url) {
       provider,
       emailHint: emailHint || null,
       returnTo,
+      userId: session.userId,
     });
     sendJson(response, {
       ok: true,
@@ -1113,10 +1078,11 @@ async function handleApi(request, response, url) {
       if (!isValidEmail(email)) {
         throw Object.assign(new Error("Unable to read mailbox email from provider profile."), { statusCode: 502 });
       }
+      const ownerUserId = normalizeUserId(stateInfo.userId) || (session && session.userId) || email;
       const encryptedAccessToken = sealToken(token.access_token);
       const encryptedRefreshToken = token.refresh_token ? sealToken(token.refresh_token) : null;
       upsertMailAccount({
-        userId: email,
+        userId: ownerUserId,
         provider: callbackProvider,
         email,
         accessToken: encryptedAccessToken,
@@ -1125,12 +1091,23 @@ async function handleApi(request, response, url) {
         scope: token.scope || null,
         expiresAt: token.expires_in ? new Date(Date.now() + Number(token.expires_in) * 1000).toISOString() : null,
         profile: {
+          source: "mail-oauth",
           displayName: profile.name || profile.displayName || null,
           id: profile.sub || profile.id || null,
           raw: profile,
         },
       });
       const label = String(profile.name || profile.displayName || email || `${providerLabel} user`).trim();
+      const redirectHeaders = {};
+      // Keep an existing Daily Space session; only mint one when connecting while signed out.
+      if (!session || !session.userId) {
+        redirectHeaders["Set-Cookie"] = buildSessionCookieValue({
+          userId: ownerUserId,
+          email: session?.email || email,
+          provider: providerLabel,
+          label: session?.label || label,
+        });
+      }
       sendRedirect(
         response,
         withQuery(returnTo, {
@@ -1140,14 +1117,7 @@ async function handleApi(request, response, url) {
           email,
         }),
         302,
-        {
-          "Set-Cookie": buildSessionCookieValue({
-            userId: email,
-            email,
-            provider: providerLabel,
-            label,
-          }),
-        }
+        redirectHeaders
       );
       return;
     } catch (error) {
@@ -1321,7 +1291,9 @@ function sendError(response, error) {
     console.error(error);
     notifyCriticalError(error, status);
   }
-  sendJson(response, { error: error.message || "Unexpected server error." }, status);
+  const body = { error: error.message || "Unexpected server error." };
+  if (error.code) body.code = error.code;
+  sendJson(response, body, status);
 }
 
 function notifyCriticalError(error, status) {
@@ -1406,6 +1378,10 @@ function normalizeMailProvider(value) {
   if (normalized === "gmail" || normalized === "outlook" || normalized === "icloud" || normalized === "other")
     return normalized;
   return "";
+}
+
+function normalizeUserId(userId) {
+  return String(userId || "").trim().toLowerCase();
 }
 
 function formatProviderLabel(provider) {
@@ -1850,24 +1826,98 @@ async function verifyIcloudImapLogin(email, appPassword) {
   });
 }
 
-async function fetchRecentMessagesForAccount(account, limit) {
-  if (account.provider === "gmail") {
-    return fetchRecentGmailMessages(account, limit);
+async function fetchRecentMessagesForAccount(account, limit, request) {
+  const ready = await ensureFreshMailAccount(account, request);
+  if (ready.provider === "gmail") {
+    return fetchRecentGmailMessages(ready, limit);
   }
-  if (account.provider === "outlook") {
-    return fetchRecentOutlookMessages(account, limit);
+  if (ready.provider === "outlook") {
+    return fetchRecentOutlookMessages(ready, limit);
   }
-  if (account.provider === "icloud") {
-    return fetchRecentIcloudMessages(account, limit);
+  if (ready.provider === "icloud") {
+    return fetchRecentIcloudMessages(ready, limit);
   }
   return [];
 }
 
+function mailReauthError(message) {
+  const error = new Error(message || "Mailbox access expired. Reconnect to continue.");
+  error.statusCode = 401;
+  error.code = "mail_reauth_required";
+  return error;
+}
+
+async function ensureFreshMailAccount(account, request) {
+  if (!account) throw mailReauthError("Mail account not found.");
+  if (account.provider === "icloud") {
+    if (!account.refreshToken) throw mailReauthError("iCloud app-specific password missing for this account.");
+    return account;
+  }
+  if (account.provider !== "gmail" && account.provider !== "outlook") return account;
+
+  const expiresAtMs = account.expiresAt ? Date.parse(account.expiresAt) : NaN;
+  const stillFresh = Number.isFinite(expiresAtMs) && expiresAtMs > Date.now() + 60_000;
+  if (account.accessToken && (stillFresh || !Number.isFinite(expiresAtMs))) {
+    return account;
+  }
+  if (!account.refreshToken) {
+    if (account.accessToken && !Number.isFinite(expiresAtMs)) return account;
+    throw mailReauthError("Mailbox not authorized for reading. Connect Gmail or Outlook again.");
+  }
+
+  const config = getOauthProviderConfig(account.provider, request);
+  const body = new URLSearchParams({
+    grant_type: "refresh_token",
+    client_id: config.clientId,
+    client_secret: config.clientSecret,
+    refresh_token: openToken(account.refreshToken),
+  });
+  if (account.provider === "outlook") {
+    body.set("scope", config.scope);
+  }
+  const response = await fetch(config.tokenUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: body.toString(),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload.access_token) {
+    throw mailReauthError(
+      payload.error_description || payload.error || "Mailbox access expired. Reconnect to continue."
+    );
+  }
+
+  const encryptedAccessToken = sealToken(payload.access_token);
+  const encryptedRefreshToken = payload.refresh_token
+    ? sealToken(payload.refresh_token)
+    : account.refreshToken;
+  const expiresAt = payload.expires_in
+    ? new Date(Date.now() + Number(payload.expires_in) * 1000).toISOString()
+    : account.expiresAt;
+  upsertMailAccount({
+    userId: account.userId,
+    provider: account.provider,
+    email: account.email,
+    accessToken: encryptedAccessToken,
+    refreshToken: encryptedRefreshToken,
+    tokenType: payload.token_type || account.tokenType || "Bearer",
+    scope: payload.scope || account.scope || null,
+    expiresAt,
+    profile: account.profile || {},
+  });
+  return {
+    ...account,
+    accessToken: encryptedAccessToken,
+    refreshToken: encryptedRefreshToken,
+    tokenType: payload.token_type || account.tokenType || "Bearer",
+    scope: payload.scope || account.scope || null,
+    expiresAt,
+  };
+}
+
 async function fetchRecentGmailMessages(account, limit) {
   if (!account.accessToken) {
-    const error = new Error("Gmail token missing for this account.");
-    error.statusCode = 400;
-    throw error;
+    throw mailReauthError("Gmail token missing for this account.");
   }
   const accessToken = openToken(account.accessToken);
   const listUrl = new URL("https://gmail.googleapis.com/gmail/v1/users/me/messages");
@@ -1878,6 +1928,9 @@ async function fetchRecentGmailMessages(account, limit) {
   });
   const listPayload = await listResponse.json().catch(() => ({}));
   if (!listResponse.ok) {
+    if (listResponse.status === 401 || listResponse.status === 403) {
+      throw mailReauthError("Gmail access expired. Reconnect to continue.");
+    }
     const error = new Error(
       listPayload.error?.message || listPayload.error_description || "Unable to read Gmail inbox list."
     );
@@ -1910,9 +1963,7 @@ async function fetchRecentGmailMessages(account, limit) {
 
 async function fetchRecentOutlookMessages(account, limit) {
   if (!account.accessToken) {
-    const error = new Error("Outlook token missing for this account.");
-    error.statusCode = 400;
-    throw error;
+    throw mailReauthError("Outlook token missing for this account.");
   }
   const accessToken = openToken(account.accessToken);
   const url = new URL("https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages");
@@ -1924,6 +1975,9 @@ async function fetchRecentOutlookMessages(account, limit) {
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      throw mailReauthError("Outlook access expired. Reconnect to continue.");
+    }
     const error = new Error(payload.error?.message || "Unable to read Outlook inbox.");
     error.statusCode = 502;
     throw error;

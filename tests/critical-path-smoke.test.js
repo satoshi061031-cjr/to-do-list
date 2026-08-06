@@ -92,17 +92,31 @@ test("critical path: mail → Add as today’s task shape", () => {
   const today = todayIso();
   const { api } = createAgentData();
   const mailSubject = "Invoice due Friday";
+  const sourceMailId = "mail:acct:msg-1";
   const applied = api.applyActions([
     {
       type: "todo_add",
       text: mailSubject,
       dueDate: today,
+      sourceMailId,
     },
   ]);
   assert.equal(applied[0].ok, true);
   const todo = api.getSnapshot().todo.todos[0];
   assert.equal(todo.text, mailSubject);
   assert.equal(todo.dueDate, today);
+  assert.equal(todo.sourceMailId, sourceMailId);
+
+  const dup = api.applyActions([
+    {
+      type: "todo_add",
+      text: "Duplicate from same mail",
+      dueDate: today,
+      sourceMailId,
+    },
+  ]);
+  assert.equal(dup[0].ok, false);
+  assert.equal(api.getSnapshot().todo.todos.filter((item) => item.sourceMailId === sourceMailId).length, 1);
 });
 
 test("mail digest fallback reports readable reasons", async () => {

@@ -248,6 +248,7 @@
           dueDate: validDate(item.dueDate) ? item.dueDate : null,
           dueTime: normalizeTime(item.dueTime),
           categoryId: typeof item.categoryId === "string" ? item.categoryId : null,
+          sourceMailId: typeof item.sourceMailId === "string" ? clean(item.sourceMailId, 120) || null : null,
         })),
       },
       planner: {
@@ -358,6 +359,13 @@
           if (!taskText) return failure(action, "Task text is required.");
           const category = todoCategory(todo, action.categoryName);
           const dueTime = normalizeTime(action.dueTime);
+          const sourceMailId = clean(action.sourceMailId, 120);
+          if (sourceMailId) {
+            const exists = todo.todos.some(
+              (item) => item && !item.completed && clean(item.sourceMailId, 120) === sourceMailId
+            );
+            if (exists) return failure(action, "Already on Today from this mail.");
+          }
           todo.todos.unshift({
             id: uid(),
             text: taskText,
@@ -365,6 +373,7 @@
             dueDate: validDate(action.dueDate) ? action.dueDate : null,
             dueTime,
             categoryId: category ? category.id : null,
+            sourceMailId: sourceMailId || null,
           });
           success(action, dueTime ? `${taskText} · ${dueTime}` : taskText);
         } else if (action.type === "todo_add_category") {

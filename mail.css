@@ -150,6 +150,19 @@
   letter-spacing: 0.02em;
 }
 
+.mail-digest-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.55rem 0 0;
+}
+
+.mail-digest-actions .btn {
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+  padding: 0.5rem 0.9rem;
+}
+
 .mail-connect-hint {
   margin: 0.45rem 0 0;
   color: var(--text-muted);

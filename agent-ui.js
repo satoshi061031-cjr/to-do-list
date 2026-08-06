@@ -78,6 +78,18 @@
 
   const pageMode = document.body.classList.contains("todo-agent-page");
   const host = document.getElementById("todo-agent-host");
+  const onMail = currentPage() === "mail";
+  const agentTitle = pageMode ? "Ask to add a task" : onMail ? "Ask about your inbox" : "Daily Space Agent";
+  const agentPlaceholder = pageMode
+    ? "e.g. Add buy milk today…"
+    : onMail
+      ? "e.g. Turn the digest into today’s tasks…"
+      : "Add a task for today…";
+  const agentHint = pageMode
+    ? "Tell the agent what to add, complete, or reschedule. Your list updates below."
+    : onMail
+      ? "Use the digest or ask the agent to turn important mail into Today."
+      : "Primary capture for Todo — also reaches Planner, Calendar, and Tally.";
 
   const panel = document.createElement("div");
   panel.className = "todo-agent" + (pageMode ? " todo-agent-page-embed" : "");
@@ -89,7 +101,7 @@
       <header class="todo-agent-header">
         <div>
           <p class="todo-agent-kicker">Daily Space</p>
-          <h2 class="todo-agent-title">${pageMode ? "Ask to add a task" : "Daily Space Agent"}</h2>
+          <h2 class="todo-agent-title">${agentTitle}</h2>
         </div>
         <button type="button" class="todo-agent-close" aria-label="Close agent">×</button>
       </header>
@@ -99,16 +111,12 @@
           class="todo-agent-input"
           type="text"
           maxlength="2000"
-          placeholder="${pageMode ? "e.g. Add buy milk today…" : "Add a task for today…"}"
+          placeholder="${agentPlaceholder}"
           aria-label="Message for Daily Space Agent"
         />
         <button class="todo-agent-send" type="submit">Send</button>
       </form>
-      <p class="todo-agent-hint">${
-        pageMode
-          ? "Tell the agent what to add, complete, or reschedule. Your list updates below."
-          : "Primary capture for Todo — also reaches Planner, Calendar, and Tally."
-      }</p>
+      <p class="todo-agent-hint">${agentHint}</p>
     </section>
   `;
 
@@ -170,6 +178,10 @@
         hintEl.textContent = ready
           ? "Tell the agent what to add, complete, or reschedule. Your list updates below."
           : "Offline mode: type a task (e.g. “buy milk today”). Add GROQ_API_KEY for full agent.";
+      } else if (onMail) {
+        hintEl.textContent = ready
+          ? "Use the digest or ask the agent to turn important mail into Today."
+          : "Offline mode still adds Todo locally. Connect mail + agent for digest help.";
       } else {
         hintEl.textContent = ready
           ? "Primary capture for Todo — also reaches Planner, Calendar, and Tally."

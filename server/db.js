@@ -47,6 +47,7 @@ function migrate(database) {
       provider TEXT NOT NULL,
       email_hint TEXT,
       return_to TEXT,
+      user_id TEXT,
       created_at TEXT NOT NULL
     );
 
@@ -174,6 +175,11 @@ function migrate(database) {
       COMMIT;
     `);
   }
+
+  const oauthStateColumns = database.prepare("PRAGMA table_info(oauth_states)").all();
+  if (!oauthStateColumns.some((column) => column.name === "user_id")) {
+    database.exec(`ALTER TABLE oauth_states ADD COLUMN user_id TEXT`);
+  }
 }
 
 function nowIso() {
@@ -203,12 +209,33 @@ function listMailAccounts(userId) {
   return getDb()
     .prepare(
       `SELECT id, provider, email, token_type AS tokenType, scope, expires_at AS expiresAt,
-              connected_at AS connectedAt, updated_at AS updatedAt
+              connected_at AS connectedAt, updated_at AS updatedAt,
+              access_token AS accessToken, refresh_token AS refreshToken, profile_json AS profileJson
        FROM mail_accounts
        WHERE user_id = ?
        ORDER BY updated_at DESC`
     )
-    .all(ownerId);
+    .all(ownerId)
+    .map((row) => {
+      const provider = String(row.provider || "").toLowerCase();
+      const hasAccess = Boolean(row.accessToken);
+      const hasRefresh = Boolean(row.refreshToken);
+      const hasCredentials =
+        provider === "icloud" ? hasRefresh : hasAccess || hasRefresh;
+      return {
+        id: row.id,
+        provider: row.provider,
+        email: row.email,
+        tokenType: row.tokenType,
+        scope: row.scope,
+        expiresAt: row.expiresAt,
+        connectedAt: row.connectedAt,
+        updatedAt: row.updatedAt,
+        hasCredentials,
+        needsMailOAuth: !hasCredentials,
+        source: fromJson(row.profileJson, {})?.source || null,
+      };
+    });
 }
 
 function getMailAccountById(userId, id) {
@@ -220,6 +247,7 @@ function getMailAccountById(userId, id) {
   if (!row) return null;
   return {
     id: row.id,
+    userId: row.user_id,
     provider: row.provider,
     email: row.email,
     accessToken: row.access_token,
@@ -356,14 +384,15 @@ function createOauthState(input) {
   if (!state) return;
   getDb()
     .prepare(
-      `INSERT OR REPLACE INTO oauth_states (state, provider, email_hint, return_to, created_at)
-       VALUES (?, ?, ?, ?, ?)`
+      `INSERT OR REPLACE INTO oauth_states (state, provider, email_hint, return_to, user_id, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`
     )
     .run(
       state,
       String(input.provider || "").trim().toLowerCase(),
       input.emailHint || null,
       input.returnTo || null,
+      input.userId ? normalizeUserId(input.userId) : null,
       nowIso()
     );
 }
@@ -381,6 +410,7 @@ function consumeOauthState(state, maxAgeMinutes = 20) {
     provider: row.provider,
     emailHint: row.email_hint || null,
     returnTo: row.return_to || null,
+    userId: row.user_id || null,
     createdAt: row.created_at,
   };
 }

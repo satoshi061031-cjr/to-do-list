@@ -122,9 +122,65 @@
           at: Date.now(),
         })
       );
+      window.dispatchEvent(new CustomEvent("daily-space-mail-digest-updated"));
     } catch (_) {
       /* ignore */
     }
+  }
+
+  let mailDigestRefreshPromise = null;
+
+  async function refreshMailDigestCache(options) {
+    const force = Boolean(options && options.force);
+    const cached = readCachedMailDigest();
+    if (cached && !force) {
+      try {
+        const raw = JSON.parse(localStorage.getItem(STORAGE_MAIL_DIGEST) || "null");
+        const age = raw && Number(raw.at) ? Date.now() - Number(raw.at) : Infinity;
+        // Reuse a fresh cache for 10 minutes unless forced.
+        if (Number.isFinite(age) && age < 10 * 60_000) return cached;
+      } catch (_) {
+        return cached;
+      }
+    }
+    if (mailDigestRefreshPromise) return mailDigestRefreshPromise;
+
+    mailDigestRefreshPromise = (async () => {
+      try {
+        if (typeof navigator !== "undefined" && navigator.onLine === false) return cached;
+        const meResponse = await fetch("/api/auth/me", { credentials: "same-origin" });
+        const me = await meResponse.json().catch(() => ({}));
+        if (!meResponse.ok || !me.user) return cached;
+        const accountsResponse = await fetch("/api/mail/accounts", { credentials: "same-origin" });
+        const accountsPayload = await accountsResponse.json().catch(() => ({}));
+        if (!accountsResponse.ok) return cached;
+        const accounts = Array.isArray(accountsPayload.accounts) ? accountsPayload.accounts : [];
+        const ready = accounts.filter((account) => account && account.hasCredentials && !account.needsMailOAuth);
+        if (!ready.length) return cached;
+        const preferred =
+          ready.find((account) => account.id === localStorage.getItem("daily-space-mail-selected-v1")) || ready[0];
+        const lang =
+          window.DailySpaceI18n && typeof window.DailySpaceI18n.localeTag === "function"
+            ? window.DailySpaceI18n.localeTag()
+            : document.documentElement.lang || "en";
+        const digestResponse = await fetch(
+          `/api/mail/accounts/${encodeURIComponent(preferred.id)}/digest?limit=8&today=${encodeURIComponent(
+            todayIso()
+          )}&lang=${encodeURIComponent(lang)}`,
+          { credentials: "same-origin" }
+        );
+        const digestPayload = await digestResponse.json().catch(() => ({}));
+        if (!digestResponse.ok || typeof digestPayload.digest !== "string") return cached;
+        writeCachedMailDigest(digestPayload.digest, Boolean(digestPayload.summarized));
+        return readCachedMailDigest();
+      } catch (_) {
+        return cached;
+      } finally {
+        mailDigestRefreshPromise = null;
+      }
+    })();
+
+    return mailDigestRefreshPromise;
   }
 
   function readTodaySpend() {
@@ -323,6 +379,7 @@
     getTodayStats,
     readCachedMailDigest,
     writeCachedMailDigest,
+    refreshMailDigestCache,
     readTodaySpend,
     notificationPermission,
     requestNotificationPermission,

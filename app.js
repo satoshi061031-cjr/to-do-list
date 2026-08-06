@@ -231,7 +231,9 @@
     let categoryId = null;
     if (typeof t.categoryId === "string" || t.categoryId === null)
       categoryId = t.categoryId;
-    return { id: t.id, text: t.text, completed: t.completed, dueDate, dueTime, categoryId };
+    const sourceMailId =
+      typeof t.sourceMailId === "string" && t.sourceMailId.trim() ? t.sourceMailId.trim().slice(0, 120) : null;
+    return { id: t.id, text: t.text, completed: t.completed, dueDate, dueTime, categoryId, sourceMailId };
   }
 
   /** @param {Array | undefined | null} list */
@@ -1425,6 +1427,20 @@
         eveningReviewMail.hidden = true;
         eveningReviewMail.textContent = "";
       }
+      if (
+        !closed &&
+        evening &&
+        window.DailySpaceLoop &&
+        typeof window.DailySpaceLoop.refreshMailDigestCache === "function" &&
+        !eveningReviewMail.dataset.mailRefreshStarted
+      ) {
+        eveningReviewMail.dataset.mailRefreshStarted = "1";
+        window.DailySpaceLoop.refreshMailDigestCache().then((next) => {
+          if (!next || !next.digest || eveningClosedToday()) return;
+          eveningReviewMail.hidden = false;
+          eveningReviewMail.textContent = `Mail · ${next.digest}`;
+        });
+      }
     }
 
     if (eveningReviewTally) {
@@ -1722,6 +1738,7 @@
         dueDate: t.dueDate,
         dueTime: t.dueTime || null,
         categoryId: t.categoryId,
+        sourceMailId: t.sourceMailId || null,
       })),
       categories: categories.map((c) => ({ id: c.id, name: c.name })),
       selectedCategoryKey,
@@ -1841,6 +1858,9 @@
   resetDeadlineToToday();
   render();
   refreshAssignedForLoop();
+  if (window.DailySpaceLoop && typeof window.DailySpaceLoop.refreshMailDigestCache === "function") {
+    window.DailySpaceLoop.refreshMailDigestCache();
+  }
 
   if (window.location.hash === "#assigned") {
     setTodoSource("assigned");
