@@ -11,9 +11,8 @@ body.calendar-page.calendar-week-workspace {
   --cal-event-a: color-mix(in srgb, var(--tertiary) 28%, var(--surface));
   --cal-event-b: color-mix(in srgb, var(--accent) 18%, var(--surface));
   --cal-event-c: color-mix(in srgb, var(--success) 22%, var(--surface));
-  --cal-hour-start: 9;
-  --cal-hour-end: 18;
-  --cal-hour-count: 9;
+  --cal-hour-count: 12;
+  --cal-day-count: 7;
 }
 
 body.calendar-page .sidebar-trigger {
@@ -672,7 +671,7 @@ body.calendar-page .calendar-app > .app-greeting {
 
 .cal-week-head {
   display: grid;
-  grid-template-columns: 3.5rem repeat(5, minmax(0, 1fr));
+  grid-template-columns: 3.5rem repeat(var(--cal-day-count), minmax(0, 1fr));
   border-bottom: 1px solid color-mix(in srgb, var(--primary) 10%, transparent);
   background: transparent;
 }
@@ -780,7 +779,7 @@ body.calendar-page .calendar-app > .app-greeting {
 
 .cal-cols {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--cal-day-count), minmax(0, 1fr));
   min-height: 28rem;
   position: relative;
 }
@@ -799,6 +798,15 @@ body.calendar-page .calendar-app > .app-greeting {
 
 .cal-col:last-child {
   border-right: 0;
+}
+
+/* Weekend stays visible but reads quieter than the work week. */
+.cal-col[data-weekend="true"] {
+  background-color: color-mix(in srgb, var(--primary) 3%, transparent);
+}
+
+.cal-week-day[data-weekend="true"] .cal-week-day-num {
+  color: var(--cal-muted);
 }
 
 .cal-col.is-selected {
@@ -1119,11 +1127,11 @@ body.calendar-page .calendar-app > .app-greeting {
   }
 
   .cal-cols {
-    min-width: 28rem;
+    min-width: 38rem;
   }
 
   .cal-week-head {
-    min-width: calc(3.5rem + 28rem);
+    min-width: calc(3.5rem + 38rem);
   }
 
   .cal-col {
@@ -1172,11 +1180,11 @@ body.calendar-page .calendar-app > .app-greeting {
   }
 
   .cal-cols {
-    min-width: 24rem;
+    min-width: 33rem;
   }
 
   .cal-week-head {
-    min-width: calc(2.75rem + 24rem);
+    min-width: calc(2.75rem + 33rem);
   }
 
   .cal-hours {

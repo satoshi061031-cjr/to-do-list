@@ -324,6 +324,19 @@
     );
   }
 
+  /** Mirrors planner.js columnStatusKey so both surfaces agree on Planned/Done. */
+  function columnStatusKey(column) {
+    const title = String((column && column.title) || "").toLowerCase();
+    if (title.includes("progress")) return "progress";
+    if (title.includes("done")) return "done";
+    if (title.includes("hold")) return "hold";
+    return "planned";
+  }
+
+  function plannerColumnByStatus(board, status) {
+    return board.columns.find((column) => columnStatusKey(column) === status) || null;
+  }
+
   function teamworkMember(state, action) {
     const name = clean(action.memberName, 80).toLowerCase();
     return (
@@ -455,8 +468,19 @@
           }
           const card = matchText(board.entries, action.cardId, action.matchText, (value) => value.title || "");
           if (!card) return failure(action, "Planner card not found.");
-          if (action.type === "planner_complete_card") card.completed = true;
-          if (action.type === "planner_uncomplete_card") card.completed = false;
+          if (action.type === "planner_complete_card") {
+            card.completed = true;
+            const doneColumn = plannerColumnByStatus(board, "done");
+            if (doneColumn) card.columnId = doneColumn.id;
+          }
+          if (action.type === "planner_uncomplete_card") {
+            card.completed = false;
+            const doneColumn = plannerColumnByStatus(board, "done");
+            const plannedColumn = plannerColumnByStatus(board, "planned");
+            if (doneColumn && plannedColumn && card.columnId === doneColumn.id) {
+              card.columnId = plannedColumn.id;
+            }
+          }
           if (action.type === "planner_delete_card") {
             board.entries = board.entries.filter((item) => item.id !== card.id);
           }
@@ -471,6 +495,8 @@
             column = plannerColumn(board, action);
             if (!column) return failure(action, "Destination column not found.");
             card.columnId = column.id;
+            const doneColumn = plannerColumnByStatus(board, "done");
+            if (doneColumn) card.completed = column.id === doneColumn.id;
           }
           success(action, card.title);
         } else if (action.type.startsWith("calendar_")) {

@@ -176,6 +176,14 @@
     return "planned";
   }
 
+  function findDoneColumn() {
+    return plannerColumns.find((col) => columnStatusKey(col) === "done") || null;
+  }
+
+  function findPlannedColumn() {
+    return plannerColumns.find((col) => columnStatusKey(col) === "planned") || null;
+  }
+
   function initialsFromLabel(label) {
     const parts = String(label || "")
       .trim()
@@ -750,8 +758,18 @@
     const e = plannerEntries.find((x) => x.id === entryId);
     if (!e || e.columnId === columnId) return;
     e.columnId = columnId;
+    /** @type {{ columnId: string; completed?: boolean }} */
+    const patch = { columnId };
+    const doneCol = findDoneColumn();
+    if (doneCol) {
+      const doneNow = columnId === doneCol.id;
+      if (e.completed !== doneNow) {
+        e.completed = doneNow;
+        patch.completed = doneNow;
+      }
+    }
     if (isTeamMode()) {
-      syncTeamTask(entryId, { columnId });
+      syncTeamTask(entryId, patch);
       renderPlanner();
       return;
     }
@@ -845,8 +863,18 @@
     const e = plannerEntries.find((x) => x.id === entryId);
     if (!e) return;
     e.completed = !e.completed;
+    /** @type {{ completed: boolean; columnId?: string }} */
+    const patch = { completed: e.completed };
+    const doneCol = findDoneColumn();
+    let target = null;
+    if (e.completed) target = doneCol;
+    else if (doneCol && e.columnId === doneCol.id) target = findPlannedColumn();
+    if (target && e.columnId !== target.id) {
+      e.columnId = target.id;
+      patch.columnId = target.id;
+    }
     if (isTeamMode()) {
-      syncTeamTask(entryId, { completed: e.completed });
+      syncTeamTask(entryId, patch);
       renderPlannerSidebar();
       renderPlanner();
       return;
@@ -1360,7 +1388,7 @@
     addEntryBtn.textContent = "+ Add card";
     addEntryBtn.addEventListener("click", () => addPlannerEntry(col.id));
 
-    colEl.append(head, cardsWrap, addEntryBtn);
+    colEl.append(head, addEntryBtn, cardsWrap);
     return colEl;
   }
 

@@ -360,7 +360,7 @@
       if (count === 1) {
         routeHintEl.textContent = t(
           "Tap a second stop to open Google Maps.",
-          "再点一个站点，就会打开 Google Maps。"
+          "再点一个停靠点，就会打开 Google Maps。"
         );
       } else if (pair?.selected) {
         routeHintEl.textContent = t(
@@ -370,12 +370,12 @@
       } else if (stops.length >= 2) {
         routeHintEl.textContent = t(
           "Open Maps for stop 1 → 2, or tap two stops to choose.",
-          "可打开 站点1 → 2 的路线，或点选两个站点自定义。"
+          "可打开停靠点 1 → 2 的路线，或点选两个停靠点自定义。"
         );
       } else {
         routeHintEl.textContent = t(
           "Add two stops, then open transit directions.",
-          "添加两个站点后，可查看公交路线。"
+          "添加两个停靠点后，可打开公交路线。"
         );
       }
     }

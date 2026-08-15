@@ -23,8 +23,10 @@
   /** @type {Date} Monday of the visible week (local noon). */
   let weekStart = new Date();
 
-  const HOUR_START = 9;
-  const HOUR_END = 18;
+  /** Comfortable default window; the grid widens when reminders fall outside it. */
+  const HOUR_BASE_START = 8;
+  const HOUR_BASE_END = 20;
+  const DAYS_IN_WEEK = 7;
 
   const sidebarEl = document.getElementById("sidebar");
   const sidebarTrigger = document.getElementById("sidebar-trigger");
@@ -105,8 +107,7 @@
   }
 
   function weekDays() {
-    // Work week Mon–Fri to match the reference board.
-    return Array.from({ length: 5 }, (_, i) => {
+    return Array.from({ length: DAYS_IN_WEEK }, (_, i) => {
       const d = new Date(weekStart);
       d.setDate(weekStart.getDate() + i);
       return d;
@@ -115,8 +116,32 @@
 
   function weekEndIso() {
     const end = new Date(weekStart);
-    end.setDate(weekStart.getDate() + 4);
+    end.setDate(weekStart.getDate() + (DAYS_IN_WEEK - 1));
     return dateToIso(end);
+  }
+
+  function isWeekend(date) {
+    return mondayIndex(date) >= 5;
+  }
+
+  /**
+   * Hour window wide enough to show every timed reminder in the visible week,
+   * so an early-morning or late-night reminder is never silently dropped.
+   * @param {string} startIso
+   * @param {string} endIso
+   */
+  function weekHourWindow(startIso, endIso) {
+    let start = HOUR_BASE_START;
+    let end = HOUR_BASE_END;
+    reminders.forEach((reminder) => {
+      if (!reminder || !reminder.startTime) return;
+      if (!isoInRange(reminder.date, startIso, endIso)) return;
+      const startMin = minutesFromMidnight(reminder.startTime);
+      if (Number.isFinite(startMin)) start = Math.min(start, Math.floor(startMin / 60));
+      const endMin = reminder.endTime ? minutesFromMidnight(reminder.endTime) : startMin + 60;
+      if (Number.isFinite(endMin)) end = Math.max(end, Math.ceil(endMin / 60));
+    });
+    return { start: Math.max(0, start), end: Math.min(24, Math.max(end, start + 1)) };
   }
 
   function isoInRange(iso, startIso, endIso) {
@@ -540,6 +565,7 @@
       if (iso === today) btn.classList.add("is-today");
       if (iso === selectedDate) btn.classList.add("is-selected");
       const wd = day.toLocaleDateString(uiLocale(), { weekday: "short" });
+      if (isWeekend(day)) btn.dataset.weekend = "true";
       btn.innerHTML =
         `<span class="cal-week-day-wd">${wd}</span>` +
         `<span class="cal-week-day-num">${day.getDate()}</span>`;
@@ -547,10 +573,12 @@
       weekHeadEl.appendChild(btn);
     });
 
-    const hourCount = HOUR_END - HOUR_START;
+    const { start: hourStart, end: hourEnd } = weekHourWindow(startIso, endIso);
+    const hourCount = hourEnd - hourStart;
+    weekHeadEl.style.setProperty("--cal-day-count", String(days.length));
     weekHoursEl.style.setProperty("--cal-hour-count", String(hourCount));
     weekHoursEl.innerHTML = "";
-    for (let h = HOUR_START; h < HOUR_END; h += 1) {
+    for (let h = hourStart; h < hourEnd; h += 1) {
       const label = document.createElement("div");
       label.className = "cal-hour-label";
       const ampm = h >= 12 ? "pm" : "am";
@@ -560,15 +588,17 @@
     }
 
     weekColsEl.style.setProperty("--cal-hour-count", String(hourCount));
+    weekColsEl.style.setProperty("--cal-day-count", String(days.length));
     weekColsEl.innerHTML = "";
-    const rangeStart = HOUR_START * 60;
-    const rangeEnd = HOUR_END * 60;
+    const rangeStart = hourStart * 60;
+    const rangeEnd = hourEnd * 60;
     const rangeSpan = rangeEnd - rangeStart;
 
     days.forEach((day, dayIndex) => {
       const iso = dateToIso(day);
       const col = document.createElement("div");
       col.className = "cal-col" + (iso === selectedDate ? " is-selected" : "");
+      if (isWeekend(day)) col.dataset.weekend = "true";
       col.addEventListener("click", (event) => {
         if (event.target !== col) return;
         selectDate(iso);

@@ -114,6 +114,48 @@ test("applies Todo, Tally, Calendar, Planner actions; rejects local Teamwork dra
   assert.equal(events.at(-1).type, "daily-space-agent-data-updated");
 });
 
+test("planner completion and the Done column stay in sync both ways", () => {
+  const { api } = createAgentData();
+  api.applyActions([
+    { type: "planner_add_column", title: "Planned" },
+    { type: "planner_add_column", title: "Done" },
+    { type: "planner_add_card", title: "Ship review", columnTitle: "Planned" },
+  ]);
+  const card = () => Object.values(api.getSnapshot().planner.boards)[0].entries[0];
+  const board = Object.values(api.getSnapshot().planner.boards)[0];
+  const planned = board.columns.find((column) => column.title === "Planned");
+  const done = board.columns.find((column) => column.title === "Done");
+  assert.ok(planned);
+  assert.ok(done);
+  assert.equal(card().columnId, planned.id);
+
+  // Completing pulls the card into Done.
+  assert.equal(api.applyActions([{ type: "planner_complete_card", matchText: "Ship review" }])[0].ok, true);
+  assert.equal(card().completed, true);
+  assert.equal(card().columnId, done.id);
+
+  // Uncompleting sends it back out of Done.
+  assert.equal(api.applyActions([{ type: "planner_uncomplete_card", matchText: "Ship review" }])[0].ok, true);
+  assert.equal(card().completed, false);
+  assert.equal(card().columnId, planned.id);
+
+  // Moving into Done checks the card off.
+  assert.equal(
+    api.applyActions([{ type: "planner_move_card", matchText: "Ship review", columnTitle: "Done" }])[0].ok,
+    true
+  );
+  assert.equal(card().completed, true);
+  assert.equal(card().columnId, done.id);
+
+  // Moving back out clears completion again.
+  assert.equal(
+    api.applyActions([{ type: "planner_move_card", matchText: "Ship review", columnTitle: "Planned" }])[0].ok,
+    true
+  );
+  assert.equal(card().completed, false);
+  assert.equal(card().columnId, planned.id);
+});
+
 test("normalizes flexible clock times and keeps dueTime on todos", () => {
   const { normalizeGlobalResult } = require("../server/global-agent");
   const result = normalizeGlobalResult(

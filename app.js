@@ -1561,7 +1561,11 @@
     const hasCompletedScoped = inScope.some((t) => t.completed);
     clearBtn.hidden = !hasCompletedScoped;
 
-    const showEmpty = visible.length === 0;
+    // With zero tasks the Daily Loop strip above already explains how to add the
+    // first one, so don't repeat the same guidance under the list.
+    const loopCoversEmpty =
+      document.body.classList.contains("todo-agent-page") && todos.length === 0;
+    const showEmpty = visible.length === 0 && !loopCoversEmpty;
     emptyEl.classList.toggle("is-visible", showEmpty);
     if (showEmpty) {
       if (viewDueDateFilter && selectedCategoryKey !== "__all__") {
