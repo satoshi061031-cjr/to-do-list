@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 const crypto = require("node:crypto");
-const { normalizeGlobalResult } = require("../server/global-agent");
+const { callModel, normalizeGlobalResult } = require("../server/global-agent");
 
 function createAgentData() {
   const values = new Map();
@@ -77,6 +77,38 @@ test("normalizes allowed cross-domain actions and rejects invalid financial data
   assert.equal(result.actions[0].type, "tally_add_expense");
   assert.equal(result.actions[0].amount, 30);
   assert.equal(result.actions[1].category, "Coffee");
+});
+
+test("times out stalled model requests instead of leaving the Agent pending", async () => {
+  const originalFetch = global.fetch;
+  global.fetch = (_url, options) =>
+    new Promise((_resolve, reject) => {
+      const keepAlive = setTimeout(() => {}, 1_000);
+      options.signal.addEventListener(
+        "abort",
+        () => {
+          clearTimeout(keepAlive);
+          reject(options.signal.reason);
+        },
+        { once: true }
+      );
+    });
+
+  try {
+    await assert.rejects(
+      callModel({
+        apiKey: "test-key",
+        baseUrl: "https://example.invalid",
+        model: "test-model",
+        system: "system",
+        user: "user",
+        timeoutMs: 10,
+      }),
+      (error) => error instanceof Error && error.statusCode === 504
+    );
+  } finally {
+    global.fetch = originalFetch;
+  }
 });
 
 test("applies Todo, Tally, Calendar, Planner actions; rejects local Teamwork drafts", () => {

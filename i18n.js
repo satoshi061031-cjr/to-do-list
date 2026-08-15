@@ -421,6 +421,7 @@
     "I can help with today’s tasks. Try: “Add buy milk today” or “Remind me tomorrow at 9:00.”":
       "我可以帮你处理今天的待办。试试：“今天买牛奶”或“明天 9 点提醒我”。",
     "Working…": "处理中…",
+    "Agent request timed out. Please try again.": "助手响应超时，请重试。",
     "Cancelled. No changes were applied.": "已取消，没有应用任何更改。",
     "Every active task has a due date.": "所有进行中的任务都已设置日期。",
     "Add columns, then add cards below each title.": "先添加分栏，再在每个标题下添加卡片。",

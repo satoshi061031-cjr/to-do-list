@@ -2,6 +2,7 @@ const DEFAULT_BASE_URL = "https://api.groq.com/openai/v1";
 const DEFAULT_MODEL = "llama-3.3-70b-versatile";
 const MAX_MESSAGE_CHARS = 2000;
 const MAX_ACTIONS = 16;
+const DEFAULT_MODEL_TIMEOUT_MS = 20_000;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_24H = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -312,7 +313,16 @@ function extractJsonObject(value) {
   }
 }
 
-async function callModel({ apiKey, baseUrl, model, system, user }) {
+async function callModel({
+  apiKey,
+  baseUrl,
+  model,
+  system,
+  user,
+  timeoutMs = DEFAULT_MODEL_TIMEOUT_MS,
+}) {
+  const signal = AbortSignal.timeout(timeoutMs);
+
   async function request(jsonMode) {
     const body = {
       model,
@@ -330,24 +340,35 @@ async function callModel({ apiKey, baseUrl, model, system, user }) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
+      signal,
     });
   }
-  let response = await request(true);
-  if (!response.ok && response.status === 400) response = await request(false);
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const detail = data?.error?.message || data?.error || `LLM request failed (${response.status}).`;
-    const error = new Error(typeof detail === "string" ? detail : "LLM request failed.");
-    error.statusCode = 502;
+
+  try {
+    let response = await request(true);
+    if (!response.ok && response.status === 400) response = await request(false);
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const detail = data?.error?.message || data?.error || `LLM request failed (${response.status}).`;
+      const error = new Error(typeof detail === "string" ? detail : "LLM request failed.");
+      error.statusCode = 502;
+      throw error;
+    }
+    const content = data?.choices?.[0]?.message?.content;
+    if (!content) {
+      const error = new Error("The model returned an empty response.");
+      error.statusCode = 502;
+      throw error;
+    }
+    return content;
+  } catch (error) {
+    if (signal.aborted || error?.name === "TimeoutError") {
+      const timeoutError = new Error("Agent model request timed out.");
+      timeoutError.statusCode = 504;
+      throw timeoutError;
+    }
     throw error;
   }
-  const content = data?.choices?.[0]?.message?.content;
-  if (!content) {
-    const error = new Error("The model returned an empty response.");
-    error.statusCode = 502;
-    throw error;
-  }
-  return content;
 }
 
 async function runGlobalAgent({ message, context, today, currentPage }) {
@@ -387,6 +408,7 @@ async function runGlobalAgent({ message, context, today, currentPage }) {
 
 module.exports = {
   ACTION_TYPES,
+  callModel,
   normalizeGlobalResult,
   runGlobalAgent,
 };

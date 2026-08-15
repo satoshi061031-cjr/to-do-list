@@ -1,5 +1,6 @@
 (function () {
   const api = window.DailySpaceAgentData;
+  const AGENT_REQUEST_TIMEOUT_MS = 22_000;
   if (!api || typeof api.getSnapshot !== "function" || typeof api.applyActions !== "function") return;
 
   function currentPage() {
@@ -297,6 +298,10 @@
     input.value = "";
     appendMessage("assistant", "Working…");
     const thinking = messagesEl.lastElementChild;
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(function () {
+      controller.abort();
+    }, AGENT_REQUEST_TIMEOUT_MS);
 
     try {
       const context = api.getSnapshot();
@@ -309,6 +314,7 @@
           today: api.todayIso(),
           currentPage: currentPage(),
         }),
+        signal: controller.signal,
       });
       const data = await response.json().catch(function () {
         return {};
@@ -333,6 +339,9 @@
       if (thinking) thinking.textContent = summary;
       else appendMessage("assistant", summary);
     } catch (error) {
+      const requestError = controller.signal.aborted
+        ? new Error("Agent request timed out. Please try again.")
+        : error;
       // Network/LLM failure → fall back to local Todo capture so the hub never dead-ends.
       const today = typeof api.todayIso === "function" ? api.todayIso() : new Date().toISOString().slice(0, 10);
       const parsed = localTodoActions(message, today);
@@ -342,17 +351,18 @@
         const text =
           ok > 0
             ? `Agent unreachable — applied offline.\n${parsed.reply}`
-            : error instanceof Error
-              ? error.message
+            : requestError instanceof Error
+              ? requestError.message
               : "Agent request failed.";
         if (thinking) thinking.textContent = text;
         else appendMessage("assistant", text);
       } else {
-        const text = error instanceof Error ? error.message : "Agent request failed.";
+        const text = requestError instanceof Error ? requestError.message : "Agent request failed.";
         if (thinking) thinking.textContent = text;
         else appendMessage("assistant", text);
       }
     } finally {
+      window.clearTimeout(timeoutId);
       busy = false;
       applyConfiguredUi();
       input.focus();
