@@ -53,27 +53,55 @@
             <button type="button" class="tally-icon-btn" id="tally-settings-toggle" aria-expanded="false" aria-controls="tally-settings" aria-label="Budget settings">⚙</button>
           </header>
 
+          <div class="tally-view-switch" id="tally-view-switch" aria-label="Ledger view">
+            <button type="button" class="is-active" data-tally-view="personal" aria-pressed="true">Personal</button>
+            <button type="button" data-tally-view="shared" aria-pressed="false">Shared expenses</button>
+          </div>
+
           <section class="tally-settings" id="tally-settings" hidden>
             <label class="tally-budget-row" for="tally-budget">
               <span>Monthly budget</span>
               <input type="number" min="0" step="1" id="tally-budget" class="tally-budget-input" />
             </label>
             <label class="tally-budget-row" for="tally-currency">
-              <span>Currency symbol</span>
-              <input type="text" id="tally-currency" class="tally-currency-input" list="tally-currency-options" maxlength="8" placeholder="¥" />
+              <span>Base currency</span>
+              <input type="text" id="tally-currency" class="tally-currency-input" list="tally-currency-options" maxlength="8" placeholder="JPY" />
             </label>
             <datalist id="tally-currency-options">
-              <option value="¥"></option>
-              <option value="$"></option>
-              <option value="€"></option>
-              <option value="£"></option>
-              <option value="₩"></option>
-              <option value="₹"></option>
-              <option value="HK$"></option>
-              <option value="S$"></option>
+              <option value="JPY"></option>
+              <option value="CNY"></option>
+              <option value="USD"></option>
+              <option value="EUR"></option>
+              <option value="GBP"></option>
+              <option value="KRW"></option>
+              <option value="HKD"></option>
+              <option value="SGD"></option>
             </datalist>
             <div class="tally-progress"><span id="tally-progress-bar"></span></div>
             <p class="tally-card-note" id="tally-budget-note"></p>
+            <div class="tally-people-settings">
+              <div>
+                <strong>People</strong>
+                <p class="tally-card-note">Add everyone who can pay or share an expense.</p>
+              </div>
+              <div class="tally-people-list" id="tally-people-list"></div>
+              <div class="tally-person-add">
+                <input type="text" id="tally-person-name" maxlength="60" placeholder="Person name" />
+                <button type="button" class="btn" id="tally-person-add">Add person</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="tally-settlement" id="tally-settlement" hidden aria-label="Shared balances">
+            <div class="tally-settlement-head">
+              <div>
+                <p class="tally-overview-label">Shared balance</p>
+                <h2>Who owes whom</h2>
+              </div>
+              <span id="tally-shared-total"></span>
+            </div>
+            <div class="tally-balance-list" id="tally-balance-list"></div>
+            <div class="tally-settlement-list" id="tally-settlement-list"></div>
           </section>
 
           <section class="tally-overview-card" aria-label="Expense summary">
@@ -119,6 +147,31 @@
               <form class="tally-form" id="tally-form" autocomplete="off">
                 <label>Date<input type="date" id="tally-date" required /></label>
                 <label>Amount<input type="number" min="0" step="0.01" id="tally-amount" placeholder="0.00" required /></label>
+                <label>
+                  Expense type
+                  <select id="tally-scope">
+                    <option value="personal">Personal</option>
+                    <option value="shared">Shared expenses</option>
+                  </select>
+                </label>
+                <label>
+                  Currency
+                  <select id="tally-record-currency">
+                    <option value="JPY">JPY</option>
+                    <option value="CNY">CNY</option>
+                    <option value="USD">USD</option>
+                    <option value="EUR">EUR</option>
+                    <option value="GBP">GBP</option>
+                    <option value="KRW">KRW</option>
+                    <option value="HKD">HKD</option>
+                    <option value="SGD">SGD</option>
+                  </select>
+                </label>
+                <label class="tally-fx-field" id="tally-fx-field" hidden>
+                  Rate to base currency
+                  <input type="number" min="0.000001" step="any" id="tally-fx-rate" value="1" />
+                  <span class="tally-field-help" id="tally-fx-help"></span>
+                </label>
                 <label class="tally-category-field">
                   Category
                   <input type="text" id="tally-category" list="tally-category-options" placeholder="Coffee, groceries..." maxlength="40" required autocomplete="off" />
@@ -126,6 +179,16 @@
                   <div class="tally-category-suggestions" id="tally-category-suggestions" hidden></div>
                 </label>
                 <label>Note<input type="text" id="tally-note" placeholder="Optional note" maxlength="120" /></label>
+                <div class="tally-shared-fields" id="tally-shared-fields" hidden>
+                  <label>
+                    Paid by
+                    <select id="tally-paid-by"></select>
+                  </label>
+                  <fieldset>
+                    <legend>Split among</legend>
+                    <div class="tally-split-people" id="tally-split-people"></div>
+                  </fieldset>
+                </div>
                 <button type="submit" class="tally-submit-btn" id="tally-submit">Add transaction</button>
               </form>
             </section>
@@ -139,6 +202,7 @@
       <span class="theme-toggle-label">Dark</span>
     </button>
 
+    <script src="tally-core.js"></script>
     <script src="tally.js"></script>
     <script src="agent-data.js"></script>
     <script src="agent-ui.js"></script>

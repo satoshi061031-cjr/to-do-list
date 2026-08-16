@@ -197,7 +197,20 @@
     if (!Array.isArray(state.records)) state.records = [];
     if (!(Number(state.budget) > 0)) state.budget = 1000;
     state.currency = clean(state.currency, 8) || "¥";
-    state.version = 1;
+    const symbolCodes = { "¥": "JPY", "$": "USD", "€": "EUR", "£": "GBP", "₩": "KRW", "₹": "INR", "HK$": "HKD", "S$": "SGD" };
+    state.baseCurrency = /^[A-Z]{3}$/.test(clean(state.baseCurrency, 3).toUpperCase())
+      ? clean(state.baseCurrency, 3).toUpperCase()
+      : symbolCodes[state.currency] || (/^[A-Z]{3}$/.test(state.currency.toUpperCase()) ? state.currency.toUpperCase() : "JPY");
+    if (!Array.isArray(state.people) || !state.people.length) {
+      state.people = [{ id: "tally-self", name: "Me", isSelf: true }];
+    }
+    const self = state.people.find((person) => person?.id === state.selfPersonId)
+      || state.people.find((person) => person?.isSelf)
+      || state.people[0];
+    state.selfPersonId = self.id;
+    state.people = state.people.map((person) => ({ ...person, isSelf: person.id === self.id }));
+    if (!Array.isArray(state.settlements)) state.settlements = [];
+    state.version = 2;
     return state;
   }
 
@@ -273,12 +286,26 @@
       tally: {
         budget: Number(tally.budget),
         currency: tally.currency,
+        baseCurrency: tally.baseCurrency,
+        selfPersonId: tally.selfPersonId,
+        people: tally.people.slice(0, 24).map((person) => ({
+          id: person.id,
+          name: clean(person.name, 60),
+          isSelf: Boolean(person.isSelf),
+        })),
         records: tally.records.slice(0, 160).map((record) => ({
           id: record.id,
           date: record.date,
           amount: Number(record.amount),
+          currency: clean(record.currency, 3) || tally.baseCurrency,
+          fxRate: Number(record.fxRate) > 0 ? Number(record.fxRate) : 1,
           category: clean(record.category, 40),
           note: clean(record.note, 120),
+          scope: record.scope === "shared" ? "shared" : "personal",
+          paidById: record.paidById || tally.selfPersonId,
+          splitAmongIds: Array.isArray(record.splitAmongIds)
+            ? record.splitAmongIds.slice(0, 24)
+            : [tally.selfPersonId],
         })),
       },
       teamwork: {
@@ -344,6 +371,22 @@
       state.members.find((item) => name && clean(item.name, 80).toLowerCase() === name) ||
       null
     );
+  }
+
+  function ensureTallyPerson(state, name) {
+    const raw = clean(name, 60);
+    if (!raw) return null;
+    if (/^(me|myself|i|我|自己)$/i.test(raw)) {
+      return state.people.find((person) => person.id === state.selfPersonId) || state.people[0];
+    }
+    let person = state.people.find(
+      (item) => clean(item.name, 60).toLowerCase() === raw.toLowerCase()
+    );
+    if (!person) {
+      person = { id: uid(), name: raw, isSelf: false };
+      state.people.push(person);
+    }
+    return person;
   }
 
   function applyActions(actions) {
@@ -555,12 +598,29 @@
             if (!(amount > 0) || !category || !validDate(action.date)) {
               return failure(action, "Valid amount, category and date are required.");
             }
+            const shared = action.scope === "shared";
+            const payer = shared
+              ? ensureTallyPerson(tally, action.paidByName || "Me")
+              : ensureTallyPerson(tally, "Me");
+            const splitPeople = shared
+              ? (Array.isArray(action.splitAmongNames) ? action.splitAmongNames : ["Me"])
+                  .map((name) => ensureTallyPerson(tally, name))
+                  .filter(Boolean)
+              : [payer];
+            const currencyCode = /^[A-Z]{3}$/.test(clean(action.currency, 3).toUpperCase())
+              ? clean(action.currency, 3).toUpperCase()
+              : tally.baseCurrency;
             tally.records.unshift({
               id: uid(),
               date: action.date,
               amount,
+              currency: currencyCode,
+              fxRate: currencyCode === tally.baseCurrency ? 1 : Number(action.fxRate) > 0 ? Number(action.fxRate) : 1,
               category,
               note: clean(action.note, 120),
+              scope: shared ? "shared" : "personal",
+              paidById: payer.id,
+              splitAmongIds: [...new Set(splitPeople.map((person) => person.id))],
             });
             success(action, `${category} ${tallyAmount(tally, amount)}`);
             return;

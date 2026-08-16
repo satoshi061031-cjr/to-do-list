@@ -106,9 +106,13 @@
                 <p class="mail-kicker">Inbox</p>
                 <h2 id="mail-inbox-heading">Recent messages</h2>
               </div>
-              <button type="button" class="btn mail-refresh-btn" id="mail-refresh" aria-label="Refresh inbox">
-                Refresh
-              </button>
+              <div class="mail-section-actions">
+                <button type="button" class="btn" id="mail-import-pdf">Import booking PDF</button>
+                <input type="file" id="mail-import-pdf-input" accept="application/pdf,.pdf" hidden />
+                <button type="button" class="btn mail-refresh-btn" id="mail-refresh" aria-label="Refresh inbox">
+                  Refresh
+                </button>
+              </div>
             </div>
             <div class="mail-account-switcher" id="mail-account-switcher" role="tablist" aria-label="Mailboxes"></div>
             <p class="mail-digest" id="mail-digest" hidden></p>
@@ -186,6 +190,47 @@
               <p class="mail-note">Gmail and Outlook use OAuth to authorize this device.</p>
             </div>
           </details>
+
+          <div class="mail-booking-sheet" id="mail-booking-sheet" hidden>
+            <button
+              type="button"
+              class="mail-booking-backdrop"
+              id="mail-booking-backdrop"
+              aria-label="Close booking import"
+            ></button>
+            <section
+              class="mail-booking-panel"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="mail-booking-title"
+            >
+              <div class="mail-booking-head">
+                <div>
+                  <p class="mail-kicker">Travel import</p>
+                  <h2 id="mail-booking-title">Review booking</h2>
+                </div>
+                <button
+                  type="button"
+                  class="mail-booking-close"
+                  id="mail-booking-close"
+                  aria-label="Close booking import"
+                >×</button>
+              </div>
+              <p class="mail-booking-source" id="mail-booking-source"></p>
+              <div class="mail-booking-preview" id="mail-booking-preview"></div>
+              <label class="mail-booking-trip">
+                Add to trip
+                <select id="mail-booking-trip-select"></select>
+              </label>
+              <p class="mail-booking-status" id="mail-booking-status" aria-live="polite"></p>
+              <div class="mail-booking-actions">
+                <a class="btn" href="travel.html" id="mail-booking-open-travel">Open Travel</a>
+                <button type="button" class="btn btn-primary" id="mail-booking-confirm">
+                  Import booking
+                </button>
+              </div>
+            </section>
+          </div>
         </div>
       </main>
     </div>
@@ -196,6 +241,7 @@
     </button>
     <script src="agent-data.js"></script>
     <script src="agent-ui.js"></script>
+    <script src="travel-bookings.js"></script>
     <script src="mail.js"></script>
   </body>
 </html>

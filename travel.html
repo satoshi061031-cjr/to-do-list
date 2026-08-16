@@ -52,7 +52,14 @@
             <div class="travel-map" id="travel-map" role="application" aria-label="Trip map"></div>
 
             <div class="travel-overlay">
-              <div class="travel-search-bar">
+              <aside class="travel-search-bar" aria-label="Places">
+                <div class="travel-search-panel-head">
+                  <div>
+                    <p class="travel-kicker">Places</p>
+                    <h2>Add to itinerary</h2>
+                  </div>
+                  <span class="travel-search-day" id="travel-search-day"></span>
+                </div>
                 <form class="travel-search" id="travel-search-form" autocomplete="off">
                   <label class="travel-sr" for="travel-search-input">Search place</label>
                   <input
@@ -65,15 +72,18 @@
                 </form>
                 <p class="travel-map-hint" id="travel-map-hint">Search, or click the map to drop a stop.</p>
                 <ul class="travel-place-results" id="travel-map-results" hidden></ul>
-              </div>
+              </aside>
 
-              <aside class="travel-side" aria-label="Stops">
+              <aside class="travel-side" aria-label="Itinerary">
                 <div class="travel-side-chrome" id="travel-side-chrome">
                   <label class="travel-trip-select-wrap">
                     <span class="travel-sr">Trip</span>
                     <select id="travel-trip-select" aria-label="Select trip"></select>
                   </label>
-                  <button type="button" class="btn btn-primary travel-add-btn" id="travel-new-open">Add</button>
+                  <button type="button" class="btn btn-primary travel-add-btn" id="travel-new-open">
+                    <span class="travel-add-label-mobile">Add</span>
+                    <span class="travel-add-label-desktop">New trip</span>
+                  </button>
                 </div>
 
                 <div class="travel-side-head">
@@ -86,6 +96,7 @@
                 </div>
 
                 <div class="travel-days" id="travel-days" role="tablist" aria-label="Trip days"></div>
+                <div class="travel-desktop-days" id="travel-desktop-days" aria-label="Itinerary by day"></div>
 
                 <div class="travel-stops-head">
                   <h3 id="travel-stops-heading">Stops</h3>

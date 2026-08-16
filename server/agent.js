@@ -1,7 +1,8 @@
 const DEFAULT_OPENAI_BASE = "https://api.groq.com/openai/v1";
-const DEFAULT_MODEL = "llama-3.3-70b-versatile";
+const DEFAULT_MODEL = "openai/gpt-oss-120b";
 const MAX_MESSAGE_CHARS = 2000;
 const MAX_TODOS_IN_CONTEXT = 80;
+const MODEL_TIMEOUT_MS = 20_000;
 
 function getAgentConfig() {
   const apiKey = String(process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || "").trim();
@@ -135,6 +136,8 @@ function normalizeAgentResult(payload) {
 }
 
 async function callOpenAiChat({ apiKey, baseUrl, model, system, user }) {
+  const signal = AbortSignal.timeout(MODEL_TIMEOUT_MS);
+
   async function request(withJsonMode) {
     const body = {
       model,
@@ -152,29 +155,39 @@ async function callOpenAiChat({ apiKey, baseUrl, model, system, user }) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
+      signal,
     });
   }
 
-  let response = await request(true);
-  if (!response.ok && response.status === 400) {
-    response = await request(false);
-  }
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const detail =
-      (data && data.error && (data.error.message || data.error)) ||
-      `LLM request failed (${response.status}).`;
-    const error = new Error(typeof detail === "string" ? detail : "LLM request failed.");
-    error.statusCode = 502;
+  try {
+    let response = await request(true);
+    if (!response.ok && response.status === 400) {
+      response = await request(false);
+    }
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const detail =
+        (data && data.error && (data.error.message || data.error)) ||
+        `LLM request failed (${response.status}).`;
+      const error = new Error(typeof detail === "string" ? detail : "LLM request failed.");
+      error.statusCode = 502;
+      throw error;
+    }
+    const content = data?.choices?.[0]?.message?.content;
+    if (typeof content !== "string" || !content.trim()) {
+      const error = new Error("The model returned an empty response.");
+      error.statusCode = 502;
+      throw error;
+    }
+    return content;
+  } catch (error) {
+    if (signal.aborted || error?.name === "TimeoutError") {
+      const timeoutError = new Error("Agent model request timed out.");
+      timeoutError.statusCode = 504;
+      throw timeoutError;
+    }
     throw error;
   }
-  const content = data?.choices?.[0]?.message?.content;
-  if (typeof content !== "string" || !content.trim()) {
-    const error = new Error("The model returned an empty response.");
-    error.statusCode = 502;
-    throw error;
-  }
-  return content;
 }
 
 async function runTodoAgent({ message, todos, categories, today }) {

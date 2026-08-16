@@ -199,9 +199,10 @@
       for (const record of parsed.records) {
         if (!record || typeof record !== "object") continue;
         if (record.date !== today) continue;
+        if (record.scope === "shared") continue;
         const value = Number(record.amount);
         if (!Number.isFinite(value)) continue;
-        amount += value;
+        amount += value * (Number(record.fxRate) > 0 ? Number(record.fxRate) : 1);
         count += 1;
       }
       return { amount, currency, count };

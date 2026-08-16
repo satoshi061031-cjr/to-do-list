@@ -1,5 +1,5 @@
 const DEFAULT_BASE_URL = "https://api.groq.com/openai/v1";
-const DEFAULT_MODEL = "llama-3.3-70b-versatile";
+const DEFAULT_MODEL = "openai/gpt-oss-120b";
 const MAX_MESSAGE_CHARS = 2000;
 const MAX_ACTIONS = 16;
 const DEFAULT_MODEL_TIMEOUT_MS = 20_000;
@@ -72,12 +72,14 @@ function buildSystemPrompt(today) {
     'calendar_add_reminder {text,date,startTime|null,endTime|null,priority}',
     'calendar_update_reminder {reminderId|null,matchText|null,text?,date?,startTime?,endTime?,priority?}',
     'calendar_delete_reminder {reminderId|null,matchText|null,date|null}',
-    'tally_add_expense {amount,category,date,note|null}',
+    'tally_add_expense {amount,category,date,note|null,scope:"personal"|"shared"|null,currency|null,fxRate|null,paidByName|null,splitAmongNames:null|string[]}',
     'tally_update_expense {recordId|null,matchText|null,amount?,category?,date?,note?}',
     'tally_delete_expense {recordId|null,matchText|null,date|null,amount|null}',
     'tally_set_budget {budget}',
     "Dates must be YYYY-MM-DD, times HH:MM (24-hour), expense amounts and budgets positive.",
     "For a spending statement such as 'lunch 30 yuan', use tally_add_expense, not todo_add.",
+    "For a shared expense, set scope to shared. Include the payer and every participant in splitAmongNames; when the user says 'split with Alex', include both Me and Alex.",
+    "For foreign-currency expenses, use a 3-letter ISO currency code. Only provide fxRate when the user explicitly gave the rate.",
     "For an appointment, alarm, or timed reminder, use calendar_add_reminder and always include startTime when a clock time was given.",
     "For a general personal task, use todo_add with dueDate when the user mentions today/明天/etc., and dueTime when they name a clock time.",
     "Do not emit Teamwork local-draft actions; Teamwork uses cloud workspaces in the Teamwork page.",
@@ -221,6 +223,15 @@ function normalizeAction(raw) {
       action.category = text(raw.category, 40);
       action.date = optionalDate(raw.date);
       action.note = text(raw.note, 120) || "";
+      action.scope = raw.scope === "shared" ? "shared" : "personal";
+      action.currency = /^[A-Z]{3}$/.test(String(raw.currency || "").trim().toUpperCase())
+        ? String(raw.currency).trim().toUpperCase()
+        : null;
+      action.fxRate = optionalNumber(raw.fxRate);
+      action.paidByName = text(raw.paidByName, 60);
+      action.splitAmongNames = Array.isArray(raw.splitAmongNames)
+        ? raw.splitAmongNames.map((name) => text(name, 60)).filter(Boolean).slice(0, 24)
+        : null;
       if (!(action.amount > 0) || !action.category || !action.date) return null;
     } else if (type === "tally_set_budget") {
       action.budget = optionalNumber(raw.budget);

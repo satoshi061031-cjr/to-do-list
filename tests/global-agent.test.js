@@ -247,3 +247,29 @@ test("preserves a custom Tally currency in snapshots and Agent results", () => {
   assert.equal(api.getSnapshot().tally.currency, "USD");
   assert.match(applied[0].label, /USD 12\.50/);
 });
+
+test("creates people and split metadata for shared Tally expenses", () => {
+  const { api } = createAgentData();
+  const applied = api.applyActions([
+    {
+      type: "tally_add_expense",
+      amount: 90,
+      category: "Dinner",
+      date: "2026-08-15",
+      scope: "shared",
+      currency: "USD",
+      fxRate: 7.2,
+      paidByName: "Me",
+      splitAmongNames: ["Me", "Alex", "Sam"],
+    },
+  ]);
+  const tally = api.getSnapshot().tally;
+  assert.equal(applied[0].ok, true);
+  assert.deepEqual(
+    tally.people.map((person) => person.name),
+    ["Me", "Alex", "Sam"]
+  );
+  assert.equal(tally.records[0].scope, "shared");
+  assert.equal(tally.records[0].splitAmongIds.length, 3);
+  assert.equal(tally.records[0].currency, "USD");
+});

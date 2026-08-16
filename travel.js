@@ -4,6 +4,7 @@
 
   /**
    * @typedef {{ id: string; day: number; title: string; note: string; lat: number; lng: number }} Stop
+   * @typedef {{ id: string; sourceId: string; kind: "flight"|"hotel"|"restaurant"; day: number; title: string; provider: string|null; startDate: string|null; endDate: string|null; startTime: string|null; endTime: string|null; location: string|null; origin: string|null; destination: string|null; confirmationCode: string|null; details: string|null }} Reservation
    * @typedef {{
    *   id: string;
    *   name: string;
@@ -14,6 +15,7 @@
    *   lng: number;
    *   zoom: number;
    *   stops: Stop[];
+   *   reservations: Reservation[];
    * }} Trip
    */
 
@@ -57,6 +59,7 @@
   const sideTitle = document.getElementById("travel-side-title");
   const sideMeta = document.getElementById("travel-side-meta");
   const daysEl = document.getElementById("travel-days");
+  const desktopDaysEl = document.getElementById("travel-desktop-days");
   const stopListEl = document.getElementById("travel-stop-list");
   const stopsEmptyEl = document.getElementById("travel-stops-empty");
   const stopsCountEl = document.getElementById("travel-stops-count");
@@ -65,6 +68,7 @@
   const routeOpenBtn = document.getElementById("travel-route-open");
   const searchForm = document.getElementById("travel-search-form");
   const searchInput = document.getElementById("travel-search-input");
+  const searchDayEl = document.getElementById("travel-search-day");
   const mapHint = document.getElementById("travel-map-hint");
   const mapResultsEl = document.getElementById("travel-map-results");
   const mapEl = document.getElementById("travel-map");
@@ -136,6 +140,33 @@
     return trips.find((trip) => trip.id === activeTripId) || null;
   }
 
+  function normalizeReservation(reservation) {
+    if (!reservation || typeof reservation !== "object") return null;
+    const kind = String(reservation.kind || "").toLowerCase();
+    const title = String(reservation.title || "").trim().slice(0, 100);
+    if (!["flight", "hotel", "restaurant"].includes(kind) || !title) return null;
+    const nullableText = (value, max) =>
+      typeof value === "string" && value.trim() ? value.trim().slice(0, max) : null;
+    return {
+      id: typeof reservation.id === "string" ? reservation.id : id(),
+      sourceId: nullableText(reservation.sourceId, 260) || "",
+      kind,
+      day: Math.max(1, Number(reservation.day) || 1),
+      title,
+      provider: nullableText(reservation.provider, 80),
+      startDate: nullableText(reservation.startDate, 10),
+      endDate: nullableText(reservation.endDate, 10),
+      startTime: nullableText(reservation.startTime, 5),
+      endTime: nullableText(reservation.endTime, 5),
+      location: nullableText(reservation.location, 180),
+      origin: nullableText(reservation.origin, 120),
+      destination: nullableText(reservation.destination, 120),
+      confirmationCode: nullableText(reservation.confirmationCode, 60),
+      details: nullableText(reservation.details, 500),
+      importedAt: nullableText(reservation.importedAt, 40),
+    };
+  }
+
   function normalizeTrip(trip) {
     return {
       id: trip.id,
@@ -164,6 +195,9 @@
               lng: Number(stop.lng),
             }))
         : [],
+      reservations: Array.isArray(trip.reservations)
+        ? trip.reservations.map(normalizeReservation).filter(Boolean).slice(0, 80)
+        : [],
     };
   }
 
@@ -186,7 +220,7 @@
   }
 
   function saveState() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 4, trips, activeTripId }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 5, trips, activeTripId }));
   }
 
   function setSheetOpen(open) {
@@ -440,42 +474,62 @@
       routeLine = null;
     }
 
+    const desktop = window.innerWidth >= 820;
     const ordered = trip.stops
-      .filter((stop) => stop.day === activeDay)
+      .filter((stop) => desktop || stop.day === activeDay)
       .slice()
       .sort((a, b) => trip.stops.indexOf(a) - trip.stops.indexOf(b));
 
     const fill = tokenColor("--tertiary", "#e5c235");
+    const quietFill = tokenColor("--secondary", "#4f6368");
     const ink = tokenColor("--on-tertiary", "#1a1814");
     const edge = tokenColor("--primary", "#35322e");
     const latLngs = [];
+    const activeLatLngs = [];
 
-    ordered.forEach((stop, index) => {
+    ordered.forEach((stop) => {
+      const dayIndex = trip.stops.filter((item) => item.day === stop.day).indexOf(stop);
       const routeIndex = routeStopIds.indexOf(stop.id);
       const selected = routeIndex >= 0 || stop.id === activeStopId;
       const marker = window.L.circleMarker([stop.lat, stop.lng], {
         radius: selected ? 10 : 8,
         color: routeIndex >= 0 ? ink : edge,
         weight: routeIndex >= 0 ? 3 : 2,
-        fillColor: fill,
-        fillOpacity: 0.95,
+        fillColor: stop.day === activeDay ? fill : quietFill,
+        fillOpacity: stop.day === activeDay ? 0.95 : 0.72,
       });
       const routeLabel =
         routeIndex === 0 ? "A · " : routeIndex === 1 ? "B · " : "";
-      marker.bindTooltip(`${routeLabel}${index + 1}. ${stop.title}`, { direction: "top" });
+      marker.bindTooltip(
+        `${routeLabel}${desktop ? `Day ${stop.day} · ` : ""}${dayIndex + 1}. ${stop.title}`,
+        { direction: "top" }
+      );
       marker.on("click", (event) => {
         if (event.originalEvent) event.originalEvent.stopPropagation();
+        if (desktop && stop.day !== activeDay) {
+          activeDay = stop.day;
+          activeStopId = null;
+          routeStopIds = [];
+        }
         selectStopForRoute(stop.id, { pan: true, openMaps: true });
       });
       marker.addTo(markerLayer);
       latLngs.push([stop.lat, stop.lng]);
+      if (stop.day === activeDay) activeLatLngs.push([stop.lat, stop.lng]);
     });
 
-    if (latLngs.length > 1) {
+    if (activeLatLngs.length > 1) {
       routeLine = window.L
-        .polyline(latLngs, { color: fill, weight: 3, opacity: 0.75 })
+        .polyline(activeLatLngs, { color: fill, weight: 3, opacity: 0.75 })
         .addTo(map);
-      map.fitBounds(latLngs, { padding: [36, 36], maxZoom: 14 });
+    }
+
+    if (latLngs.length > 1) {
+      map.fitBounds(latLngs, {
+        paddingTopLeft: desktop ? [Math.min(420, window.innerWidth * 0.28), 72] : [36, 36],
+        paddingBottomRight: desktop ? [Math.min(380, window.innerWidth * 0.25), 72] : [36, 36],
+        maxZoom: 14,
+      });
     } else if (latLngs.length === 1) {
       map.setView(latLngs[0], Math.max(trip.zoom || 12, 13));
     }
@@ -549,6 +603,14 @@
     renderWorkspace();
   }
 
+  function removeReservation(reservationId) {
+    const trip = activeTrip();
+    if (!trip) return;
+    trip.reservations = trip.reservations.filter((reservation) => reservation.id !== reservationId);
+    saveState();
+    renderWorkspace();
+  }
+
   function renderTripSelect() {
     if (!tripSelect) return;
     tripSelect.innerHTML = "";
@@ -597,6 +659,127 @@
     }
   }
 
+  function renderDesktopDays(trip) {
+    if (!desktopDaysEl) return;
+    const total = dayCount(trip.startDate, trip.endDate);
+    desktopDaysEl.innerHTML = "";
+
+    for (let day = 1; day <= total; day += 1) {
+      const date = addDays(parseIso(trip.startDate), day - 1);
+      const stops = trip.stops.filter((stop) => stop.day === day);
+      const reservations = trip.reservations.filter((reservation) => reservation.day === day);
+      const section = document.createElement("section");
+      section.className = "travel-desktop-day" + (day === activeDay ? " is-active" : "");
+
+      const head = document.createElement("button");
+      head.type = "button";
+      head.className = "travel-desktop-day-head";
+      head.setAttribute("aria-pressed", String(day === activeDay));
+      head.innerHTML = `
+        <span class="travel-desktop-day-number">${t(`Day ${day}`, `第 ${day} 天`)}</span>
+        <span class="travel-desktop-day-date">${escapeHtml(
+          date.toLocaleDateString(uiLocale(), { month: "short", day: "numeric", weekday: "short" })
+        )}</span>
+        <span class="travel-desktop-day-count">${stops.length + reservations.length}</span>
+      `;
+      head.addEventListener("click", () => {
+        activeDay = day;
+        activeStopId = null;
+        routeStopIds = [];
+        clearPlaceResults();
+        renderWorkspace();
+      });
+      section.appendChild(head);
+
+      if (reservations.length) {
+        const bookingList = document.createElement("ul");
+        bookingList.className = "travel-booking-list";
+        reservations.forEach((reservation) => {
+          const icon =
+            reservation.kind === "flight" ? "✈" : reservation.kind === "hotel" ? "H" : "R";
+          const timing = [
+            reservation.startDate,
+            reservation.startTime,
+            reservation.endDate && reservation.endDate !== reservation.startDate
+              ? `→ ${reservation.endDate}`
+              : null,
+          ]
+            .filter(Boolean)
+            .join(" · ");
+          const route =
+            reservation.kind === "flight" && (reservation.origin || reservation.destination)
+              ? [reservation.origin, reservation.destination].filter(Boolean).join(" → ")
+              : reservation.location;
+          const item = document.createElement("li");
+          item.className = `travel-booking travel-booking-${reservation.kind}`;
+          item.innerHTML = `
+            <span class="travel-booking-icon" aria-hidden="true">${icon}</span>
+            <div class="travel-booking-copy">
+              <p>${escapeHtml(reservation.title)}</p>
+              ${timing ? `<span>${escapeHtml(timing)}</span>` : ""}
+              ${route ? `<span>${escapeHtml(route)}</span>` : ""}
+              ${
+                reservation.confirmationCode
+                  ? `<span>${t("Confirmation", "确认号")} · ${escapeHtml(
+                      reservation.confirmationCode
+                    )}</span>`
+                  : ""
+              }
+            </div>
+            <button type="button" class="travel-stop-delete" aria-label="Delete booking">×</button>
+          `;
+          item.querySelector(".travel-stop-delete")?.addEventListener("click", () => {
+            removeReservation(reservation.id);
+          });
+          bookingList.appendChild(item);
+        });
+        section.appendChild(bookingList);
+      }
+
+      if (stops.length) {
+        const list = document.createElement("ol");
+        list.className = "travel-desktop-stop-list";
+        stops.forEach((stop, index) => {
+          const item = document.createElement("li");
+          item.className =
+            "travel-desktop-stop" +
+            (stop.id === activeStopId ? " is-active" : "") +
+            (routeStopIds.includes(stop.id) ? " is-route" : "");
+          item.innerHTML = `
+            <span class="travel-desktop-stop-index">${index + 1}</span>
+            <div class="travel-desktop-stop-copy">
+              <p>${escapeHtml(stop.title)}</p>
+              ${stop.note ? `<span>${escapeHtml(stop.note)}</span>` : ""}
+            </div>
+            <button type="button" class="travel-stop-delete" aria-label="Delete stop">×</button>
+          `;
+          item.addEventListener("click", (event) => {
+            if (event.target.closest(".travel-stop-delete")) return;
+            if (activeDay !== day) {
+              activeDay = day;
+              activeStopId = null;
+              routeStopIds = [];
+            }
+            selectStopForRoute(stop.id, { pan: true, openMaps: false });
+          });
+          item.querySelector(".travel-stop-delete")?.addEventListener("click", (event) => {
+            event.stopPropagation();
+            removeStop(stop.id);
+          });
+          list.appendChild(item);
+        });
+        section.appendChild(list);
+      } else {
+        const empty = document.createElement("p");
+        empty.className = "travel-desktop-day-empty";
+        empty.textContent = t("No stops yet", "还没有停靠点");
+        section.appendChild(empty);
+      }
+
+      desktopDaysEl.appendChild(section);
+    }
+  }
+
   function renderStops() {
     const trip = activeTrip();
     if (!trip) return;
@@ -635,6 +818,8 @@
       stopListEl.appendChild(li);
     });
     updateRouteAction();
+    renderDesktopDays(trip);
+    if (searchDayEl) searchDayEl.textContent = t(`Day ${activeDay}`, `第 ${activeDay} 天`);
   }
 
   function renderPlaceResults(places) {
@@ -813,6 +998,15 @@
   });
 
   window.addEventListener("daily-space-locale-changed", renderWorkspace);
+  window.addEventListener("daily-space-travel-bookings-updated", () => {
+    loadState();
+    renderWorkspace();
+  });
+  window.addEventListener("storage", (event) => {
+    if (event.key !== STORAGE_KEY) return;
+    loadState();
+    renderWorkspace();
+  });
   window.addEventListener("resize", () => map?.invalidateSize());
 
   const themeObserver = new MutationObserver(() => {

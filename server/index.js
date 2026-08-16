@@ -18,6 +18,7 @@ const { isAgentConfigured, runTodoAgent } = require("./agent");
 const { runGlobalAgent } = require("./global-agent");
 const { searchTravelPlaces, travelPlacesStatus } = require("./travel-places");
 const { summarizeInboxMessages } = require("./mail-digest");
+const { parseMailBookings } = require("./mail-booking");
 const {
   getDefaultStore: getUserSnapshotStore,
   isSupabaseSnapshotStoreConfigured,
@@ -97,6 +98,44 @@ async function handleApi(request, response, url) {
       supabaseConfigured: isSupabaseSnapshotStoreConfigured(),
       travelPlaces: travelPlacesStatus(),
     });
+    return;
+  }
+
+  if (method === "GET" && url.pathname === "/api/fx/rate") {
+    const from = String(url.searchParams.get("from") || "").trim().toUpperCase();
+    const to = String(url.searchParams.get("to") || "").trim().toUpperCase();
+    const requestedDate = String(url.searchParams.get("date") || "").trim();
+    if (!/^[A-Z]{3}$/.test(from) || !/^[A-Z]{3}$/.test(to)) {
+      const error = new Error("Valid ISO currency codes are required.");
+      error.statusCode = 400;
+      throw error;
+    }
+    if (from === to) {
+      sendJson(response, { ok: true, from, to, rate: 1, date: requestedDate || null });
+      return;
+    }
+    const today = new Date().toISOString().slice(0, 10);
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) && requestedDate <= today
+      ? requestedDate
+      : "latest";
+    const endpoint = new URL(`https://api.frankfurter.app/${date}`);
+    endpoint.searchParams.set("amount", "1");
+    endpoint.searchParams.set("from", from);
+    endpoint.searchParams.set("to", to);
+    const fxResponse = await fetch(endpoint, { signal: AbortSignal.timeout(8_000) });
+    if (!fxResponse.ok) {
+      const error = new Error("Exchange rate is unavailable.");
+      error.statusCode = 502;
+      throw error;
+    }
+    const payload = await fxResponse.json();
+    const rate = Number(payload?.rates?.[to]);
+    if (!(rate > 0)) {
+      const error = new Error("Exchange rate is unavailable.");
+      error.statusCode = 502;
+      throw error;
+    }
+    sendJson(response, { ok: true, from, to, rate, date: payload.date || requestedDate || null });
     return;
   }
 
@@ -862,6 +901,73 @@ async function handleApi(request, response, url) {
     return;
   }
 
+  const mailBookingMatch = url.pathname.match(
+    /^\/api\/mail\/accounts\/([^/]+)\/messages\/([^/]+)\/booking-import$/
+  );
+  if (method === "POST" && mailBookingMatch) {
+    enforceUserSession(session);
+    const accountId = decodeURIComponent(mailBookingMatch[1]);
+    const messageId = decodeURIComponent(mailBookingMatch[2]);
+    const account = getMailAccountById(session.userId, accountId);
+    if (!account) {
+      const error = new Error("Mail account not found.");
+      error.statusCode = 404;
+      throw error;
+    }
+    const body = await readJson(request);
+    const source = await fetchMailBookingSource(account, messageId, request);
+    const parsed = await parseMailBookings({
+      message: source.message,
+      bodyText: source.bodyText,
+      pdfTexts: source.pdfTexts,
+      today: body.today,
+      lang: body.lang,
+    });
+    sendJson(response, {
+      ok: true,
+      source: {
+        accountId: account.id,
+        messageId,
+        subject: source.message.subject,
+        attachments: source.attachmentNames,
+      },
+      ...parsed,
+    });
+    return;
+  }
+
+  if (method === "POST" && url.pathname === "/api/mail/booking-import") {
+    enforceUserSession(session);
+    const body = await readJson(request, 8_000_000);
+    const encoded = String(body.pdfBase64 || "").replace(/^data:application\/pdf;base64,/i, "");
+    if (!encoded) {
+      const error = new Error("A PDF file is required.");
+      error.statusCode = 400;
+      throw error;
+    }
+    const pdfBuffer = Buffer.from(encoded, "base64");
+    if (!pdfBuffer.length || pdfBuffer.length > 5_000_000) {
+      const error = new Error("PDF must be smaller than 5 MB.");
+      error.statusCode = 413;
+      throw error;
+    }
+    const pdfText = await extractPdfText(pdfBuffer);
+    const filename = String(body.filename || "Booking confirmation.pdf").slice(0, 180);
+    const parsed = await parseMailBookings({
+      message: { subject: filename, from: "Uploaded PDF", receivedAt: null },
+      bodyText: "",
+      pdfTexts: [pdfText],
+      today: body.today,
+      lang: body.lang,
+    });
+    sendJson(response, {
+      ok: true,
+      source: { accountId: null, messageId: null, subject: filename, attachments: [filename] },
+      ...parsed,
+    });
+    return;
+  }
+
   const mailDigestMatch = url.pathname.match(/^\/api\/mail\/accounts\/([^/]+)\/digest$/);
   if (method === "GET" && mailDigestMatch) {
     enforceUserSession(session);
@@ -1327,12 +1433,12 @@ function installProcessGuards() {
 
 installProcessGuards();
 
-function readJson(request) {
+function readJson(request, maxBytes = 1_000_000) {
   return new Promise((resolve, reject) => {
     let body = "";
     request.on("data", (chunk) => {
       body += chunk;
-      if (body.length > 1_000_000) {
+      if (body.length > maxBytes) {
         reject(Object.assign(new Error("Request body too large."), { statusCode: 413 }));
         request.destroy();
       }
@@ -1838,6 +1944,211 @@ async function fetchRecentMessagesForAccount(account, limit, request) {
     return fetchRecentIcloudMessages(ready, limit);
   }
   return [];
+}
+
+function decodeBase64Url(value) {
+  const normalized = String(value || "").replace(/-/g, "+").replace(/_/g, "/");
+  return Buffer.from(normalized, "base64");
+}
+
+function plainTextFromHtml(value) {
+  return String(value || "")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#(?:39|x27);/gi, "'")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+}
+
+async function extractPdfText(buffer) {
+  let library;
+  try {
+    library = require("pdf-parse");
+  } catch (_) {
+    const error = new Error("PDF import is unavailable on this server.");
+    error.statusCode = 503;
+    throw error;
+  }
+
+  if (typeof library === "function") {
+    const result = await library(buffer);
+    return String(result?.text || "").trim().slice(0, 60_000);
+  }
+  const PDFParse = library?.PDFParse || library?.default?.PDFParse;
+  if (typeof PDFParse === "function") {
+    const parser = new PDFParse({ data: buffer });
+    try {
+      const result = await parser.getText();
+      return String(result?.text || "").trim().slice(0, 60_000);
+    } finally {
+      await parser.destroy?.();
+    }
+  }
+  const error = new Error("Installed PDF parser is unsupported.");
+  error.statusCode = 500;
+  throw error;
+}
+
+function collectGmailParts(part, collected) {
+  if (!part || typeof part !== "object") return;
+  const mimeType = String(part.mimeType || "").toLowerCase();
+  const filename = String(part.filename || "").trim();
+  const data = part.body?.data;
+  if (data && (mimeType === "text/plain" || mimeType === "text/html")) {
+    const decoded = decodeBase64Url(data).toString("utf8");
+    collected.bodyChunks.push(mimeType === "text/html" ? plainTextFromHtml(decoded) : decoded);
+  }
+  if (
+    (mimeType === "application/pdf" || filename.toLowerCase().endsWith(".pdf")) &&
+    (data || part.body?.attachmentId)
+  ) {
+    collected.pdfParts.push({
+      filename: filename || "Booking confirmation.pdf",
+      data: data || null,
+      attachmentId: part.body?.attachmentId || null,
+      size: Number(part.body?.size || 0),
+    });
+  }
+  const children = Array.isArray(part.parts) ? part.parts : [];
+  children.forEach((child) => collectGmailParts(child, collected));
+}
+
+async function fetchGmailBookingSource(account, messageId) {
+  const accessToken = openToken(account.accessToken);
+  const response = await fetch(
+    `https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(messageId)}?format=full`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      throw mailReauthError("Gmail access expired. Reconnect to continue.");
+    }
+    const error = new Error(payload.error?.message || "Unable to read Gmail message.");
+    error.statusCode = 502;
+    throw error;
+  }
+  const headers = Array.isArray(payload.payload?.headers) ? payload.payload.headers : [];
+  const getHeader = (name) =>
+    headers.find((item) => String(item.name || "").toLowerCase() === name)?.value || "";
+  const collected = { bodyChunks: [], pdfParts: [] };
+  collectGmailParts(payload.payload, collected);
+  const pdfTexts = [];
+  const attachmentNames = [];
+  let pdfBytes = 0;
+  for (const part of collected.pdfParts.slice(0, 4)) {
+    if (part.size > 5_000_000 || pdfBytes + part.size > 8_000_000) continue;
+    let buffer = part.data ? decodeBase64Url(part.data) : null;
+    if (!buffer && part.attachmentId) {
+      const attachmentResponse = await fetch(
+        `https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(
+          messageId
+        )}/attachments/${encodeURIComponent(part.attachmentId)}`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      const attachmentPayload = await attachmentResponse.json().catch(() => ({}));
+      if (attachmentResponse.ok && attachmentPayload.data) {
+        buffer = decodeBase64Url(attachmentPayload.data);
+      }
+    }
+    if (!buffer || buffer.length > 5_000_000 || pdfBytes + buffer.length > 8_000_000) continue;
+    pdfBytes += buffer.length;
+    pdfTexts.push(await extractPdfText(buffer));
+    attachmentNames.push(part.filename);
+    if (pdfTexts.length >= 2) break;
+  }
+  return {
+    message: {
+      id: messageId,
+      subject: getHeader("subject") || "(No subject)",
+      from: getHeader("from") || "Unknown sender",
+      receivedAt: payload.internalDate ? new Date(Number(payload.internalDate)).toISOString() : null,
+    },
+    bodyText: collected.bodyChunks.join("\n\n").slice(0, 60_000),
+    pdfTexts,
+    attachmentNames,
+  };
+}
+
+async function fetchOutlookBookingSource(account, messageId) {
+  const accessToken = openToken(account.accessToken);
+  const detailUrl = new URL(
+    `https://graph.microsoft.com/v1.0/me/messages/${encodeURIComponent(messageId)}`
+  );
+  detailUrl.searchParams.set("$select", "id,subject,receivedDateTime,from,body,hasAttachments");
+  const response = await fetch(detailUrl, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      throw mailReauthError("Outlook access expired. Reconnect to continue.");
+    }
+    const error = new Error(payload.error?.message || "Unable to read Outlook message.");
+    error.statusCode = 502;
+    throw error;
+  }
+  const pdfTexts = [];
+  const attachmentNames = [];
+  let pdfBytes = 0;
+  if (payload.hasAttachments) {
+    const attachmentsResponse = await fetch(
+      `https://graph.microsoft.com/v1.0/me/messages/${encodeURIComponent(
+        messageId
+      )}/attachments?$select=id,name,contentType,size,contentBytes`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    const attachmentsPayload = await attachmentsResponse.json().catch(() => ({}));
+    const attachments = Array.isArray(attachmentsPayload.value) ? attachmentsPayload.value : [];
+    for (const attachment of attachments.slice(0, 8)) {
+      const name = String(attachment.name || "");
+      const isPdf =
+        String(attachment.contentType || "").toLowerCase() === "application/pdf" ||
+        name.toLowerCase().endsWith(".pdf");
+      const size = Number(attachment.size || 0);
+      if (!isPdf || size > 5_000_000 || pdfBytes + size > 8_000_000 || !attachment.contentBytes) continue;
+      const buffer = Buffer.from(attachment.contentBytes, "base64");
+      if (pdfBytes + buffer.length > 8_000_000) continue;
+      pdfBytes += buffer.length;
+      pdfTexts.push(await extractPdfText(buffer));
+      attachmentNames.push(name || "Booking confirmation.pdf");
+      if (pdfTexts.length >= 2) break;
+    }
+  }
+  const bodyContent = String(payload.body?.content || "");
+  return {
+    message: {
+      id: messageId,
+      subject: payload.subject || "(No subject)",
+      from: payload.from?.emailAddress?.address || payload.from?.emailAddress?.name || "Unknown sender",
+      receivedAt: payload.receivedDateTime || null,
+    },
+    bodyText:
+      String(payload.body?.contentType || "").toLowerCase() === "html"
+        ? plainTextFromHtml(bodyContent).slice(0, 60_000)
+        : bodyContent.slice(0, 60_000),
+    pdfTexts,
+    attachmentNames,
+  };
+}
+
+async function fetchMailBookingSource(account, messageId, request) {
+  const ready = await ensureFreshMailAccount(account, request);
+  if (ready.provider === "gmail") return fetchGmailBookingSource(ready, messageId);
+  if (ready.provider === "outlook") return fetchOutlookBookingSource(ready, messageId);
+  const error = new Error("Booking import from iCloud mail is not supported yet. Upload the PDF instead.");
+  error.statusCode = 400;
+  throw error;
 }
 
 function mailReauthError(message) {

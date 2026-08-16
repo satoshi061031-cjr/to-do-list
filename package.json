@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node --experimental-sqlite --disable-warning=ExperimentalWarning server/index.js",
     "dev": "node --experimental-sqlite --disable-warning=ExperimentalWarning --watch server/index.js",
-    "test": "node --experimental-sqlite --disable-warning=ExperimentalWarning --test tests/critical-path-smoke.test.js tests/e2e-critical-path.test.js tests/global-agent.test.js tests/i18n-dictionary.test.js tests/user-snapshot-store.test.js",
+    "test": "node --experimental-sqlite --disable-warning=ExperimentalWarning --test tests/critical-path-smoke.test.js tests/e2e-critical-path.test.js tests/global-agent.test.js tests/i18n-dictionary.test.js tests/mail-booking.test.js tests/tally-core.test.js tests/user-snapshot-store.test.js",
     "test:e2e": "node --experimental-sqlite --disable-warning=ExperimentalWarning --test tests/e2e-critical-path.test.js",
     "cap:prepare": "node scripts/prepare-www.js",
     "cap:sync": "npm run cap:prepare && npx cap sync",
@@ -27,6 +27,7 @@
     "@capacitor/splash-screen": "^8.0.2",
     "@capacitor/status-bar": "^8.0.3",
     "@google/design.md": "^0.3.0",
-    "@supabase/supabase-js": "^2.110.2"
+    "@supabase/supabase-js": "^2.110.2",
+    "pdf-parse": "^2.4.5"
   }
 }

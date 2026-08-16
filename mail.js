@@ -27,6 +27,16 @@
   const connectKicker = document.getElementById("mail-connect-kicker");
   const signInSpaceBtn = document.getElementById("mail-signin-space");
   const oauthQuick = document.getElementById("mail-oauth-quick");
+  const importPdfBtn = document.getElementById("mail-import-pdf");
+  const importPdfInput = document.getElementById("mail-import-pdf-input");
+  const bookingSheet = document.getElementById("mail-booking-sheet");
+  const bookingBackdrop = document.getElementById("mail-booking-backdrop");
+  const bookingClose = document.getElementById("mail-booking-close");
+  const bookingSource = document.getElementById("mail-booking-source");
+  const bookingPreview = document.getElementById("mail-booking-preview");
+  const bookingTripSelect = document.getElementById("mail-booking-trip-select");
+  const bookingStatus = document.getElementById("mail-booking-status");
+  const bookingConfirm = document.getElementById("mail-booking-confirm");
 
   const POLL_MS = 120000;
   let pollTimer = null;
@@ -34,12 +44,21 @@
   let selectedMailIds = new Set();
   let signedIn = false;
   let agentConfigured = null;
+  let pendingBookingImport = null;
 
   function todayIso() {
     if (window.DailySpaceAgentData && typeof window.DailySpaceAgentData.todayIso === "function") {
       return window.DailySpaceAgentData.todayIso();
     }
     return new Date().toISOString().slice(0, 10);
+  }
+
+  function isZh() {
+    return window.DailySpaceI18n?.locale?.() === "zh";
+  }
+
+  function t(en, zh) {
+    return isZh() ? zh : en;
   }
 
   function formatDate(value) {
@@ -323,6 +342,168 @@
     showTodayStatus(`Added ${added} message${added === 1 ? "" : "s"} to Today.`);
   }
 
+  function setBookingStatus(message, isError) {
+    if (!bookingStatus) return;
+    bookingStatus.textContent = message || "";
+    bookingStatus.classList.toggle("is-error", Boolean(isError));
+  }
+
+  function closeBookingSheet() {
+    if (!bookingSheet) return;
+    bookingSheet.hidden = true;
+    document.body.classList.remove("mail-booking-open");
+    pendingBookingImport = null;
+    setBookingStatus("");
+  }
+
+  function bookingMeta(booking) {
+    const timing = [booking.startDate, booking.startTime, booking.endDate]
+      .filter(Boolean)
+      .join(" · ");
+    const route =
+      booking.kind === "flight"
+        ? [booking.origin, booking.destination].filter(Boolean).join(" → ")
+        : booking.location;
+    return [timing, route, booking.confirmationCode ? `${t("Confirmation", "确认号")} · ${booking.confirmationCode}` : ""]
+      .filter(Boolean)
+      .join("\n");
+  }
+
+  function openBookingSheet(payload, sourceKey) {
+    if (!bookingSheet || !bookingPreview || !bookingTripSelect || !bookingConfirm) return;
+    const bookings = Array.isArray(payload?.bookings) ? payload.bookings : [];
+    pendingBookingImport = { bookings, sourceKey };
+    bookingSource.textContent = payload?.source?.subject || t("Booking confirmation", "预订确认");
+    bookingPreview.innerHTML = bookings.length
+      ? bookings
+          .map(
+            (booking) => `<article class="mail-booking-card mail-booking-${escapeHtml(booking.kind)}">
+              <span class="mail-booking-kind">${escapeHtml(booking.kind)}</span>
+              <strong>${escapeHtml(booking.title)}</strong>
+              <p>${escapeHtml(bookingMeta(booking))}</p>
+            </article>`
+          )
+          .join("")
+      : `<p class="mail-message-empty">${t(
+          "No flight, hotel, or restaurant booking was found.",
+          "没有识别到航班、酒店或餐厅预订。"
+        )}</p>`;
+
+    const travelApi = window.DailySpaceTravelBookings;
+    const trips = travelApi?.listTrips?.() || [];
+    bookingTripSelect.innerHTML = trips
+      .map(
+        (trip) =>
+          `<option value="${escapeHtml(trip.id)}">${escapeHtml(trip.name)} · ${escapeHtml(
+            trip.startDate
+          )}</option>`
+      )
+      .join("");
+    bookingTripSelect.disabled = trips.length === 0;
+    bookingConfirm.disabled = bookings.length === 0 || trips.length === 0;
+    if (!trips.length) {
+      setBookingStatus(t("Create a trip in Travel first.", "请先在旅行页面创建行程。"), true);
+    } else if (!bookings.length) {
+      setBookingStatus(t("Nothing to import.", "没有可导入的预订。"), true);
+    } else {
+      setBookingStatus(
+        payload.parsedBy === "fallback"
+          ? t("Basic fields found. Review before importing.", "已识别基础信息，请确认后导入。")
+          : t("Review the extracted details, then choose a trip.", "请核对识别结果并选择行程。")
+      );
+    }
+    bookingSheet.hidden = false;
+    document.body.classList.add("mail-booking-open");
+  }
+
+  async function parseMessageBooking(message, button) {
+    const account = selectedAccount();
+    if (!account || !message?.id) return;
+    if (button) button.disabled = true;
+    setInboxStatus(t("Reading confirmation and PDF attachments…", "正在读取确认邮件与 PDF 附件…"));
+    try {
+      const lang = window.DailySpaceI18n?.localeTag?.() || document.documentElement.lang || "en";
+      const payload = await request(
+        `/api/mail/accounts/${encodeURIComponent(account.id)}/messages/${encodeURIComponent(
+          message.id
+        )}/booking-import`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ today: todayIso(), lang }),
+        }
+      );
+      openBookingSheet(payload, `mail-booking:${account.id}:${message.id}`);
+      setInboxStatus("");
+    } catch (error) {
+      setInboxStatus(error.message || t("Booking import failed.", "预订导入失败。"), true);
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
+
+  async function parseBookingPdf(file) {
+    if (!file) return;
+    if (file.type && file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+      setInboxStatus(t("Choose a PDF file.", "请选择 PDF 文件。"), true);
+      return;
+    }
+    if (file.size > 5_000_000) {
+      setInboxStatus(t("PDF must be smaller than 5 MB.", "PDF 必须小于 5 MB。"), true);
+      return;
+    }
+    if (importPdfBtn) importPdfBtn.disabled = true;
+    setInboxStatus(t("Reading booking PDF…", "正在读取预订 PDF…"));
+    try {
+      const pdfBase64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || "").split(",").pop() || "");
+        reader.onerror = () => reject(reader.error || new Error("Unable to read PDF."));
+        reader.readAsDataURL(file);
+      });
+      const lang = window.DailySpaceI18n?.localeTag?.() || document.documentElement.lang || "en";
+      const payload = await request("/api/mail/booking-import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: file.name, pdfBase64, today: todayIso(), lang }),
+      });
+      openBookingSheet(
+        payload,
+        `pdf-booking:${file.name}:${file.size}:${file.lastModified || 0}`
+      );
+      setInboxStatus("");
+    } catch (error) {
+      setInboxStatus(error.message || t("PDF import failed.", "PDF 导入失败。"), true);
+    } finally {
+      if (importPdfBtn) importPdfBtn.disabled = false;
+      if (importPdfInput) importPdfInput.value = "";
+    }
+  }
+
+  function confirmBookingImport() {
+    if (!pendingBookingImport || !bookingTripSelect) return;
+    const result = window.DailySpaceTravelBookings?.importBookings?.({
+      tripId: bookingTripSelect.value,
+      bookings: pendingBookingImport.bookings,
+      sourceKey: pendingBookingImport.sourceKey,
+    });
+    if (!result?.ok) {
+      setBookingStatus(t("Trip was not found.", "未找到所选行程。"), true);
+      return;
+    }
+    if (!result.added) {
+      setBookingStatus(t("This booking was already imported.", "这条预订已经导入过了。"));
+      return;
+    }
+    setBookingStatus(
+      t(
+        `Imported ${result.added} booking${result.added === 1 ? "" : "s"} to Travel.`,
+        `已导入 ${result.added} 条预订到旅行。`
+      )
+    );
+    bookingConfirm.disabled = true;
+  }
+
   function syncBatchBar() {
     if (!batchBar || !addSelectedBtn) return;
     const hasRows = latestMessages.length > 0;
@@ -431,9 +612,14 @@
             ${summary ? `<p class="mail-message-summary">${summary}</p>` : ""}
             <span class="mail-message-time">${time}</span>
           </div>
-          <button type="button" class="btn mail-add-task" data-add-task="${id}" ${added ? "disabled" : ""}>${
-            added ? "On Today" : "Add as today’s task"
-          }</button>
+          <div class="mail-message-actions">
+            <button type="button" class="btn mail-import-booking" data-import-booking="${id}">
+              Import booking
+            </button>
+            <button type="button" class="btn mail-add-task" data-add-task="${id}" ${added ? "disabled" : ""}>${
+              added ? "On Today" : "Add as today’s task"
+            }</button>
+          </div>
         </article>`;
       })
       .join("");
@@ -773,6 +959,12 @@
     askAgentBtn.addEventListener("click", () => askAgentAboutMail());
   }
 
+  importPdfBtn?.addEventListener("click", () => importPdfInput?.click());
+  importPdfInput?.addEventListener("change", () => parseBookingPdf(importPdfInput.files?.[0]));
+  bookingBackdrop?.addEventListener("click", closeBookingSheet);
+  bookingClose?.addEventListener("click", closeBookingSheet);
+  bookingConfirm?.addEventListener("click", confirmBookingImport);
+
   if (signInSpaceBtn) {
     signInSpaceBtn.addEventListener("click", () => openDailySpaceSignIn());
   }
@@ -835,6 +1027,15 @@
       return;
     }
 
+    const bookingId = target.closest("[data-import-booking]")?.getAttribute("data-import-booking");
+    if (bookingId) {
+      const message = latestMessages.find((item) => item.id === bookingId);
+      if (message) {
+        parseMessageBooking(message, target.closest("[data-import-booking]"));
+      }
+      return;
+    }
+
     const id = target.closest("[data-disconnect]")?.getAttribute("data-disconnect");
     if (!id) return;
     setPageStatus("");
@@ -850,6 +1051,10 @@
   document.addEventListener("visibilitychange", () => {
     if (document.hidden || !readyAccounts().length) return;
     loadMessagesForSelected({ silent: true });
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && bookingSheet && !bookingSheet.hidden) closeBookingSheet();
   });
 
   window.addEventListener("daily-space-locale-changed", () => {

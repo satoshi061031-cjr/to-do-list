@@ -138,6 +138,22 @@
   letter-spacing: 0.04em;
 }
 
+.mail-section-actions,
+.mail-message-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-xs);
+}
+
+.mail-section-actions .btn,
+.mail-message-actions .btn {
+  padding: 0.42rem 0.7rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
 .mail-digest {
   margin: 0.75rem 0 0;
   padding: 0.75rem 0.85rem;
@@ -431,9 +447,13 @@
     grid-template-columns: auto minmax(0, 1fr);
   }
 
-  .mail-add-task {
+  .mail-message-actions {
     grid-column: 1 / -1;
     width: 100%;
+  }
+
+  .mail-message-actions .btn {
+    flex: 1 1 10rem;
   }
 }
 
@@ -533,6 +553,155 @@
   line-height: 1.55;
 }
 
+.mail-booking-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: grid;
+  place-items: center;
+  padding: var(--space-md);
+}
+
+.mail-booking-sheet[hidden] {
+  display: none !important;
+}
+
+.mail-booking-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: color-mix(in srgb, var(--primary) 48%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.mail-booking-panel {
+  position: relative;
+  z-index: 1;
+  width: min(40rem, calc(100vw - (var(--space-md) * 2)));
+  max-height: min(46rem, calc(100dvh - (var(--space-md) * 2)));
+  overflow-y: auto;
+  padding: var(--space-lg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  background: var(--glass-strong);
+  box-shadow: var(--shadow-pop);
+  backdrop-filter: blur(20px) saturate(1.08);
+  -webkit-backdrop-filter: blur(20px) saturate(1.08);
+}
+
+.mail-booking-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.mail-booking-head h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--type-title-size);
+  font-weight: 400;
+}
+
+.mail-booking-close {
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: 0 0 auto;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  background: var(--glass);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+}
+
+.mail-booking-source,
+.mail-booking-status {
+  margin: var(--space-sm) 0 0;
+  color: var(--text-muted);
+  font-size: var(--type-label-size);
+  line-height: 1.5;
+}
+
+.mail-booking-status.is-error {
+  color: var(--danger);
+}
+
+.mail-booking-preview {
+  display: grid;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+.mail-booking-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-xs) var(--space-sm);
+  padding: var(--space-md);
+  border: 1px solid color-mix(in srgb, var(--tertiary) 38%, transparent);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--tertiary) 9%, var(--glass));
+}
+
+.mail-booking-card .mail-booking-kind {
+  grid-row: 1 / span 2;
+  align-self: start;
+  padding: 0.3rem 0.55rem;
+  border-radius: var(--radius-pill);
+  background: var(--tertiary);
+  color: var(--on-tertiary);
+  font-size: var(--type-label-size);
+  text-transform: uppercase;
+}
+
+.mail-booking-card strong {
+  color: var(--text);
+  line-height: 1.35;
+}
+
+.mail-booking-card p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--type-label-size);
+  line-height: 1.5;
+  white-space: pre-line;
+}
+
+.mail-booking-trip {
+  display: grid;
+  gap: var(--space-xs);
+  margin-top: var(--space-md);
+  color: var(--text-muted);
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  letter-spacing: var(--type-label-tracking);
+  text-transform: uppercase;
+}
+
+.mail-booking-trip select {
+  min-height: 2.75rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: var(--glass);
+  color: var(--text);
+  font: inherit;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.mail-booking-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+body.mail-booking-open {
+  overflow: hidden;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .mail-card {
     transition: none;
@@ -556,5 +725,34 @@
 @media (max-width: 640px) {
   .mail-account-row {
     grid-template-columns: 1fr;
+  }
+
+  .mail-section-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .mail-section-actions {
+    justify-content: stretch;
+  }
+
+  .mail-section-actions .btn {
+    flex: 1 1 auto;
+  }
+
+  .mail-booking-sheet {
+    place-items: end center;
+    padding: 0;
+  }
+
+  .mail-booking-panel {
+    width: 100%;
+    max-height: min(82dvh, 46rem);
+    padding: var(--space-md);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+
+  .mail-booking-actions {
+    flex-direction: column-reverse;
   }
 }
