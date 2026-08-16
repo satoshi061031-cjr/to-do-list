@@ -67,17 +67,17 @@
   font-weight: 600;
   letter-spacing: var(--type-label-tracking);
   text-transform: uppercase;
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.14);
+  text-shadow: none;
 }
 
 .mail-title {
   max-width: 46rem;
   margin: 0;
-  color: rgba(255, 255, 255, 0.92);
-  font-size: clamp(2.4rem, 6vw, 4.2rem);
+  color: var(--text);
+  font-size: clamp(var(--type-title-size), 6vw, var(--type-display-size));
   font-weight: 400;
-  letter-spacing: 0.01em;
-  line-height: 0.92;
+  letter-spacing: var(--type-display-tracking);
+  line-height: var(--type-display-lh);
   text-shadow: none;
 }
 

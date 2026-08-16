@@ -369,10 +369,10 @@
       .join("\n");
   }
 
-  function openBookingSheet(payload, sourceKey) {
+  async function openBookingSheet(payload, sourceKey) {
     if (!bookingSheet || !bookingPreview || !bookingTripSelect || !bookingConfirm) return;
     const bookings = Array.isArray(payload?.bookings) ? payload.bookings : [];
-    pendingBookingImport = { bookings, sourceKey };
+    pendingBookingImport = { bookings, sourceKey, trips: [] };
     bookingSource.textContent = payload?.source?.subject || t("Booking confirmation", "预订确认");
     bookingPreview.innerHTML = bookings.length
       ? bookings
@@ -390,14 +390,17 @@
         )}</p>`;
 
     const travelApi = window.DailySpaceTravelBookings;
-    const trips = travelApi?.listTrips?.() || [];
+    const trips = travelApi?.listTripsForImport
+      ? await travelApi.listTripsForImport()
+      : travelApi?.listTrips?.() || [];
+    pendingBookingImport.trips = trips;
     bookingTripSelect.innerHTML = trips
-      .map(
-        (trip) =>
-          `<option value="${escapeHtml(trip.id)}">${escapeHtml(trip.name)} · ${escapeHtml(
-            trip.startDate
-          )}</option>`
-      )
+      .map((trip) => {
+        const suffix = trip.shared ? t("Shared", "共享") : trip.startDate;
+        return `<option value="${escapeHtml(trip.id)}">${escapeHtml(trip.name)} · ${escapeHtml(
+          suffix
+        )}</option>`;
+      })
       .join("");
     bookingTripSelect.disabled = trips.length === 0;
     bookingConfirm.disabled = bookings.length === 0 || trips.length === 0;
@@ -433,7 +436,7 @@
           body: JSON.stringify({ today: todayIso(), lang }),
         }
       );
-      openBookingSheet(payload, `mail-booking:${account.id}:${message.id}`);
+      await openBookingSheet(payload, `mail-booking:${account.id}:${message.id}`);
       setInboxStatus("");
     } catch (error) {
       setInboxStatus(error.message || t("Booking import failed.", "预订导入失败。"), true);
@@ -467,7 +470,7 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ filename: file.name, pdfBase64, today: todayIso(), lang }),
       });
-      openBookingSheet(
+      await openBookingSheet(
         payload,
         `pdf-booking:${file.name}:${file.size}:${file.lastModified || 0}`
       );
@@ -480,15 +483,25 @@
     }
   }
 
-  function confirmBookingImport() {
+  async function confirmBookingImport() {
     if (!pendingBookingImport || !bookingTripSelect) return;
-    const result = window.DailySpaceTravelBookings?.importBookings?.({
-      tripId: bookingTripSelect.value,
-      bookings: pendingBookingImport.bookings,
-      sourceKey: pendingBookingImport.sourceKey,
-    });
+    const selected = bookingTripSelect.value;
+    const selectedTrip = (pendingBookingImport.trips || []).find((trip) => trip.id === selected);
+    const result = await Promise.resolve(
+      window.DailySpaceTravelBookings?.importBookings?.({
+        tripId: selected,
+        bookings: pendingBookingImport.bookings,
+        sourceKey: pendingBookingImport.sourceKey,
+        trip: selectedTrip,
+      })
+    );
     if (!result?.ok) {
-      setBookingStatus(t("Trip was not found.", "未找到所选行程。"), true);
+      setBookingStatus(
+        result?.reason && result.reason !== "trip_not_found"
+          ? result.reason
+          : t("Trip was not found.", "未找到所选行程。"),
+        true
+      );
       return;
     }
     if (!result.added) {

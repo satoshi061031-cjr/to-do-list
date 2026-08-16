@@ -81,8 +81,8 @@
 }
 
 .tally-view-switch button.is-active {
-  background: var(--tertiary);
-  color: var(--on-tertiary);
+  background: var(--accent-soft);
+  color: var(--text);
   font-weight: 600;
 }
 

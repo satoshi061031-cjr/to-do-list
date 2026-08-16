@@ -17,6 +17,7 @@ const {
 const { isAgentConfigured, runTodoAgent } = require("./agent");
 const { runGlobalAgent } = require("./global-agent");
 const { searchTravelPlaces, travelPlacesStatus } = require("./travel-places");
+const { getTravelCollabStore } = require("./travel-collab-store");
 const { summarizeInboxMessages } = require("./mail-digest");
 const { parseMailBookings } = require("./mail-booking");
 const {
@@ -156,6 +157,290 @@ async function handleApi(request, response, url) {
     });
     sendJson(response, { ok: true, ...result });
     return;
+  }
+
+  const travelInvitePreviewMatch = url.pathname.match(
+    /^\/api\/travel\/invites\/([^/]+)\/preview$/
+  );
+  if (method === "GET" && travelInvitePreviewMatch) {
+    const token = decodeURIComponent(travelInvitePreviewMatch[1]);
+    sendJson(response, {
+      ok: true,
+      invite: getTravelCollabStore().previewInvite(token),
+    });
+    return;
+  }
+
+  if (method === "POST" && url.pathname === "/api/travel/invites/accept") {
+    enforceGoogleSession(session);
+    const body = await readJson(request);
+    const result = getTravelCollabStore().acceptInvite(
+      body.token,
+      session.userId,
+      session.label || session.email
+    );
+    sendJson(response, { ok: true, ...result });
+    return;
+  }
+
+  if (url.pathname === "/api/travel/trips") {
+    enforceGoogleSession(session);
+    if (method === "GET") {
+      sendJson(response, {
+        ok: true,
+        trips: getTravelCollabStore().listTrips(session.userId),
+      });
+      return;
+    }
+    if (method === "POST") {
+      const body = await readJson(request);
+      const trip = getTravelCollabStore().createTrip({
+        ownerUserId: session.userId,
+        ownerLabel: session.label || session.email,
+        title: body.title,
+        data: body.data,
+      });
+      sendJson(response, { ok: true, trip }, 201);
+      return;
+    }
+  }
+
+  const travelStopsMatch = url.pathname.match(/^\/api\/travel\/trips\/([^/]+)\/stops$/);
+  if (travelStopsMatch) {
+    enforceGoogleSession(session);
+    const tripId = decodeURIComponent(travelStopsMatch[1]);
+    if (method === "GET") {
+      sendJson(response, {
+        ok: true,
+        stops: getTravelCollabStore().listStops(tripId, session.userId),
+      });
+      return;
+    }
+    if (method === "POST") {
+      const body = await readJson(request);
+      sendJson(
+        response,
+        { ok: true, ...getTravelCollabStore().createStop(tripId, session.userId, body) },
+        201
+      );
+      return;
+    }
+  }
+
+  const travelStopMatch = url.pathname.match(
+    /^\/api\/travel\/trips\/([^/]+)\/stops\/([^/]+)$/
+  );
+  if (travelStopMatch) {
+    enforceGoogleSession(session);
+    const tripId = decodeURIComponent(travelStopMatch[1]);
+    const stopId = decodeURIComponent(travelStopMatch[2]);
+    if (method === "PATCH") {
+      const body = await readJson(request);
+      sendJson(response, {
+        ok: true,
+        ...getTravelCollabStore().updateStop(tripId, stopId, session.userId, body),
+      });
+      return;
+    }
+    if (method === "DELETE") {
+      sendJson(response, {
+        ok: true,
+        ...getTravelCollabStore().deleteStop(
+          tripId,
+          stopId,
+          session.userId,
+          url.searchParams.get("baseRevision")
+        ),
+      });
+      return;
+    }
+  }
+
+  const travelReservationImportMatch = url.pathname.match(
+    /^\/api\/travel\/trips\/([^/]+)\/reservations\/import$/
+  );
+  if (method === "POST" && travelReservationImportMatch) {
+    enforceGoogleSession(session);
+    const tripId = decodeURIComponent(travelReservationImportMatch[1]);
+    const body = await readJson(request);
+    sendJson(response, {
+      ok: true,
+      ...getTravelCollabStore().importReservations(tripId, session.userId, body),
+    });
+    return;
+  }
+
+  const travelReservationsMatch = url.pathname.match(
+    /^\/api\/travel\/trips\/([^/]+)\/reservations$/
+  );
+  if (travelReservationsMatch) {
+    enforceGoogleSession(session);
+    const tripId = decodeURIComponent(travelReservationsMatch[1]);
+    if (method === "GET") {
+      sendJson(response, {
+        ok: true,
+        reservations: getTravelCollabStore().listReservations(tripId, session.userId),
+      });
+      return;
+    }
+    if (method === "POST") {
+      const body = await readJson(request);
+      sendJson(
+        response,
+        {
+          ok: true,
+          ...getTravelCollabStore().createReservation(tripId, session.userId, body),
+        },
+        201
+      );
+      return;
+    }
+  }
+
+  const travelReservationMatch = url.pathname.match(
+    /^\/api\/travel\/trips\/([^/]+)\/reservations\/([^/]+)$/
+  );
+  if (travelReservationMatch) {
+    enforceGoogleSession(session);
+    const tripId = decodeURIComponent(travelReservationMatch[1]);
+    const reservationId = decodeURIComponent(travelReservationMatch[2]);
+    if (method === "PATCH") {
+      const body = await readJson(request);
+      sendJson(response, {
+        ok: true,
+        ...getTravelCollabStore().updateReservation(
+          tripId,
+          reservationId,
+          session.userId,
+          body
+        ),
+      });
+      return;
+    }
+    if (method === "DELETE") {
+      sendJson(response, {
+        ok: true,
+        ...getTravelCollabStore().deleteReservation(
+          tripId,
+          reservationId,
+          session.userId,
+          url.searchParams.get("baseRevision")
+        ),
+      });
+      return;
+    }
+  }
+
+  const travelMembersMatch = url.pathname.match(
+    /^\/api\/travel\/trips\/([^/]+)\/members$/
+  );
+  if (method === "GET" && travelMembersMatch) {
+    enforceGoogleSession(session);
+    const tripId = decodeURIComponent(travelMembersMatch[1]);
+    sendJson(response, {
+      ok: true,
+      members: getTravelCollabStore().listMembers(tripId, session.userId),
+    });
+    return;
+  }
+
+  const travelMemberMatch = url.pathname.match(
+    /^\/api\/travel\/trips\/([^/]+)\/members\/([^/]+)$/
+  );
+  if (method === "DELETE" && travelMemberMatch) {
+    enforceGoogleSession(session);
+    const tripId = decodeURIComponent(travelMemberMatch[1]);
+    const targetUserId = decodeURIComponent(travelMemberMatch[2]);
+    sendJson(response, {
+      ok: true,
+      ...getTravelCollabStore().removeMember(
+        tripId,
+        targetUserId,
+        session.userId,
+        url.searchParams.get("baseRevision")
+      ),
+    });
+    return;
+  }
+
+  const travelInvitesMatch = url.pathname.match(
+    /^\/api\/travel\/trips\/([^/]+)\/invites$/
+  );
+  if (travelInvitesMatch) {
+    enforceGoogleSession(session);
+    const tripId = decodeURIComponent(travelInvitesMatch[1]);
+    if (method === "GET") {
+      sendJson(response, {
+        ok: true,
+        invites: getTravelCollabStore().listInvites(tripId, session.userId),
+      });
+      return;
+    }
+    if (method === "POST") {
+      const body = await readJson(request);
+      sendJson(
+        response,
+        {
+          ok: true,
+          ...getTravelCollabStore().createInvite(tripId, session.userId, body),
+        },
+        201
+      );
+      return;
+    }
+  }
+
+  const travelInviteMatch = url.pathname.match(
+    /^\/api\/travel\/trips\/([^/]+)\/invites\/([^/]+)$/
+  );
+  if (method === "DELETE" && travelInviteMatch) {
+    enforceGoogleSession(session);
+    const tripId = decodeURIComponent(travelInviteMatch[1]);
+    const inviteId = decodeURIComponent(travelInviteMatch[2]);
+    sendJson(response, {
+      ok: true,
+      ...getTravelCollabStore().revokeInvite(
+        tripId,
+        inviteId,
+        session.userId,
+        url.searchParams.get("baseRevision")
+      ),
+    });
+    return;
+  }
+
+  const travelTripMatch = url.pathname.match(/^\/api\/travel\/trips\/([^/]+)$/);
+  if (travelTripMatch) {
+    enforceGoogleSession(session);
+    const tripId = decodeURIComponent(travelTripMatch[1]);
+    if (method === "GET") {
+      sendJson(response, {
+        ok: true,
+        trip: getTravelCollabStore().getTrip(tripId, session.userId, {
+          revision: url.searchParams.get("revision"),
+        }),
+      });
+      return;
+    }
+    if (method === "PATCH") {
+      const body = await readJson(request);
+      sendJson(response, {
+        ok: true,
+        trip: getTravelCollabStore().updateTrip(tripId, session.userId, body),
+      });
+      return;
+    }
+    if (method === "DELETE") {
+      sendJson(response, {
+        ok: true,
+        ...getTravelCollabStore().deleteTrip(
+          tripId,
+          session.userId,
+          url.searchParams.get("baseRevision")
+        ),
+      });
+      return;
+    }
   }
 
   if (method === "GET" && url.pathname === "/api/agent/status") {
@@ -1300,6 +1585,15 @@ function enforceUserSession(session) {
   throw error;
 }
 
+function enforceGoogleSession(session) {
+  enforceUserSession(session);
+  if (String(session.provider || "").trim().toLowerCase() === "google") return;
+  const error = new Error("Shared Travel requires a Google sign-in.");
+  error.statusCode = 403;
+  error.code = "GOOGLE_SESSION_REQUIRED";
+  throw error;
+}
+
 function getSessionSecret() {
   const source = String(process.env.APP_SESSION_SECRET || process.env.MAIL_TOKEN_ENCRYPTION_KEY || "").trim();
   if (!source) return null;
@@ -1399,6 +1693,9 @@ function sendError(response, error) {
   }
   const body = { error: error.message || "Unexpected server error." };
   if (error.code) body.code = error.code;
+  if (Number.isInteger(error.currentRevision)) {
+    body.currentRevision = error.currentRevision;
+  }
   sendJson(response, body, status);
 }
 

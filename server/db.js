@@ -138,6 +138,72 @@ function migrate(database) {
     CREATE INDEX IF NOT EXISTS idx_board_columns_board ON board_columns(board_id, position);
     CREATE INDEX IF NOT EXISTS idx_board_tasks_board ON board_tasks(board_id, column_id, position);
     CREATE INDEX IF NOT EXISTS idx_board_tasks_assignee ON board_tasks(assignee_user_id, completed);
+
+    CREATE TABLE IF NOT EXISTS travel_trips (
+      id TEXT PRIMARY KEY,
+      owner_user_id TEXT NOT NULL,
+      title TEXT NOT NULL,
+      data_json TEXT NOT NULL DEFAULT '{}',
+      revision INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS travel_trip_members (
+      trip_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      role TEXT NOT NULL CHECK (role IN ('owner', 'editor')),
+      label TEXT,
+      joined_at TEXT NOT NULL,
+      PRIMARY KEY (trip_id, user_id),
+      FOREIGN KEY (trip_id) REFERENCES travel_trips(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS travel_stops (
+      id TEXT PRIMARY KEY,
+      trip_id TEXT NOT NULL,
+      position INTEGER NOT NULL DEFAULT 0,
+      data_json TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (trip_id) REFERENCES travel_trips(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS travel_reservations (
+      id TEXT PRIMARY KEY,
+      trip_id TEXT NOT NULL,
+      source_id TEXT,
+      data_json TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (trip_id) REFERENCES travel_trips(id) ON DELETE CASCADE,
+      UNIQUE (trip_id, source_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS travel_invites (
+      id TEXT PRIMARY KEY,
+      trip_id TEXT NOT NULL,
+      token_hash TEXT NOT NULL UNIQUE,
+      invite_type TEXT NOT NULL CHECK (invite_type IN ('one_time', 'reusable')),
+      email TEXT,
+      created_by TEXT NOT NULL,
+      expires_at TEXT,
+      created_at TEXT NOT NULL,
+      revoked_at TEXT,
+      accepted_at TEXT,
+      FOREIGN KEY (trip_id) REFERENCES travel_trips(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_travel_members_user
+      ON travel_trip_members(user_id, trip_id);
+    CREATE INDEX IF NOT EXISTS idx_travel_stops_trip
+      ON travel_stops(trip_id, position);
+    CREATE INDEX IF NOT EXISTS idx_travel_reservations_trip
+      ON travel_reservations(trip_id);
+    CREATE INDEX IF NOT EXISTS idx_travel_invites_trip
+      ON travel_invites(trip_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_travel_invites_token
+      ON travel_invites(token_hash);
   `);
 
   const mailAccountColumns = database.prepare("PRAGMA table_info(mail_accounts)").all();

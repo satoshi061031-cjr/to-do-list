@@ -49,7 +49,13 @@ const patterns = (() => {
  * Strings that read the same in both languages: the product name, currency
  * symbols, numeric format hints, and an example email address.
  */
-const UNTRANSLATED_BY_DESIGN = new Set(["Daily Space", "¥", "0.00", "teammate@email.com"]);
+const UNTRANSLATED_BY_DESIGN = new Set([
+  "Daily Space",
+  "¥",
+  "0.00",
+  "teammate@email.com",
+  "friend@gmail.com",
+]);
 
 const HTML_ENTITIES = { "&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": '"', "&#39;": "'", "&rsquo;": "’", "&lsquo;": "‘", "&mdash;": "—", "&ndash;": "–", "&nbsp;": " " };
 

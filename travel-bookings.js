@@ -65,6 +65,8 @@
     };
   }
 
+  const SHARED_PREFIX = "shared:";
+
   function listTrips() {
     return readState().trips
       .filter((trip) => trip && typeof trip.id === "string" && typeof trip.name === "string")
@@ -77,35 +79,120 @@
       }));
   }
 
-  function importBookings({ tripId, bookings, sourceKey }) {
+  function tripSummary(trip, shared) {
+    const data = trip?.data && typeof trip.data === "object" ? trip.data : {};
+    return {
+      id: shared ? `${SHARED_PREFIX}${trip.id}` : trip.id,
+      name: String(trip.title || trip.name || "Trip"),
+      destination: String(data.destination || trip.destination || ""),
+      startDate: String(data.startDate || trip.startDate || ""),
+      endDate: String(data.endDate || trip.endDate || ""),
+      shared: Boolean(shared),
+    };
+  }
+
+  async function listTripsForImport() {
+    const personal = listTrips().map((trip) => ({ ...trip, shared: false }));
+    try {
+      const response = await fetch("/api/travel/trips", {
+        credentials: "same-origin",
+        headers: { Accept: "application/json" },
+      });
+      if (!response.ok) return personal;
+      const payload = await response.json().catch(() => ({}));
+      const shared = (Array.isArray(payload.trips) ? payload.trips : [])
+        .filter((trip) => trip && typeof trip.id === "string")
+        .map((trip) => tripSummary(trip, true));
+      return [...personal, ...shared];
+    } catch (_) {
+      return personal;
+    }
+  }
+
+  async function importSharedBookings({ tripId, bookings, sourceKey, trip }) {
+    const sharedId = String(tripId || "").slice(SHARED_PREFIX.length);
+    if (!sharedId) return { ok: false, reason: "trip_not_found", added: 0 };
+    const prefix = String(sourceKey || "manual").slice(0, 240);
+    const reservations = [];
+    bookings.slice(0, 12).forEach((booking, index) => {
+      const sourceId = `${prefix}:${index}:${String(booking?.kind || "booking")}`;
+      const normalized = normalizeBooking(booking, trip || { startDate: booking?.startDate }, sourceId);
+      if (!normalized) return;
+      reservations.push({
+        sourceId,
+        data: {
+          kind: normalized.kind,
+          day: normalized.day,
+          title: normalized.title,
+          provider: normalized.provider,
+          startDate: normalized.startDate,
+          endDate: normalized.endDate,
+          startTime: normalized.startTime,
+          endTime: normalized.endTime,
+          location: normalized.location,
+          origin: normalized.origin,
+          destination: normalized.destination,
+          confirmationCode: normalized.confirmationCode,
+          details: normalized.details,
+          importedAt: normalized.importedAt,
+        },
+      });
+    });
+    if (!reservations.length) return { ok: true, added: 0, tripId, duplicate: true, shared: true };
+    const response = await fetch(`/api/travel/trips/${encodeURIComponent(sharedId)}/reservations/import`, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify({ reservations }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return { ok: false, reason: payload.error || "import_failed", added: 0 };
+    }
+    const added = Array.isArray(payload.imported) ? payload.imported.length : 0;
+    if (added) {
+      window.dispatchEvent(
+        new CustomEvent("daily-space-travel-bookings-updated", {
+          detail: { tripId: sharedId, sharedTripId: sharedId, added },
+        })
+      );
+    }
+    return { ok: true, added, tripId, duplicate: added === 0, shared: true };
+  }
+
+  function importBookings({ tripId, bookings, sourceKey, trip }) {
+    if (String(tripId || "").startsWith(SHARED_PREFIX)) {
+      return importSharedBookings({ tripId, bookings, sourceKey, trip });
+    }
     const state = readState();
-    const trip = state.trips.find((item) => item?.id === tripId);
-    if (!trip) return { ok: false, reason: "trip_not_found", added: 0 };
-    if (!Array.isArray(trip.reservations)) trip.reservations = [];
+    const personalTrip = state.trips.find((item) => item?.id === tripId);
+    if (!personalTrip) return { ok: false, reason: "trip_not_found", added: 0 };
+    if (!Array.isArray(personalTrip.reservations)) personalTrip.reservations = [];
     const prefix = String(sourceKey || "manual").slice(0, 240);
     let added = 0;
     bookings.slice(0, 12).forEach((booking, index) => {
       const sourceId = `${prefix}:${index}:${String(booking?.kind || "booking")}`;
-      if (trip.reservations.some((item) => item?.sourceId === sourceId)) return;
-      const normalized = normalizeBooking(booking, trip, sourceId);
+      if (personalTrip.reservations.some((item) => item?.sourceId === sourceId)) return;
+      const normalized = normalizeBooking(booking, personalTrip, sourceId);
       if (!normalized) return;
-      trip.reservations.push(normalized);
+      personalTrip.reservations.push(normalized);
       added += 1;
     });
-    state.activeTripId = trip.id;
+    state.activeTripId = personalTrip.id;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     if (added) {
       window.dispatchEvent(
         new CustomEvent("daily-space-travel-bookings-updated", {
-          detail: { tripId: trip.id, added },
+          detail: { tripId: personalTrip.id, added },
         })
       );
     }
-    return { ok: true, added, tripId: trip.id, duplicate: added === 0 };
+    return { ok: true, added, tripId: personalTrip.id, duplicate: added === 0 };
   }
 
   window.DailySpaceTravelBookings = {
     importBookings,
     listTrips,
+    listTripsForImport,
   };
 })();

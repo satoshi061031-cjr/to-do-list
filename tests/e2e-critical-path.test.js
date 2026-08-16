@@ -123,6 +123,95 @@ test("e2e critical path: welcome Daily Loop + guest today→calendar→mail task
   const exportGate = await fetch(`${baseUrl}/api/user/export`);
   assert.equal(exportGate.status, 401);
 
+  const travelGate = await fetch(`${baseUrl}/api/travel/trips`);
+  assert.equal(travelGate.status, 401);
+
+  const invitePreviewGate = await fetch(`${baseUrl}/api/travel/invites/not-a-token/preview`);
+  assert.equal(invitePreviewGate.status, 404);
+
+  function sessionCookie(session) {
+    const payloadJson = JSON.stringify(session);
+    const payload = Buffer.from(payloadJson, "utf8").toString("base64url");
+    const secret = crypto.createHash("sha256").update("phase-c-e2e-secret").digest("hex");
+    const signature = crypto.createHmac("sha256", secret).update(payloadJson).digest("base64url");
+    return `daily_space_session=${payload}.${signature}`;
+  }
+
+  const outlookTrips = await fetch(`${baseUrl}/api/travel/trips`, {
+    headers: {
+      cookie: sessionCookie({
+        userId: "outlook@example.com",
+        email: "outlook@example.com",
+        provider: "Outlook",
+        label: "Outlook user",
+      }),
+    },
+  });
+  assert.equal(outlookTrips.status, 403);
+  assert.equal((await outlookTrips.json()).code, "GOOGLE_SESSION_REQUIRED");
+
+  const googleCookie = sessionCookie({
+    userId: "owner@example.com",
+    email: "owner@example.com",
+    provider: "Google",
+    label: "Owner",
+  });
+  const createdTrip = await fetch(`${baseUrl}/api/travel/trips`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", cookie: googleCookie },
+    body: JSON.stringify({
+      title: "Kyoto",
+      data: { destination: "Japan", startDate: "2026-09-10", endDate: "2026-09-13" },
+    }),
+  });
+  assert.equal(createdTrip.status, 201);
+  const createdPayload = await createdTrip.json();
+  assert.equal(createdPayload.trip.title, "Kyoto");
+  assert.equal(createdPayload.trip.revision, 1);
+
+  const inviteCreated = await fetch(
+    `${baseUrl}/api/travel/trips/${createdPayload.trip.id}/invites`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", cookie: googleCookie },
+      body: JSON.stringify({ type: "reusable", baseRevision: 1 }),
+    }
+  );
+  assert.equal(inviteCreated.status, 201);
+  const invitePayload = await inviteCreated.json();
+  const preview = await fetch(
+    `${baseUrl}/api/travel/invites/${invitePayload.invite.token}/preview`
+  );
+  assert.equal(preview.status, 200);
+  assert.equal((await preview.json()).invite.tripTitle, "Kyoto");
+
+  const editorCookie = sessionCookie({
+    userId: "editor@example.com",
+    email: "editor@example.com",
+    provider: "Google",
+    label: "Editor",
+  });
+  const accepted = await fetch(`${baseUrl}/api/travel/invites/accept`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", cookie: editorCookie },
+    body: JSON.stringify({ token: invitePayload.invite.token }),
+  });
+  assert.equal(accepted.status, 200);
+  assert.equal((await accepted.json()).trip.role, "editor");
+
+  const imported = await fetch(
+    `${baseUrl}/api/travel/trips/${createdPayload.trip.id}/reservations/import`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", cookie: editorCookie },
+      body: JSON.stringify({
+        reservations: [{ sourceId: "mail:1", data: { kind: "flight", title: "JL 12" } }],
+      }),
+    }
+  );
+  assert.equal(imported.status, 200);
+  assert.equal((await imported.json()).imported.length, 1);
+
   // Guest substitute for “login → today → calendar → mail→task”
   const today = todayIso();
   const { api, values } = createAgentData();

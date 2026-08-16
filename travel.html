@@ -48,6 +48,17 @@
             <button type="button" class="btn btn-primary travel-add-btn" id="travel-empty-add">Add</button>
           </section>
 
+          <section class="travel-invite-preview" id="travel-invite-preview" hidden aria-labelledby="travel-invite-title">
+            <p class="travel-kicker">Shared trip invitation</p>
+            <h1 id="travel-invite-title">Opening invitation…</h1>
+            <p id="travel-invite-copy">Checking this invitation.</p>
+            <p class="travel-invite-meta" id="travel-invite-meta"></p>
+            <p class="travel-sync-status" id="travel-invite-status" role="status" aria-live="polite"></p>
+            <button type="button" class="btn btn-primary" id="travel-invite-action" hidden>
+              Continue with Google
+            </button>
+          </section>
+
           <section class="travel-workspace" id="travel-workspace" hidden>
             <div class="travel-map" id="travel-map" role="application" aria-label="Trip map"></div>
 
@@ -94,6 +105,56 @@
                   </div>
                   <button type="button" class="travel-icon-btn" id="travel-delete-trip" aria-label="Delete trip">×</button>
                 </div>
+
+                <section class="travel-share" id="travel-share" aria-labelledby="travel-share-title">
+                  <div class="travel-share-head">
+                    <div>
+                      <p class="travel-kicker">Collaboration</p>
+                      <h3 id="travel-share-title">Share trip</h3>
+                    </div>
+                    <button type="button" class="travel-share-toggle" id="travel-share-toggle" aria-expanded="false">
+                      Share
+                    </button>
+                  </div>
+                  <p class="travel-sync-status" id="travel-sync-status" role="status" aria-live="polite">
+                    Personal · saved on this device
+                  </p>
+                  <div class="travel-share-body" id="travel-share-body" hidden>
+                    <button type="button" class="btn btn-primary travel-share-start" id="travel-share-start">
+                      Share this trip
+                    </button>
+                    <div class="travel-share-controls" id="travel-share-controls" hidden>
+                      <div class="travel-members-wrap">
+                        <h4>Members</h4>
+                        <ul class="travel-members" id="travel-members"></ul>
+                      </div>
+                      <form class="travel-invite-form" id="travel-invite-form">
+                        <label>
+                          Invite type
+                          <select id="travel-invite-type">
+                            <option value="one_time">One-time</option>
+                            <option value="reusable">Reusable</option>
+                          </select>
+                        </label>
+                        <label id="travel-invite-email-wrap">
+                          Google email (optional)
+                          <input type="email" id="travel-invite-email" maxlength="160" placeholder="friend@gmail.com" />
+                        </label>
+                        <label>
+                          Expires
+                          <select id="travel-invite-expiry">
+                            <option value="24">24 hours</option>
+                            <option value="168" selected>7 days</option>
+                            <option value="720">30 days</option>
+                          </select>
+                        </label>
+                        <button type="submit" class="btn travel-invite-create">Create invite</button>
+                      </form>
+                      <ul class="travel-invites" id="travel-invites"></ul>
+                    </div>
+                    <p class="travel-share-note" id="travel-share-note"></p>
+                  </div>
+                </section>
 
                 <div class="travel-days" id="travel-days" role="tablist" aria-label="Trip days"></div>
                 <div class="travel-desktop-days" id="travel-desktop-days" aria-label="Itinerary by day"></div>

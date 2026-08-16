@@ -137,3 +137,92 @@ test("imports parsed mail bookings into a trip once and assigns the matching day
   assert.equal(stored.trips[0].reservations[0].day, 3);
   assert.equal(events.at(-1).type, "daily-space-travel-bookings-updated");
 });
+
+test("lists shared trips and imports bookings through the travel API", async () => {
+  const values = new Map();
+  const events = [];
+  const fetches = [];
+  const localStorage = {
+    getItem(key) {
+      return values.has(key) ? values.get(key) : null;
+    },
+    setItem(key, value) {
+      values.set(key, String(value));
+    },
+  };
+  values.set(
+    "travel-book-v1",
+    JSON.stringify({
+      version: 5,
+      activeTripId: "trip-1",
+      trips: [{ id: "trip-1", name: "Tokyo", startDate: "2026-09-10", endDate: "2026-09-13" }],
+    })
+  );
+  class CustomEvent {
+    constructor(type, options) {
+      this.type = type;
+      this.detail = options?.detail;
+    }
+  }
+  const window = {
+    dispatchEvent(event) {
+      events.push(event);
+    },
+  };
+  const context = vm.createContext({
+    window,
+    localStorage,
+    CustomEvent,
+    crypto,
+    Date,
+    Math,
+    JSON,
+    Set,
+    Array,
+    Number,
+    String,
+    Object,
+    fetch: async (url, init) => {
+      fetches.push({ url: String(url), init });
+      if (String(url) === "/api/travel/trips") {
+        return {
+          ok: true,
+          json: async () => ({
+            trips: [
+              {
+                id: "shared-1",
+                title: "Kyoto",
+                data: { destination: "Japan", startDate: "2026-10-01", endDate: "2026-10-05" },
+              },
+            ],
+          }),
+        };
+      }
+      return {
+        ok: true,
+        json: async () => ({ imported: [{ id: "res-1" }], duplicates: [] }),
+      };
+    },
+  });
+  vm.runInContext(
+    fs.readFileSync(path.resolve(__dirname, "../travel-bookings.js"), "utf8"),
+    context
+  );
+
+  const listed = await window.DailySpaceTravelBookings.listTripsForImport();
+  assert.equal(listed.length, 2);
+  assert.equal(listed[1].id, "shared:shared-1");
+  assert.equal(listed[1].shared, true);
+
+  const imported = await window.DailySpaceTravelBookings.importBookings({
+    tripId: "shared:shared-1",
+    sourceKey: "mail-booking:account:message",
+    trip: { startDate: "2026-10-01", endDate: "2026-10-05" },
+    bookings: [{ kind: "hotel", title: "Kyoto Inn", startDate: "2026-10-02" }],
+  });
+  assert.equal(imported.ok, true);
+  assert.equal(imported.added, 1);
+  assert.equal(imported.shared, true);
+  assert.match(fetches.at(-1).url, /\/api\/travel\/trips\/shared-1\/reservations\/import/);
+  assert.equal(events.at(-1).detail.sharedTripId, "shared-1");
+});

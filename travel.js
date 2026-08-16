@@ -1,6 +1,10 @@
 (function () {
   const STORAGE_KEY = "travel-book-v1";
+  const SHARED_STORAGE_KEY = "travel-shared-v1";
   const PLACES_API = "/api/travel/places";
+  const SHARED_API = "/api/travel/trips";
+  const SHARED_PREFIX = "shared:";
+  const SHARED_POLL_MS = 2000;
 
   /**
    * @typedef {{ id: string; day: number; title: string; note: string; lat: number; lng: number }} Stop
@@ -37,6 +41,18 @@
   /** @type {import("leaflet").Polyline | null} */
   let routeLine = null;
   let geocodeBusy = false;
+  /** @type {Trip[]} */
+  let sharedTrips = [];
+  let sharedMappings = {};
+  let sharedPollTimer = null;
+  let sharedBusy = false;
+  let sharedStatus = "";
+  let sharedStatusError = false;
+  let shareOpen = false;
+  let pendingInviteToken = "";
+  let inviteLinks = {};
+  let authUser = null;
+  let lastMapTripId = null;
 
   const emptyEl = document.getElementById("travel-empty");
   const emptyGreetingEl = document.getElementById("travel-empty-greeting");
@@ -72,6 +88,25 @@
   const mapHint = document.getElementById("travel-map-hint");
   const mapResultsEl = document.getElementById("travel-map-results");
   const mapEl = document.getElementById("travel-map");
+  const invitePreviewEl = document.getElementById("travel-invite-preview");
+  const inviteTitleEl = document.getElementById("travel-invite-title");
+  const inviteCopyEl = document.getElementById("travel-invite-copy");
+  const inviteMetaEl = document.getElementById("travel-invite-meta");
+  const inviteStatusEl = document.getElementById("travel-invite-status");
+  const inviteActionBtn = document.getElementById("travel-invite-action");
+  const shareToggleBtn = document.getElementById("travel-share-toggle");
+  const shareBodyEl = document.getElementById("travel-share-body");
+  const shareStartBtn = document.getElementById("travel-share-start");
+  const shareControlsEl = document.getElementById("travel-share-controls");
+  const syncStatusEl = document.getElementById("travel-sync-status");
+  const shareNoteEl = document.getElementById("travel-share-note");
+  const membersEl = document.getElementById("travel-members");
+  const inviteForm = document.getElementById("travel-invite-form");
+  const inviteTypeEl = document.getElementById("travel-invite-type");
+  const inviteEmailWrap = document.getElementById("travel-invite-email-wrap");
+  const inviteEmailEl = document.getElementById("travel-invite-email");
+  const inviteExpiryEl = document.getElementById("travel-invite-expiry");
+  const invitesEl = document.getElementById("travel-invites");
 
   function uiLocale() {
     return window.DailySpaceI18n?.localeTag() || "en-US";
@@ -137,7 +172,19 @@
   }
 
   function activeTrip() {
+    if (String(activeTripId || "").startsWith(SHARED_PREFIX)) {
+      const sharedId = String(activeTripId).slice(SHARED_PREFIX.length);
+      return sharedTrips.find((trip) => trip.id === sharedId) || null;
+    }
     return trips.find((trip) => trip.id === activeTripId) || null;
+  }
+
+  function isSharedTrip(trip = activeTrip()) {
+    return Boolean(trip && sharedTrips.some((item) => item.id === trip.id));
+  }
+
+  function sharedSelectionId(idValue) {
+    return `${SHARED_PREFIX}${idValue}`;
   }
 
   function normalizeReservation(reservation) {
@@ -167,10 +214,100 @@
     };
   }
 
-  function normalizeTrip(trip) {
+  function objectData(value) {
+    return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  }
+
+  function stopFromServer(raw) {
+    if (!raw || typeof raw !== "object") return null;
+    const data = objectData(raw.data);
     return {
+      id: typeof raw.id === "string" ? raw.id : id(),
+      day: Math.max(1, Number(data.day || raw.day) || 1),
+      title: String(data.title || data.name || raw.title || "Stop").slice(0, 80),
+      note: String(data.note || raw.note || "").slice(0, 160),
+      lat: Number(data.lat ?? raw.lat),
+      lng: Number(data.lng ?? raw.lng),
+    };
+  }
+
+  function reservationFromServer(raw) {
+    if (!raw || typeof raw !== "object") return null;
+    return normalizeReservation({
+      ...objectData(raw.data),
+      id: raw.id,
+      sourceId: raw.sourceId || objectData(raw.data).sourceId,
+    });
+  }
+
+  function tripFromServer(raw) {
+    if (!raw || typeof raw !== "object" || typeof raw.id !== "string") return null;
+    const data = objectData(raw.data);
+    return normalizeTrip({
+      id: raw.id,
+      name: raw.title || raw.name || data.name || "Trip",
+      destination: data.destination || raw.destination || "",
+      startDate: data.startDate || raw.startDate,
+      endDate: data.endDate || raw.endDate,
+      lat: data.lat ?? raw.lat,
+      lng: data.lng ?? raw.lng,
+      zoom: data.zoom ?? raw.zoom,
+      stops: Array.isArray(raw.stops) ? raw.stops.map(stopFromServer).filter(Boolean) : [],
+      reservations: Array.isArray(raw.reservations)
+        ? raw.reservations.map(reservationFromServer).filter(Boolean)
+        : [],
+      revision: raw.revision,
+      role: raw.role,
+      members: raw.members,
+      invites: raw.invites,
+      ownerUserId: raw.ownerUserId,
+    });
+  }
+
+  function tripPayload(trip) {
+    return {
+      destination: trip.destination,
+      startDate: trip.startDate,
+      endDate: trip.endDate,
+      lat: trip.lat,
+      lng: trip.lng,
+      zoom: trip.zoom,
+    };
+  }
+
+  function stopPayload(stop) {
+    return {
+      day: stop.day,
+      title: stop.title,
+      note: stop.note,
+      lat: stop.lat,
+      lng: stop.lng,
+    };
+  }
+
+  function reservationPayload(reservation) {
+    return {
+      kind: reservation.kind,
+      day: reservation.day,
+      title: reservation.title,
+      provider: reservation.provider,
+      startDate: reservation.startDate,
+      endDate: reservation.endDate,
+      startTime: reservation.startTime,
+      endTime: reservation.endTime,
+      location: reservation.location,
+      origin: reservation.origin,
+      destination: reservation.destination,
+      confirmationCode: reservation.confirmationCode,
+      details: reservation.details,
+      importedAt: reservation.importedAt,
+    };
+  }
+
+  function normalizeTrip(trip) {
+    const normalized = {
       id: trip.id,
-      name: String(trip.name).slice(0, 60),
+      name: String(trip.name || trip.title || "Trip").slice(0, 60),
       destination: String(trip.destination || "").slice(0, 80),
       startDate: trip.startDate || todayIso(),
       endDate: trip.endDate || trip.startDate || todayIso(),
@@ -199,6 +336,12 @@
         ? trip.reservations.map(normalizeReservation).filter(Boolean).slice(0, 80)
         : [],
     };
+    if (Number.isFinite(Number(trip.revision))) normalized.revision = Number(trip.revision);
+    if (Array.isArray(trip.members)) normalized.members = trip.members;
+    if (Array.isArray(trip.invites)) normalized.invites = trip.invites;
+    if (typeof trip.role === "string") normalized.role = trip.role;
+    if (typeof trip.ownerUserId === "string") normalized.ownerUserId = trip.ownerUserId;
+    return normalized;
   }
 
   function loadState() {
@@ -211,16 +354,571 @@
             .map(normalizeTrip)
         : [];
       activeTripId = typeof parsed.activeTripId === "string" ? parsed.activeTripId : null;
-      if (activeTripId && !activeTrip()) activeTripId = null;
+      if (activeTripId && !String(activeTripId).startsWith(SHARED_PREFIX) && !activeTrip()) {
+        activeTripId = null;
+      }
       if (!activeTripId && trips[0]) activeTripId = trips[0].id;
+      const sharedState = JSON.parse(localStorage.getItem(SHARED_STORAGE_KEY) || "{}");
+      sharedMappings =
+        sharedState && typeof sharedState.mappings === "object" && sharedState.mappings
+          ? sharedState.mappings
+          : {};
+      inviteLinks =
+        sharedState && typeof sharedState.inviteLinks === "object" && sharedState.inviteLinks
+          ? sharedState.inviteLinks
+          : {};
+      if (typeof sharedState.activeSharedTripId === "string") {
+        activeTripId = sharedSelectionId(sharedState.activeSharedTripId);
+      }
     } catch (_) {
       trips = [];
       activeTripId = null;
+      sharedMappings = {};
+      inviteLinks = {};
     }
   }
 
   function saveState() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 5, trips, activeTripId }));
+    const personalActiveId = String(activeTripId || "").startsWith(SHARED_PREFIX)
+      ? trips[0]?.id || null
+      : activeTripId;
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ version: 5, trips, activeTripId: personalActiveId })
+    );
+    localStorage.setItem(
+      SHARED_STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        mappings: sharedMappings,
+        inviteLinks,
+        activeSharedTripId: String(activeTripId || "").startsWith(SHARED_PREFIX)
+          ? String(activeTripId).slice(SHARED_PREFIX.length)
+          : null,
+      })
+    );
+  }
+
+  function isGoogleUser() {
+    return String(authUser?.provider || "").trim().toLowerCase() === "google";
+  }
+
+  function inviteUrl(token) {
+    return `${window.location.origin}${window.location.pathname}?invite=${encodeURIComponent(token)}`;
+  }
+
+  async function sharedRequest(path, init) {
+    const response = await fetch(`${SHARED_API}${path}`, {
+      credentials: "same-origin",
+      ...init,
+      headers: {
+        Accept: "application/json",
+        ...(init?.body ? { "Content-Type": "application/json" } : {}),
+        ...(init?.headers || {}),
+      },
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const error = new Error(payload.error || "Shared trip request failed.");
+      error.status = response.status;
+      error.code = payload.code;
+      error.currentRevision = payload.currentRevision;
+      throw error;
+    }
+    return payload;
+  }
+
+  function replaceSharedTrip(rawTrip) {
+    const next = tripFromServer(rawTrip);
+    if (!next) return null;
+    const previous = sharedTrips.find((trip) => trip.id === next.id);
+    if (previous) {
+      if (!Array.isArray(rawTrip.stops)) next.stops = previous.stops;
+      if (!Array.isArray(rawTrip.reservations)) next.reservations = previous.reservations;
+      if (!Array.isArray(rawTrip.members) && previous.members) next.members = previous.members;
+      if (!Array.isArray(rawTrip.invites) && previous.invites) next.invites = previous.invites;
+    }
+    const index = sharedTrips.findIndex((trip) => trip.id === next.id);
+    if (index >= 0) sharedTrips[index] = next;
+    else sharedTrips.push(next);
+    return next;
+  }
+
+  async function loadAuthUser() {
+    try {
+      const response = await fetch("/api/auth/me", { credentials: "same-origin" });
+      const payload = await response.json().catch(() => ({}));
+      authUser = payload.user || null;
+    } catch (_) {
+      authUser = null;
+    }
+    return authUser;
+  }
+
+  async function startGoogleSignIn(returnTo) {
+    const response = await fetch("/api/auth/google/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        returnTo: returnTo || `${window.location.pathname}${window.location.search}`,
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || t("Google sign-in failed.", "Google 登录失败。"));
+    if (!payload.authUrl) throw new Error(t("Missing Google authorization URL.", "缺少 Google 授权地址。"));
+    window.location.href = payload.authUrl;
+  }
+
+  async function loadSharedTrips({ preserveSelection = true } = {}) {
+    if (!isGoogleUser()) {
+      sharedTrips = [];
+      return false;
+    }
+    try {
+      const payload = await sharedRequest("");
+      const summaries = (Array.isArray(payload.trips) ? payload.trips : [])
+        .map(tripFromServer)
+        .filter(Boolean);
+      sharedTrips = summaries.map((summary) => {
+        const existing = sharedTrips.find((trip) => trip.id === summary.id);
+        if (existing && existing.revision === summary.revision) {
+          return {
+            ...summary,
+            stops: existing.stops,
+            reservations: existing.reservations,
+            members: existing.members,
+            invites: existing.invites,
+          };
+        }
+        return existing && existing.revision === summary.revision ? existing : summary;
+      });
+      if (
+        !preserveSelection ||
+        (String(activeTripId || "").startsWith(SHARED_PREFIX) && !activeTrip())
+      ) {
+        activeTripId = sharedTrips[0] ? sharedSelectionId(sharedTrips[0].id) : trips[0]?.id || null;
+      }
+      return true;
+    } catch (error) {
+      if (error.status === 401 || error.code === "GOOGLE_SESSION_REQUIRED") {
+        sharedTrips = [];
+        return false;
+      }
+      sharedStatus = error.message;
+      sharedStatusError = true;
+      return false;
+    }
+  }
+
+  async function reloadSharedTrip(sharedId, { render = true, revision, preserveMap = false } = {}) {
+    const query = Number.isInteger(Number(revision)) ? `?revision=${Number(revision)}` : "";
+    const payload = await sharedRequest(`/${encodeURIComponent(sharedId)}${query}`);
+    if (payload.trip?.unchanged) {
+      return sharedTrips.find((trip) => trip.id === sharedId) || null;
+    }
+    const trip = replaceSharedTrip(payload.trip);
+    if (shareOpen && trip) await loadShareDetails(trip).catch(() => {});
+    if (render) renderWorkspace({ preserveMap });
+    return trip;
+  }
+
+  async function loadShareDetails(trip) {
+    if (!trip || !isSharedTrip(trip)) return trip;
+    const membersPayload = await sharedRequest(`/${encodeURIComponent(trip.id)}/members`);
+    trip.members = Array.isArray(membersPayload.members) ? membersPayload.members : [];
+    if (trip.role === "owner") {
+      const invitesPayload = await sharedRequest(`/${encodeURIComponent(trip.id)}/invites`);
+      trip.invites = Array.isArray(invitesPayload.invites) ? invitesPayload.invites : [];
+    } else {
+      trip.invites = [];
+    }
+    return trip;
+  }
+
+  function stopSharedPoll() {
+    if (sharedPollTimer) {
+      window.clearInterval(sharedPollTimer);
+      sharedPollTimer = null;
+    }
+  }
+
+  async function pollActiveSharedTrip() {
+    const trip = activeTrip();
+    if (!isSharedTrip(trip) || sharedBusy || document.hidden || pendingInviteToken) return;
+    try {
+      await reloadSharedTrip(trip.id, {
+        render: true,
+        revision: trip.revision,
+        preserveMap: true,
+      });
+    } catch (error) {
+      if (error.status === 401 || error.status === 403) stopSharedPoll();
+    }
+  }
+
+  function startSharedPoll() {
+    stopSharedPoll();
+    if (!isGoogleUser()) return;
+    sharedPollTimer = window.setInterval(pollActiveSharedTrip, SHARED_POLL_MS);
+  }
+
+  function mutationQuery(trip) {
+    return Number.isInteger(Number(trip?.revision)) ? `?baseRevision=${Number(trip.revision)}` : "";
+  }
+
+  async function commitSharedMutation(trip, path, method, body) {
+    if (!isSharedTrip(trip) || sharedBusy) return null;
+    sharedBusy = true;
+    sharedStatus = t("Syncing…", "同步中…");
+    sharedStatusError = false;
+    renderSharePanel(trip);
+    try {
+      const isDelete = method === "DELETE";
+      const payload = await sharedRequest(
+        `/${encodeURIComponent(trip.id)}${path}${isDelete ? mutationQuery(trip) : ""}`,
+        {
+          method,
+          body: isDelete
+            ? undefined
+            : JSON.stringify({ baseRevision: trip.revision, ...body }),
+        }
+      );
+      if (payload.trip && !payload.trip.unchanged) replaceSharedTrip(payload.trip);
+      if (Number.isFinite(Number(payload.revision))) trip.revision = Number(payload.revision);
+      if (payload.stop) {
+        const nextStop = stopFromServer(payload.stop);
+        const index = trip.stops.findIndex((item) => item.id === body.id || item.id === nextStop?.id);
+        if (nextStop && index >= 0) {
+          const previousId = trip.stops[index].id;
+          trip.stops[index] = nextStop;
+          if (activeStopId === previousId) activeStopId = nextStop.id;
+          routeStopIds = routeStopIds.map((item) => (item === previousId ? nextStop.id : item));
+        }
+      }
+      if (payload.reservation) {
+        const nextReservation = reservationFromServer(payload.reservation);
+        const index = trip.reservations.findIndex(
+          (item) => item.id === body.id || item.id === nextReservation?.id
+        );
+        if (nextReservation && index >= 0) trip.reservations[index] = nextReservation;
+      }
+      sharedStatus = t("Synced", "已同步");
+      sharedStatusError = false;
+      renderWorkspace({ preserveMap: true });
+      return payload;
+    } catch (error) {
+      sharedStatusError = true;
+      if (error.status === 409) {
+        sharedStatus = t("Changed elsewhere — reloading…", "其他成员已修改 — 正在重新加载…");
+        await reloadSharedTrip(trip.id, { preserveMap: true }).catch(() => {});
+      } else {
+        sharedStatus = error.message;
+        await reloadSharedTrip(trip.id, { preserveMap: true }).catch(() =>
+          renderWorkspace({ preserveMap: true })
+        );
+      }
+      return null;
+    } finally {
+      sharedBusy = false;
+      renderSharePanel(activeTrip());
+    }
+  }
+
+  async function shareCurrentTrip() {
+    const trip = activeTrip();
+    if (!trip) return;
+    if (!isGoogleUser()) {
+      sharedStatusError = true;
+      sharedStatus = t(
+        "Shared Travel requires a Google sign-in.",
+        "共享行程需要使用 Google 登录。"
+      );
+      renderSharePanel(trip);
+      return;
+    }
+    if (isSharedTrip(trip)) {
+      shareOpen = true;
+      await loadShareDetails(trip).catch((error) => {
+        sharedStatus = error.message;
+        sharedStatusError = true;
+      });
+      renderSharePanel(trip);
+      return;
+    }
+    const mappedId = sharedMappings[trip.id];
+    if (mappedId && sharedTrips.some((item) => item.id === mappedId)) {
+      activeTripId = sharedSelectionId(mappedId);
+      shareOpen = true;
+      saveState();
+      await reloadSharedTrip(mappedId);
+      return;
+    }
+    sharedBusy = true;
+    sharedStatus = t("Uploading trip…", "正在上传行程…");
+    sharedStatusError = false;
+    renderSharePanel(trip);
+    try {
+      const created = await sharedRequest("", {
+        method: "POST",
+        body: JSON.stringify({ title: trip.name, data: tripPayload(trip) }),
+      });
+      const shared = replaceSharedTrip(created.trip);
+      if (!shared) throw new Error(t("Could not share this trip.", "无法共享此行程。"));
+      let revision = shared.revision;
+      for (const stop of trip.stops) {
+        const result = await sharedRequest(`/${encodeURIComponent(shared.id)}/stops`, {
+          method: "POST",
+          body: JSON.stringify({
+            id: stop.id,
+            data: stopPayload(stop),
+            position: trip.stops.indexOf(stop),
+            baseRevision: revision,
+          }),
+        });
+        revision = Number(result.revision) || revision + 1;
+      }
+      for (const reservation of trip.reservations) {
+        const result = await sharedRequest(`/${encodeURIComponent(shared.id)}/reservations`, {
+          method: "POST",
+          body: JSON.stringify({
+            id: reservation.id,
+            sourceId: reservation.sourceId || undefined,
+            data: reservationPayload(reservation),
+            baseRevision: revision,
+          }),
+        });
+        revision = Number(result.revision) || revision + 1;
+      }
+      sharedMappings[trip.id] = shared.id;
+      activeTripId = sharedSelectionId(shared.id);
+      shareOpen = true;
+      saveState();
+      await reloadSharedTrip(shared.id);
+      sharedStatus = t("Shared", "已共享");
+      sharedStatusError = false;
+      renderSharePanel(activeTrip());
+    } catch (error) {
+      sharedStatus = error.message;
+      sharedStatusError = true;
+      renderSharePanel(trip);
+    } finally {
+      sharedBusy = false;
+    }
+  }
+
+  async function createInviteLink(event) {
+    event?.preventDefault();
+    const trip = activeTrip();
+    if (!isSharedTrip(trip) || trip.role !== "owner") return;
+    const type = inviteTypeEl?.value === "reusable" ? "reusable" : "one_time";
+    const hours = Number(inviteExpiryEl?.value) || 168;
+    const email = String(inviteEmailEl?.value || "").trim();
+    sharedBusy = true;
+    try {
+      const payload = await sharedRequest(`/${encodeURIComponent(trip.id)}/invites`, {
+        method: "POST",
+        body: JSON.stringify({
+          type,
+          email: type === "one_time" && email ? email : undefined,
+          expiresAt: new Date(Date.now() + hours * 60 * 60 * 1000).toISOString(),
+          baseRevision: trip.revision,
+        }),
+      });
+      if (Number.isFinite(Number(payload.revision))) trip.revision = Number(payload.revision);
+      if (payload.invite?.id && payload.invite.token) {
+        inviteLinks[payload.invite.id] = payload.invite.token;
+        saveState();
+      }
+      if (inviteEmailEl) inviteEmailEl.value = "";
+      await loadShareDetails(trip);
+      sharedStatus = t("Invite created — copy the link now.", "邀请已创建 — 请立即复制链接。");
+      sharedStatusError = false;
+      renderSharePanel(trip);
+    } catch (error) {
+      sharedStatus = error.message;
+      sharedStatusError = true;
+      if (error.status === 409) await reloadSharedTrip(trip.id).catch(() => {});
+      renderSharePanel(trip);
+    } finally {
+      sharedBusy = false;
+    }
+  }
+
+  async function revokeInviteLink(inviteId) {
+    const trip = activeTrip();
+    if (!isSharedTrip(trip) || trip.role !== "owner") return;
+    sharedBusy = true;
+    try {
+      const payload = await sharedRequest(
+        `/${encodeURIComponent(trip.id)}/invites/${encodeURIComponent(inviteId)}${mutationQuery(trip)}`,
+        { method: "DELETE" }
+      );
+      if (Number.isFinite(Number(payload.revision))) trip.revision = Number(payload.revision);
+      delete inviteLinks[inviteId];
+      saveState();
+      await loadShareDetails(trip);
+      sharedStatus = t("Invite revoked.", "邀请已撤销。");
+      sharedStatusError = false;
+      renderSharePanel(trip);
+    } catch (error) {
+      sharedStatus = error.message;
+      sharedStatusError = true;
+      renderSharePanel(trip);
+    } finally {
+      sharedBusy = false;
+    }
+  }
+
+  async function removeSharedMember(userId) {
+    const trip = activeTrip();
+    if (!isSharedTrip(trip) || trip.role !== "owner") return;
+    sharedBusy = true;
+    try {
+      const payload = await sharedRequest(
+        `/${encodeURIComponent(trip.id)}/members/${encodeURIComponent(userId)}${mutationQuery(trip)}`,
+        { method: "DELETE" }
+      );
+      if (Number.isFinite(Number(payload.revision))) trip.revision = Number(payload.revision);
+      await loadShareDetails(trip);
+      renderSharePanel(trip);
+    } catch (error) {
+      sharedStatus = error.message;
+      sharedStatusError = true;
+      renderSharePanel(trip);
+    } finally {
+      sharedBusy = false;
+    }
+  }
+
+  async function copyInviteToken(token) {
+    if (!token) return;
+    const url = inviteUrl(token);
+    try {
+      await navigator.clipboard.writeText(url);
+      sharedStatus = t("Invite link copied.", "邀请链接已复制。");
+      sharedStatusError = false;
+    } catch (_) {
+      window.prompt(t("Copy invite link", "复制邀请链接"), url);
+    }
+    renderSharePanel(activeTrip());
+  }
+
+  function clearInviteQuery() {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("invite")) return;
+    url.searchParams.delete("invite");
+    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+  }
+
+  async function showInvitePreview(token) {
+    pendingInviteToken = token;
+    if (invitePreviewEl) invitePreviewEl.hidden = false;
+    if (emptyEl) emptyEl.hidden = true;
+    if (workspaceEl) workspaceEl.hidden = true;
+    if (inviteTitleEl) inviteTitleEl.textContent = t("Opening invitation…", "正在打开邀请…");
+    if (inviteCopyEl) inviteCopyEl.textContent = t("Checking this invitation.", "正在检查这份邀请。");
+    if (inviteMetaEl) inviteMetaEl.textContent = "";
+    if (inviteStatusEl) inviteStatusEl.textContent = "";
+    if (inviteActionBtn) inviteActionBtn.hidden = true;
+    try {
+      const response = await fetch(
+        `/api/travel/invites/${encodeURIComponent(token)}/preview`,
+        { credentials: "same-origin" }
+      );
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || t("Invite not found.", "找不到这份邀请。"));
+      const invite = payload.invite || {};
+      if (inviteTitleEl) {
+        inviteTitleEl.textContent = invite.tripTitle || t("Shared trip", "共享行程");
+      }
+      if (inviteCopyEl) {
+        inviteCopyEl.textContent =
+          invite.type === "reusable"
+            ? t("Reusable Google invite — join as an editor.", "可重复使用的 Google 邀请 — 加入后可编辑。")
+            : t("One-time Google invite — join as an editor.", "一次性 Google 邀请 — 加入后可编辑。");
+      }
+      if (inviteMetaEl) {
+        const bits = [
+          invite.emailBound ? t("Bound to a Google email", "已绑定 Google 邮箱") : "",
+          invite.expiresAt
+            ? t(`Expires ${new Date(invite.expiresAt).toLocaleString(uiLocale())}`, `有效期至 ${new Date(invite.expiresAt).toLocaleString(uiLocale())}`)
+            : "",
+        ].filter(Boolean);
+        inviteMetaEl.textContent = bits.join(" · ");
+      }
+      if (!authUser) {
+        if (inviteActionBtn) {
+          inviteActionBtn.hidden = false;
+          inviteActionBtn.textContent = t("Continue with Google", "使用 Google 继续");
+        }
+        if (inviteStatusEl) {
+          inviteStatusEl.textContent = t(
+            "Sign in with Google to join this trip.",
+            "使用 Google 登录后即可加入行程。"
+          );
+        }
+        return;
+      }
+      if (!isGoogleUser()) {
+        if (inviteStatusEl) {
+          inviteStatusEl.textContent = t(
+            "Shared Travel requires a Google sign-in.",
+            "共享行程需要使用 Google 登录。"
+          );
+        }
+        return;
+      }
+      if (inviteActionBtn) {
+        inviteActionBtn.hidden = false;
+        inviteActionBtn.textContent = t("Join trip", "加入行程");
+      }
+    } catch (error) {
+      if (inviteTitleEl) inviteTitleEl.textContent = t("Invitation unavailable", "邀请不可用");
+      if (inviteCopyEl) inviteCopyEl.textContent = error.message;
+      if (inviteActionBtn) inviteActionBtn.hidden = true;
+    }
+  }
+
+  async function acceptPendingInvite() {
+    if (!pendingInviteToken) return;
+    if (!authUser) {
+      await startGoogleSignIn(`/travel.html?invite=${encodeURIComponent(pendingInviteToken)}`);
+      return;
+    }
+    if (!isGoogleUser()) {
+      if (inviteStatusEl) {
+        inviteStatusEl.textContent = t(
+          "Shared Travel requires a Google sign-in.",
+          "共享行程需要使用 Google 登录。"
+        );
+      }
+      return;
+    }
+    if (inviteStatusEl) inviteStatusEl.textContent = t("Joining trip…", "正在加入行程…");
+    try {
+      const response = await fetch("/api/travel/invites/accept", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ token: pendingInviteToken }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || t("Could not accept invite.", "无法接受邀请。"));
+      pendingInviteToken = "";
+      clearInviteQuery();
+      if (invitePreviewEl) invitePreviewEl.hidden = true;
+      await loadSharedTrips({ preserveSelection: false });
+      if (payload.trip?.id) {
+        activeTripId = sharedSelectionId(payload.trip.id);
+        saveState();
+        await reloadSharedTrip(payload.trip.id);
+      } else {
+        renderWorkspace();
+      }
+      startSharedPoll();
+    } catch (error) {
+      if (inviteStatusEl) inviteStatusEl.textContent = error.message;
+    }
   }
 
   function setSheetOpen(open) {
@@ -326,6 +1024,7 @@
     tileLayer = null;
     markerLayer = null;
     routeLine = null;
+    lastMapTripId = null;
   }
 
   function pruneRouteStops() {
@@ -465,7 +1164,7 @@
     mapEl?.classList.toggle("is-dark-basemap", isDarkTheme());
   }
 
-  function renderMapLayers() {
+  function renderMapLayers({ fit = false } = {}) {
     const trip = activeTrip();
     if (!map || !markerLayer || !trip || !window.L) return;
     markerLayer.clearLayers();
@@ -524,23 +1223,24 @@
         .addTo(map);
     }
 
-    if (latLngs.length > 1) {
+    if (fit && latLngs.length > 1) {
       map.fitBounds(latLngs, {
         paddingTopLeft: desktop ? [Math.min(420, window.innerWidth * 0.28), 72] : [36, 36],
         paddingBottomRight: desktop ? [Math.min(380, window.innerWidth * 0.25), 72] : [36, 36],
         maxZoom: 14,
       });
-    } else if (latLngs.length === 1) {
+    } else if (fit && latLngs.length === 1) {
       map.setView(latLngs[0], Math.max(trip.zoom || 12, 13));
     }
   }
 
-  function ensureMap(trip) {
+  function ensureMap(trip, { resetView = false } = {}) {
     if (!mapEl) return;
     if (!window.L) {
       if (mapHint) mapHint.textContent = "Map library failed to load. Refresh the page.";
       return;
     }
+    const switched = lastMapTripId !== trip.id;
     if (!map) {
       map = window.L.map(mapEl, { zoomControl: false, attributionControl: true });
       window.L.control.zoom({ position: "bottomleft" }).addTo(map);
@@ -560,11 +1260,14 @@
     } else {
       syncMapBasemap();
     }
-    map.setView([trip.lat, trip.lng], trip.zoom || 12);
+    if (switched || resetView || !lastMapTripId) {
+      lastMapTripId = trip.id;
+      map.setView([trip.lat, trip.lng], trip.zoom || 12);
+    }
     const refreshSize = () => {
       if (!map) return;
       map.invalidateSize();
-      renderMapLayers();
+      renderMapLayers({ fit: switched || resetView });
     };
     window.requestAnimationFrame(() => {
       refreshSize();
@@ -589,8 +1292,16 @@
     if (sameDay.length === 2 && stop.day === activeDay) {
       routeStopIds = [sameDay[0].id, sameDay[1].id];
     }
-    saveState();
-    renderWorkspace();
+    if (isSharedTrip(trip)) {
+      commitSharedMutation(trip, "/stops", "POST", {
+        id: stop.id,
+        data: stopPayload(stop),
+        position: trip.stops.length - 1,
+      });
+    } else {
+      saveState();
+    }
+    renderWorkspace({ preserveMap: true });
   }
 
   function removeStop(stopId) {
@@ -599,16 +1310,29 @@
     trip.stops = trip.stops.filter((stop) => stop.id !== stopId);
     if (activeStopId === stopId) activeStopId = null;
     routeStopIds = routeStopIds.filter((id) => id !== stopId);
-    saveState();
-    renderWorkspace();
+    if (isSharedTrip(trip)) {
+      commitSharedMutation(trip, `/stops/${encodeURIComponent(stopId)}`, "DELETE", {});
+    } else {
+      saveState();
+    }
+    renderWorkspace({ preserveMap: true });
   }
 
   function removeReservation(reservationId) {
     const trip = activeTrip();
     if (!trip) return;
     trip.reservations = trip.reservations.filter((reservation) => reservation.id !== reservationId);
-    saveState();
-    renderWorkspace();
+    if (isSharedTrip(trip)) {
+      commitSharedMutation(
+        trip,
+        `/reservations/${encodeURIComponent(reservationId)}`,
+        "DELETE",
+        {}
+      );
+    } else {
+      saveState();
+    }
+    renderWorkspace({ preserveMap: true });
   }
 
   function renderTripSelect() {
@@ -617,10 +1341,16 @@
     trips.forEach((trip) => {
       const option = document.createElement("option");
       option.value = trip.id;
-      option.textContent = trip.name;
+      option.textContent = `${trip.name} · ${t("Personal", "个人")}`;
       tripSelect.appendChild(option);
     });
-    if (tripSelectWrap) tripSelectWrap.hidden = trips.length < 2;
+    sharedTrips.forEach((trip) => {
+      const option = document.createElement("option");
+      option.value = sharedSelectionId(trip.id);
+      option.textContent = `${trip.name} · ${t("Shared", "共享")}`;
+      tripSelect.appendChild(option);
+    });
+    if (tripSelectWrap) tripSelectWrap.hidden = trips.length + sharedTrips.length < 2;
     if (activeTripId) tripSelect.value = activeTripId;
   }
 
@@ -859,15 +1589,134 @@
     mapResultsEl.hidden = false;
   }
 
-  function renderWorkspace() {
+  function renderSharePanel(trip = activeTrip()) {
+    if (!shareToggleBtn || !shareBodyEl) return;
+    const shared = isSharedTrip(trip);
+    const owner = shared && trip.role === "owner";
+    shareToggleBtn.setAttribute("aria-expanded", String(shareOpen));
+    shareToggleBtn.textContent = shareOpen ? t("Hide", "收起") : t("Share", "共享");
+    shareBodyEl.hidden = !shareOpen;
+    if (shareStartBtn) {
+      shareStartBtn.hidden = shared;
+      shareStartBtn.disabled = sharedBusy;
+      shareStartBtn.textContent = t("Share this trip", "共享此行程");
+    }
+    if (shareControlsEl) shareControlsEl.hidden = !shared;
+    if (inviteForm) inviteForm.hidden = !owner;
+    if (syncStatusEl) {
+      syncStatusEl.classList.toggle("is-error", sharedStatusError);
+      syncStatusEl.classList.toggle("is-synced", Boolean(shared && !sharedStatusError && sharedStatus));
+      if (sharedStatus) {
+        syncStatusEl.textContent = sharedStatus;
+      } else if (shared) {
+        syncStatusEl.textContent = t("Shared · syncs about every 2 seconds", "共享 · 约每 2 秒同步");
+      } else {
+        syncStatusEl.textContent = t("Personal · saved on this device", "个人 · 保存在此设备");
+      }
+    }
+    if (shareNoteEl) {
+      if (!authUser) {
+        shareNoteEl.textContent = t(
+          "Sign in with Google to invite editors.",
+          "使用 Google 登录后即可邀请协作者。"
+        );
+      } else if (!isGoogleUser()) {
+        shareNoteEl.textContent = t(
+          "Shared Travel requires a Google sign-in.",
+          "共享行程需要使用 Google 登录。"
+        );
+      } else if (shared && !owner) {
+        shareNoteEl.textContent = t("You can edit this trip. Only the owner can invite.", "你可以编辑此行程。只有所有者可以邀请。");
+      } else {
+        shareNoteEl.textContent = t(
+          "Google accounts only. One-time or reusable links.",
+          "仅限 Google 账号。可创建一次性或可重复邀请链接。"
+        );
+      }
+    }
+    if (inviteEmailWrap) inviteEmailWrap.hidden = inviteTypeEl?.value === "reusable";
+    if (membersEl) {
+      membersEl.innerHTML = "";
+      (trip?.members || []).forEach((member) => {
+        const item = document.createElement("li");
+        item.className = "travel-member";
+        item.innerHTML = `<span>${escapeHtml(member.label || member.userId)}<small>${escapeHtml(
+          member.role === "owner" ? t("Owner", "所有者") : t("Editor", "编辑者")
+        )}</small></span>`;
+        if (owner && member.role !== "owner") {
+          const removeBtn = document.createElement("button");
+          removeBtn.type = "button";
+          removeBtn.textContent = t("Remove", "移除");
+          removeBtn.addEventListener("click", () => removeSharedMember(member.userId));
+          item.appendChild(removeBtn);
+        }
+        membersEl.appendChild(item);
+      });
+    }
+    if (invitesEl) {
+      invitesEl.innerHTML = "";
+      (trip?.invites || [])
+        .filter((invite) => !invite.revokedAt)
+        .forEach((invite) => {
+          const token = inviteLinks[invite.id];
+          const item = document.createElement("li");
+          item.className = "travel-invite-row";
+          const copy = document.createElement("div");
+          copy.className = "travel-invite-copy";
+          copy.innerHTML = `<strong>${escapeHtml(
+            invite.type === "reusable" ? t("Reusable", "可重复") : t("One-time", "一次性")
+          )}</strong><small>${escapeHtml(
+            [
+              invite.email || "",
+              invite.expiresAt
+                ? t(`Expires ${new Date(invite.expiresAt).toLocaleDateString(uiLocale())}`, `有效期至 ${new Date(invite.expiresAt).toLocaleDateString(uiLocale())}`)
+                : "",
+              token ? t("Copy while this page is open", "请在本页打开时复制") : t("Link shown only when created", "链接仅在创建时显示"),
+            ]
+              .filter(Boolean)
+              .join(" · ")
+          )}</small>`;
+          const actions = document.createElement("div");
+          actions.className = "travel-invite-actions";
+          if (token) {
+            const copyBtn = document.createElement("button");
+            copyBtn.type = "button";
+            copyBtn.textContent = t("Copy", "复制");
+            copyBtn.addEventListener("click", () => copyInviteToken(token));
+            actions.appendChild(copyBtn);
+          }
+          const revokeBtn = document.createElement("button");
+          revokeBtn.type = "button";
+          revokeBtn.dataset.revokeInvite = invite.id;
+          revokeBtn.textContent = t("Revoke", "撤销");
+          revokeBtn.addEventListener("click", () => revokeInviteLink(invite.id));
+          actions.appendChild(revokeBtn);
+          item.appendChild(copy);
+          item.appendChild(actions);
+          invitesEl.appendChild(item);
+        });
+    }
+    if (deleteTripBtn) {
+      deleteTripBtn.hidden = Boolean(shared && trip.role !== "owner");
+    }
+  }
+
+  function renderWorkspace({ preserveMap = false } = {}) {
     renderTripSelect();
     const trip = activeTrip();
-    document.body.classList.toggle("travel-has-trip", Boolean(trip));
+    document.body.classList.toggle("travel-has-trip", Boolean(trip) && !pendingInviteToken);
+    if (pendingInviteToken && invitePreviewEl && !invitePreviewEl.hidden) {
+      if (emptyEl) emptyEl.hidden = true;
+      if (workspaceEl) workspaceEl.hidden = true;
+      return;
+    }
     if (!trip) {
       emptyEl.hidden = false;
       renderEmptyGreeting();
       workspaceEl.hidden = true;
+      lastMapTripId = null;
       destroyMap();
+      renderSharePanel(null);
       return;
     }
 
@@ -881,7 +1730,8 @@
     )} days`;
     renderDays(trip);
     renderStops();
-    ensureMap(trip);
+    ensureMap(trip, { resetView: !preserveMap && lastMapTripId !== trip.id });
+    renderSharePanel(trip);
   }
 
   newOpenBtn?.addEventListener("click", () => setSheetOpen(true));
@@ -897,19 +1747,76 @@
     clearPlaceResults();
     saveState();
     renderWorkspace();
+    const trip = activeTrip();
+    if (isSharedTrip(trip)) {
+      reloadSharedTrip(trip.id, { preserveMap: false }).catch(() => {});
+    }
   });
 
-  deleteTripBtn?.addEventListener("click", () => {
+  deleteTripBtn?.addEventListener("click", async () => {
     const trip = activeTrip();
     if (!trip) return;
     if (!window.confirm(`Delete trip “${trip.name}”?`)) return;
-    trips = trips.filter((item) => item.id !== trip.id);
-    activeTripId = trips[0]?.id || null;
+    if (isSharedTrip(trip)) {
+      if (trip.role !== "owner") return;
+      try {
+        await sharedRequest(`/${encodeURIComponent(trip.id)}${mutationQuery(trip)}`, {
+          method: "DELETE",
+        });
+      } catch (error) {
+        sharedStatus = error.message;
+        sharedStatusError = true;
+        renderSharePanel(trip);
+        return;
+      }
+      sharedTrips = sharedTrips.filter((item) => item.id !== trip.id);
+      Object.keys(sharedMappings).forEach((localId) => {
+        if (sharedMappings[localId] === trip.id) delete sharedMappings[localId];
+      });
+      activeTripId = sharedTrips[0]
+        ? sharedSelectionId(sharedTrips[0].id)
+        : trips[0]?.id || null;
+    } else {
+      trips = trips.filter((item) => item.id !== trip.id);
+      activeTripId = trips[0]?.id || null;
+    }
     activeDay = 1;
     activeStopId = null;
     routeStopIds = [];
     saveState();
     renderWorkspace();
+  });
+
+  shareToggleBtn?.addEventListener("click", async () => {
+    shareOpen = !shareOpen;
+    const trip = activeTrip();
+    if (shareOpen && isSharedTrip(trip)) {
+      await loadShareDetails(trip).catch((error) => {
+        sharedStatus = error.message;
+        sharedStatusError = true;
+      });
+    }
+    renderSharePanel(trip);
+  });
+
+  shareStartBtn?.addEventListener("click", () => {
+    if (!authUser) {
+      startGoogleSignIn().catch((error) => {
+        sharedStatus = error.message;
+        sharedStatusError = true;
+        renderSharePanel(activeTrip());
+      });
+      return;
+    }
+    shareCurrentTrip();
+  });
+
+  inviteTypeEl?.addEventListener("change", () => renderSharePanel(activeTrip()));
+  inviteForm?.addEventListener("submit", createInviteLink);
+  inviteActionBtn?.addEventListener("click", () => {
+    acceptPendingInvite().catch((error) => {
+      if (inviteStatusEl) inviteStatusEl.textContent = error.message;
+    });
   });
 
   routeOpenBtn?.addEventListener("click", () => openGoogleDirections());
@@ -997,17 +1904,33 @@
     if (event.key === "Escape" && newSheet && !newSheet.hidden) setSheetOpen(false);
   });
 
-  window.addEventListener("daily-space-locale-changed", renderWorkspace);
-  window.addEventListener("daily-space-travel-bookings-updated", () => {
+  window.addEventListener("daily-space-locale-changed", () => renderWorkspace({ preserveMap: true }));
+  window.addEventListener("daily-space-travel-bookings-updated", (event) => {
+    const sharedId = event.detail?.sharedTripId;
+    if (sharedId) {
+      reloadSharedTrip(sharedId, { preserveMap: true }).catch(() => {});
+      return;
+    }
     loadState();
-    renderWorkspace();
+    renderWorkspace({ preserveMap: true });
   });
   window.addEventListener("storage", (event) => {
     if (event.key !== STORAGE_KEY) return;
     loadState();
-    renderWorkspace();
+    renderWorkspace({ preserveMap: true });
   });
   window.addEventListener("resize", () => map?.invalidateSize());
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      stopSharedPoll();
+      return;
+    }
+    startSharedPoll();
+    pollActiveSharedTrip();
+  });
+  window.addEventListener("daily-space-auth-updated", () => {
+    bootTravel().catch(() => {});
+  });
 
   const themeObserver = new MutationObserver(() => {
     if (!map) return;
@@ -1019,6 +1942,31 @@
     attributeFilter: ["data-theme"],
   });
 
-  loadState();
-  renderWorkspace();
+  async function bootTravel() {
+    loadState();
+    renderWorkspace();
+    await loadAuthUser();
+    const inviteToken = new URLSearchParams(window.location.search).get("invite");
+    if (inviteToken) {
+      await showInvitePreview(inviteToken);
+      if (authUser && isGoogleUser()) return;
+      return;
+    }
+    if (isGoogleUser()) {
+      await loadSharedTrips();
+      const trip = activeTrip();
+      if (isSharedTrip(trip)) {
+        await reloadSharedTrip(trip.id, { preserveMap: false }).catch(() => {});
+      } else {
+        renderWorkspace();
+      }
+      startSharedPoll();
+    } else {
+      renderSharePanel(activeTrip());
+    }
+  }
+
+  bootTravel().catch(() => {
+    renderWorkspace();
+  });
 })();
