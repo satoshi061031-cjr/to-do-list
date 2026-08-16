@@ -399,8 +399,25 @@
     );
   }
 
+  function isGoogleProvider(provider) {
+    const value = String(provider || "").trim().toLowerCase();
+    return value === "google" || value === "gmail" || value.includes("google") || value.includes("gmail");
+  }
+
+  function readLocalAuth() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem("daily-space-auth-v1") || "null");
+      if (!parsed || typeof parsed !== "object") return null;
+      return parsed;
+    } catch (_) {
+      return null;
+    }
+  }
+
   function isGoogleUser() {
-    return String(authUser?.provider || "").trim().toLowerCase() === "google";
+    if (authUser) return isGoogleProvider(authUser.provider);
+    const local = readLocalAuth();
+    return isGoogleProvider(local?.provider) || isGoogleProvider(local?.mailProvider);
   }
 
   function inviteUrl(token) {
@@ -1615,15 +1632,15 @@
       }
     }
     if (shareNoteEl) {
-      if (!authUser) {
-        shareNoteEl.textContent = t(
-          "Sign in with Google to invite editors.",
-          "使用 Google 登录后即可邀请协作者。"
-        );
-      } else if (!isGoogleUser()) {
+      if (authUser && !isGoogleUser()) {
         shareNoteEl.textContent = t(
           "Shared Travel requires a Google sign-in.",
           "共享行程需要使用 Google 登录。"
+        );
+      } else if (!authUser && !isGoogleUser()) {
+        shareNoteEl.textContent = t(
+          "Sign in with Google to invite editors.",
+          "使用 Google 登录后即可邀请协作者。"
         );
       } else if (shared && !owner) {
         shareNoteEl.textContent = t("You can edit this trip. Only the owner can invite.", "你可以编辑此行程。只有所有者可以邀请。");
@@ -1799,16 +1816,17 @@
     renderSharePanel(trip);
   });
 
-  shareStartBtn?.addEventListener("click", () => {
-    if (!authUser) {
-      startGoogleSignIn().catch((error) => {
-        sharedStatus = error.message;
-        sharedStatusError = true;
-        renderSharePanel(activeTrip());
-      });
+  shareStartBtn?.addEventListener("click", async () => {
+    if (!authUser) await loadAuthUser();
+    if (authUser) {
+      shareCurrentTrip();
       return;
     }
-    shareCurrentTrip();
+    startGoogleSignIn().catch((error) => {
+      sharedStatus = error.message;
+      sharedStatusError = true;
+      renderSharePanel(activeTrip());
+    });
   });
 
   inviteTypeEl?.addEventListener("change", () => renderSharePanel(activeTrip()));

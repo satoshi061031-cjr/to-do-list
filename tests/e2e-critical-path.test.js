@@ -150,6 +150,18 @@ test("e2e critical path: welcome Daily Loop + guest today→calendar→mail task
   assert.equal(outlookTrips.status, 403);
   assert.equal((await outlookTrips.json()).code, "GOOGLE_SESSION_REQUIRED");
 
+  const gmailSession = await fetch(`${baseUrl}/api/travel/trips`, {
+    headers: {
+      cookie: sessionCookie({
+        userId: "gmail@example.com",
+        email: "gmail@example.com",
+        provider: "Gmail",
+        label: "Gmail user",
+      }),
+    },
+  });
+  assert.equal(gmailSession.status, 200);
+
   const googleCookie = sessionCookie({
     userId: "owner@example.com",
     email: "owner@example.com",

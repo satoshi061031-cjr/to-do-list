@@ -1585,9 +1585,14 @@ function enforceUserSession(session) {
   throw error;
 }
 
+function isGoogleAccountProvider(provider) {
+  const value = String(provider || "").trim().toLowerCase();
+  return value === "google" || value === "gmail" || value.includes("google") || value.includes("gmail");
+}
+
 function enforceGoogleSession(session) {
   enforceUserSession(session);
-  if (String(session.provider || "").trim().toLowerCase() === "google") return;
+  if (isGoogleAccountProvider(session.provider)) return;
   const error = new Error("Shared Travel requires a Google sign-in.");
   error.statusCode = 403;
   error.code = "GOOGLE_SESSION_REQUIRED";
