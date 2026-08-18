@@ -44,6 +44,8 @@ const files = [
   "mail.js",
   "agent-data.js",
   "agent-ui.js",
+  "workspace-search.js",
+  "workspace-tasks.js",
   "daily-loop.js",
   "bento-rail.js",
   "vendor/leaflet/leaflet.css",

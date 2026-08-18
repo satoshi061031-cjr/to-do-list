@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Today · Agent</title>
     <script src="device-route.js"></script>
+    <script src="workspace-search.js"></script>
+    <script src="workspace-tasks.js"></script>
     <script src="daily-loop.js"></script>
     <script src="theme.js"></script>
     <script src="i18n.js"></script>
@@ -105,7 +107,7 @@
           <section class="task-module app-module today-tasks" data-module-id="tasks" aria-label="To-do tasks">
               <section class="daily-loop" id="daily-loop" aria-label="Daily loop">
                 <ul class="todo-list daily-loop-list" id="daily-loop-list" aria-label="Due today"></ul>
-                <p class="daily-loop-empty" id="daily-loop-empty" hidden>Nothing due today — add one with the agent above.</p>
+                <p class="daily-loop-empty" id="daily-loop-empty" hidden>Nothing due today — type a task below.</p>
                 <a class="daily-loop-reminders" id="daily-loop-reminders" href="calendar.html" hidden>
                   <div class="daily-loop-reminders-head">
                     <span class="daily-loop-reminders-label">Reminders</span>
@@ -113,10 +115,16 @@
                   </div>
                   <ul class="daily-loop-reminders-list" id="daily-loop-reminders-list"></ul>
                 </a>
+                <a class="daily-loop-reminders daily-loop-travel" id="daily-loop-travel" href="travel.html" hidden>
+                  <div class="daily-loop-reminders-head">
+                    <span class="daily-loop-reminders-label">Travel</span>
+                    <span class="daily-loop-reminders-link">Open Travel</span>
+                  </div>
+                  <ul class="daily-loop-reminders-list" id="daily-loop-travel-list"></ul>
+                </a>
               </section>
 
-              <!-- Legacy composer kept for app.js hooks; agent is the add path. -->
-              <form class="add-form add-form-notion today-add-legacy" id="add-form" autocomplete="off" hidden aria-hidden="true">
+              <form class="add-form add-form-notion" id="add-form" autocomplete="off">
                 <div class="add-form-row">
                   <span class="composer-glyph" aria-hidden="true">□</span>
                   <input
@@ -128,9 +136,8 @@
                     aria-label="New task"
                     aria-controls="todo-slash-menu"
                     aria-autocomplete="list"
-                    tabindex="-1"
                   />
-                  <button type="submit" class="btn btn-primary add-form-submit" tabindex="-1">Add</button>
+                  <button type="submit" class="btn btn-primary add-form-submit">Add</button>
                 </div>
                 <div class="add-form-deadline">
                   <div class="deadline-picker">
@@ -144,7 +151,6 @@
                         aria-haspopup="dialog"
                         aria-controls="calendar-panel"
                         aria-label="Due date"
-                        tabindex="-1"
                       >
                         <span class="deadline-trigger-text" id="deadline-display">Pick a date…</span>
                       </button>
@@ -154,7 +160,6 @@
                         id="deadline-clear"
                         hidden
                         aria-label="Clear due date"
-                        tabindex="-1"
                       >
                         ×
                       </button>
@@ -224,7 +229,7 @@
 
               <ul class="todo-list" id="todo-list" aria-live="polite"></ul>
 
-              <p class="empty-state" id="empty-state">Type a task in the agent above — works even offline.</p>
+              <p class="empty-state" id="empty-state">Type a task below, or ask the agent — works even offline.</p>
 
               <footer class="footer">
                 <span id="count-text">0 tasks left</span>
@@ -240,6 +245,7 @@
             <ul class="evening-review-stats" id="evening-review-stats" hidden></ul>
             <p class="evening-review-mail" id="evening-review-mail" hidden></p>
             <p class="evening-review-tally" id="evening-review-tally" hidden></p>
+            <p class="evening-review-travel" id="evening-review-travel" hidden></p>
             <div class="evening-review-actions">
               <button type="button" class="btn btn-primary" id="evening-review-focus">Ask agent</button>
               <button type="button" class="btn" id="evening-review-close" hidden>Mark day closed</button>
@@ -283,8 +289,8 @@
           type="search"
           class="command-palette-input"
           id="todo-command-input"
-          placeholder="Jump to a page or action…"
-          aria-label="Jump search"
+          placeholder="Search tasks, trips, spend…"
+          aria-label="Search Daily Space"
           autocomplete="off"
         />
         <ul class="command-palette-list" id="todo-command-list" role="listbox"></ul>

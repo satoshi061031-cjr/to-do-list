@@ -130,9 +130,11 @@
   font-weight: 760;
 }
 
-.tally-icon-btn {
-  width: 2.65rem;
-  height: 2.65rem;
+.tally-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
   border: 1px solid var(--glass-border);
   border-radius: 50%;
   background: var(--glass-strong);

@@ -136,8 +136,9 @@ Do not switch to Inter, Roboto, Arial, or system-ui as the brand voice.
 - Module gaps use `spacing.md`–`spacing.lg`.
 - Desktop: multi-column grids with breathing room; mobile: single column, extra top padding for the menu trigger.
 - One job per section: one heading, one short supporting line, one primary interaction cluster.
-- Todo hub is an agent page: greeting + Today hero + always-open Daily Space Agent chat as the primary way to add/change tasks, with the task list as the result strip below. No floating agent FAB on Todo; legacy `#add-form` stays hidden for hooks only.
-- Todo mobile uses a separate soft Loop home (`todo-m.html`) that stays agent-first (inline chat host, no + FAB composer) while keeping the same color tokens (yellow `tertiary` accent, never a second brand hue).
+- Todo hub: greeting + Today hero + Daily Space Agent chat, plus a visible add form on desktop and mobile so typing a task never requires the agent. No floating agent FAB on Todo.
+- Todo mobile uses a separate soft Loop home (`todo-m.html`) with the same add-form + agent rules and the same color tokens (yellow `tertiary` accent, never a second brand hue).
+- Google or Outlook sign-in connects that account across Mail and Calendar (plus workspace snapshot). WeChat sign-in keeps snapshot only; a guest who already has tasks is reminded to sign in to save.
 - Calendar desktop top module mirrors a schedule header: search + filter chips, “Stay up to date” headline, week-range pill with prev/next, yellow “+ Add reminder”, and Today/Week/Month view toggles — then the week time grid and quiet selected-day strip. Tokens stay yellow `tertiary` / glass; no cream or second brand hue.
 - Planner board uses a soft Kanban layout **inside the main panel only**: glass panel + muted column tracks, glass cards, Day/Week/Month/Year range pills, and search. Fixed columns are Planned / In Progress / Done / On Hold (not deletable). Cards add only via `+ Add card` under a column.
 - Planner header is greeting + title (“Landing Page”). Collapsed cards show title + note preview; expand to edit. Site chrome (bento rail, menu sidebar, greeting) stays the shared Daily Space pattern. Accent remains yellow `tertiary`.

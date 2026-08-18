@@ -4,6 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Tally Book</title>
+    <script src="workspace-search.js"></script>
+    <script src="workspace-tasks.js"></script>
     <script src="daily-loop.js"></script>
     <script src="theme.js"></script>
     <script src="i18n.js"></script>
@@ -50,7 +52,10 @@
               </button>
               <button type="button" class="tally-nav-btn" id="tally-next" aria-label="Next month">›</button>
             </div>
-            <button type="button" class="tally-icon-btn" id="tally-settings-toggle" aria-expanded="false" aria-controls="tally-settings" aria-label="Budget settings">⚙</button>
+            <div class="tally-topbar-actions">
+              <button type="button" class="tally-icon-btn" id="tally-export" aria-label="Export CSV">↓</button>
+              <button type="button" class="tally-icon-btn" id="tally-settings-toggle" aria-expanded="false" aria-controls="tally-settings" aria-label="Budget settings">⚙</button>
+            </div>
           </header>
 
           <div class="tally-view-switch" id="tally-view-switch" aria-label="Ledger view">

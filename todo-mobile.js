@@ -93,22 +93,14 @@
   }
 
   function closeComposer() {
-    const sheet = document.getElementById("m-composer");
-    if (sheet) sheet.hidden = true;
+    /* Add form stays in the page flow on desktop and mobile. */
   }
 
   function wireDock() {
-    // Page dock comes from bento-rail.js + m-dock.css on all mobile pages.
     const fab = document.getElementById("m-fab-add");
     if (fab) fab.addEventListener("click", openComposer);
     const done = document.getElementById("m-composer-close");
     if (done) done.addEventListener("click", closeComposer);
-    const form = document.getElementById("add-form");
-    if (form) {
-      form.addEventListener("submit", () => {
-        window.setTimeout(closeComposer, 80);
-      });
-    }
   }
 
   function boot() {

@@ -325,18 +325,19 @@ body.todo-mobile .m-evening:not([hidden]) {
   box-shadow: var(--m-shadow);
 }
 
-/* Composer sheet */
+/* Composer sits in the page flow — same add path as desktop */
 body.todo-mobile .m-composer {
-  position: fixed;
-  left: 50%;
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 5.25rem);
-  z-index: 240;
-  width: min(28rem, calc(100vw - 1.5rem));
-  transform: translateX(-50%);
+  position: relative;
+  left: auto;
+  bottom: auto;
+  z-index: 1;
+  width: auto;
+  transform: none;
+  margin: 0 0 var(--space-md);
   padding: var(--space-md);
   border-radius: var(--radius-lg);
   background: var(--m-card);
-  box-shadow: var(--shadow-pop);
+  box-shadow: var(--m-shadow);
   border: 1px solid color-mix(in srgb, var(--primary) 8%, transparent);
 }
 

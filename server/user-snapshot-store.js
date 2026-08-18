@@ -12,6 +12,8 @@ const ALLOWED_SNAPSHOT_KEYS = new Set([
   "calendar-app-v1",
   "tally-book-v1",
   "teamwork-page-v1",
+  "travel-book-v1",
+  "travel-shared-v1",
   "daily-space-mail-accounts-v1",
   "todo-theme",
 ]);

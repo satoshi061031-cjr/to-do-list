@@ -21,6 +21,14 @@ const { getTravelCollabStore } = require("./travel-collab-store");
 const { summarizeInboxMessages } = require("./mail-digest");
 const { parseMailBookings } = require("./mail-booking");
 const {
+  GOOGLE_WORKSPACE_SCOPES,
+  OUTLOOK_WORKSPACE_SCOPES,
+  googleEventToWorkspace,
+  graphEventToWorkspace,
+  buildGoogleEventBody,
+  buildGraphEventBody,
+} = require("./workspace-oauth");
+const {
   getDefaultStore: getUserSnapshotStore,
   isSupabaseSnapshotStoreConfigured,
 } = require("./user-snapshot-store");
@@ -882,7 +890,21 @@ async function handleApi(request, response, url) {
       const tokenClaims = parseJwtClaims(token.id_token);
       const email = String(profile.email || tokenClaims.email || "").trim().toLowerCase();
       const label = resolveDisplayName(profile, tokenClaims, email, "Google user");
-      // Identity login only — never invent a readable mailbox without mail OAuth tokens.
+      if (isValidEmail(email) && token.access_token) {
+        try {
+          persistMailboxFromOauth({
+            userId: email,
+            provider: "gmail",
+            email,
+            token,
+            profile,
+            source: "google-signin",
+            scope: token.scope || config.scope,
+          });
+        } catch (_) {
+          /* Login still succeeds if mailbox persistence is unavailable. */
+        }
+      }
       sendRedirect(
         response,
         withQuery(returnTo, {
@@ -986,7 +1008,19 @@ async function handleApi(request, response, url) {
         throw Object.assign(new Error("Unable to read email from Microsoft profile."), { statusCode: 502 });
       }
       const label = resolveDisplayName(profile, tokenClaims, email, "Outlook user");
-      // Identity login only — mail read requires a separate mailbox OAuth connect.
+      try {
+        persistMailboxFromOauth({
+          userId: email,
+          provider: "outlook",
+          email,
+          token,
+          profile,
+          source: "outlook-signin",
+          scope: token.scope || config.scope,
+        });
+      } catch (_) {
+        /* Login still succeeds if mailbox persistence is unavailable. */
+      }
       sendRedirect(
         response,
         withQuery(returnTo, {
@@ -1333,8 +1367,35 @@ async function handleApi(request, response, url) {
 
   if (method === "POST" && url.pathname === "/api/mail/accounts/link-from-auth") {
     enforceUserSession(session);
-    // Identity sign-in must not create a fake "connected" mailbox without mail scopes.
-    sendJson(response, { linked: false, skipped: true, reason: "mail_oauth_required" });
+    const ready = listMailAccounts(session.userId).find(
+      (account) =>
+        (account.provider === "gmail" || account.provider === "outlook") && account.hasCredentials
+    );
+    sendJson(response, {
+      linked: Boolean(ready),
+      skipped: !ready,
+      reason: ready ? "already_connected" : "mail_oauth_required",
+    });
+    return;
+  }
+
+  if (method === "GET" && url.pathname === "/api/calendar/events") {
+    if (!session || !session.userId) {
+      sendJson(response, { connected: false, events: [] });
+      return;
+    }
+    const from = String(url.searchParams.get("from") || "").trim();
+    const to = String(url.searchParams.get("to") || "").trim();
+    const payload = await listWorkspaceCalendarEvents(session, request, from, to);
+    sendJson(response, payload);
+    return;
+  }
+
+  if (method === "POST" && url.pathname === "/api/calendar/events") {
+    enforceUserSession(session);
+    const body = await readJson(request);
+    const created = await createWorkspaceCalendarEvent(session, request, body);
+    sendJson(response, created, created.event ? 201 : 200);
     return;
   }
 
@@ -1846,7 +1907,7 @@ function getOauthProviderConfig(provider, request) {
       clientId,
       clientSecret,
       redirectUri,
-      scope: "openid email profile https://www.googleapis.com/auth/gmail.readonly",
+      scope: GOOGLE_WORKSPACE_SCOPES,
       authUrl: "https://accounts.google.com/o/oauth2/v2/auth",
       tokenUrl: "https://oauth2.googleapis.com/token",
     };
@@ -1867,7 +1928,7 @@ function getOauthProviderConfig(provider, request) {
       clientId,
       clientSecret,
       redirectUri,
-      scope: "offline_access openid profile email https://graph.microsoft.com/Mail.Read",
+      scope: OUTLOOK_WORKSPACE_SCOPES,
       authUrl: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
       tokenUrl: "https://login.microsoftonline.com/common/oauth2/v2.0/token",
     };
@@ -1894,8 +1955,7 @@ function getGoogleSignInConfig(request) {
     clientId,
     clientSecret,
     redirectUri,
-    // Identity only — never request Gmail scopes on the login client.
-    scope: "openid email profile",
+    scope: GOOGLE_WORKSPACE_SCOPES,
     authUrl: "https://accounts.google.com/o/oauth2/v2/auth",
     tokenUrl: "https://oauth2.googleapis.com/token",
   };
@@ -1917,8 +1977,7 @@ function getOutlookSignInConfig(request) {
     clientId,
     clientSecret,
     redirectUri,
-    // Identity / profile only — Mail.Read stays on the mail OAuth client.
-    scope: "openid profile email User.Read",
+    scope: OUTLOOK_WORKSPACE_SCOPES,
     authUrl: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
     tokenUrl: "https://login.microsoftonline.com/common/oauth2/v2.0/token",
   };
@@ -2031,11 +2090,12 @@ function buildSignInAuthUrl(provider, config, state) {
     state,
   });
   if (provider === "google") {
-    // Do not set include_granted_scopes — that would pull prior Gmail grants into login.
-    params.set("prompt", "select_account");
+    params.set("access_type", "offline");
+    params.set("include_granted_scopes", "true");
+    params.set("prompt", "consent");
   } else if (provider === "outlook") {
     params.set("response_mode", "query");
-    params.set("prompt", "select_account");
+    params.set("prompt", "consent");
   }
   return `${config.authUrl}?${params.toString()}`;
 }
@@ -2478,7 +2538,7 @@ async function ensureFreshMailAccount(account, request) {
     throw mailReauthError("Mailbox not authorized for reading. Connect Gmail or Outlook again.");
   }
 
-  const config = getOauthProviderConfig(account.provider, request);
+  const config = getTokenClientConfig(account, request);
   const body = new URLSearchParams({
     grant_type: "refresh_token",
     client_id: config.clientId,
@@ -2526,6 +2586,168 @@ async function ensureFreshMailAccount(account, request) {
     scope: payload.scope || account.scope || null,
     expiresAt,
   };
+}
+
+function persistMailboxFromOauth(input) {
+  const email = String(input.email || "").trim().toLowerCase();
+  const userId = String(input.userId || email).trim().toLowerCase();
+  const token = input.token || {};
+  if (!userId || !email || !token.access_token) return null;
+  return upsertMailAccount({
+    userId,
+    provider: input.provider,
+    email,
+    accessToken: sealToken(token.access_token),
+    refreshToken: token.refresh_token ? sealToken(token.refresh_token) : null,
+    tokenType: token.token_type || "Bearer",
+    scope: input.scope || token.scope || null,
+    expiresAt: token.expires_in
+      ? new Date(Date.now() + Number(token.expires_in) * 1000).toISOString()
+      : null,
+    profile: {
+      source: input.source || "oauth",
+      displayName: input.profile?.name || input.profile?.displayName || null,
+      id: input.profile?.sub || input.profile?.id || null,
+      raw: input.profile || {},
+    },
+  });
+}
+
+function getTokenClientConfig(account, request) {
+  const source = String(account?.profile?.source || "").toLowerCase();
+  if (account?.provider === "gmail" && source === "google-signin") {
+    return getGoogleSignInConfig(request);
+  }
+  if (account?.provider === "outlook" && source === "outlook-signin") {
+    return getOutlookSignInConfig(request);
+  }
+  return getOauthProviderConfig(account.provider, request);
+}
+
+async function loadReadyMailbox(session, provider, request) {
+  const listed = listMailAccounts(session.userId).find(
+    (account) => account.provider === provider && account.hasCredentials
+  );
+  if (!listed) return null;
+  const full = getMailAccountById(session.userId, listed.id);
+  if (!full) return null;
+  return ensureFreshMailAccount(full, request);
+}
+
+async function listWorkspaceCalendarEvents(session, request, fromIso, toIso) {
+  const from = /^\d{4}-\d{2}-\d{2}$/.test(fromIso) ? fromIso : new Date().toISOString().slice(0, 10);
+  const to = /^\d{4}-\d{2}-\d{2}$/.test(toIso) ? toIso : from;
+  const events = [];
+  let provider = "";
+  let connected = false;
+  const gmail = await loadReadyMailbox(session, "gmail", request).catch(() => null);
+  if (gmail) {
+    connected = true;
+    provider = "google";
+    const googleEvents = await fetchGoogleCalendarEvents(gmail, from, to).catch(() => []);
+    events.push(...googleEvents);
+  }
+  const outlook = await loadReadyMailbox(session, "outlook", request).catch(() => null);
+  if (outlook) {
+    connected = true;
+    if (!provider) provider = "outlook";
+    const graphEvents = await fetchOutlookCalendarEvents(outlook, from, to).catch(() => []);
+    events.push(...graphEvents);
+  }
+  return { connected, provider, events };
+}
+
+async function createWorkspaceCalendarEvent(session, request, body) {
+  const gmail = await loadReadyMailbox(session, "gmail", request).catch(() => null);
+  if (gmail) {
+    const event = await createGoogleCalendarEvent(gmail, body || {});
+    return { connected: true, provider: "google", event };
+  }
+  const outlook = await loadReadyMailbox(session, "outlook", request).catch(() => null);
+  if (outlook) {
+    const event = await createOutlookCalendarEvent(outlook, body || {});
+    return { connected: true, provider: "outlook", event };
+  }
+  return { connected: false, event: null, reason: "mailbox_required" };
+}
+
+async function fetchGoogleCalendarEvents(account, fromIso, toIso) {
+  if (!account.accessToken) return [];
+  const accessToken = openToken(account.accessToken);
+  const params = new URLSearchParams({
+    timeMin: `${fromIso}T00:00:00Z`,
+    timeMax: `${toIso}T23:59:59Z`,
+    singleEvents: "true",
+    orderBy: "startTime",
+    maxResults: "250",
+  });
+  const response = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/primary/events?${params.toString()}`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) return [];
+  return (Array.isArray(payload.items) ? payload.items : [])
+    .map((item) => googleEventToWorkspace(item))
+    .filter(Boolean);
+}
+
+async function fetchOutlookCalendarEvents(account, fromIso, toIso) {
+  if (!account.accessToken) return [];
+  const accessToken = openToken(account.accessToken);
+  const params = new URLSearchParams({
+    startDateTime: `${fromIso}T00:00:00`,
+    endDateTime: `${toIso}T23:59:59`,
+    $top: "250",
+  });
+  const response = await fetch(
+    `https://graph.microsoft.com/v1.0/me/calendarView?${params.toString()}`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Prefer: 'outlook.timezone="UTC"',
+      },
+    }
+  );
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) return [];
+  return (Array.isArray(payload.value) ? payload.value : [])
+    .map((item) => graphEventToWorkspace(item))
+    .filter(Boolean);
+}
+
+async function createGoogleCalendarEvent(account, body) {
+  const eventBody = buildGoogleEventBody(body);
+  if (!eventBody || !account.accessToken) return null;
+  const accessToken = openToken(account.accessToken);
+  const response = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(eventBody),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) return null;
+  return googleEventToWorkspace(payload);
+}
+
+async function createOutlookCalendarEvent(account, body) {
+  const eventBody = buildGraphEventBody(body);
+  if (!eventBody || !account.accessToken) return null;
+  const accessToken = openToken(account.accessToken);
+  const response = await fetch("https://graph.microsoft.com/v1.0/me/events", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(eventBody),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) return null;
+  return graphEventToWorkspace(payload);
 }
 
 async function fetchRecentGmailMessages(account, limit) {

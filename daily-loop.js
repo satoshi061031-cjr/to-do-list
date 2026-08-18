@@ -3,6 +3,7 @@
   const STORAGE_CALENDAR = "calendar-app-v1";
   const STORAGE_MAIL_DIGEST = "daily-space-mail-digest-v1";
   const STORAGE_TALLY = "tally-book-v1";
+  const STORAGE_TRAVEL = "travel-book-v1";
   const STORAGE_REMINDER_FIRED = "daily-space-reminder-fired-v1";
   const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
   const TIME_24H = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -82,6 +83,7 @@
       .sort((a, b) =>
         (a.startTime || a.endTime || "99:99").localeCompare(b.startTime || b.endTime || "99:99")
       );
+    const tripsToday = readTodayTrips();
     return {
       today,
       dueTodayTotal: dueToday.length,
@@ -89,9 +91,37 @@
       dueTodayDone: dueTodayDone.length,
       overdueOpen: overdueOpen.length,
       remindersToday,
+      tripsToday,
       remainingOpen: dueTodayOpen.length + overdueOpen.length,
       cleared: dueToday.length > 0 && dueTodayOpen.length === 0 && overdueOpen.length === 0,
     };
+  }
+
+  function readTrips() {
+    try {
+      const raw = localStorage.getItem(STORAGE_TRAVEL);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.trips)) return [];
+      return parsed.trips.filter(
+        (trip) => trip && typeof trip.id === "string" && typeof trip.name === "string"
+      );
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function tripTouchesDate(trip, iso) {
+    const start = String(trip.startDate || "");
+    const end = String(trip.endDate || start);
+    if (!ISO_DATE.test(start) || !ISO_DATE.test(iso)) return false;
+    const last = ISO_DATE.test(end) ? end : start;
+    return start <= iso && iso <= last;
+  }
+
+  function readTodayTrips() {
+    const today = todayIso();
+    return readTrips().filter((trip) => tripTouchesDate(trip, today));
   }
 
   function readCachedMailDigest() {
@@ -250,27 +280,47 @@
     }
   }
 
-  function showReminderNotification(reminder) {
+  function showDesktopNotification(tag, title, body, href) {
     if (!notificationsSupported() || Notification.permission !== "granted") return false;
-    const title = "Daily Space reminder";
-    const bodyParts = [];
-    if (reminder.startTime) bodyParts.push(reminder.startTime);
-    bodyParts.push(String(reminder.text || "").trim());
     try {
       const note = new Notification(title, {
-        body: bodyParts.filter(Boolean).join(" · ").slice(0, 160),
-        tag: `daily-space-reminder-${reminder.id}`,
+        body: String(body || "").slice(0, 160),
+        tag,
         renotify: false,
       });
       note.onclick = function () {
         window.focus();
-        window.location.href = "calendar.html";
+        if (href) window.location.href = href;
         note.close();
       };
       return true;
     } catch (_) {
       return false;
     }
+  }
+
+  function showReminderNotification(reminder) {
+    const bodyParts = [];
+    if (reminder.startTime) bodyParts.push(reminder.startTime);
+    bodyParts.push(String(reminder.text || "").trim());
+    return showDesktopNotification(
+      `daily-space-reminder-${reminder.id}`,
+      "Daily Space reminder",
+      bodyParts.filter(Boolean).join(" · "),
+      "calendar.html"
+    );
+  }
+
+  function showTodoDueNotification(todo) {
+    const bodyParts = [];
+    if (todo.dueTime) bodyParts.push(todo.dueTime);
+    bodyParts.push(String(todo.text || "").trim());
+    return showDesktopNotification(
+      `daily-space-todo-${todo.id}`,
+      "Daily Space task due",
+      bodyParts.filter(Boolean).join(" · "),
+      "todo.html#today"
+    );
   }
 
   function tickReminderNotifications() {
@@ -297,6 +347,16 @@
       if (showReminderNotification(reminder)) {
         nextFired[id] = today;
       }
+    });
+
+    readTodos().forEach((todo) => {
+      if (!todo || todo.completed || todo.dueDate !== today) return;
+      const id = `todo:${todo.id}`;
+      if (nextFired[id] === today) return;
+      const dueTime = typeof todo.dueTime === "string" && TIME_24H.test(todo.dueTime) ? todo.dueTime : null;
+      const shouldFire = dueTime ? dueTime <= hm : isEveningHour();
+      if (!shouldFire) return;
+      if (showTodoDueNotification(todo)) nextFired[id] = today;
     });
 
     writeFiredMap(nextFired);
@@ -374,6 +434,123 @@
     });
   }
 
+  function isWelcomePath() {
+    const path = String(window.location.pathname || "/").replace(/\/+$/, "") || "/";
+    return path === "/" || path === "/index.html";
+  }
+
+  function setupWorkspaceSearch() {
+    if (isWelcomePath() || !document.body) return;
+    const searchApi = window.DailySpaceSearch;
+    if (!searchApi || typeof searchApi.search !== "function") return;
+
+    let palette = document.getElementById("todo-command-palette") || document.getElementById("daily-space-search");
+    if (!palette) {
+      palette = document.createElement("div");
+      palette.className = "command-palette";
+      palette.id = "daily-space-search";
+      palette.hidden = true;
+      palette.setAttribute("role", "dialog");
+      palette.setAttribute("aria-modal", "true");
+      palette.setAttribute("aria-label", "Search Daily Space");
+      palette.innerHTML = `
+        <div class="command-palette-backdrop" data-search-close="true"></div>
+        <div class="command-palette-panel">
+          <input type="search" class="command-palette-input" id="daily-space-search-input" placeholder="Search tasks, trips, spend…" aria-label="Search Daily Space" autocomplete="off" />
+          <ul class="command-palette-list" id="daily-space-search-list" role="listbox"></ul>
+          <p class="command-palette-empty" id="daily-space-search-empty" hidden>No matches.</p>
+        </div>
+      `;
+      document.body.appendChild(palette);
+    }
+
+    const input = palette.querySelector("input[type='search'], .command-palette-input");
+    const list = palette.querySelector(".command-palette-list");
+    const empty = palette.querySelector(".command-palette-empty");
+    if (!input || !list) return;
+    let activeIndex = 0;
+    let items = [];
+
+    function closePalette() {
+      palette.hidden = true;
+    }
+
+    function openPalette() {
+      palette.hidden = false;
+      input.value = "";
+      render("");
+      window.requestAnimationFrame(() => input.focus());
+    }
+
+    function render(query) {
+      items = searchApi.search(query, 12);
+      activeIndex = 0;
+      list.innerHTML = "";
+      items.forEach((item, index) => {
+        const li = document.createElement("li");
+        li.className = "command-palette-item" + (index === 0 ? " is-active" : "");
+        li.setAttribute("role", "option");
+        li.innerHTML = `<span class="command-palette-label"></span><span class="command-palette-hint"></span>`;
+        li.querySelector(".command-palette-label").textContent = item.label;
+        li.querySelector(".command-palette-hint").textContent = item.hint || "";
+        li.addEventListener("click", () => run(item));
+        list.appendChild(li);
+      });
+      if (empty) empty.hidden = items.length > 0;
+    }
+
+    function run(item) {
+      closePalette();
+      if (!item) return;
+      if (typeof item.run === "function") {
+        item.run();
+        return;
+      }
+      if (item.href) window.location.href = item.href;
+    }
+
+    input.addEventListener("input", () => render(input.value));
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        activeIndex = (activeIndex + 1) % Math.max(items.length, 1);
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        activeIndex = (activeIndex - 1 + Math.max(items.length, 1)) % Math.max(items.length, 1);
+      } else if (event.key === "Enter") {
+        event.preventDefault();
+        run(items[activeIndex]);
+        return;
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        closePalette();
+        return;
+      } else {
+        return;
+      }
+      Array.from(list.children).forEach((node, index) => {
+        node.classList.toggle("is-active", index === activeIndex);
+      });
+    });
+    palette.addEventListener("click", (event) => {
+      if (event.target && event.target.closest("[data-search-close], .command-palette-backdrop")) {
+        closePalette();
+      }
+    });
+
+    if (!window.__dailySpaceSearchBound) {
+      window.__dailySpaceSearchBound = true;
+      document.addEventListener("keydown", (event) => {
+        const meta = event.metaKey || event.ctrlKey;
+        if (meta && String(event.key).toLowerCase() === "k") {
+          event.preventDefault();
+          if (palette.hidden) openPalette();
+          else closePalette();
+        }
+      });
+    }
+  }
+
   window.DailySpaceLoop = {
     todayIso,
     isEveningHour,
@@ -382,10 +559,12 @@
     writeCachedMailDigest,
     refreshMailDigestCache,
     readTodaySpend,
+    readTodayTrips,
     notificationPermission,
     requestNotificationPermission,
     setupReminderNotifications,
     setupSidebarTodayStrip,
+    setupWorkspaceSearch,
     tickReminderNotifications,
   };
 })();

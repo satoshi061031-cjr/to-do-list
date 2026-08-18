@@ -16,6 +16,8 @@
     "One habit.": "一个习惯。",
     "See what’s due today, clear overdue, and close the day — Todo is the hub.":
       "看清今天到期、清理逾期、收尾一天——待办是中枢。",
+    "See what’s due today, clear overdue, and close the day — Todo is the hub. Google or Outlook sign-in connects mail and calendar for that account.":
+      "看清今天到期、清理逾期、收尾一天——待办是中枢。用 Google 或 Outlook 登录后，邮件和日历都会接到这个账号。",
     "Meet Daily Space.": "认识 Daily Space。",
     "Your personal productivity space.": "你的个人效率空间。",
     "Your workspace for personal focus and team assignment.": "兼顾个人专注与团队分派的工作空间。",
@@ -36,6 +38,12 @@
       "安装提示：用浏览器的「安装应用」或「添加到主屏幕」，快捷打开 Daily Loop。",
     "Your data stays on this device and in your cloud snapshot while signed in.":
       "登录期间，数据保存在本机，并同步到云端快照。",
+    "Signed in with Google or Outlook, Mail and Calendar use that same account. WeChat keeps a cloud snapshot on this workspace.":
+      "用 Google 或 Outlook 登录后，邮件和日历使用同一账号。微信登录只同步本工作区的云快照。",
+    "Sign in to keep this work": "登录以保存这些内容",
+    "You have tasks on this device. Connect Google, Outlook, or WeChat to save them to your account.":
+      "这台设备上已有任务。连接 Google、Outlook 或微信，即可保存到你的账号。",
+    Later: "稍后再说",
     "Keep this device": "保留本机",
     "Keep local": "保留本机",
     "Use cloud": "使用云端",
@@ -47,6 +55,15 @@
     "⌘K · ?": "⌘K · ?",
     "All caught up.": "今天都做完了。",
     "Nothing due today — add one with the agent above.": "今天没有到期任务——用上方的助手加一项。",
+    "Nothing due today — type a task below.": "今天没有到期任务——在下方输入一项。",
+    "Type a task above, or ask the agent — works even offline.": "在上方输入任务，或问助手——离线也能加。",
+    "Type a task below, or ask the agent — works even offline.": "在下方输入任务，或问助手——离线也能加。",
+    "No due-today tasks yet — type one above, ask the agent, or mark the day closed.":
+      "今天还没有到期任务——在上方加一项、问助手，或直接收尾。",
+    "Google and Outlook sign-in already open that mailbox. Use these buttons only to add another account.":
+      "用 Google 或 Outlook 登录后邮箱已经打开。只有要加另一个邮箱时才用这些按钮。",
+    "Mail digest uses the Google or Outlook account you signed in with. Add another mailbox only if you need a second inbox.":
+      "邮件摘要使用你登录的 Google 或 Outlook 账号。只有需要第二个收件箱时再添加邮箱。",
     "Stay up to date": "保持同步",
     "+ Add reminder": "+ 添加提醒",
     "Open in Todo": "在待办中打开",
@@ -368,6 +385,15 @@
     "Close booking import": "关闭预订导入",
     "Add to trip": "添加到行程",
     "Open Travel": "打开旅行",
+    "Personal trips stay on this device and in your cloud snapshot. Shared trips live with Google collaborators.":
+      "个人行程保存在本机并同步到云端快照。共享行程由 Google 协作者共同维护。",
+    "Export CSV": "导出 CSV",
+    Repeat: "重复",
+    Once: "一次",
+    Daily: "每天",
+    Weekly: "每周",
+    "Search Daily Space": "搜索 Daily Space",
+    "Search tasks, trips, spend…": "搜索任务、行程、支出…",
     "Shared trip invitation": "共享行程邀请",
     "Opening invitation…": "正在打开邀请…",
     "Checking this invitation.": "正在检查这份邀请。",
@@ -583,6 +609,7 @@
 
   const ATTR_ZH = {
     Menu: "菜单",
+    "Save your workspace": "保存你的工作区",
     "+ New category": "+ 新建分类",
     "+ New planner": "+ 新建计划空间",
     "Sign in Google, Outlook, phone": "登录：Google、Outlook 或手机",
@@ -639,6 +666,8 @@
     "Shared workspace": "共享工作空间",
     "Invite role": "邀请角色",
     "What do you need to do?": "你需要做什么？",
+    "Search Daily Space": "搜索 Daily Space",
+    "Search tasks, trips, spend…": "搜索任务、行程、支出…",
     "Jump to a page or action…": "跳转到页面或操作…",
     "New category name": "新分类名称",
     "Filter tasks": "筛选任务",
@@ -646,6 +675,7 @@
     "Pick a due date": "选择截止日期",
     Commands: "命令",
     "Add task": "添加任务",
+    "Export CSV": "导出 CSV",
     Jump: "跳转",
     "Jump search": "跳转搜索",
     "Type a task, or / for commands": "输入任务，或用 / 唤出命令",

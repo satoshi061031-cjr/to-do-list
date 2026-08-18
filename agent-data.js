@@ -30,6 +30,24 @@
     }
     return null;
   }
+
+  function normalizeRepeat(value) {
+    const repeat = String(value || "").trim().toLowerCase();
+    if (repeat === "daily" || repeat === "weekly" || repeat === "monthly") return repeat;
+    return null;
+  }
+
+  function nextRepeatDate(iso, repeat) {
+    const base = validDate(iso) ? iso : todayIso();
+    const [year, month, day] = base.split("-").map(Number);
+    const date = new Date(year, month - 1, day);
+    if (repeat === "daily") date.setDate(date.getDate() + 1);
+    else if (repeat === "weekly") date.setDate(date.getDate() + 7);
+    else if (repeat === "monthly") date.setMonth(date.getMonth() + 1);
+    else return null;
+    const pad = (value) => String(value).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  }
   const DESTRUCTIVE = new Set([
     "todo_delete",
     "planner_delete_column",
@@ -262,6 +280,7 @@
           dueTime: normalizeTime(item.dueTime),
           categoryId: typeof item.categoryId === "string" ? item.categoryId : null,
           sourceMailId: typeof item.sourceMailId === "string" ? clean(item.sourceMailId, 120) || null : null,
+          repeat: normalizeRepeat(item.repeat),
         })),
       },
       planner: {
@@ -430,6 +449,7 @@
             dueTime,
             categoryId: category ? category.id : null,
             sourceMailId: sourceMailId || null,
+            repeat: normalizeRepeat(action.repeat),
           });
           success(action, dueTime ? `${taskText} · ${dueTime}` : taskText);
         } else if (action.type === "todo_add_category") {
@@ -439,7 +459,24 @@
         } else if (action.type.startsWith("todo_")) {
           const item = matchText(todo.todos, action.todoId, action.matchText, (value) => value.text || "");
           if (!item) return failure(action, "Todo not found.");
-          if (action.type === "todo_complete") item.completed = true;
+          if (action.type === "todo_complete") {
+            if (!item.completed) {
+              const repeat = normalizeRepeat(item.repeat);
+              if (repeat) {
+                todo.todos.unshift({
+                  id: uid(),
+                  text: item.text,
+                  completed: false,
+                  dueDate: nextRepeatDate(item.dueDate, repeat),
+                  dueTime: item.dueTime || null,
+                  categoryId: item.categoryId || null,
+                  sourceMailId: null,
+                  repeat,
+                });
+              }
+            }
+            item.completed = true;
+          }
           if (action.type === "todo_uncomplete") item.completed = false;
           if (action.type === "todo_delete") todo.todos = todo.todos.filter((value) => value.id !== item.id);
           if (action.type === "todo_update") {
@@ -450,6 +487,7 @@
               const category = todoCategory(todo, action.categoryName);
               item.categoryId = category ? category.id : null;
             }
+            if (has(action, "repeat")) item.repeat = normalizeRepeat(action.repeat);
           }
           success(action, item.dueTime ? `${item.text} · ${item.dueTime}` : item.text);
         } else if (action.type === "planner_add_workspace") {
@@ -503,6 +541,8 @@
                 ? action.tags.map((tag) => clean(tag, 32)).filter(Boolean).slice(0, 16)
                 : [],
               expanded: true,
+              dueDate: validDate(action.dueDate) ? action.dueDate : null,
+              linkedTodoId: null,
             };
             if (!card.title) return failure(action, "Card title is required.");
             board.entries.unshift(card);
@@ -670,6 +710,10 @@
     if (changed.has("planner")) write(KEYS.planner, planner);
     if (changed.has("calendar")) write(KEYS.calendar, calendar);
     if (changed.has("tally")) write(KEYS.tally, tally);
+    if (changed.size && window.DailySpaceTasks && typeof window.DailySpaceTasks.syncLinkedWork === "function") {
+      const domain = changed.has("todo") ? "todo" : changed.has("planner") ? "planner" : "calendar";
+      window.DailySpaceTasks.syncLinkedWork({ from: domain, silent: true });
+    }
     if (changed.size) {
       window.dispatchEvent(
         new CustomEvent("daily-space-agent-data-updated", {
@@ -708,5 +752,7 @@
     needsConfirmation,
     confirmationText,
     todayIso,
+    normalizeRepeat,
+    nextRepeatDate,
   };
 })();

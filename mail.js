@@ -812,7 +812,7 @@
     if (connectTitle) connectTitle.textContent = "Sign in to Daily Space first";
     if (connectHint) {
       connectHint.textContent =
-        "Mail digest needs a Daily Space account. Sign in, then connect Gmail or Outlook.";
+        "Mail digest uses the Google or Outlook account you signed in with. Add another mailbox only if you need a second inbox.";
     }
     if (signInSpaceBtn) signInSpaceBtn.hidden = false;
     if (oauthQuick) oauthQuick.hidden = true;
@@ -826,7 +826,7 @@
     if (connectTitle) connectTitle.textContent = "Connect your mailbox";
     if (connectHint) {
       connectHint.textContent =
-        "Connect Gmail or Outlook to pull recent mail and build today’s digest.";
+        "Google and Outlook sign-in already open that mailbox. Use these buttons only to add another account.";
     }
     if (signInSpaceBtn) signInSpaceBtn.hidden = true;
     if (oauthQuick) oauthQuick.hidden = false;

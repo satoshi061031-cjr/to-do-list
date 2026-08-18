@@ -77,11 +77,12 @@ Copy `.env.example` → `.env`. Important variables:
 | `SUPABASE_*` | Cloud user snapshots |
 | `CAPACITOR_SERVER_URL` | Native shell loads this HTTPS origin |
 
-Sign-in requests identity scopes only. Mail scopes (`gmail.readonly` / `Mail.Read`) are requested only from the Mail page OAuth flow.
+Sign-in with Google or Outlook requests identity, mail, and calendar scopes together, so Mail and Calendar use the same account. WeChat sign-in is identity + cloud snapshot only.
 
 ### Useful API routes
 
 - Auth: `/api/auth/me`, Google / Outlook / WeChat start + callback
+- Calendar: `/api/calendar/events` (Google / Outlook calendar for the signed-in account)
 - Sync: `/api/user/snapshot`, `/api/user/export`, `DELETE /api/user/account`
 - Mail: `/api/mail/accounts`, `…/messages`, `…/digest`, OAuth start/callbacks
 - Agent: `/api/agent`, `/api/agent/status`

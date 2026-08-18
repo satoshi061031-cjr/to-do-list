@@ -108,6 +108,9 @@ test("e2e critical path: welcome Daily Loop + guest today→calendar→mail task
   const todoHtml = await todo.text();
   assert.match(todoHtml, /evening-review/);
   assert.match(todoHtml, /#today|today/i);
+  assert.match(todoHtml, /id="add-form"/);
+  assert.doesNotMatch(todoHtml, /id="add-form"[^>]*hidden/);
+  assert.match(todoHtml, /workspace-tasks\.js/);
 
   const calendar = await fetch(`${baseUrl}/calendar.html`);
   assert.equal(calendar.status, 200);

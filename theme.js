@@ -7,6 +7,8 @@
     "calendar-app-v1",
     "tally-book-v1",
     "teamwork-page-v1",
+    "travel-book-v1",
+    "travel-shared-v1",
     "daily-space-mail-accounts-v1",
     STORAGE_THEME,
   ];
@@ -467,7 +469,7 @@
           </button>
         </div>
         <div class="auth-account-actions" hidden>
-          <p class="auth-account-hint">Your data stays on this device and in your cloud snapshot while signed in.</p>
+          <p class="auth-account-hint">Signed in with Google or Outlook, Mail and Calendar use that same account. WeChat keeps a cloud snapshot on this workspace.</p>
           <button type="button" class="auth-export">Download my data</button>
           <button type="button" class="auth-delete">Delete account</button>
           <p class="auth-install-hint" hidden></p>
@@ -658,6 +660,12 @@
       if (!payload.authUrl) throw new Error("Missing WeChat authorization URL.");
       window.location.href = payload.authUrl;
     }
+
+    window.DailySpaceAuth = {
+      startGoogleSignIn,
+      startOutlookSignIn,
+      startWeChatSignIn,
+    };
 
     authButton.addEventListener("click", openModal);
 
@@ -2022,6 +2030,93 @@
     };
   }
 
+  function setupGuestSavePrompt() {
+    if (isWelcomePath(window.location.pathname)) return;
+    const DISMISS_KEY = "daily-space-guest-save-dismissed-v1";
+
+    function signedIn() {
+      return Boolean(currentUserId());
+    }
+
+    function dismissed() {
+      try {
+        return sessionStorage.getItem(DISMISS_KEY) === "1";
+      } catch (_) {
+        return false;
+      }
+    }
+
+    function hasWork() {
+      return Boolean(window.DailySpaceTasks && window.DailySpaceTasks.guestHasWorkspaceData());
+    }
+
+    function removeBanner() {
+      const existing = document.getElementById("guest-save-banner");
+      if (existing) existing.remove();
+    }
+
+    function renderBanner() {
+      removeBanner();
+      if (signedIn() || dismissed() || !hasWork()) return;
+      const banner = document.createElement("aside");
+      banner.id = "guest-save-banner";
+      banner.className = "guest-save-banner";
+      banner.setAttribute("aria-label", "Save your workspace");
+      banner.innerHTML =
+        '<div class="guest-save-copy">' +
+        '<p class="guest-save-kicker">Guest</p>' +
+        '<p class="guest-save-title">Sign in to keep this work</p>' +
+        '<p class="guest-save-hint">You have tasks on this device. Connect Google, Outlook, or WeChat to save them to your account.</p>' +
+        "</div>" +
+        '<div class="guest-save-actions">' +
+        '<button type="button" class="btn btn-primary" data-guest-signin="google">Continue with Google</button>' +
+        '<button type="button" class="btn" data-guest-signin="outlook">Continue with Outlook</button>' +
+        '<button type="button" class="btn" data-guest-signin="wechat">Continue with WeChat</button>' +
+        '<button type="button" class="btn btn-ghost" data-guest-save-later>Later</button>' +
+        "</div>";
+      const host =
+        document.querySelector(".main-area") || document.querySelector(".app") || document.body;
+      host.insertBefore(banner, host.firstChild);
+      if (window.DailySpaceI18n && typeof window.DailySpaceI18n.apply === "function") {
+        window.DailySpaceI18n.apply();
+      }
+    }
+
+    document.addEventListener("click", function (event) {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      if (target.closest("[data-guest-save-later]")) {
+        try {
+          sessionStorage.setItem(DISMISS_KEY, "1");
+        } catch (_) {
+          /* ignore */
+        }
+        removeBanner();
+        return;
+      }
+      const button = target.closest("[data-guest-signin]");
+      if (!button) return;
+      const provider = button.getAttribute("data-guest-signin");
+      const auth = window.DailySpaceAuth;
+      if (!auth) return;
+      const start =
+        provider === "outlook"
+          ? auth.startOutlookSignIn
+          : provider === "wechat"
+            ? auth.startWeChatSignIn
+            : auth.startGoogleSignIn;
+      if (typeof start === "function") {
+        start().catch(function (error) {
+          window.alert(error instanceof Error ? error.message : "Sign-in failed.");
+        });
+      }
+    });
+
+    window.addEventListener("daily-space-auth-updated", renderBanner);
+    window.addEventListener("daily-space-agent-data-updated", renderBanner);
+    renderBanner();
+  }
+
   function setupSharedUi() {
     ensurePwaShell();
     registerServiceWorker();
@@ -2030,10 +2125,18 @@
     setupPrimaryNav();
     setupKeyboardShortcuts();
     setupAuthEntry();
+    if (window.DailySpaceTasks && typeof window.DailySpaceTasks.syncLinkedWork === "function") {
+      try {
+        window.DailySpaceTasks.syncLinkedWork({ silent: true });
+      } catch (_) {
+        /* Keep chrome even if task linking fails. */
+      }
+    }
     if (window.DailySpaceLoop) {
       try {
         window.DailySpaceLoop.setupSidebarTodayStrip();
         window.DailySpaceLoop.setupReminderNotifications();
+        window.DailySpaceLoop.setupWorkspaceSearch();
       } catch (_) {
         /* Keep shared chrome (greeting, sync) even if Today strip fails. */
       }
@@ -2042,6 +2145,7 @@
     setupGreeting();
     setupWelcomeExperience();
     setupNotifications();
+    setupGuestSavePrompt();
     setupNativeShell();
   }
 

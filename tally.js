@@ -552,6 +552,41 @@
     settingsPanel.hidden = !settingsPanel.hidden;
     settingsToggle.setAttribute("aria-expanded", String(!settingsPanel.hidden));
   });
+  const exportBtn = $("tally-export");
+  exportBtn?.addEventListener("click", () => {
+    const rows = [
+      ["date", "amount", "currency", "fxRate", "category", "note", "scope", "paidBy"],
+      ...state.records.map((record) => [
+        record.date || "",
+        record.amount ?? "",
+        record.currency || state.baseCurrency || "",
+        record.fxRate ?? "",
+        record.category || "",
+        record.note || "",
+        record.scope || "personal",
+        record.paidBy || "",
+      ]),
+    ];
+    const csv = rows
+      .map((row) =>
+        row
+          .map((value) => {
+            const text = String(value ?? "");
+            return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+          })
+          .join(",")
+      )
+      .join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `tally-${todayIso()}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  });
   personAddBtn.addEventListener("click", () => {
     const name = personNameInput.value.trim().slice(0, 60);
     if (!name || state.people.some((person) => person.name.toLowerCase() === name.toLowerCase())) return;

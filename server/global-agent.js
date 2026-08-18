@@ -58,7 +58,7 @@ function buildSystemPrompt(today) {
     "Destructive deletes are confirmed in the client UI — still only emit them when clearly requested.",
     "Return ONLY valid JSON: {\"reply\":string,\"actions\":Action[]}. The actions value MUST always be a JSON array, even for one action.",
     "Allowed actions and fields:",
-    'todo_add {text,dueDate|null,dueTime|null,categoryName|null}',
+    'todo_add {text,dueDate|null,dueTime|null,repeat|null,categoryName|null}',
     'todo_complete|todo_uncomplete|todo_delete {todoId|null,matchText|null}',
     'todo_update {todoId|null,matchText|null,text?,dueDate?,dueTime?,categoryName?}',
     'todo_add_category {name}',
@@ -151,6 +151,8 @@ function normalizeAction(raw) {
     action.dueDate = optionalDate(raw.dueDate);
     action.dueTime = optionalTime(raw.dueTime);
     action.categoryName = text(raw.categoryName, 48);
+    const repeat = String(raw.repeat || "").trim().toLowerCase();
+    action.repeat = repeat === "daily" || repeat === "weekly" || repeat === "monthly" ? repeat : null;
   } else if (type === "todo_add_category") {
     action.name = text(raw.name, 48);
     if (!action.name) return null;
@@ -163,6 +165,10 @@ function normalizeAction(raw) {
       if (Object.hasOwn(raw, "dueDate")) action.dueDate = optionalDate(raw.dueDate);
       if (Object.hasOwn(raw, "dueTime")) action.dueTime = optionalTime(raw.dueTime);
       if (Object.hasOwn(raw, "categoryName")) action.categoryName = text(raw.categoryName, 48);
+      if (Object.hasOwn(raw, "repeat")) {
+        const repeat = String(raw.repeat || "").trim().toLowerCase();
+        action.repeat = repeat === "daily" || repeat === "weekly" || repeat === "monthly" ? repeat : null;
+      }
     }
   } else if (type === "planner_add_workspace") {
     action.name = text(raw.name, 48);

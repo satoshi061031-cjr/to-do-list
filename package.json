@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node --experimental-sqlite --disable-warning=ExperimentalWarning server/index.js",
     "dev": "node --experimental-sqlite --disable-warning=ExperimentalWarning --watch server/index.js",
-    "test": "node --experimental-sqlite --disable-warning=ExperimentalWarning --test tests/critical-path-smoke.test.js tests/e2e-critical-path.test.js tests/global-agent.test.js tests/i18n-dictionary.test.js tests/mail-booking.test.js tests/tally-core.test.js tests/travel-collaboration.test.js tests/user-snapshot-store.test.js",
+    "test": "node --experimental-sqlite --disable-warning=ExperimentalWarning --test tests/critical-path-smoke.test.js tests/e2e-critical-path.test.js tests/global-agent.test.js tests/i18n-dictionary.test.js tests/mail-booking.test.js tests/tally-core.test.js tests/travel-collaboration.test.js tests/user-snapshot-store.test.js tests/workspace-loop.test.js tests/workspace-oauth.test.js",
     "test:e2e": "node --experimental-sqlite --disable-warning=ExperimentalWarning --test tests/e2e-critical-path.test.js",
     "cap:prepare": "node scripts/prepare-www.js",
     "cap:sync": "npm run cap:prepare && npx cap sync",

@@ -15,8 +15,10 @@
   /** @type {Record<string, any>} */
   let todoStore = {};
 
-  /** @type {{ id: string; date: string; text: string; startTime: string | null; endTime: string | null; priority: "high" | "medium" | "low" }[]} */
+  /** @type {{ id: string; date: string; text: string; startTime: string | null; endTime: string | null; priority: "high" | "medium" | "low"; linkedTodoId?: string | null; externalEventId?: string | null }[]} */
   let reminders = [];
+  /** @type {{ id: string; title: string; date: string; startTime: string | null; endTime: string | null; source: string; htmlLink?: string }[]} */
+  let googleEvents = [];
   let selectedDate = todayIso();
   let calYear = new Date().getFullYear();
   let calMonth = new Date().getMonth() + 1;
@@ -140,6 +142,25 @@
       if (Number.isFinite(startMin)) start = Math.min(start, Math.floor(startMin / 60));
       const endMin = reminder.endTime ? minutesFromMidnight(reminder.endTime) : startMin + 60;
       if (Number.isFinite(endMin)) end = Math.max(end, Math.ceil(endMin / 60));
+    });
+    todos.forEach((todo) => {
+      if (!todo || todo.completed || !todo.dueTime || !todo.dueDate) return;
+      if (!isoInRange(todo.dueDate, startIso, endIso)) return;
+      const startMin = minutesFromMidnight(todo.dueTime);
+      if (Number.isFinite(startMin)) {
+        start = Math.min(start, Math.floor(startMin / 60));
+        end = Math.max(end, Math.ceil((startMin + 60) / 60));
+      }
+    });
+    googleEvents.forEach((event) => {
+      if (!event || !event.startTime || !event.date) return;
+      if (!isoInRange(event.date, startIso, endIso)) return;
+      const startMin = minutesFromMidnight(event.startTime);
+      if (Number.isFinite(startMin)) {
+        start = Math.min(start, Math.floor(startMin / 60));
+        const endMin = event.endTime ? minutesFromMidnight(event.endTime) : startMin + 60;
+        if (Number.isFinite(endMin)) end = Math.max(end, Math.ceil(endMin / 60));
+      }
     });
     return { start: Math.max(0, start), end: Math.min(24, Math.max(end, start + 1)) };
   }
@@ -310,7 +331,12 @@
           text: x.text.slice(0, 500),
           completed: x.completed,
           dueDate: typeof x.dueDate === "string" && ISO_DATE.test(x.dueDate) ? x.dueDate : null,
+          dueTime: normalizeTime(x.dueTime),
           categoryId: typeof x.categoryId === "string" ? x.categoryId : null,
+          repeat: x.repeat === "daily" || x.repeat === "weekly" || x.repeat === "monthly" ? x.repeat : null,
+          sourceReminderId: typeof x.sourceReminderId === "string" ? x.sourceReminderId : null,
+          sourcePlannerId: typeof x.sourcePlannerId === "string" ? x.sourcePlannerId : null,
+          externalEventId: typeof x.externalEventId === "string" ? x.externalEventId : null,
         };
       });
   }
@@ -337,6 +363,8 @@
           startTime: normalizeTime(x.startTime),
           endTime: normalizeTime(x.endTime),
           priority: normalizePriority(x.priority),
+          linkedTodoId: typeof x.linkedTodoId === "string" ? x.linkedTodoId : null,
+          externalEventId: typeof x.externalEventId === "string" ? x.externalEventId : null,
         };
       })
       .filter((r) => r.text);
@@ -368,6 +396,9 @@
     delete payload.illustrationData;
     todoStore = payload;
     localStorage.setItem(STORAGE_TODO_APP, JSON.stringify(payload));
+    window.dispatchEvent(
+      new CustomEvent("daily-space-agent-data-updated", { detail: { domains: ["todo"] } })
+    );
   }
 
   function loadCalendarState() {
@@ -491,8 +522,26 @@
       startTime: start,
       endTime: end,
       priority: normalizePriority(priority),
+      linkedTodoId: null,
+      externalEventId: null,
     });
     saveCalendarState();
+    if (window.DailySpaceTasks && typeof window.DailySpaceTasks.syncLinkedWork === "function") {
+      window.DailySpaceTasks.syncLinkedWork({ from: "calendar", silent: true });
+    }
+    const created = reminders[0];
+    if (window.DailySpaceTasks && typeof window.DailySpaceTasks.pushExternalEvent === "function") {
+      window.DailySpaceTasks.pushExternalEvent({
+        text: created.text,
+        date: created.date,
+        startTime: created.startTime,
+        endTime: created.endTime,
+      }).then((event) => {
+        if (!event || !event.id) return;
+        created.externalEventId = event.id;
+        saveCalendarState();
+      });
+    }
     reminderInput.value = "";
     reminderStartInput.value = "";
     reminderEndInput.value = "";
@@ -509,8 +558,27 @@
   function toggleTask(todoId) {
     const todo = todos.find((t) => t.id === todoId);
     if (!todo) return;
-    todo.completed = !todo.completed;
+    const completing = !todo.completed;
+    todo.completed = completing;
+    if (completing && (todo.repeat === "daily" || todo.repeat === "weekly" || todo.repeat === "monthly")) {
+      const next = new Date(parseIso(todo.dueDate || todayIso()));
+      if (todo.repeat === "daily") next.setDate(next.getDate() + 1);
+      else if (todo.repeat === "weekly") next.setDate(next.getDate() + 7);
+      else next.setMonth(next.getMonth() + 1);
+      todos.unshift({
+        ...todo,
+        id: id(),
+        completed: false,
+        dueDate: dateToIso(next),
+        sourceReminderId: null,
+        sourcePlannerId: null,
+        externalEventId: null,
+      });
+    }
     saveTodoState();
+    if (window.DailySpaceTasks && typeof window.DailySpaceTasks.syncLinkedWork === "function") {
+      window.DailySpaceTasks.syncLinkedWork({ from: "todo", silent: true });
+    }
     render();
   }
 
@@ -543,16 +611,22 @@
         matchesSearch(reminder.text) &&
         calFilter !== "tasks"
     ).length;
+    const googleThisWeek = googleEvents.filter(
+      (event) => isoInRange(event.date, startIso, endIso) && matchesSearch(event.title) && calFilter !== "tasks"
+    ).length;
     if (calendarMetaEl) {
       const q = calSearchQuery.trim();
+      const googleBit = googleThisWeek
+        ? ` · ${googleThisWeek} ${googleThisWeek === 1 ? "Google event" : "Google events"}`
+        : "";
       calendarMetaEl.textContent = q
-        ? `Filtered · ${dueThisWeek} ${dueThisWeek === 1 ? "task" : "tasks"} · ${remindersThisWeek} ${remindersThisWeek === 1 ? "reminder" : "reminders"}`
-        : `${dueThisWeek} ${dueThisWeek === 1 ? "task" : "tasks"} · ${remindersThisWeek} ${remindersThisWeek === 1 ? "reminder" : "reminders"} this week`;
+        ? `Filtered · ${dueThisWeek} ${dueThisWeek === 1 ? "task" : "tasks"} · ${remindersThisWeek} ${remindersThisWeek === 1 ? "reminder" : "reminders"}${googleBit}`
+        : `${dueThisWeek} ${dueThisWeek === 1 ? "task" : "tasks"} · ${remindersThisWeek} ${remindersThisWeek === 1 ? "reminder" : "reminders"}${googleBit} this week`;
     }
 
     const weekGrid = document.getElementById("week-grid");
     const weekEmptyEl = document.getElementById("cal-week-empty");
-    const weekIsEmpty = dueThisWeek === 0 && remindersThisWeek === 0;
+    const weekIsEmpty = dueThisWeek === 0 && remindersThisWeek === 0 && googleThisWeek === 0;
     if (weekGrid) weekGrid.classList.toggle("is-empty", weekIsEmpty);
     if (weekEmptyEl) weekEmptyEl.hidden = !weekIsEmpty;
 
@@ -660,6 +734,47 @@
         });
         col.appendChild(block);
       });
+
+      const knownExternal = new Set(
+        reminders.map((item) => item.externalEventId).filter(Boolean)
+      );
+      googleEvents
+        .filter(
+          (event) =>
+            event.date === iso &&
+            event.startTime &&
+            matchesSearch(event.title) &&
+            calFilter !== "tasks" &&
+            !knownExternal.has(event.id)
+        )
+        .forEach((event, index) => {
+          const startMin = minutesFromMidnight(event.startTime);
+          let endMin = event.endTime ? minutesFromMidnight(event.endTime) : startMin + 60;
+          if (endMin <= startMin) endMin = startMin + 30;
+          const clampedStart = Math.max(startMin, rangeStart);
+          const clampedEnd = Math.min(endMin, rangeEnd);
+          if (clampedEnd <= rangeStart || clampedStart >= rangeEnd) return;
+          const top = ((clampedStart - rangeStart) / rangeSpan) * 100;
+          const height = Math.max(((clampedEnd - clampedStart) / rangeSpan) * 100, 4.5);
+          const block = document.createElement("a");
+          block.className = "cal-event cal-event-external";
+          block.dataset.tone = eventTone(index + dayIndex + 3);
+          block.style.top = `${top}%`;
+          block.style.height = `${height}%`;
+          block.href = event.htmlLink || "calendar.html";
+          if (event.htmlLink) {
+            block.target = "_blank";
+            block.rel = "noopener noreferrer";
+          }
+          block.innerHTML =
+            `<span class="cal-event-title"></span>` + `<span class="cal-event-time"></span>`;
+          block.querySelector(".cal-event-title").textContent = event.title;
+          block.querySelector(".cal-event-time").textContent =
+            formatTimeRange(event.startTime, event.endTime) || event.startTime;
+          block.title = event.source === "outlook" ? "Outlook calendar" : "Google Calendar";
+          block.addEventListener("click", (e) => e.stopPropagation());
+          col.appendChild(block);
+        });
 
       weekColsEl.appendChild(col);
     });
@@ -1002,11 +1117,27 @@
 
   window.addEventListener("daily-space-locale-changed", () => render());
 
+  async function refreshExternalEvents() {
+    if (!window.DailySpaceTasks || typeof window.DailySpaceTasks.fetchExternalEvents !== "function") {
+      googleEvents = [];
+      return;
+    }
+    const days = weekDays();
+    const payload = await window.DailySpaceTasks.fetchExternalEvents(dateToIso(days[0]), weekEndIso());
+    googleEvents = Array.isArray(payload.events) ? payload.events : [];
+  }
+
   loadTodoState();
   loadCalendarState();
+  if (window.DailySpaceTasks && typeof window.DailySpaceTasks.syncLinkedWork === "function") {
+    window.DailySpaceTasks.syncLinkedWork({ silent: true });
+    loadTodoState();
+    loadCalendarState();
+  }
   focusTodayOnOpen();
   weekStart = startOfWeek(parseIso(selectedDate));
   render();
+  refreshExternalEvents().then(() => render());
   const refreshHeadline = () => {
     if (calendarTitleEl) calendarTitleEl.textContent = stayUpToDateTitle();
   };

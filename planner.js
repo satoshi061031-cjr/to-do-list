@@ -360,6 +360,7 @@
         expanded,
         assigneeUserId: typeof x.assigneeUserId === "string" ? x.assigneeUserId : null,
         dueDate: typeof x.dueDate === "string" ? x.dueDate : null,
+        linkedTodoId: typeof x.linkedTodoId === "string" ? x.linkedTodoId : null,
       });
     }
     return out;
@@ -880,6 +881,9 @@
       return;
     }
     savePlannerState();
+    if (window.DailySpaceTasks && typeof window.DailySpaceTasks.syncLinkedWork === "function") {
+      window.DailySpaceTasks.syncLinkedWork({ from: "planner", silent: true });
+    }
     renderPlannerSidebar();
     renderPlanner();
   }

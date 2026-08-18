@@ -28,13 +28,34 @@
     }
     return null;
   }
+
+  function normalizeRepeat(value) {
+    const repeat = String(value || "").trim().toLowerCase();
+    if (repeat === "daily" || repeat === "weekly" || repeat === "monthly") return repeat;
+    return null;
+  }
+
+  function padIsoPart(value) {
+    return String(value).padStart(2, "0");
+  }
+
+  function nextRepeatDate(iso, repeat) {
+    const base = ISO_DATE.test(String(iso || "")) ? String(iso) : todayIso();
+    const [year, month, day] = base.split("-").map(Number);
+    const date = new Date(year, month - 1, day);
+    if (repeat === "daily") date.setDate(date.getDate() + 1);
+    else if (repeat === "weekly") date.setDate(date.getDate() + 7);
+    else if (repeat === "monthly") date.setMonth(date.getMonth() + 1);
+    else return null;
+    return `${date.getFullYear()}-${padIsoPart(date.getMonth() + 1)}-${padIsoPart(date.getDate())}`;
+  }
   /** @typedef {{ id: string; name: string }} Category */
 
   function uiLocale() {
     return window.DailySpaceI18n?.localeTag() || "en-US";
   }
 
-  /** @type {{ id: string; text: string; completed: boolean; dueDate: string | null; dueTime: string | null; categoryId: string | null }[]} */
+  /** @type {{ id: string; text: string; completed: boolean; dueDate: string | null; dueTime: string | null; categoryId: string | null; repeat?: string | null }[]} */
   let todos = [];
 
   /** @type {Category[]} */
@@ -113,12 +134,15 @@
   const dailyLoopEmpty = document.getElementById("daily-loop-empty");
   const dailyLoopReminders = document.getElementById("daily-loop-reminders");
   const dailyLoopRemindersList = document.getElementById("daily-loop-reminders-list");
+  const dailyLoopTravel = document.getElementById("daily-loop-travel");
+  const dailyLoopTravelList = document.getElementById("daily-loop-travel-list");
   const eveningReviewEl = document.getElementById("evening-review");
   const eveningReviewTitle = document.getElementById("evening-review-title");
   const eveningReviewSummary = document.getElementById("evening-review-summary");
   const eveningReviewStats = document.getElementById("evening-review-stats");
   const eveningReviewMail = document.getElementById("evening-review-mail");
   const eveningReviewTally = document.getElementById("evening-review-tally");
+  const eveningReviewTravel = document.getElementById("evening-review-travel");
   const eveningReviewFocusBtn = document.getElementById("evening-review-focus");
   const eveningReviewCloseBtn = document.getElementById("evening-review-close");
   const eveningReviewCalLink = document.getElementById("evening-review-cal");
@@ -152,6 +176,9 @@
   function bootstrap(options) {
     const persist = !(options && options.persist === false);
     migratePlannerFromTodoAppV2();
+    if (window.DailySpaceTasks && typeof window.DailySpaceTasks.syncLinkedWork === "function") {
+      window.DailySpaceTasks.syncLinkedWork({ silent: true });
+    }
     const state = loadState();
     todos = state.todos;
     categories = state.categories;
@@ -233,7 +260,7 @@
       categoryId = t.categoryId;
     const sourceMailId =
       typeof t.sourceMailId === "string" && t.sourceMailId.trim() ? t.sourceMailId.trim().slice(0, 120) : null;
-    return { id: t.id, text: t.text, completed: t.completed, dueDate, dueTime, categoryId, sourceMailId };
+    return { id: t.id, text: t.text, completed: t.completed, dueDate, dueTime, categoryId, sourceMailId, repeat: normalizeRepeat(t.repeat) };
   }
 
   /** @param {Array | undefined | null} list */
@@ -267,6 +294,12 @@
     localStorage.setItem(STORAGE_APP, JSON.stringify(payload));
     if (localStorage.getItem(STORAGE_LEGACY)) {
       localStorage.removeItem(STORAGE_LEGACY);
+    }
+    if (window.DailySpaceTasks && typeof window.DailySpaceTasks.syncLinkedWork === "function") {
+      window.DailySpaceTasks.syncLinkedWork({ from: "todo", silent: true });
+      const next = loadState();
+      todos = next.todos;
+      categories = next.categories;
     }
     window.dispatchEvent(
       new CustomEvent("daily-space-agent-data-updated", { detail: { domains: ["todo"] } })
@@ -1007,6 +1040,35 @@
       main.appendChild(dueEl);
     }
 
+    if (todoSource === "personal" && !todo.completed) {
+      const repeat = document.createElement("select");
+      repeat.className = "todo-repeat";
+      repeat.setAttribute("aria-label", "Repeat");
+      [
+        ["", "Once"],
+        ["daily", "Daily"],
+        ["weekly", "Weekly"],
+        ["monthly", "Monthly"],
+      ].forEach(([value, label]) => {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = label;
+        repeat.appendChild(option);
+      });
+      repeat.value = todo.repeat || "";
+      repeat.addEventListener("change", (event) => {
+        event.stopPropagation();
+        setTodoRepeat(todo.id, repeat.value);
+      });
+      repeat.addEventListener("click", (event) => event.stopPropagation());
+      main.appendChild(repeat);
+    } else if (todo.repeat) {
+      const badge = document.createElement("span");
+      badge.className = "todo-repeat-badge";
+      badge.textContent = todo.repeat;
+      main.appendChild(badge);
+    }
+
     li.append(check, main);
 
     if (allowDelete) {
@@ -1204,7 +1266,7 @@
         agentInput.focus();
         return;
       }
-      if (input && todoSource === "personal" && !document.body.classList.contains("todo-mobile")) {
+      if (input && todoSource === "personal") {
         input.focus();
       }
     });
@@ -1284,9 +1346,7 @@
       } else if (dueToday.length > 0) {
         dailyLoopEmpty.textContent = "All caught up.";
       } else {
-        dailyLoopEmpty.textContent = document.body.classList.contains("todo-agent-page")
-          ? "Nothing due today — add one with the agent above."
-          : "Nothing due today.";
+        dailyLoopEmpty.textContent = "Nothing due today — type a task below.";
       }
     }
     if (dailyLoopList) dailyLoopList.hidden = showEmpty;
@@ -1324,12 +1384,32 @@
       }
     }
 
+    const tripsToday =
+      window.DailySpaceLoop && typeof window.DailySpaceLoop.readTodayTrips === "function"
+        ? window.DailySpaceLoop.readTodayTrips()
+        : [];
+    if (dailyLoopTravel && dailyLoopTravelList) {
+      dailyLoopTravelList.innerHTML = "";
+      if (!tripsToday.length) {
+        dailyLoopTravel.hidden = true;
+      } else {
+        dailyLoopTravel.hidden = false;
+        tripsToday.slice(0, 3).forEach((trip) => {
+          const li = document.createElement("li");
+          li.className = "daily-loop-reminder-item";
+          li.textContent = trip.destination ? `${trip.name} · ${trip.destination}` : trip.name;
+          dailyLoopTravelList.appendChild(li);
+        });
+      }
+    }
+
     renderEveningReview({
       dueTodayDone,
       dueTodayTotal: dueToday.length,
       dueTodayOpen: dueTodayOpen.length,
       overdueOpen: overdueOpen.length,
       remindersCount: reminders.length,
+      tripsToday,
     });
   }
 
@@ -1392,9 +1472,8 @@
         if (stats.remindersCount > 0) bits.push(`${stats.remindersCount} reminders`);
         eveningReviewSummary.textContent = `${bits.join(" · ")}. Ask the agent to finish, or clear what you can.`;
       } else {
-        eveningReviewSummary.textContent = agentPage
-          ? "No due-today tasks yet — ask the agent above for a light close, or mark the day closed."
-          : "No due-today tasks yet — add one if you want a light close.";
+        eveningReviewSummary.textContent =
+          "No due-today tasks yet — type one above, ask the agent, or mark the day closed.";
       }
     }
 
@@ -1459,6 +1538,20 @@
       } else {
         eveningReviewTally.hidden = true;
         eveningReviewTally.textContent = "";
+      }
+    }
+
+    if (eveningReviewTravel) {
+      const trips = Array.isArray(stats.tripsToday) ? stats.tripsToday : [];
+      if (!closed && trips.length) {
+        eveningReviewTravel.hidden = false;
+        eveningReviewTravel.textContent =
+          trips.length === 1
+            ? `Travel · ${trips[0].name} is on today.`
+            : `Travel · ${trips.length} trips overlap today.`;
+      } else {
+        eveningReviewTravel.hidden = true;
+        eveningReviewTravel.textContent = "";
       }
     }
 
@@ -1581,11 +1674,7 @@
             ? `No tasks in "${categoryLabelById(selectedCategoryKey)}" yet.`
             : "Nothing in this category.";
         } else if (todos.length === 0) {
-          emptyEl.textContent = document.body.classList.contains("todo-agent-page")
-            ? "Type a task in the agent above — works even offline."
-            : document.body.classList.contains("todo-mobile")
-              ? "Tap + to add a task."
-              : "Add a task above.";
+          emptyEl.textContent = "Type a task above, or ask the agent — works even offline.";
         } else if (filter === "today") {
           const overdueOpen = todos.filter((t) => isOverdue(t.dueDate, t.completed));
           emptyEl.textContent =
@@ -1625,9 +1714,17 @@
       dueDate: dueDate && ISO_DATE.test(dueDate) ? dueDate : null,
       dueTime: null,
       categoryId,
+      repeat: null,
     };
     todos.unshift(item);
     saveAll();
+    if (item.dueTime && window.DailySpaceTasks && typeof window.DailySpaceTasks.pushExternalEvent === "function") {
+      window.DailySpaceTasks.pushExternalEvent(item).then((event) => {
+        if (!event || !event.id) return;
+        item.externalEventId = event.id;
+        saveAll();
+      });
+    }
     renderCategorySidebar();
     render();
     return item;
@@ -1670,7 +1767,13 @@
             categoryId = cat ? cat.id : null;
           }
           const item = add(String(action.text || ""), action.dueDate || null, categoryId);
-          if (item) applied.push({ type, id: item.id, text: item.text });
+          if (item) {
+            if (action.repeat) {
+              item.repeat = normalizeRepeat(action.repeat);
+              saveAll();
+            }
+            applied.push({ type, id: item.id, text: item.text });
+          }
           continue;
         }
         if (type === "add_category") {
@@ -1686,6 +1789,7 @@
         if (type === "complete") {
           if (!target.completed) {
             target.completed = true;
+            spawnRepeatFrom(target);
             applied.push({ type, id: target.id, text: target.text });
           } else {
             applied.push({ type, id: target.id, text: target.text, skipped: true });
@@ -1721,6 +1825,9 @@
             const cat = ensureCategoryByName(action.categoryName);
             target.categoryId = cat ? cat.id : target.categoryId;
           }
+          if (Object.prototype.hasOwnProperty.call(action, "repeat")) {
+            target.repeat = normalizeRepeat(action.repeat);
+          }
           applied.push({ type, id: target.id, text: target.text });
         }
       } catch (_) {
@@ -1743,6 +1850,7 @@
         dueTime: t.dueTime || null,
         categoryId: t.categoryId,
         sourceMailId: t.sourceMailId || null,
+        repeat: t.repeat || null,
       })),
       categories: categories.map((c) => ({ id: c.id, name: c.name })),
       selectedCategoryKey,
@@ -1755,10 +1863,35 @@
     applyActions: applyAgentActions,
   };
 
+  function setTodoRepeat(todoId, value) {
+    const item = todos.find((todo) => todo.id === todoId);
+    if (!item) return;
+    item.repeat = normalizeRepeat(value);
+    saveAll();
+    render();
+  }
+
+  function spawnRepeatFrom(item) {
+    const repeat = normalizeRepeat(item.repeat);
+    if (!repeat) return;
+    todos.unshift({
+      id: id(),
+      text: item.text,
+      completed: false,
+      dueDate: nextRepeatDate(item.dueDate, repeat),
+      dueTime: item.dueTime || null,
+      categoryId: item.categoryId || null,
+      sourceMailId: null,
+      repeat,
+    });
+  }
+
   function toggle(todoId) {
     const t = todos.find((x) => x.id === todoId);
     if (!t) return;
-    t.completed = !t.completed;
+    const completing = !t.completed;
+    t.completed = completing;
+    if (completing) spawnRepeatFrom(t);
     saveAll();
     renderCategorySidebar();
     render();
@@ -1913,6 +2046,7 @@
   const commandInput = document.getElementById("todo-command-input");
   const commandList = document.getElementById("todo-command-list");
   const commandEmpty = document.getElementById("todo-command-empty");
+  const useGlobalSearch = Boolean(window.DailySpaceSearch);
   let slashIndex = 0;
   let commandIndex = 0;
 
@@ -2147,7 +2281,7 @@
     }
   });
 
-  if (commandInput) {
+  if (!useGlobalSearch && commandInput) {
     commandInput.addEventListener("input", () => {
       commandIndex = 0;
       renderCommandPalette(commandInput.value);
@@ -2173,11 +2307,12 @@
     });
   }
 
-  if (commandBackdrop) {
+  if (!useGlobalSearch && commandBackdrop) {
     commandBackdrop.addEventListener("click", () => closeCommandPalette());
   }
 
   document.addEventListener("keydown", (e) => {
+    if (useGlobalSearch) return;
     const meta = e.metaKey || e.ctrlKey;
     if (meta && String(e.key).toLowerCase() === "k") {
       e.preventDefault();

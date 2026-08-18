@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Today · Daily Space</title>
     <script src="device-route.js"></script>
+    <script src="workspace-search.js"></script>
+    <script src="workspace-tasks.js"></script>
     <script src="daily-loop.js"></script>
     <script src="theme.js"></script>
     <script src="i18n.js"></script>
@@ -75,98 +77,7 @@
 
           <section class="todo-agent-host m-agent-host" id="todo-agent-host" aria-label="Daily Space Agent"></section>
 
-          <div class="m-status" id="todo-status-filters" role="tablist" aria-label="Filter tasks">
-            <button type="button" class="filter-btn m-status-btn is-active" data-filter="active" role="tab" aria-selected="true">
-              <span class="m-status-ico" aria-hidden="true">☰</span>
-              To do
-            </button>
-            <button type="button" class="filter-btn m-status-btn" data-filter="completed" role="tab" aria-selected="false">
-              Completed
-            </button>
-            <button type="button" class="filter-btn m-status-btn" data-filter="today" role="tab" aria-selected="false">
-              Pending
-            </button>
-          </div>
-
-          <!-- Kept for app.js Daily Loop wiring; visually folded into the sheet -->
-          <div class="m-sr-only" aria-hidden="true">
-            <div class="daily-loop-pills" id="daily-loop-pills">
-              <button type="button" id="daily-loop-pill-due" data-loop-action="due">
-                <span id="daily-loop-due-count">0</span>
-              </button>
-              <button type="button" id="daily-loop-pill-assigned" data-loop-action="assigned">
-                <span id="daily-loop-assigned-count">0</span>
-              </button>
-              <button type="button" id="daily-loop-pill-overdue" data-loop-action="overdue">
-                <span id="daily-loop-overdue-count">0</span>
-              </button>
-            </div>
-            <p id="daily-loop-progress">Done today 0 / 0</p>
-            <div id="daily-loop-progress-fill"></div>
-            <button type="button" id="daily-loop-focus">Focus today</button>
-            <div id="app-clock-hour"></div>
-            <div id="app-clock-minute"></div>
-            <div id="app-clock-second"></div>
-            <time id="app-clock-digital"></time>
-            <p id="app-clock-date"></p>
-          </div>
-
-          <section class="m-sheet task-module app-module" data-module-id="tasks" aria-label="To-do tasks">
-            <section class="daily-loop m-loop-block" id="daily-loop" aria-label="Daily loop">
-              <ul class="todo-list daily-loop-list" id="daily-loop-list" aria-label="Due today"></ul>
-              <p class="daily-loop-empty" id="daily-loop-empty" hidden>Nothing due today.</p>
-              <a class="daily-loop-reminders" id="daily-loop-reminders" href="calendar.html" hidden>
-                <div class="daily-loop-reminders-head">
-                  <span class="daily-loop-reminders-label">Reminders</span>
-                  <span class="daily-loop-reminders-link">Open calendar</span>
-                </div>
-                <ul class="daily-loop-reminders-list" id="daily-loop-reminders-list"></ul>
-              </a>
-            </section>
-
-            <div class="todo-source-switch m-source" role="tablist" aria-label="Task source">
-              <button type="button" class="todo-source-btn is-active" data-todo-source="personal" role="tab" aria-selected="true">
-                Personal
-              </button>
-              <button type="button" class="todo-source-btn" data-todo-source="assigned" role="tab" aria-selected="false">
-                Assigned
-              </button>
-            </div>
-
-            <ul class="todo-list m-todo-list" id="todo-list" aria-live="polite"></ul>
-            <p class="empty-state" id="empty-state">Type a task in the agent above — works even offline.</p>
-            <footer class="footer m-footer">
-              <span id="count-text">0 tasks left</span>
-              <button type="button" class="btn btn-ghost" id="clear-completed" hidden>Clear completed</button>
-            </footer>
-
-            <p class="todo-assigned-hint" id="todo-assigned-hint" hidden>
-              Shared tasks assigned to you from Planner team boards.
-            </p>
-            <div class="due-day-filter-bar" id="due-day-filter-bar" hidden>
-              <span class="due-day-filter-label" id="due-day-filter-label"></span>
-              <button type="button" class="btn due-day-filter-clear" id="due-day-filter-clear">Clear day</button>
-            </div>
-          </section>
-
-          <section class="evening-review m-evening" id="evening-review" aria-label="Evening review" hidden>
-            <div class="evening-review-top">
-              <p class="evening-review-kicker">Close the day</p>
-              <h2 class="evening-review-title" id="evening-review-title">How did today go?</h2>
-            </div>
-            <p class="evening-review-summary" id="evening-review-summary"></p>
-            <ul class="evening-review-stats" id="evening-review-stats" hidden></ul>
-            <p class="evening-review-mail" id="evening-review-mail" hidden></p>
-            <p class="evening-review-tally" id="evening-review-tally" hidden></p>
-            <div class="evening-review-actions">
-              <button type="button" class="btn btn-primary" id="evening-review-focus">Ask agent</button>
-              <button type="button" class="btn" id="evening-review-close" hidden>Mark day closed</button>
-              <a class="btn evening-review-cal" id="evening-review-cal" href="calendar.html" hidden>Open calendar</a>
-              <button type="button" class="btn" id="evening-review-alerts">Enable reminder alerts</button>
-            </div>
-          </section>
-
-          <div class="m-composer" id="m-composer" hidden>
+          <div class="m-composer" id="m-composer">
             <form class="add-form add-form-notion" id="add-form" autocomplete="off">
               <div class="add-form-row">
                 <span class="composer-glyph" aria-hidden="true">□</span>
@@ -223,8 +134,108 @@
               </div>
               <div class="slash-menu" id="todo-slash-menu" hidden role="listbox" aria-label="Commands"></div>
             </form>
-            <button type="button" class="m-composer-close" id="m-composer-close">Done</button>
+            <button type="button" class="m-composer-close" id="m-composer-close" hidden>Done</button>
           </div>
+
+          <div class="m-status" id="todo-status-filters" role="tablist" aria-label="Filter tasks">
+            <button type="button" class="filter-btn m-status-btn is-active" data-filter="active" role="tab" aria-selected="true">
+              <span class="m-status-ico" aria-hidden="true">☰</span>
+              To do
+            </button>
+            <button type="button" class="filter-btn m-status-btn" data-filter="completed" role="tab" aria-selected="false">
+              Completed
+            </button>
+            <button type="button" class="filter-btn m-status-btn" data-filter="today" role="tab" aria-selected="false">
+              Pending
+            </button>
+          </div>
+
+          <!-- Kept for app.js Daily Loop wiring; visually folded into the sheet -->
+          <div class="m-sr-only" aria-hidden="true">
+            <div class="daily-loop-pills" id="daily-loop-pills">
+              <button type="button" id="daily-loop-pill-due" data-loop-action="due">
+                <span id="daily-loop-due-count">0</span>
+              </button>
+              <button type="button" id="daily-loop-pill-assigned" data-loop-action="assigned">
+                <span id="daily-loop-assigned-count">0</span>
+              </button>
+              <button type="button" id="daily-loop-pill-overdue" data-loop-action="overdue">
+                <span id="daily-loop-overdue-count">0</span>
+              </button>
+            </div>
+            <p id="daily-loop-progress">Done today 0 / 0</p>
+            <div id="daily-loop-progress-fill"></div>
+            <button type="button" id="daily-loop-focus">Focus today</button>
+            <div id="app-clock-hour"></div>
+            <div id="app-clock-minute"></div>
+            <div id="app-clock-second"></div>
+            <time id="app-clock-digital"></time>
+            <p id="app-clock-date"></p>
+          </div>
+
+          <section class="m-sheet task-module app-module" data-module-id="tasks" aria-label="To-do tasks">
+            <section class="daily-loop m-loop-block" id="daily-loop" aria-label="Daily loop">
+              <ul class="todo-list daily-loop-list" id="daily-loop-list" aria-label="Due today"></ul>
+              <p class="daily-loop-empty" id="daily-loop-empty" hidden>Nothing due today.</p>
+              <a class="daily-loop-reminders" id="daily-loop-reminders" href="calendar.html" hidden>
+                <div class="daily-loop-reminders-head">
+                  <span class="daily-loop-reminders-label">Reminders</span>
+                  <span class="daily-loop-reminders-link">Open calendar</span>
+                </div>
+                <ul class="daily-loop-reminders-list" id="daily-loop-reminders-list"></ul>
+              </a>
+              <a class="daily-loop-reminders daily-loop-travel" id="daily-loop-travel" href="travel.html" hidden>
+                <div class="daily-loop-reminders-head">
+                  <span class="daily-loop-reminders-label">Travel</span>
+                  <span class="daily-loop-reminders-link">Open Travel</span>
+                </div>
+                <ul class="daily-loop-reminders-list" id="daily-loop-travel-list"></ul>
+              </a>
+            </section>
+
+            <div class="todo-source-switch m-source" role="tablist" aria-label="Task source">
+              <button type="button" class="todo-source-btn is-active" data-todo-source="personal" role="tab" aria-selected="true">
+                Personal
+              </button>
+              <button type="button" class="todo-source-btn" data-todo-source="assigned" role="tab" aria-selected="false">
+                Assigned
+              </button>
+            </div>
+
+            <ul class="todo-list m-todo-list" id="todo-list" aria-live="polite"></ul>
+            <p class="empty-state" id="empty-state">Type a task above, or ask the agent — works even offline.</p>
+            <footer class="footer m-footer">
+              <span id="count-text">0 tasks left</span>
+              <button type="button" class="btn btn-ghost" id="clear-completed" hidden>Clear completed</button>
+            </footer>
+
+            <p class="todo-assigned-hint" id="todo-assigned-hint" hidden>
+              Shared tasks assigned to you from Planner team boards.
+            </p>
+            <div class="due-day-filter-bar" id="due-day-filter-bar" hidden>
+              <span class="due-day-filter-label" id="due-day-filter-label"></span>
+              <button type="button" class="btn due-day-filter-clear" id="due-day-filter-clear">Clear day</button>
+            </div>
+          </section>
+
+          <section class="evening-review m-evening" id="evening-review" aria-label="Evening review" hidden>
+            <div class="evening-review-top">
+              <p class="evening-review-kicker">Close the day</p>
+              <h2 class="evening-review-title" id="evening-review-title">How did today go?</h2>
+            </div>
+            <p class="evening-review-summary" id="evening-review-summary"></p>
+            <ul class="evening-review-stats" id="evening-review-stats" hidden></ul>
+            <p class="evening-review-mail" id="evening-review-mail" hidden></p>
+            <p class="evening-review-tally" id="evening-review-tally" hidden></p>
+            <p class="evening-review-travel" id="evening-review-travel" hidden></p>
+            <div class="evening-review-actions">
+              <button type="button" class="btn btn-primary" id="evening-review-focus">Ask agent</button>
+              <button type="button" class="btn" id="evening-review-close" hidden>Mark day closed</button>
+              <a class="btn evening-review-cal" id="evening-review-cal" href="calendar.html" hidden>Open calendar</a>
+              <button type="button" class="btn" id="evening-review-alerts">Enable reminder alerts</button>
+            </div>
+          </section>
+
         </div>
       </main>
     </div>
@@ -251,8 +262,8 @@
           type="search"
           class="command-palette-input"
           id="todo-command-input"
-          placeholder="Jump to a page or action…"
-          aria-label="Jump search"
+          placeholder="Search tasks, trips, spend…"
+          aria-label="Search Daily Space"
           autocomplete="off"
         />
         <ul class="command-palette-list" id="todo-command-list" role="listbox"></ul>
