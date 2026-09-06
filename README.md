@@ -8,7 +8,7 @@ Live app: start at `/todo.html` (PWA start URL). Welcome screen: `/` or `/index.
 
 | Surface | Role |
 |---|---|
-| **Todo** | Daily Loop hub — due today, overdue, assigned, today’s reminders |
+| **Todo** | Daily Loop hub — due today, overdue, assigned, today’s reminders. Phone Today is a single list plus add field. |
 | **Calendar** | Month + day panel; add tasks for a day; reminders |
 | **Planner** | Personal / team boards (flow); Board + This week by due date |
 | **Teamwork** | Private notes on-device + light invite so you can assign from Planner |
@@ -16,7 +16,7 @@ Live app: start at `/todo.html` (PWA start URL). Welcome screen: `/` or `/index.
 | **Mail** | Sign in → connect mailbox → digest → add to Today (batch select supported) |
 | **Agent** | Optional helper for Todo/today and other modules (needs LLM key) |
 
-**Sign-in flow:** Menu → Sign in (Google / Outlook / WeChat) for cloud sync and light assign. On Mail, sign in to Daily Space first, then connect a mailbox.
+**Sign-in flow:** Menu → Sign in (Google / Outlook) for cloud sync, mail, and calendar. Guest mode works locally until you sign in to save.
 
 Guest mode works locally with `localStorage`; mail, cloud sync, and workspace invites need a signed-in session.
 
@@ -71,17 +71,16 @@ Copy `.env.example` → `.env`. Important variables:
 | `MAIL_OAUTH_BASE_URL` | Public origin for OAuth callbacks (`http://localhost:3000` locally; `https://….onrender.com` in prod) |
 | `GOOGLE_OAUTH_*` | Google login + Gmail mail OAuth |
 | `MICROSOFT_OAUTH_*` | Outlook login + mail OAuth |
-| `WECHAT_OAUTH_*` | WeChat website-app QR login |
 | `MAIL_TOKEN_ENCRYPTION_KEY` | Encrypt mail tokens at rest (`openssl rand -base64 32`) |
 | `GROQ_API_KEY` or `OPENAI_API_KEY` | Todo Agent + Mail inbox AI digest |
 | `SUPABASE_*` | Cloud user snapshots |
 | `CAPACITOR_SERVER_URL` | Native shell loads this HTTPS origin |
 
-Sign-in with Google or Outlook requests identity, mail, and calendar scopes together, so Mail and Calendar use the same account. WeChat sign-in is identity + cloud snapshot only.
+Sign-in with Google or Outlook requests identity, mail, and calendar together. Returning users only pick an account unless mailbox or calendar access is missing.
 
 ### Useful API routes
 
-- Auth: `/api/auth/me`, Google / Outlook / WeChat start + callback
+- Auth: `/api/auth/me`, Google / Outlook start + callback
 - Calendar: `/api/calendar/events` (Google / Outlook calendar for the signed-in account)
 - Sync: `/api/user/snapshot`, `/api/user/export`, `DELETE /api/user/account`
 - Mail: `/api/mail/accounts`, `…/messages`, `…/digest`, OAuth start/callbacks
@@ -106,7 +105,7 @@ npm run cap:android   # or cap:ios
 
 1. Connect the GitHub repo; use `npm start` (or your existing Render Blueprint).
 2. Set `MAIL_OAUTH_BASE_URL` to the Render HTTPS URL.
-3. Set the same OAuth redirect URIs in Google / Microsoft / WeChat consoles.
+3. Set the same OAuth redirect URIs in Google and Microsoft consoles.
 4. Set `GROQ_API_KEY` for Agent + Mail digests.
 5. Optional: `ALERT_WEBHOOK_URL` for critical error pings.
 

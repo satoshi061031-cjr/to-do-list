@@ -1,6 +1,7 @@
 /**
- * Persistent left rail / mobile dock — same primary pages as sidebar (theme.js):
- * Todo / Calendar / Planner / Mail / Tally + Menu. Teamwork stays under More.
+ * Persistent left rail / mobile dock.
+ * Desktop: Todo / Calendar / Planner / Mail / Tally + Menu, theme & language on the rail.
+ * Mobile (≤819px): Today / Calendar / Tally / More. Theme & language live in the More drawer.
  */
 (function () {
   const ICON = {
@@ -19,7 +20,10 @@
   };
 
   function isNarrow() {
-    return window.matchMedia("(max-width: 819px)").matches;
+    return (
+      document.body.classList.contains("todo-mobile") ||
+      window.matchMedia("(max-width: 819px)").matches
+    );
   }
 
   function todoHref() {
@@ -28,14 +32,33 @@
     return isNarrow() || onMobileTodo ? "todo-m.html#today" : "todo.html#today";
   }
 
-  const LINKS = [
+  const DESKTOP_LINKS = [
     { id: "todo", href: "todo.html#today", title: "Todo", icon: ICON.todo },
     { id: "calendar", href: "calendar.html", title: "Calendar", icon: ICON.calendar },
     { id: "planner", href: "planner.html", title: "Planner", icon: ICON.planner },
     { id: "mail", href: "mail.html", title: "Mail", icon: ICON.mail },
     { id: "tally", href: "tally.html", title: "Tally book", icon: ICON.tally },
   ];
-  const RAIL_PAGES_KEY = `${LINKS.map((item) => item.id).join(",")}|v3`;
+
+  const MOBILE_LINKS = [
+    { id: "todo", href: "todo.html#today", title: "Today", icon: ICON.todo },
+    { id: "calendar", href: "calendar.html", title: "Calendar", icon: ICON.calendar },
+    { id: "tally", href: "tally.html", title: "Tally", icon: ICON.tally },
+  ];
+
+  function navLinks() {
+    return isNarrow() ? MOBILE_LINKS : DESKTOP_LINKS;
+  }
+
+  function menuTitle() {
+    return isNarrow() ? "More" : "Menu";
+  }
+
+  function railPagesKey() {
+    return `${isNarrow() ? "m" : "d"}:${navLinks()
+      .map((item) => item.id)
+      .join(",")}|v4`;
+  }
 
   function pageId() {
     const path = (location.pathname || "").toLowerCase();
@@ -85,10 +108,10 @@
     brand.setAttribute("aria-label", title);
   }
 
-  /** Pin EN/中 beside theme on the rail — never inside page links (matches desktop). */
+  /** Pin EN/中 beside theme on the desktop rail — never inside page links. */
   function dockLanguageToggle(rail) {
     const hostRail = rail || document.querySelector(".bento-rail");
-    if (!hostRail) return;
+    if (!hostRail || isNarrow()) return;
     const lang = document.getElementById("language-toggle");
     if (!lang) return;
     lang.classList.add("bento-rail-lang");
@@ -99,19 +122,59 @@
     }
   }
 
+  function ensureSidebarChrome() {
+    const inner = document.querySelector(".sidebar-inner");
+    if (!inner) return null;
+    let chrome = document.getElementById("sidebar-chrome");
+    if (!chrome) {
+      chrome = document.createElement("div");
+      chrome.id = "sidebar-chrome";
+      chrome.className = "sidebar-chrome";
+      inner.insertBefore(chrome, inner.firstChild);
+    }
+    return chrome;
+  }
+
+  function placeAppearanceChrome(rail) {
+    const theme = document.getElementById("theme-toggle");
+    const lang = document.getElementById("language-toggle");
+    if (isNarrow()) {
+      const chrome = ensureSidebarChrome();
+      if (!chrome) return;
+      if (theme) {
+        theme.classList.remove("bento-rail-theme", "m-theme");
+        chrome.appendChild(theme);
+      }
+      if (lang) {
+        lang.classList.remove("bento-rail-lang");
+        chrome.appendChild(lang);
+      }
+      return;
+    }
+    const chrome = document.getElementById("sidebar-chrome");
+    if (chrome && chrome.childElementCount === 0) chrome.remove();
+    if (theme && rail && !rail.contains(theme)) {
+      theme.classList.add("bento-rail-theme");
+      rail.appendChild(theme);
+    }
+    dockLanguageToggle(rail);
+  }
+
   function syncNavLinks(nav) {
     if (!(nav instanceof HTMLElement)) return;
+    const key = railPagesKey();
+    const links = navLinks();
     const needsRebuild =
-      nav.dataset.railPages !== RAIL_PAGES_KEY ||
+      nav.dataset.railPages !== key ||
       !nav.querySelector("#bento-menu-toggle") ||
-      LINKS.some((item) => !nav.querySelector(`[data-rail-page="${item.id}"]`));
+      links.some((item) => !nav.querySelector(`[data-rail-page="${item.id}"]`));
     if (!needsRebuild) {
       const todoLink = nav.querySelector('.bento-rail-link[data-rail-page="todo"]');
       if (todoLink) todoLink.setAttribute("href", todoHref());
       return;
     }
     nav.innerHTML = buildNavHtml();
-    nav.dataset.railPages = RAIL_PAGES_KEY;
+    nav.dataset.railPages = key;
     const menuBtn = nav.querySelector("#bento-menu-toggle");
     if (menuBtn) delete menuBtn.dataset.railWired;
   }
@@ -155,19 +218,22 @@
   }
 
   function buildNavHtml() {
-    const links = LINKS.map((item) => {
-      const href = item.id === "todo" ? todoHref() : item.href;
-      return (
-        `<a href="${href}" class="bento-rail-link" data-rail-page="${item.id}" title="${item.title}">` +
-        item.icon +
-        `<span class="bento-rail-sr">${item.title}</span></a>`
-      );
-    }).join("");
+    const links = navLinks()
+      .map((item) => {
+        const href = item.id === "todo" ? todoHref() : item.href;
+        return (
+          `<a href="${href}" class="bento-rail-link" data-rail-page="${item.id}" title="${item.title}">` +
+          item.icon +
+          `<span class="bento-rail-sr">${item.title}</span></a>`
+        );
+      })
+      .join("");
+    const title = menuTitle();
     const menuBtn =
-      `<button type="button" class="bento-rail-link" id="bento-menu-toggle" aria-controls="sidebar" aria-expanded="false" title="Menu">` +
+      `<button type="button" class="bento-rail-link" id="bento-menu-toggle" aria-controls="sidebar" aria-expanded="false" title="${title}">` +
       ICON.menu +
-      `<span class="bento-rail-sr">Menu</span></button>`;
-    return links + menuBtn;
+      `<span class="bento-rail-sr">${title}</span></button>`;
+    return `<span class="bento-rail-lens" aria-hidden="true"></span>` + links + menuBtn;
   }
 
   function ensureRail() {
@@ -175,6 +241,7 @@
     if (!layout || !document.getElementById("sidebar")) return null;
 
     document.body.classList.add("has-bento-rail");
+    document.body.classList.toggle("has-mobile-dock", isNarrow());
 
     let rail = document.querySelector(".bento-rail");
     if (!rail) {
@@ -183,7 +250,7 @@
       rail.setAttribute("aria-label", "Pages");
       rail.innerHTML =
         `<a class="bento-rail-brand" href="${todoHref()}" title="Daily Space" aria-label="Daily Space"><span data-rail-brand-letter aria-hidden="true">S</span></a>` +
-        `<div class="bento-rail-nav" data-rail-pages="${RAIL_PAGES_KEY}">${buildNavHtml()}</div>`;
+        `<div class="bento-rail-nav" data-rail-pages="${railPagesKey()}">${buildNavHtml()}</div>`;
       layout.insertBefore(rail, layout.firstChild);
     } else {
       let nav = rail.querySelector(".bento-rail-nav");
@@ -195,7 +262,6 @@
       syncNavLinks(nav);
       const brand = rail.querySelector(".bento-rail-brand");
       if (brand) brand.setAttribute("href", todoHref());
-      // Prefer stable menu id
       const legacy = document.getElementById("bento-cat-toggle");
       if (legacy && !document.getElementById("bento-menu-toggle")) {
         legacy.id = "bento-menu-toggle";
@@ -214,15 +280,16 @@
       toggle.innerHTML =
         `<span class="theme-toggle-icon" aria-hidden="true">D</span>` +
         `<span class="theme-toggle-label">Dark</span>`;
-      document.body.appendChild(toggle);
+    }
+    if (!toggle.isConnected) document.body.appendChild(toggle);
+
+    if (!isNarrow()) {
+      toggle.classList.remove("m-theme-float");
+      toggle.classList.add("bento-rail-theme");
+      if (!rail.contains(toggle)) rail.appendChild(toggle);
     }
 
-    toggle.classList.remove("m-theme-float");
-    toggle.classList.add("bento-rail-theme");
-    // Theme sits on the rail (sibling of nav), same as desktop — not inside page links.
-    if (!rail.contains(toggle)) rail.appendChild(toggle);
-
-    dockLanguageToggle(rail);
+    placeAppearanceChrome(rail);
 
     markCurrent(rail);
     if (window.DailySpaceAgentUi && typeof window.DailySpaceAgentUi.mountFabUnderBrand === "function") {
@@ -233,9 +300,36 @@
     return rail;
   }
 
+  function wireDockLens(nav) {
+    if (!(nav instanceof HTMLElement) || nav.dataset.lensWired === "1") return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    nav.dataset.lensWired = "1";
+    nav.style.setProperty("--dock-px", "50%");
+    nav.style.setProperty("--dock-py", "50%");
+
+    function track(event) {
+      const rect = nav.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      const x = ((event.clientX - rect.left) / rect.width) * 100;
+      const y = ((event.clientY - rect.top) / rect.height) * 100;
+      nav.style.setProperty("--dock-px", `${Math.max(4, Math.min(96, x))}%`);
+      nav.style.setProperty("--dock-py", `${Math.max(12, Math.min(88, y))}%`);
+      nav.classList.add("is-tracking");
+    }
+
+    nav.addEventListener("pointermove", track);
+    nav.addEventListener("pointerdown", track);
+    nav.addEventListener("pointerleave", () => {
+      nav.classList.remove("is-tracking");
+      nav.style.setProperty("--dock-px", "50%");
+      nav.style.setProperty("--dock-py", "50%");
+    });
+  }
+
   function wire() {
     const rail = ensureRail();
     if (!rail) return;
+    wireDockLens(rail.querySelector(".bento-rail-nav"));
 
     const menuBtn = document.getElementById("bento-menu-toggle");
     if (menuBtn && !menuBtn.dataset.railWired) {
@@ -267,11 +361,11 @@
   }
 
   function wireLanguageWhenReady() {
-    dockLanguageToggle(document.querySelector(".bento-rail"));
+    placeAppearanceChrome(document.querySelector(".bento-rail"));
     if (document.getElementById("language-toggle")) return;
     const observer = new MutationObserver(() => {
       if (!document.getElementById("language-toggle")) return;
-      dockLanguageToggle(document.querySelector(".bento-rail"));
+      placeAppearanceChrome(document.querySelector(".bento-rail"));
       observer.disconnect();
     });
     observer.observe(document.body, { childList: true });
@@ -288,7 +382,30 @@
   }
 
   window.addEventListener("resize", () => {
-    dockLanguageToggle(document.querySelector(".bento-rail"));
+    const rail = document.querySelector(".bento-rail");
+    if (!rail) return;
+    document.body.classList.toggle("has-mobile-dock", isNarrow());
+    const nav = rail.querySelector(".bento-rail-nav");
+    if (nav) {
+      syncNavLinks(nav);
+      if (!nav.querySelector(".bento-rail-lens")) {
+        const lens = document.createElement("span");
+        lens.className = "bento-rail-lens";
+        lens.setAttribute("aria-hidden", "true");
+        nav.insertBefore(lens, nav.firstChild);
+      }
+      wireDockLens(nav);
+    }
+    const menuBtn = document.getElementById("bento-menu-toggle");
+    if (menuBtn && !menuBtn.dataset.railWired) {
+      menuBtn.dataset.railWired = "1";
+      menuBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+        toggleSidebar();
+      });
+    }
+    placeAppearanceChrome(rail);
+    markCurrent(rail);
   });
 
   window.DailySpaceBentoRail = {
@@ -297,5 +414,6 @@
     pageId,
     syncBrandMark,
     dockLanguageToggle,
+    placeAppearanceChrome,
   };
 })();

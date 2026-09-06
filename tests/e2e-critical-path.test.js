@@ -102,6 +102,7 @@ test("e2e critical path: welcome Daily Loop + guest today→calendar→mail task
   const welcomeHtml = await welcome.text();
   assert.match(welcomeHtml, /Daily Loop/i);
   assert.match(welcomeHtml, /Continue as guest/);
+  assert.doesNotMatch(welcomeHtml, /WeChat|wechat/);
 
   const todo = await fetch(`${baseUrl}/todo.html`);
   assert.equal(todo.status, 200);
@@ -112,8 +113,30 @@ test("e2e critical path: welcome Daily Loop + guest today→calendar→mail task
   assert.doesNotMatch(todoHtml, /id="add-form"[^>]*hidden/);
   assert.match(todoHtml, /workspace-tasks\.js/);
 
+  const todoM = await fetch(`${baseUrl}/todo-m.html`);
+  assert.equal(todoM.status, 200);
+  const todoMHtml = await todoM.text();
+  assert.match(todoMHtml, /id="add-form"/);
+  assert.match(todoMHtml, /id="m-agent-toggle"/);
+  assert.match(todoMHtml, /id="m-done-toggle"/);
+  assert.match(todoMHtml, /id="m-dash-add"|m-dash-add/);
+  assert.doesNotMatch(todoMHtml, /id="m-fab-add"/);
+  assert.match(todoMHtml, /Today’s tasks|Today's tasks/);
+  assert.doesNotMatch(todoMHtml, /Pending/);
+  assert.match(todoMHtml, /id="count-text"/);
+
   const calendar = await fetch(`${baseUrl}/calendar.html`);
   assert.equal(calendar.status, 200);
+  const calendarHtml = await calendar.text();
+  assert.match(calendarHtml, /id="reminder-form"/);
+  assert.match(calendarHtml, /id="week-head"/);
+  assert.doesNotMatch(calendarHtml, /id="cal-fab-add"/);
+  assert.match(calendarHtml, /Schedule/);
+
+  const tally = await fetch(`${baseUrl}/tally.html`);
+  assert.equal(tally.status, 200);
+  const tallyHtml = await tally.text();
+  assert.match(tallyHtml, /id="tally-quick-form"/);
 
   const mail = await fetch(`${baseUrl}/mail.html`);
   assert.equal(mail.status, 200);

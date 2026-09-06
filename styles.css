@@ -350,12 +350,6 @@ body::after {
   background: #0f6cbd;
 }
 
-.welcome-provider-wechat {
-  color: var(--on-primary);
-  background: color-mix(in srgb, var(--success) 88%, var(--primary));
-  box-shadow: var(--shadow-soft);
-}
-
 .welcome-provider-mark {
   display: grid;
   place-items: center;
@@ -377,12 +371,6 @@ body::after {
 .welcome-provider-outlook .welcome-provider-mark {
   color: #fff;
   font-family: "Segoe UI Symbol", Arial, sans-serif;
-}
-
-.welcome-provider-wechat .welcome-provider-mark {
-  color: var(--on-primary);
-  background: color-mix(in srgb, var(--on-primary) 18%, transparent);
-  font-size: 0.82rem;
 }
 
 .welcome-enter {
@@ -804,14 +792,6 @@ body.has-notif-bell .language-toggle {
   display: none;
 }
 
-body.todo-agent-open .notif-root,
-body.todo-agent-open .language-toggle {
-  right: 24rem;
-}
-
-body.todo-agent-open.has-notif-bell .language-toggle {
-  right: calc(24rem + 3.6rem);
-}
 
 .language-toggle:hover {
   background: var(--surface-hover);
@@ -1652,13 +1632,6 @@ body.shortcut-go-armed::after {
   width: 0.92rem;
   height: 0.92rem;
   display: block;
-}
-
-.auth-provider-icon-wechat {
-  color: var(--on-primary);
-  background: color-mix(in srgb, var(--success) 88%, var(--primary));
-  font-size: 0.72rem;
-  font-weight: 600;
 }
 
 .auth-divider {
@@ -3902,13 +3875,16 @@ body.todo-agent-open .todo-agent-fab {
   display: none;
 }
 
-/* Ghost agent docked under the rail brand mark */
+/* Ghost stays in the rail; the dialog stays on the body. */
 body.has-bento-rail .todo-agent.todo-agent-rail-docked {
   position: static;
   right: auto;
   bottom: auto;
   z-index: auto;
-  display: contents;
+  display: block;
+  width: 0;
+  height: 0;
+  overflow: visible;
 }
 
 body.has-bento-rail .todo-agent-fab-rail {
@@ -3941,101 +3917,102 @@ body.has-bento-rail .todo-agent-fab-rail:hover {
   }
 }
 
-.todo-agent-panel[hidden] {
-  display: none;
+.todo-agent-overlay[hidden] {
+  display: none !important;
+}
+
+.todo-agent-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 320;
+  display: grid;
+  place-items: center;
+  padding: var(--space-md);
+}
+
+body.todo-agent-open {
+  overflow: hidden;
+}
+
+.todo-agent-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: color-mix(in srgb, var(--primary) 42%, transparent);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  cursor: pointer;
 }
 
 .todo-agent-panel {
-  position: fixed;
-  top: 1rem;
-  right: 1rem;
-  bottom: 1rem;
-  z-index: 280;
-  width: 22rem;
+  position: relative;
+  z-index: 1;
+  width: min(94vw, 36rem);
+  max-height: min(88vh, 40rem);
   display: flex;
   flex-direction: column;
-  gap: 0.7rem;
-  padding: 0.9rem;
+  gap: var(--space-sm);
+  padding: var(--space-lg);
   border: 1px solid var(--glass-border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   background: var(--glass-strong);
-  box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(18px) saturate(1.08);
-  -webkit-backdrop-filter: blur(18px) saturate(1.08);
-}
-
-.main-area,
-.theme-toggle {
-  transition: margin-right 0.24s ease, right 0.24s ease;
-}
-
-body.todo-agent-open .main-area {
-  margin-right: 23rem;
-}
-
-body.todo-agent-open .theme-toggle {
-  right: 24rem;
-}
-
-body.todo-agent-open .language-toggle {
-  right: 24rem;
-}
-
-body.todo-agent-open.has-notif-bell .language-toggle {
-  right: calc(24rem + 3.6rem);
-}
-
-body.todo-agent-open .notif-root {
-  right: 24rem;
+  box-shadow: var(--shadow-pop);
+  backdrop-filter: blur(16px) saturate(1.08);
+  -webkit-backdrop-filter: blur(16px) saturate(1.08);
 }
 
 .todo-agent-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: var(--space-sm);
 }
 
 .todo-agent-kicker {
   margin: 0;
-  font-size: 0.72rem;
-  letter-spacing: 0.08em;
+  color: var(--highlight);
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  letter-spacing: var(--type-label-tracking);
   text-transform: uppercase;
-  color: var(--text-muted);
 }
 
 .todo-agent-title {
   margin: 0.15rem 0 0;
-  font-size: 1.05rem;
-  font-weight: 600;
   color: var(--text);
+  font-size: var(--type-title-size);
+  font-weight: 400;
+  letter-spacing: var(--type-title-tracking);
 }
 
 .todo-agent-close {
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 1.25rem;
-  line-height: 1;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  background: var(--glass);
+  color: var(--text);
+  box-shadow: var(--shadow-soft);
   cursor: pointer;
-  padding: 0.15rem 0.35rem;
-  border-radius: 999px;
+  font: inherit;
+  font-size: 1.1rem;
+  line-height: 1;
 }
 
 .todo-agent-close:hover {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--surface-hover);
 }
 
 .todo-agent-messages {
   flex: 1;
-  min-height: 12rem;
-  max-height: 20rem;
+  min-height: 10rem;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 0.48rem;
-  padding: 0.12rem 0.12rem 0.2rem;
+  gap: var(--space-sm);
+  padding: var(--space-xs) 0;
 }
 
 .todo-agent-msg {
@@ -4069,7 +4046,7 @@ body.todo-agent-open .notif-root {
 
 .todo-agent-form {
   display: flex;
-  gap: 0.45rem;
+  gap: var(--space-sm);
 }
 
 .todo-agent-input {
@@ -4077,7 +4054,7 @@ body.todo-agent-open .notif-root {
   min-width: 0;
   min-height: 2.75rem;
   border: 1px solid var(--glass-border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: var(--glass);
   box-shadow: var(--shadow-soft);
   color: var(--text);
@@ -4087,21 +4064,15 @@ body.todo-agent-open .notif-root {
 
 .todo-agent-input:focus {
   outline: none;
-  border-color: var(--glass-border);
+  border-color: var(--highlight);
   background: var(--glass-strong);
   box-shadow: var(--shadow-soft);
 }
 
 .todo-agent-send {
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-sm);
-  background: var(--glass-strong);
-  color: var(--text);
-  box-shadow: var(--shadow-soft);
-  font: inherit;
-  font-weight: 600;
-  padding: 0.62rem 0.9rem;
-  cursor: pointer;
+  flex-shrink: 0;
+  min-width: 5.5rem;
+  min-height: 2.75rem;
 }
 
 .todo-agent-send:disabled {
@@ -4111,37 +4082,29 @@ body.todo-agent-open .notif-root {
 
 .todo-agent-hint {
   margin: 0;
-  font-size: 0.72rem;
   color: var(--text-muted);
+  font-size: var(--type-label-size);
+  line-height: 1.45;
 }
 
 @media (max-width: 819px) {
-  /* Stack above theme toggle; include safe-area so home-indicator devices don't collide. */
   body:not(.has-bento-rail) .todo-agent {
     right: max(1rem, env(safe-area-inset-right, 0px));
     bottom: calc(env(safe-area-inset-bottom, 0px) + 5.35rem);
   }
 
+  .todo-agent-overlay {
+    padding: var(--space-sm);
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 5.75rem);
+  }
+
   .todo-agent-panel {
-    inset: max(0.65rem, env(safe-area-inset-top)) 0.65rem max(0.65rem, env(safe-area-inset-bottom));
-    width: auto;
-    max-height: none;
-    border-radius: var(--radius);
-    background-color: var(--bg);
+    width: min(100%, 36rem);
+    max-height: min(78vh, 36rem);
   }
 
   body.todo-agent-open {
     overflow: hidden;
-  }
-
-  body.todo-agent-open .main-area {
-    margin-right: 0;
-  }
-
-  body.todo-agent-open .theme-toggle,
-  body.todo-agent-open .language-toggle {
-    right: 1rem;
-    visibility: hidden;
   }
 }
 
@@ -4194,10 +4157,6 @@ body.todo-agent-open .notif-root {
   .todo-agent-panel {
     backdrop-filter: blur(14px) saturate(1.06) !important;
     -webkit-backdrop-filter: blur(14px) saturate(1.06) !important;
-  }
-
-  .todo-agent-messages {
-    max-height: none;
   }
 }
 
@@ -4629,7 +4588,7 @@ body.todo-bento .daily-loop {
   gap: var(--space-sm);
 }
 
-/* Todo as agent page: chat is the composer; list is the result. */
+/* Todo: agent opens as a centered dialog from Ask agent. */
 body.todo-agent-page .today-kicker {
   margin: 0 0 0.2rem;
   color: var(--highlight);
@@ -4640,63 +4599,18 @@ body.todo-agent-page .today-kicker {
 }
 
 body.todo-agent-page .todo-agent-host {
-  min-height: 18rem;
+  display: none;
 }
 
-body.todo-agent-page .todo-agent.todo-agent-page-embed {
+body.todo-agent-page .todo-agent {
   position: static;
-  right: auto;
-  bottom: auto;
-  z-index: auto;
-  display: block;
-  width: 100%;
-  align-items: stretch;
+  width: 0;
+  height: 0;
+  overflow: visible;
 }
-
-body.todo-agent-page .todo-agent-page-embed .todo-agent-fab,
-body.todo-agent-page .todo-agent-page-embed .todo-agent-close {
-  display: none !important;
-}
-
-body.todo-agent-page .todo-agent-page-embed .todo-agent-panel {
-  position: static;
-  top: auto;
-  right: auto;
-  bottom: auto;
-  width: 100%;
-  max-width: none;
-  height: auto;
-  min-height: 18rem;
-  max-height: min(28rem, 58vh);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-soft);
-}
-
-body.todo-agent-page.todo-agent-open .main-area,
-body.todo-agent-page.todo-agent-open .theme-toggle,
-body.todo-agent-page.todo-agent-open .language-toggle,
-body.todo-agent-page.todo-agent-open .notif-root {
-  margin-right: 0;
-  right: auto;
-}
-
 
 body.todo-agent-page .today-tasks {
   margin-top: 0.15rem;
-}
-
-@media (max-width: 819px) {
-  body.todo-agent-page .todo-agent-page-embed .todo-agent-panel {
-    max-height: min(24rem, 52vh);
-  }
-
-  body.todo-agent-page.todo-agent-open {
-    overflow: auto;
-  }
-
-  body.todo-agent-page.todo-agent-open .main-area {
-    margin-right: 0;
-  }
 }
 
 body.has-bento-rail .sidebar {
@@ -4755,6 +4669,19 @@ body.has-bento-rail .sidebar-trigger {
 @media (max-width: 819px) {
   /* Mobile dock visuals live in m-dock.css (shared with Calendar / Planner / Mail). */
 
+  body.todo-bento .app-greeting,
+  body.todo-bento .today-kicker,
+  body.todo-bento .today-hero-actions,
+  body.todo-bento .today-hero-hint,
+  body.todo-bento .today-status,
+  body.todo-bento .todo-source-switch,
+  body.todo-bento .filters,
+  body.todo-bento .due-day-filter-bar,
+  body.todo-bento .evening-review,
+  body.todo-bento .daily-loop-empty {
+    display: none !important;
+  }
+
   body.todo-bento .app.bento-shell.today-shell {
     width: 100%;
     max-width: none;
@@ -4766,12 +4693,6 @@ body.has-bento-rail .sidebar-trigger {
   body.todo-bento .today-hero {
     flex-direction: column;
     align-items: stretch;
-  }
-
-  body.todo-bento .today-hero-actions {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
   }
 
   body.todo-bento .today-tasks {

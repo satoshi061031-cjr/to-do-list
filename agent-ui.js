@@ -78,6 +78,7 @@
   }
 
   const pageMode = document.body.classList.contains("todo-agent-page");
+  const mobileTodo = document.body.classList.contains("todo-mobile");
   const host = document.getElementById("todo-agent-host");
   const onMail = currentPage() === "mail";
   const agentTitle = pageMode ? "Ask to add a task" : onMail ? "Ask about your inbox" : "Daily Space Agent";
@@ -93,42 +94,43 @@
       : "Primary capture for Todo — also reaches Planner, Calendar, and Tally.";
 
   const panel = document.createElement("div");
-  panel.className = "todo-agent" + (pageMode ? " todo-agent-page-embed" : "");
+  panel.className = "todo-agent";
   panel.innerHTML = `
-    <button type="button" class="todo-agent-fab" aria-expanded="false" aria-controls="todo-agent-panel" aria-label="Open Daily Space Agent">
+    <button type="button" class="todo-agent-fab" aria-expanded="false" aria-controls="todo-agent-overlay" aria-label="Open Daily Space Agent">
       <img class="todo-agent-fab-ghost" src="welcome-sticker.png" alt="" aria-hidden="true" />
     </button>
-    <section class="todo-agent-panel" id="todo-agent-panel" hidden>
-      <header class="todo-agent-header">
-        <div>
-          <p class="todo-agent-kicker">Daily Space</p>
-          <h2 class="todo-agent-title">${agentTitle}</h2>
-        </div>
-        <button type="button" class="todo-agent-close" aria-label="Close agent">×</button>
-      </header>
-      <div class="todo-agent-messages" id="todo-agent-messages" aria-live="polite"></div>
-      <form class="todo-agent-form" autocomplete="off">
-        <input
-          class="todo-agent-input"
-          type="text"
-          maxlength="2000"
-          placeholder="${agentPlaceholder}"
-          aria-label="Message for Daily Space Agent"
-        />
-        <button class="todo-agent-send" type="submit">Send</button>
-      </form>
-      <p class="todo-agent-hint">${agentHint}</p>
-    </section>
+    <div class="todo-agent-overlay" id="todo-agent-overlay" hidden>
+      <button type="button" class="todo-agent-backdrop" aria-label="Close agent"></button>
+      <section class="todo-agent-panel" id="todo-agent-panel" role="dialog" aria-modal="true" aria-labelledby="todo-agent-title">
+        <header class="todo-agent-header">
+          <div>
+            <p class="todo-agent-kicker">Daily Space</p>
+            <h2 class="todo-agent-title" id="todo-agent-title">${agentTitle}</h2>
+          </div>
+          <button type="button" class="todo-agent-close" aria-label="Close agent">×</button>
+        </header>
+        <div class="todo-agent-messages" id="todo-agent-messages" aria-live="polite"></div>
+        <form class="todo-agent-form" autocomplete="off">
+          <input
+            class="todo-agent-input"
+            type="text"
+            maxlength="2000"
+            placeholder="${agentPlaceholder}"
+            aria-label="Message for Daily Space Agent"
+          />
+          <button class="btn btn-primary todo-agent-send" type="submit">Send</button>
+        </form>
+        <p class="todo-agent-hint">${agentHint}</p>
+      </section>
+    </div>
   `;
 
-  if (pageMode && host instanceof HTMLElement) {
-    host.appendChild(panel);
-  } else {
-    document.body.appendChild(panel);
-  }
+  document.body.appendChild(panel);
 
   const fab = panel.querySelector(".todo-agent-fab");
+  const overlay = panel.querySelector(".todo-agent-overlay");
   const sheet = panel.querySelector(".todo-agent-panel");
+  const backdrop = panel.querySelector(".todo-agent-backdrop");
   const closeBtn = panel.querySelector(".todo-agent-close");
   const form = panel.querySelector(".todo-agent-form");
   const input = panel.querySelector(".todo-agent-input");
@@ -138,7 +140,9 @@
 
   if (
     !(fab instanceof HTMLButtonElement) ||
+    !(overlay instanceof HTMLElement) ||
     !(sheet instanceof HTMLElement) ||
+    !(backdrop instanceof HTMLButtonElement) ||
     !(closeBtn instanceof HTMLButtonElement) ||
     !(form instanceof HTMLFormElement) ||
     !(input instanceof HTMLInputElement) ||
@@ -193,12 +197,16 @@
   }
 
   function setOpen(open) {
-    if (pageMode) open = true;
-    sheet.hidden = !open;
+    if (host instanceof HTMLElement) {
+      host.hidden = !open;
+    }
+    overlay.hidden = !open;
     fab.setAttribute("aria-expanded", String(open));
     fab.setAttribute("aria-label", open ? "Close Daily Space Agent" : "Open Daily Space Agent");
     panel.classList.toggle("is-open", open);
     document.body.classList.toggle("todo-agent-open", open);
+    document.body.classList.toggle("m-agent-sheet-open", mobileTodo && open);
+    document.dispatchEvent(new CustomEvent("daily-space-agent-open", { detail: { open } }));
     if (open) {
       if (messagesEl.childElementCount === 0) {
         appendMessage(
@@ -210,7 +218,7 @@
       }
       refreshStatus({ force: true });
       input.focus();
-    } else if (!pageMode) {
+    } else if (!fab.hidden) {
       fab.focus();
     }
   }
@@ -371,29 +379,51 @@
 
   if (pageMode) {
     fab.hidden = true;
-    closeBtn.hidden = true;
-    setOpen(true);
   } else {
     fab.addEventListener("click", function () {
-      setOpen(sheet.hidden);
-    });
-    closeBtn.addEventListener("click", function () {
-      setOpen(false);
-    });
-    document.addEventListener("keydown", function (event) {
-      if (event.key === "Escape" && !sheet.hidden) setOpen(false);
+      setOpen(overlay.hidden);
     });
   }
+
+  function closeAgent() {
+    setOpen(false);
+  }
+
+  closeBtn.addEventListener("click", closeAgent);
+  backdrop.addEventListener("click", closeAgent);
+  document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape" && !overlay.hidden) closeAgent();
+  });
+  setOpen(false);
 
   form.addEventListener("submit", function (event) {
     event.preventDefault();
     sendMessage(input.value);
   });
 
+  function isMobileDock() {
+    return (
+      document.body.classList.contains("has-mobile-dock") ||
+      (typeof window.matchMedia === "function" && window.matchMedia("(max-width: 819px)").matches)
+    );
+  }
+
+  function mountFabInPageSlot() {
+    const slot = document.getElementById("page-agent-slot");
+    if (!(slot instanceof HTMLElement)) return false;
+    fab.classList.remove("todo-agent-fab-rail");
+    fab.classList.add("todo-agent-fab-page");
+    panel.classList.remove("todo-agent-rail-docked");
+    if (fab.parentElement !== slot) slot.appendChild(fab);
+    return true;
+  }
+
   function mountFabUnderBrand() {
     if (pageMode) return false;
+    if (isMobileDock() && mountFabInPageSlot()) return true;
     const brand = document.querySelector(".bento-rail-brand");
     if (!(brand instanceof HTMLElement)) return false;
+    fab.classList.remove("todo-agent-fab-page");
     fab.classList.add("todo-agent-fab-rail");
     panel.classList.add("todo-agent-rail-docked");
     if (fab.previousElementSibling !== brand) {
@@ -403,14 +433,20 @@
   }
 
   if (!pageMode) {
-    if (!mountFabUnderBrand()) {
-      document.addEventListener("DOMContentLoaded", mountFabUnderBrand);
-      document.addEventListener("dailyspace:bento-rail-ready", mountFabUnderBrand);
+    mountFabUnderBrand();
+    document.addEventListener("DOMContentLoaded", mountFabUnderBrand);
+    document.addEventListener("dailyspace:bento-rail-ready", mountFabUnderBrand);
+    if (typeof window.matchMedia === "function") {
+      const dockQuery = window.matchMedia("(max-width: 819px)");
+      if (typeof dockQuery.addEventListener === "function") {
+        dockQuery.addEventListener("change", mountFabUnderBrand);
+      }
     }
+    window.addEventListener("resize", mountFabUnderBrand);
   }
 
   function focusComposer(seed) {
-    if (!pageMode) setOpen(true);
+    setOpen(true);
     const text = typeof seed === "string" ? seed.trim() : "";
     if (text) input.value = text;
     queueMicrotask(function () {

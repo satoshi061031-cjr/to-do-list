@@ -38,9 +38,13 @@
       "安装提示：用浏览器的「安装应用」或「添加到主屏幕」，快捷打开 Daily Loop。",
     "Your data stays on this device and in your cloud snapshot while signed in.":
       "登录期间，数据保存在本机，并同步到云端快照。",
+    "Signed in with Google or Outlook, Mail and Calendar use that same account.":
+      "用 Google 或 Outlook 登录后，邮件和日历使用同一账号。",
     "Signed in with Google or Outlook, Mail and Calendar use that same account. WeChat keeps a cloud snapshot on this workspace.":
       "用 Google 或 Outlook 登录后，邮件和日历使用同一账号。微信登录只同步本工作区的云快照。",
     "Sign in to keep this work": "登录以保存这些内容",
+    "You have tasks on this device. Connect Google or Outlook to save them to your account.":
+      "这台设备上已有任务。连接 Google 或 Outlook，即可保存到你的账号。",
     "You have tasks on this device. Connect Google, Outlook, or WeChat to save them to your account.":
       "这台设备上已有任务。连接 Google、Outlook 或微信，即可保存到你的账号。",
     Later: "稍后再说",
@@ -65,6 +69,10 @@
     "Mail digest uses the Google or Outlook account you signed in with. Add another mailbox only if you need a second inbox.":
       "邮件摘要使用你登录的 Google 或 Outlook 账号。只有需要第二个收件箱时再添加邮箱。",
     "Stay up to date": "保持同步",
+    Schedule: "日程",
+    "Today’s tasks": "今天的任务",
+    "Today's tasks": "今天的任务",
+    "Add task": "添加任务",
     "+ Add reminder": "+ 添加提醒",
     "Open in Todo": "在待办中打开",
     Tasks: "任务",
@@ -79,6 +87,9 @@
     Completed: "已完成",
     Pending: "待处理",
     "To do": "待办",
+    Ask: "问",
+    "What to do?": "做什么？",
+    "Type a task above.": "在上方输入任务。",
     Theme: "主题",
     "No matches.": "没有匹配结果。",
     "Hey there": "你好",
@@ -124,6 +135,7 @@
       "此区域只保存在本机。上方工作空间仅用于邀请同事，并在 Planner 团队看板指派。",
     "This block stays on this device. For real collaboration use the workspace above and Planner team boards.": "此区域只保存在本机。真正协作请用上方工作空间和「计划」的团队看板。",
     "Spent today": "今日支出",
+    "What for?": "记一笔？",
     "Private scratchpad": "私人草稿本",
     "Not shared with workspace members — local notes only": "不会同步给工作空间成员 — 仅本机备注",
     "Delete category": "删除分类",

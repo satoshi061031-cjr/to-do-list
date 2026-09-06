@@ -1,49 +1,29 @@
 /**
- * Mobile Loop chrome for todo-m.html — greeting, week strip, dock, composer FAB.
+ * Mobile Today chrome — week strip, collapsed agent, Done/Today toggle.
  */
 (function () {
   if (!document.body.classList.contains("todo-mobile")) return;
 
-  function pad(n) {
-    return String(n).padStart(2, "0");
-  }
-
   function isoLocal(date) {
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
   }
 
-  function authName() {
-    try {
-      const parsed = JSON.parse(localStorage.getItem("daily-space-auth-v1") || "null");
-      if (!parsed || typeof parsed !== "object") return "there";
-      let name = typeof parsed.label === "string" ? parsed.label.trim() : "";
-      name = name.replace(/\s*\([^)]*@[^)]*\)\s*$/, "").trim();
-      if (!name && typeof parsed.email === "string") {
-        name = String(parsed.email).split("@")[0].trim();
-      }
-      if (!name) return "there";
-      const first = name.split(/\s+/)[0];
-      return first || "there";
-    } catch (_) {
-      return "there";
-    }
-  }
-
-  function syncGreeting() {
-    const title = document.getElementById("m-greet-title");
-    if (!title) return;
-    title.textContent = `Hey, ${authName()}`;
+  function markWeek(iso) {
+    const strip = document.getElementById("m-week-strip");
+    if (!strip) return;
+    strip.querySelectorAll(".m-day").forEach((el) => {
+      const on = el.getAttribute("data-iso") === iso;
+      el.classList.toggle("is-selected", on);
+      el.setAttribute("aria-selected", on ? "true" : "false");
+    });
   }
 
   function selectDay(iso) {
+    markWeek(iso);
     const api = window.DailySpaceTodo;
     if (api && typeof api.selectDueDay === "function") {
       api.selectDueDay(iso);
-      return;
     }
-    document.querySelectorAll(".m-day").forEach((btn) => {
-      btn.classList.toggle("is-selected", btn.getAttribute("data-iso") === iso);
-    });
   }
 
   function buildWeek() {
@@ -53,7 +33,7 @@
     today.setHours(12, 0, 0, 0);
     const start = new Date(today);
     start.setDate(today.getDate() - 3);
-    const todayIso = isoLocal(today);
+    const todayKey = isoLocal(today);
     strip.innerHTML = "";
     for (let i = 0; i < 7; i += 1) {
       const d = new Date(start);
@@ -61,53 +41,99 @@
       const iso = isoLocal(d);
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className = "m-day" + (iso === todayIso ? " is-today is-selected" : "");
+      btn.className = "m-day" + (iso === todayKey ? " is-today is-selected" : "");
       btn.setAttribute("role", "option");
       btn.setAttribute("data-iso", iso);
-      btn.setAttribute("aria-selected", iso === todayIso ? "true" : "false");
+      btn.setAttribute("aria-selected", iso === todayKey ? "true" : "false");
       const wd = d.toLocaleDateString(undefined, { weekday: "short" });
       btn.innerHTML =
         `<span class="m-day-wd">${wd}</span>` +
         `<span class="m-day-num">${d.getDate()}</span>`;
-      btn.addEventListener("click", () => {
-        strip.querySelectorAll(".m-day").forEach((el) => {
-          const on = el === btn;
-          el.classList.toggle("is-selected", on);
-          el.setAttribute("aria-selected", on ? "true" : "false");
-        });
-        selectDay(iso);
-      });
+      btn.addEventListener("click", () => selectDay(iso));
       strip.appendChild(btn);
     }
   }
 
-  function openComposer() {
-    const sheet = document.getElementById("m-composer");
-    const input = document.getElementById("todo-input");
-    if (!sheet) return;
-    sheet.hidden = false;
-    if (input) {
-      input.focus();
-      input.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  function syncAgentToggle(open) {
+    const btn = document.getElementById("m-agent-toggle");
+    const host = document.getElementById("todo-agent-host");
+    if (btn) {
+      btn.setAttribute("aria-expanded", open ? "true" : "false");
+      btn.classList.toggle("is-open", open);
+    }
+    if (host) host.hidden = !open;
+    document.body.classList.toggle("m-agent-sheet-open", open);
+  }
+
+  function wireAgent() {
+    const btn = document.getElementById("m-agent-toggle");
+    if (!btn) return;
+    btn.addEventListener("click", () => {
+      const host = document.getElementById("todo-agent-host");
+      const open = Boolean(host && host.hidden);
+      if (window.DailySpaceAgentUi && typeof window.DailySpaceAgentUi.setOpen === "function") {
+        window.DailySpaceAgentUi.setOpen(open);
+      } else {
+        syncAgentToggle(open);
+      }
+    });
+    document.addEventListener("daily-space-agent-open", (event) => {
+      const detail = event && event.detail;
+      syncAgentToggle(Boolean(detail && detail.open));
+    });
+  }
+
+  function wireDoneToggle() {
+    const toggle = document.getElementById("m-done-toggle");
+    const api = window.DailySpaceTodo;
+    if (!toggle || !api || typeof api.setFilter !== "function") return;
+
+    function showingCompleted() {
+      const completed = document.querySelector('.filter-btn[data-filter="completed"]');
+      return Boolean(completed && completed.classList.contains("is-active"));
+    }
+
+    function sync() {
+      const on = showingCompleted();
+      toggle.textContent = on ? "Today" : "Done";
+      toggle.setAttribute("aria-pressed", on ? "true" : "false");
+    }
+
+    toggle.addEventListener("click", () => {
+      api.setFilter(showingCompleted() ? "active" : "completed");
+      sync();
+    });
+    sync();
+  }
+
+  function placeGreeting() {
+    const top = document.querySelector(".m-top-copy");
+    const greeting = document.querySelector(".app-greeting");
+    if (top && greeting && greeting.parentElement !== top) {
+      top.insertBefore(greeting, top.firstChild);
     }
   }
 
-  function closeComposer() {
-    /* Add form stays in the page flow on desktop and mobile. */
-  }
-
-  function wireDock() {
-    const fab = document.getElementById("m-fab-add");
-    if (fab) fab.addEventListener("click", openComposer);
-    const done = document.getElementById("m-composer-close");
-    if (done) done.addEventListener("click", closeComposer);
+  function watchGreeting() {
+    placeGreeting();
+    const host = document.querySelector(".m-shell") || document.querySelector(".app");
+    if (!host) return;
+    const obs = new MutationObserver(() => placeGreeting());
+    obs.observe(host, { childList: true });
+    window.setTimeout(() => obs.disconnect(), 2500);
   }
 
   function boot() {
-    syncGreeting();
+    const title = document.getElementById("m-greet-title");
+    if (title) title.textContent = "Today";
+    watchGreeting();
     buildWeek();
-    wireDock();
-    window.addEventListener("daily-space-auth-updated", syncGreeting);
+    wireAgent();
+    wireDoneToggle();
+    document.addEventListener("dailyspace:view-day", (event) => {
+      const iso = event && event.detail && event.detail.iso;
+      if (iso) markWeek(iso);
+    });
   }
 
   if (document.readyState === "loading") {

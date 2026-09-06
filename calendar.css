@@ -49,6 +49,10 @@ body.calendar-page .sidebar-trigger {
   margin-left: 0;
 }
 
+.cal-phone-kicker {
+  display: none;
+}
+
 /* Hide duplicate auto greeting — headline lives in .cal-top. */
 body.calendar-page .calendar-app > .app-greeting {
   display: none;
@@ -1200,10 +1204,259 @@ body.calendar-page .calendar-app > .app-greeting {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .cal-event,
-  .calendar-today-btn,
-  .calendar-nav-btn {
-    transition: none;
+/* Phone: this week + one day’s list. Desktop week grid stays. */
+@media (max-width: 819px) {
+  body.calendar-page .calendar-app {
+    padding: calc(env(safe-area-inset-top, 0px) + var(--space-md)) var(--space-md)
+      calc(env(safe-area-inset-bottom, 0px) + 7rem);
+    max-width: 28rem;
+  }
+
+  body.calendar-page .cal-search,
+  body.calendar-page .cal-upcoming,
+  body.calendar-page .cal-add-btn,
+  body.calendar-page #calendar-today,
+  body.calendar-page .cal-week-body,
+  body.calendar-page .cal-week-empty,
+  body.calendar-page .cal-week-corner,
+  body.calendar-page .day-task-form,
+  body.calendar-page .day-task-label,
+  body.calendar-page .reminder-time-field:has(#reminder-end-time),
+  body.calendar-page .reminder-priority-field,
+  body.calendar-page .calendar-alerts-btn,
+  body.calendar-page .cal-shell .calendar-title,
+  body.calendar-page .cal-shell .calendar-meta,
+  body.calendar-page .selected-day-head,
+  body.calendar-page .cal-day-block:has(#day-task-form),
+  body.calendar-page .cal-day-block:has(#reminder-form) > .cal-day-kicker,
+  body.calendar-page > .theme-toggle,
+  body.calendar-page > .language-toggle {
+    display: none !important;
+  }
+
+  body.calendar-page .cal-shell .cal-top {
+    gap: var(--space-xs);
+  }
+
+  body.calendar-page .cal-toolbar {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  body.calendar-page .cal-range {
+    width: 100%;
+  }
+
+  body.calendar-page .cal-week,
+  body.calendar-page .cal-shell .cal-week {
+    min-height: 0 !important;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  body.calendar-page .todo-agent-fab,
+  body.calendar-page .todo-agent-fab-rail {
+    display: none !important;
+  }
+
+  body.calendar-page .cal-week-head {
+    display: flex;
+    min-width: 0 !important;
+    border: 0;
+    gap: 0.2rem;
+  }
+
+  body.calendar-page .cal-week-day {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 2.85rem;
+    padding: 0.4rem 0.15rem;
+    border-radius: var(--radius-md);
+  }
+
+  body.calendar-page .cal-week-day.is-selected {
+    background: var(--liquid-sheen), color-mix(in srgb, var(--cal-accent) 22%, var(--liquid-fill));
+    backdrop-filter: var(--liquid-blur);
+    -webkit-backdrop-filter: var(--liquid-blur);
+    border: 1px solid var(--liquid-edge);
+    box-shadow: var(--liquid-shadow);
+  }
+
+  body.calendar-page .cal-week-day.is-selected .cal-week-day-wd,
+  body.calendar-page .cal-week-day.is-selected .cal-week-day-num {
+    color: var(--cal-on-accent);
+  }
+
+  body.calendar-page .reminder-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 2.6rem;
+  }
+
+  body.calendar-page .reminder-time-row {
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    margin: 0;
+  }
+
+  body.calendar-page .reminder-time-field span {
+    display: none;
+  }
+
+  body.calendar-page .reminder-time-input {
+    min-width: 5.4rem;
+    min-height: 2.6rem;
+  }
+
+  body.calendar-page .cal-day-block:has(#reminder-form) {
+    margin-top: var(--space-sm);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+
+  body.calendar-page .cal-day-block:has(#reminder-form) .calendar-item-list,
+  body.calendar-page .cal-day-block:has(#reminder-form) .calendar-empty {
+    order: 1;
+  }
+
+  body.calendar-page .cal-day-block:has(#reminder-form) .reminder-form {
+    order: 2;
+  }
+
+  body.calendar-page .cal-phone-kicker {
+    display: block;
+    margin: 0 0 0.15rem;
+    color: var(--cal-ink);
+    font-size: var(--type-title-size);
+    font-weight: 400;
+    letter-spacing: var(--type-title-tracking);
+    line-height: 1.15;
+  }
+
+  body.calendar-page .cal-composer {
+    margin-top: var(--space-sm);
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  body.calendar-page .reminder-form {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 0.75rem;
+    border-radius: var(--radius-pill);
+    isolation: isolate;
+    background: var(--liquid-sheen), var(--liquid-fill);
+    backdrop-filter: var(--liquid-blur);
+    -webkit-backdrop-filter: var(--liquid-blur);
+    box-shadow: var(--liquid-shadow);
+    border: 1px solid var(--liquid-edge);
+  }
+
+  body.calendar-page .reminder-submit {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
+  }
+
+  body.calendar-page .calendar-item-list {
+    position: relative;
+    margin-top: var(--space-md);
+    padding: 0.25rem 0 0.25rem 3.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+
+  body.calendar-page .calendar-item-list::before {
+    content: "";
+    position: absolute;
+    left: 2.45rem;
+    top: 0.6rem;
+    bottom: 0.6rem;
+    width: 1px;
+    background: color-mix(in srgb, var(--primary) 12%, transparent);
+  }
+
+  body.calendar-page .calendar-list-item {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+    min-height: calc(var(--cal-span, 70) * 0.055rem);
+    margin: 0;
+    padding: var(--space-md);
+    isolation: isolate;
+    border: 1px solid var(--liquid-edge);
+    border-radius: var(--radius-lg);
+    background: var(--liquid-sheen), var(--liquid-fill);
+    backdrop-filter: var(--liquid-blur);
+    -webkit-backdrop-filter: var(--liquid-blur);
+    box-shadow: var(--liquid-shadow);
+  }
+
+  body.calendar-page .calendar-list-item[data-start]::before {
+    content: attr(data-start);
+    position: absolute;
+    left: -3.25rem;
+    top: 1rem;
+    width: 2.9rem;
+    color: var(--cal-muted);
+    font-size: var(--type-label-size);
+    letter-spacing: var(--type-label-tracking);
+    line-height: 1.2;
+    text-align: right;
+  }
+
+  body.calendar-page .calendar-item-main {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  body.calendar-page .calendar-item-text {
+    color: var(--cal-ink);
+    font-size: 1rem;
+    line-height: 1.35;
+  }
+
+  body.calendar-page .calendar-item-sub {
+    margin-top: 0.35rem;
+    color: var(--cal-muted);
+    font-size: var(--type-label-size);
+  }
+
+  body.calendar-page .calendar-item-delete {
+    flex-shrink: 0;
+    width: 1.75rem;
+    height: 1.75rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--cal-muted);
+    font: inherit;
+    cursor: pointer;
+  }
+
+  body.calendar-page .calendar-empty {
+    margin: var(--space-md) 0 0 3.4rem;
+    color: var(--cal-muted);
   }
 }

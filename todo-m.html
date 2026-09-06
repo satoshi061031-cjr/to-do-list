@@ -23,7 +23,7 @@
     <div class="backdrop" id="sidebar-backdrop" hidden aria-hidden="true"></div>
 
     <div class="layout">
-      <aside class="sidebar" id="sidebar" aria-label="Navigation">
+      <aside class="sidebar" id="sidebar" aria-label="More">
         <div class="sidebar-inner">
           <div class="sidebar-heading">Workspace</div>
           <div class="sidebar-heading">Categories</div>
@@ -62,38 +62,39 @@
 
       <main class="main-area">
         <div class="app m-shell">
-          <header class="m-hero">
-            <div class="m-hero-copy">
-              <h1 class="m-greet" id="m-greet-title">Hey there</h1>
-              <p class="m-greet-sub">Let's make progress today!</p>
+          <header class="m-top" id="m-top">
+            <div class="m-top-copy">
+              <h1 class="m-greet" id="m-greet-title">Today</h1>
             </div>
-            <button type="button" class="theme-toggle m-theme" id="theme-toggle" aria-pressed="false" aria-label="Toggle theme">
-              <span class="theme-toggle-icon" aria-hidden="true">☀</span>
-              <span class="theme-toggle-label">Theme</span>
-            </button>
+            <div class="m-top-actions">
+              <button
+                type="button"
+                class="m-agent-toggle"
+                id="m-agent-toggle"
+                aria-expanded="false"
+                aria-controls="todo-agent-overlay"
+                aria-label="Ask agent"
+              >
+                <img class="m-agent-ghost" src="welcome-sticker.png" alt="" aria-hidden="true" />
+              </button>
+            </div>
           </header>
 
           <div class="m-week" id="m-week-strip" role="listbox" aria-label="Week"></div>
 
-          <section class="todo-agent-host m-agent-host" id="todo-agent-host" aria-label="Daily Space Agent"></section>
-
           <div class="m-composer" id="m-composer">
             <form class="add-form add-form-notion" id="add-form" autocomplete="off">
               <div class="add-form-row">
-                <span class="composer-glyph" aria-hidden="true">□</span>
                 <input
                   type="text"
                   id="todo-input"
                   class="todo-input"
-                  placeholder="What do you need to do?"
+                  placeholder="What to do?"
                   maxlength="500"
                   aria-label="New task"
                   aria-controls="todo-slash-menu"
                   aria-autocomplete="list"
                 />
-                <button type="submit" class="btn btn-primary add-form-submit">Add</button>
-              </div>
-              <div class="add-form-deadline">
                 <div class="deadline-picker">
                   <input type="hidden" id="todo-deadline" value="" />
                   <div class="deadline-field">
@@ -106,7 +107,7 @@
                       aria-controls="calendar-panel"
                       aria-label="Due date"
                     >
-                      <span class="deadline-trigger-text" id="deadline-display">Pick a date…</span>
+                      <span class="deadline-trigger-text" id="deadline-display">Today</span>
                     </button>
                     <button type="button" class="deadline-clear-btn" id="deadline-clear" hidden aria-label="Clear due date">
                       ×
@@ -131,26 +132,33 @@
                     <div class="app-cal-grid" id="calendar-grid"></div>
                   </div>
                 </div>
+                <button type="submit" class="btn btn-primary add-form-submit">Add</button>
               </div>
               <div class="slash-menu" id="todo-slash-menu" hidden role="listbox" aria-label="Commands"></div>
             </form>
-            <button type="button" class="m-composer-close" id="m-composer-close" hidden>Done</button>
           </div>
 
-          <div class="m-status" id="todo-status-filters" role="tablist" aria-label="Filter tasks">
-            <button type="button" class="filter-btn m-status-btn is-active" data-filter="active" role="tab" aria-selected="true">
-              <span class="m-status-ico" aria-hidden="true">☰</span>
-              To do
-            </button>
-            <button type="button" class="filter-btn m-status-btn" data-filter="completed" role="tab" aria-selected="false">
-              Completed
-            </button>
-            <button type="button" class="filter-btn m-status-btn" data-filter="today" role="tab" aria-selected="false">
-              Pending
-            </button>
+          <section class="m-dash" aria-label="Today summary">
+            <div class="m-dash-copy">
+              <p class="m-dash-kicker">Today</p>
+              <p class="m-dash-title" id="count-text">0 tasks left</p>
+            </div>
+            <button type="submit" class="btn btn-primary m-dash-add" form="add-form">Add</button>
+          </section>
+
+          <div class="m-section-head">
+            <h2 class="m-section-title">Today’s tasks</h2>
+            <button type="button" class="m-done-toggle" id="m-done-toggle" aria-pressed="false">Done</button>
           </div>
 
-          <!-- Kept for app.js Daily Loop wiring; visually folded into the sheet -->
+          <section class="todo-agent-host m-agent-host" id="todo-agent-host" hidden aria-label="Daily Space Agent"></section>
+
+          <div class="m-sr-only" id="todo-status-filters" role="tablist" aria-label="Filter tasks">
+            <button type="button" class="filter-btn is-active" data-filter="active" role="tab" aria-selected="true">To do</button>
+            <button type="button" class="filter-btn" data-filter="completed" role="tab" aria-selected="false">Completed</button>
+          </div>
+
+          <!-- Kept for app.js Daily Loop wiring; list is folded into #todo-list -->
           <div class="m-sr-only" aria-hidden="true">
             <div class="daily-loop-pills" id="daily-loop-pills">
               <button type="button" id="daily-loop-pill-due" data-loop-action="due">
@@ -175,7 +183,7 @@
 
           <section class="m-sheet task-module app-module" data-module-id="tasks" aria-label="To-do tasks">
             <section class="daily-loop m-loop-block" id="daily-loop" aria-label="Daily loop">
-              <ul class="todo-list daily-loop-list" id="daily-loop-list" aria-label="Due today"></ul>
+              <ul class="todo-list daily-loop-list" id="daily-loop-list" aria-label="Due today" hidden></ul>
               <p class="daily-loop-empty" id="daily-loop-empty" hidden>Nothing due today.</p>
               <a class="daily-loop-reminders" id="daily-loop-reminders" href="calendar.html" hidden>
                 <div class="daily-loop-reminders-head">
@@ -193,7 +201,7 @@
               </a>
             </section>
 
-            <div class="todo-source-switch m-source" role="tablist" aria-label="Task source">
+            <div class="todo-source-switch m-source" role="tablist" aria-label="Task source" hidden>
               <button type="button" class="todo-source-btn is-active" data-todo-source="personal" role="tab" aria-selected="true">
                 Personal
               </button>
@@ -203,9 +211,8 @@
             </div>
 
             <ul class="todo-list m-todo-list" id="todo-list" aria-live="polite"></ul>
-            <p class="empty-state" id="empty-state">Type a task above, or ask the agent — works even offline.</p>
+            <p class="empty-state" id="empty-state">Type a task above.</p>
             <footer class="footer m-footer">
-              <span id="count-text">0 tasks left</span>
               <button type="button" class="btn btn-ghost" id="clear-completed" hidden>Clear completed</button>
             </footer>
 
@@ -240,8 +247,6 @@
       </main>
     </div>
 
-    <button type="button" class="m-fab" id="m-fab-add" aria-label="Add task" hidden tabindex="-1">+</button>
-
     <div id="due-day-page" class="due-day-page" hidden role="dialog" aria-modal="true" aria-labelledby="due-day-page-title">
       <div class="due-day-page-backdrop" id="due-day-page-backdrop" tabindex="-1" aria-hidden="true"></div>
       <div class="due-day-page-sheet">
@@ -272,8 +277,8 @@
     </div>
 
     <script src="app.js"></script>
-    <script src="todo-mobile.js"></script>
     <script src="agent-data.js"></script>
     <script src="agent-ui.js"></script>
+    <script src="todo-mobile.js"></script>
   </body>
 </html>

@@ -201,7 +201,15 @@
     return `${startLabel} – ${endLabel}`;
   }
 
+  function isPhoneCalendar() {
+    return typeof window.matchMedia === "function" && window.matchMedia("(max-width: 819px)").matches;
+  }
+
   function formatWeekRangeLabel() {
+    if (isPhoneCalendar()) {
+      const [year, month] = selectedDate.split("-").map(Number);
+      return formatMonthTitle(year, month);
+    }
     const days = weekDays();
     const start = days[0];
     const end = days[days.length - 1];
@@ -869,9 +877,11 @@
     }
     if (reminderEmptyEl) {
       reminderEmptyEl.hidden = dayReminders.length !== 0;
-      reminderEmptyEl.textContent = calSearchQuery.trim()
-        ? "No matching reminders on this day."
-        : "No reminders on this day.";
+      if (!reminderEmptyEl.hidden) {
+        reminderEmptyEl.textContent = calSearchQuery.trim()
+          ? "No matching reminders on this day."
+          : "No reminders on this day.";
+      }
     }
   }
 
@@ -917,6 +927,14 @@
   function buildReminderItem(reminder) {
     const li = document.createElement("li");
     li.className = "calendar-list-item";
+    if (reminder.startTime) {
+      li.dataset.start = reminder.startTime;
+      const startMin = minutesFromMidnight(reminder.startTime);
+      let endMin = reminder.endTime ? minutesFromMidnight(reminder.endTime) : startMin + 60;
+      if (endMin <= startMin) endMin = startMin + 30;
+      li.dataset.end = reminder.endTime || "";
+      li.style.setProperty("--cal-span", String(Math.min(180, Math.max(45, endMin - startMin))));
+    }
 
     const main = document.createElement("div");
     main.className = "calendar-item-main";

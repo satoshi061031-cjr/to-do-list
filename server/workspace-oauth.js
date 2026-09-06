@@ -16,6 +16,35 @@ const OUTLOOK_WORKSPACE_SCOPES = [
   "https://graph.microsoft.com/Calendars.ReadWrite",
 ].join(" ");
 
+function accountHasGoogleWorkspaceGrant(account) {
+  if (!account || account.hasCredentials === false) return false;
+  const scope = String(account.scope || "").toLowerCase();
+  return scope.includes("gmail.readonly") && scope.includes("calendar");
+}
+
+function accountHasOutlookWorkspaceGrant(account) {
+  if (!account || account.hasCredentials === false) return false;
+  const scope = String(account.scope || "").toLowerCase();
+  return scope.includes("mail.read") && scope.includes("calendars");
+}
+
+function shouldForceWorkspaceConsent(accounts, provider, forceConsent) {
+  if (forceConsent) return true;
+  const list = Array.isArray(accounts) ? accounts : [];
+  const name = String(provider || "").trim().toLowerCase();
+  if (name === "gmail" || name === "google") {
+    const gmail = list.find((account) => String(account.provider || "").toLowerCase() === "gmail");
+    if (!gmail) return false;
+    return !accountHasGoogleWorkspaceGrant(gmail);
+  }
+  if (name === "outlook") {
+    const outlook = list.find((account) => String(account.provider || "").toLowerCase() === "outlook");
+    if (!outlook) return false;
+    return !accountHasOutlookWorkspaceGrant(outlook);
+  }
+  return false;
+}
+
 function pad2(value) {
   return String(value).padStart(2, "0");
 }
@@ -148,6 +177,9 @@ function buildGraphEventBody(input) {
 module.exports = {
   GOOGLE_WORKSPACE_SCOPES,
   OUTLOOK_WORKSPACE_SCOPES,
+  accountHasGoogleWorkspaceGrant,
+  accountHasOutlookWorkspaceGrant,
+  shouldForceWorkspaceConsent,
   googleEventToWorkspace,
   graphEventToWorkspace,
   buildGoogleEventBody,

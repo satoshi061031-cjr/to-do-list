@@ -614,7 +614,7 @@
 
   function setSelectedCategory(next) {
     selectedCategoryKey = next;
-    if (next === "__all__") viewDueDateFilter = null;
+    if (next === "__all__") resetViewDayFilter();
     saveAll();
     renderCategorySidebar();
     render();
@@ -629,7 +629,7 @@
     categories = categories.filter((c) => c.id !== catId);
     if (selectedCategoryKey === catId) {
       selectedCategoryKey = "__all__";
-      viewDueDateFilter = null;
+      resetViewDayFilter();
     }
     saveAll();
     renderCategorySidebar();
@@ -698,6 +698,22 @@
     return (
       document.body.classList.contains("todo-bento") ||
       document.body.classList.contains("todo-mobile")
+    );
+  }
+
+  function isMobileTodoPage() {
+    return document.body.classList.contains("todo-mobile");
+  }
+
+  function resetViewDayFilter() {
+    viewDueDateFilter = isMobileTodoPage() ? todayIso() : null;
+  }
+
+  function publishViewDay() {
+    document.dispatchEvent(
+      new CustomEvent("dailyspace:view-day", {
+        detail: { iso: viewDueDateFilter || todayIso() },
+      })
     );
   }
 
@@ -795,15 +811,29 @@
     }
   });
 
+  function todoMatchesSelectedDay(t) {
+    if (!viewDueDateFilter) return true;
+    if (t.dueDate === viewDueDateFilter) return true;
+    if (
+      isMobileTodoPage() &&
+      viewDueDateFilter === todayIso() &&
+      filter !== "completed" &&
+      (!t.dueDate || isOverdue(t.dueDate, t.completed))
+    ) {
+      return true;
+    }
+    return false;
+  }
+
   function dueDayFilterApplies() {
     if (!viewDueDateFilter) return false;
-    if (document.body.classList.contains("todo-mobile")) return true;
+    if (isMobileTodoPage()) return true;
     return selectedCategoryKey !== "__all__";
   }
 
   function visibleTodosPipeline() {
     let list = todos.filter(todoMatchesCategory);
-    if (dueDayFilterApplies()) list = list.filter((t) => t.dueDate === viewDueDateFilter);
+    if (dueDayFilterApplies()) list = list.filter(todoMatchesSelectedDay);
     if (filter === "today") {
       const today = todayIso();
       list = list.filter((t) => t.dueDate === today);
@@ -818,13 +848,13 @@
 
   function todosInCategoryAndDayScope() {
     let list = todos.filter(todoMatchesCategory);
-    if (dueDayFilterApplies()) list = list.filter((t) => t.dueDate === viewDueDateFilter);
+    if (dueDayFilterApplies()) list = list.filter(todoMatchesSelectedDay);
     return list;
   }
 
   function syncDueDayFilterBar() {
     if (!dueDayFilterBar) return;
-    if (!dueDayFilterApplies()) {
+    if (!dueDayFilterApplies() || isMobileTodoPage()) {
       dueDayFilterBar.hidden = true;
       return;
     }
@@ -878,10 +908,8 @@
 
   function syncSourceChrome() {
     const isAssigned = todoSource === "assigned";
-    const agentPage = document.body.classList.contains("todo-agent-page");
     document.body.classList.toggle("todo-source-assigned", isAssigned);
-    // On the agent Todo page the chat is the composer; keep the legacy form hidden.
-    if (form) form.hidden = agentPage || isAssigned;
+    if (form) form.hidden = isAssigned;
     if (statusFiltersEl) statusFiltersEl.hidden = isAssigned;
     if (assignedHintEl) assignedHintEl.hidden = !isAssigned;
     if (dailyLoopEl) dailyLoopEl.hidden = isAssigned;
@@ -893,6 +921,10 @@
       btn.classList.toggle("is-active", active);
       btn.setAttribute("aria-selected", active ? "true" : "false");
     });
+    const sourceSwitch = document.querySelector(".todo-source-switch");
+    if (sourceSwitch && isMobileTodoPage()) {
+      sourceSwitch.hidden = true;
+    }
   }
 
   function setTodoSource(next) {
@@ -1233,7 +1265,7 @@
   function syncTodoHash() {
     let hash = "";
     if (todoSource === "assigned") hash = "#assigned";
-    else if (filter === "today") hash = "#today";
+    else if (filter === "today" || (isMobileTodoPage() && filter !== "completed")) hash = "#today";
     const next = `${window.location.pathname}${window.location.search}${hash}`;
     const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     if (current !== next) {
@@ -1244,30 +1276,35 @@
   function focusTodayList(opts) {
     const seed = opts && typeof opts.seed === "string" ? opts.seed.trim() : "";
     if (todoSource !== "personal") setTodoSource("personal");
-    // Mobile Loop "To do" maps to active; desktop Today stays due-today.
-    setFilter(document.body.classList.contains("todo-mobile") ? "active" : "today");
+    if (isMobileTodoPage()) {
+      resetViewDayFilter();
+      setFilter("active");
+      publishViewDay();
+      if (deadlineInput) {
+        deadlineInput.value = todayIso();
+        refreshDeadlineChrome();
+      }
+    } else {
+      setFilter("today");
+    }
     queueMicrotask(() => {
-      const agentPage = document.body.classList.contains("todo-agent-page");
-      const target = agentPage
-        ? document.getElementById("todo-agent-host") || dailyLoopEl || statusFiltersEl || listEl
-        : dailyLoopEl || statusFiltersEl || listEl;
+      const mobile = isMobileTodoPage();
+      const agentPage = document.body.classList.contains("todo-agent-page") && !mobile;
+      const target = mobile
+        ? listEl || input
+        : agentPage
+          ? document.getElementById("todo-agent-host") || dailyLoopEl || statusFiltersEl || listEl
+          : dailyLoopEl || statusFiltersEl || listEl;
       if (target && typeof target.scrollIntoView === "function") {
         target.scrollIntoView({ behavior: "smooth", block: "nearest" });
       }
-      if (window.DailySpaceAgentUi && typeof window.DailySpaceAgentUi.focusComposer === "function") {
+      if (!mobile && window.DailySpaceAgentUi && typeof window.DailySpaceAgentUi.focusComposer === "function") {
         window.DailySpaceAgentUi.focusComposer(seed);
         return;
       }
-      const agentInput = agentPage
-        ? document.querySelector(".todo-agent-page-embed .todo-agent-input")
-        : null;
-      if (agentInput instanceof HTMLInputElement) {
-        if (seed) agentInput.value = seed;
-        agentInput.focus();
-        return;
-      }
       if (input && todoSource === "personal") {
-        input.focus();
+        if (seed) input.value = seed;
+        if (!mobile || seed) input.focus();
       }
     });
   }
@@ -1432,7 +1469,7 @@
 
   function renderEveningReview(stats) {
     if (!eveningReviewEl) return;
-    if (todoSource === "assigned") {
+    if (isMobileTodoPage() || todoSource === "assigned") {
       eveningReviewEl.hidden = true;
       return;
     }
@@ -1657,16 +1694,22 @@
     // With zero tasks the Daily Loop strip above already explains how to add the
     // first one, so don't repeat the same guidance under the list.
     const loopCoversEmpty =
-      document.body.classList.contains("todo-agent-page") && todos.length === 0;
+      document.body.classList.contains("todo-agent-page") &&
+      !isMobileTodoPage() &&
+      todos.length === 0;
     const showEmpty = visible.length === 0 && !loopCoversEmpty;
     emptyEl.classList.toggle("is-visible", showEmpty);
     if (showEmpty) {
-      if (viewDueDateFilter && selectedCategoryKey !== "__all__") {
-        const onDay = todos.filter((t) => todoMatchesCategory(t) && t.dueDate === viewDueDateFilter);
-        emptyEl.textContent =
-          onDay.length === 0
-            ? `No tasks due on ${formatDueDate(viewDueDateFilter)}.`
-            : `No tasks match this view for ${formatDueDate(viewDueDateFilter)}.`;
+      if (viewDueDateFilter && (isMobileTodoPage() || selectedCategoryKey !== "__all__")) {
+        if (filter === "completed") {
+          emptyEl.textContent = "No completed tasks.";
+        } else {
+          const onDay = todos.filter((t) => todoMatchesCategory(t) && t.dueDate === viewDueDateFilter);
+          emptyEl.textContent =
+            onDay.length === 0
+              ? `No tasks due on ${formatDueDate(viewDueDateFilter)}.`
+              : `No tasks match this view for ${formatDueDate(viewDueDateFilter)}.`;
+        }
       } else {
         const scopedTodos = todos.filter(todoMatchesCategory);
         if (scopedTodos.length === 0 && selectedCategoryKey !== "__all__") {
@@ -1958,8 +2001,13 @@
       closeDueDayPage();
       return;
     }
-    if (viewDueDateFilter) {
-      viewDueDateFilter = null;
+    if (viewDueDateFilter && (!isMobileTodoPage() || viewDueDateFilter !== todayIso())) {
+      resetViewDayFilter();
+      publishViewDay();
+      if (isMobileTodoPage() && deadlineInput) {
+        deadlineInput.value = todayIso();
+        refreshDeadlineChrome();
+      }
       render();
       return;
     }
@@ -1993,6 +2041,7 @@
   bootstrap();
   renderCategorySidebar();
   resetDeadlineToToday();
+  if (isMobileTodoPage()) resetViewDayFilter();
   render();
   refreshAssignedForLoop();
   if (window.DailySpaceLoop && typeof window.DailySpaceLoop.refreshMailDigestCache === "function") {
@@ -2357,11 +2406,17 @@
     eveningReviewFocusBtn.addEventListener("click", () => {
       const label = String(eveningReviewFocusBtn.textContent || "");
       const finish = /finish|收尾/i.test(label);
-      focusTodayList({
-        seed: finish
-          ? "Help me close today — what's left, and what should I finish or defer?"
-          : "",
-      });
+      const seed = finish
+        ? "Help me close today — what's left, and what should I finish or defer?"
+        : "";
+      if (isMobileTodoPage() && window.DailySpaceAgentUi && typeof window.DailySpaceAgentUi.setOpen === "function") {
+        window.DailySpaceAgentUi.setOpen(true);
+        if (typeof window.DailySpaceAgentUi.focusComposer === "function") {
+          window.DailySpaceAgentUi.focusComposer(seed);
+        }
+        return;
+      }
+      focusTodayList({ seed });
     });
   }
   if (eveningReviewCloseBtn) {
@@ -2392,8 +2447,9 @@
 
   if (dueDayFilterClear) {
     dueDayFilterClear.addEventListener("click", () => {
-      viewDueDateFilter = null;
+      resetViewDayFilter();
       closeDueDayPage();
+      publishViewDay();
       render();
     });
   }
@@ -2410,12 +2466,20 @@
   }
 
   function selectDueDay(iso) {
+    const day = iso && ISO_DATE.test(iso) ? iso : todayIso();
+    if (isMobileTodoPage()) {
+      viewDueDateFilter = day;
+      if (deadlineInput) {
+        deadlineInput.value = day;
+        refreshDeadlineChrome();
+      }
+      if (filter === "today") setFilter("active");
+      else render();
+      publishViewDay();
+      return;
+    }
     if (!iso || iso === todayIso()) {
       viewDueDateFilter = null;
-      if (document.body.classList.contains("todo-mobile") && filter === "today") {
-        setFilter("active");
-        return;
-      }
       render();
       return;
     }

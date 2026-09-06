@@ -7,6 +7,7 @@
 
 .travel-page .main-area {
   width: 100%;
+  flex-direction: column;
   align-items: stretch;
   justify-content: flex-start;
   padding: 0;
@@ -49,8 +50,8 @@
 .travel-page:not(.travel-has-trip) .travel-preview-banner {
   position: static;
   transform: none;
-  width: min(36rem, 100%);
-  margin: 0 0 var(--space-md);
+  width: min(28rem, 100%);
+  margin: 0;
 }
 
 .travel-page.travel-has-trip .travel-app {
@@ -62,8 +63,10 @@
 
 .travel-page:not(.travel-has-trip) .travel-app {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: var(--space-lg);
   min-height: 100dvh;
   padding: calc(env(safe-area-inset-top, 0px) + var(--space-lg)) var(--space-md)
     calc(env(safe-area-inset-bottom, 0px) + 6rem);
@@ -79,9 +82,11 @@
 }
 
 .travel-empty {
-  display: grid;
-  justify-items: center;
-  gap: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+  width: min(28rem, 100%);
   margin: 0;
   padding: 0;
   border: 0;
@@ -107,6 +112,7 @@
 }
 
 .travel-empty .travel-add-btn {
+  margin-top: var(--space-md);
   min-width: 5.5rem;
   min-height: 2.6rem;
 }

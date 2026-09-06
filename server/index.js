@@ -23,6 +23,7 @@ const { parseMailBookings } = require("./mail-booking");
 const {
   GOOGLE_WORKSPACE_SCOPES,
   OUTLOOK_WORKSPACE_SCOPES,
+  shouldForceWorkspaceConsent,
   googleEventToWorkspace,
   graphEventToWorkspace,
   buildGoogleEventBody,
@@ -830,6 +831,11 @@ async function handleApi(request, response, url) {
     const returnTo = sanitizeReturnTo(body.returnTo || "/todo.html");
     const state = crypto.randomUUID();
     const providerConfig = getGoogleSignInConfig(request);
+    const forceConsent = shouldForceWorkspaceConsent(
+      session && session.userId ? listMailAccounts(session.userId) : [],
+      "gmail",
+      Boolean(body.forceConsent)
+    );
     createOauthState({
       state,
       provider: "google-login",
@@ -837,7 +843,7 @@ async function handleApi(request, response, url) {
     });
     sendJson(response, {
       ok: true,
-      authUrl: buildSignInAuthUrl("google", providerConfig, state),
+      authUrl: buildSignInAuthUrl("google", providerConfig, state, { forceConsent }),
     });
     return;
   }
@@ -941,6 +947,11 @@ async function handleApi(request, response, url) {
     const returnTo = sanitizeReturnTo(body.returnTo || "/todo.html");
     const state = crypto.randomUUID();
     const providerConfig = getOutlookSignInConfig(request);
+    const forceConsent = shouldForceWorkspaceConsent(
+      session && session.userId ? listMailAccounts(session.userId) : [],
+      "outlook",
+      Boolean(body.forceConsent)
+    );
     createOauthState({
       state,
       provider: "outlook-login",
@@ -948,7 +959,7 @@ async function handleApi(request, response, url) {
     });
     sendJson(response, {
       ok: true,
-      authUrl: buildSignInAuthUrl("outlook", providerConfig, state),
+      authUrl: buildSignInAuthUrl("outlook", providerConfig, state, { forceConsent }),
     });
     return;
   }
@@ -2081,7 +2092,8 @@ function resolveDisplayName(profile, tokenClaims, email, fallback) {
   return fallback;
 }
 
-function buildSignInAuthUrl(provider, config, state) {
+function buildSignInAuthUrl(provider, config, state, options) {
+  const forceConsent = Boolean(options && options.forceConsent);
   const params = new URLSearchParams({
     response_type: "code",
     client_id: config.clientId,
@@ -2092,10 +2104,10 @@ function buildSignInAuthUrl(provider, config, state) {
   if (provider === "google") {
     params.set("access_type", "offline");
     params.set("include_granted_scopes", "true");
-    params.set("prompt", "consent");
+    params.set("prompt", forceConsent ? "consent" : "select_account");
   } else if (provider === "outlook") {
     params.set("response_mode", "query");
-    params.set("prompt", "consent");
+    params.set("prompt", forceConsent ? "consent" : "select_account");
   }
   return `${config.authUrl}?${params.toString()}`;
 }

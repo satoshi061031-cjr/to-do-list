@@ -463,13 +463,9 @@
             </span>
             <span>Sign in with Outlook</span>
           </button>
-          <button type="button" class="auth-provider" data-provider="wechat">
-            <span class="auth-provider-icon auth-provider-icon-wechat" aria-hidden="true">微</span>
-            <span>Sign in with WeChat</span>
-          </button>
         </div>
         <div class="auth-account-actions" hidden>
-          <p class="auth-account-hint">Signed in with Google or Outlook, Mail and Calendar use that same account. WeChat keeps a cloud snapshot on this workspace.</p>
+          <p class="auth-account-hint">Signed in with Google or Outlook, Mail and Calendar use that same account.</p>
           <button type="button" class="auth-export">Download my data</button>
           <button type="button" class="auth-delete">Delete account</button>
           <p class="auth-install-hint" hidden></p>
@@ -510,7 +506,7 @@
     function renderAuth() {
       const state = readAuthState();
       authLabel.textContent = state ? state.label : "Sign in";
-      authHint.textContent = state ? state.provider : "Google, Outlook, or WeChat";
+      authHint.textContent = state ? state.provider : "Google or Outlook";
       if (!state) {
         authSync.hidden = true;
       } else if (userSnapshotStatus === "offline" || !isBrowserOnline()) {
@@ -643,28 +639,9 @@
       window.location.href = payload.authUrl;
     }
 
-    async function startWeChatSignIn() {
-      const response = await fetch("/api/auth/wechat/start", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          returnTo: window.location.pathname + window.location.search,
-        }),
-      });
-      const payload = await response.json().catch(function () {
-        return {};
-      });
-      if (!response.ok) {
-        throw new Error((payload && payload.error) || "WeChat sign-in failed.");
-      }
-      if (!payload.authUrl) throw new Error("Missing WeChat authorization URL.");
-      window.location.href = payload.authUrl;
-    }
-
     window.DailySpaceAuth = {
       startGoogleSignIn,
       startOutlookSignIn,
-      startWeChatSignIn,
     };
 
     authButton.addEventListener("click", openModal);
@@ -680,11 +657,7 @@
           startGoogleSignIn().catch(function (error) {
             window.alert(error instanceof Error ? error.message : "Google sign-in failed.");
           });
-        } else if (provider === "wechat") {
-          startWeChatSignIn().catch(function (error) {
-            window.alert(error instanceof Error ? error.message : "WeChat sign-in failed.");
-          });
-        } else {
+        } else if (provider === "outlook") {
           startOutlookSignIn().catch(function (error) {
             window.alert(error instanceof Error ? error.message : "Outlook sign-in failed.");
           });
@@ -974,7 +947,7 @@
       const providerButton = target.closest("[data-welcome-provider]");
       if (!providerButton) return;
       const provider = providerButton.getAttribute("data-welcome-provider");
-      if (provider !== "google" && provider !== "outlook" && provider !== "wechat") return;
+      if (provider !== "google" && provider !== "outlook") return;
       startWelcomeSignIn(provider).catch(function (error) {
         window.alert(error instanceof Error ? error.message : "Sign-in failed.");
       });
@@ -2066,12 +2039,11 @@
         '<div class="guest-save-copy">' +
         '<p class="guest-save-kicker">Guest</p>' +
         '<p class="guest-save-title">Sign in to keep this work</p>' +
-        '<p class="guest-save-hint">You have tasks on this device. Connect Google, Outlook, or WeChat to save them to your account.</p>' +
+        '<p class="guest-save-hint">You have tasks on this device. Connect Google or Outlook to save them to your account.</p>' +
         "</div>" +
         '<div class="guest-save-actions">' +
         '<button type="button" class="btn btn-primary" data-guest-signin="google">Continue with Google</button>' +
         '<button type="button" class="btn" data-guest-signin="outlook">Continue with Outlook</button>' +
-        '<button type="button" class="btn" data-guest-signin="wechat">Continue with WeChat</button>' +
         '<button type="button" class="btn btn-ghost" data-guest-save-later>Later</button>' +
         "</div>";
       const host =
@@ -2100,11 +2072,7 @@
       const auth = window.DailySpaceAuth;
       if (!auth) return;
       const start =
-        provider === "outlook"
-          ? auth.startOutlookSignIn
-          : provider === "wechat"
-            ? auth.startWeChatSignIn
-            : auth.startGoogleSignIn;
+        provider === "outlook" ? auth.startOutlookSignIn : auth.startGoogleSignIn;
       if (typeof start === "function") {
         start().catch(function (error) {
           window.alert(error instanceof Error ? error.message : "Sign-in failed.");

@@ -450,7 +450,7 @@
       editingId = null;
       addSheet.hidden = true;
       document.body.classList.remove("tally-sheet-open");
-      addOpenBtn.focus();
+      if (addOpenBtn && addOpenBtn.offsetParent) addOpenBtn.focus();
       return;
     }
     editingId = record?.id || null;
@@ -604,7 +604,48 @@
   addOpenBtn.addEventListener("click", () => setSheetOpen(true));
   addCloseBtn.addEventListener("click", () => setSheetOpen(false));
   addBackdrop.addEventListener("click", () => setSheetOpen(false));
-  emptyCtaBtn.addEventListener("click", () => setSheetOpen(true));
+  emptyCtaBtn.addEventListener("click", () => {
+    const quickAmount = $("tally-quick-amount");
+    if (window.matchMedia("(max-width: 819px)").matches && quickAmount) {
+      quickAmount.focus();
+      return;
+    }
+    setSheetOpen(true);
+  });
+
+  const quickForm = $("tally-quick-form");
+  const quickAmount = $("tally-quick-amount");
+  const quickCategory = $("tally-quick-category");
+  if (quickForm && quickAmount && quickCategory) {
+    quickForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const amount = Number(quickAmount.value);
+      const category = quickCategory.value.trim();
+      if (!(amount > 0) || !category) return;
+      const nextRecord = Core.normalizeRecord(
+        {
+          id: Core.uid("expense"),
+          date: todayIso(),
+          amount,
+          currency: state.baseCurrency,
+          fxRate: 1,
+          category,
+          note: "",
+          scope: "personal",
+          paidById: state.selfPersonId,
+          splitAmongIds: [],
+        },
+        state
+      );
+      if (!nextRecord) return;
+      state.records.unshift(nextRecord);
+      saveState();
+      quickAmount.value = "";
+      quickCategory.value = "";
+      render();
+      quickAmount.focus();
+    });
+  }
   scopeInput.addEventListener("change", syncSharedFields);
   recordCurrencyInput.addEventListener("change", refreshFxRate);
   dateInput.addEventListener("change", () => {

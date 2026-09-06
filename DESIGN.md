@@ -1,7 +1,7 @@
 ---
 version: alpha
 name: Daily Space
-description: Quiet glass productivity workspace — frosted panels, soft mist backgrounds, light condensed display type, and a single warm yellow call-to-action for personal focus and team assignment.
+description: Quiet glass productivity workspace — frosted and liquid-glass panels, soft mist backgrounds, light condensed display type, and a single warm yellow call-to-action for personal focus and team assignment.
 colors:
   primary: "#35322e"
   on-primary: "#faf8f4"
@@ -73,6 +73,11 @@ components:
     textColor: "{colors.text}"
     rounded: "{rounded.lg}"
     padding: 20px
+  liquid-glass:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.text}"
+    rounded: "{rounded.lg}"
+    padding: 20px
   page-shell:
     backgroundColor: "{colors.neutral}"
     textColor: "{colors.text}"
@@ -103,7 +108,7 @@ components:
 
 ## Overview
 
-Daily Space is a calm productivity workspace. The visual language is **frosted glass over misty photographic backgrounds**: translucent panels, soft glass depth, and light condensed display typography. Interaction is driven by a single warm yellow accent (`tertiary` / `highlight`), not purple gradients or terracotta brochure looks.
+Daily Space is a calm productivity workspace. The visual language is **frosted and liquid glass over misty photographic backgrounds**: translucent panels, specular edge light, soft glass depth, and light condensed display typography. Interaction is driven by a single warm yellow accent (`tertiary` / `highlight`), not purple gradients or terracotta brochure looks.
 
 Prefer atmosphere over dashboard density. Keep typographic weight light — airy titles, softer label caps, and quiet shadows rather than stamped contrast. First viewports should feel like one composed space — brand/greeting, one primary action area, and quiet supporting modules — not a control panel of cards and stats. Personal tools stay first-class; shared team surfaces should feel quieter than the yellow primary CTA, never a second brand color. A slim page rail is fine when it supports navigation without competing with the Today composition.
 
@@ -136,19 +141,22 @@ Do not switch to Inter, Roboto, Arial, or system-ui as the brand voice.
 - Module gaps use `spacing.md`–`spacing.lg`.
 - Desktop: multi-column grids with breathing room; mobile: single column, extra top padding for the menu trigger.
 - One job per section: one heading, one short supporting line, one primary interaction cluster.
-- Todo hub: greeting + Today hero + Daily Space Agent chat, plus a visible add form on desktop and mobile so typing a task never requires the agent. No floating agent FAB on Todo.
-- Todo mobile uses a separate soft Loop home (`todo-m.html`) with the same add-form + agent rules and the same color tokens (yellow `tertiary` accent, never a second brand hue).
-- Google or Outlook sign-in connects that account across Mail and Calendar (plus workspace snapshot). WeChat sign-in keeps snapshot only; a guest who already has tasks is reminded to sign in to save.
+- Todo hub: greeting + Today hero + a visible add form. Agent opens as a centered glass dialog from Ask agent — same overlay language as login and shortcuts, not an in-page chat or side dock. No floating agent FAB on Todo.
+- Todo mobile (`todo-m.html`) is a Welcome-style Today: greeting + circular ghost (agent) top-right, a pill add field with date chip, a liquid-glass hero with remaining count + yellow Add, “Today’s tasks” with a Done link, liquid-glass task cards, and a **fixed, centered** liquid-glass bottom dock. No second add control beside the section title, week strip, status pills, source/filter chips, or evening-review card. The ghost opens the same centered glass agent dialog. Theme and language live in More. Desktop stays denser.
+- Google or Outlook sign-in connects that account across Mail and Calendar (plus workspace snapshot). A guest who already has tasks is reminded to sign in to save.
 - Calendar desktop top module mirrors a schedule header: search + filter chips, “Stay up to date” headline, week-range pill with prev/next, yellow “+ Add reminder”, and Today/Week/Month view toggles — then the week time grid and quiet selected-day strip. Tokens stay yellow `tertiary` / glass; no cream or second brand hue.
+- Calendar phone is a Schedule page: month label + horizontal day strip, a vertical timeline of reminder cards (time gutter + liquid-glass cards), one pill reminder field, and the same **fixed, centered** liquid-glass dock. No yellow + next to the dock. Search, filter chips, the week time grid, task composer, end time, and priority stay on desktop.
+- Tally phone is today’s spend, a single amount + category field, and the month’s list. The agent ghost sits top-right of the heading — same place as Today. Charts, shared switch, export, and the add FAB stay off the first screen; the sheet is for edit and shared/FX details. Desktop keeps the fuller ledger.
 - Planner board uses a soft Kanban layout **inside the main panel only**: glass panel + muted column tracks, glass cards, Day/Week/Month/Year range pills, and search. Fixed columns are Planned / In Progress / Done / On Hold (not deletable). Cards add only via `+ Add card` under a column.
 - Planner header is greeting + title (“Landing Page”). Collapsed cards show title + note preview; expand to edit. Site chrome (bento rail, menu sidebar, greeting) stays the shared Daily Space pattern. Accent remains yellow `tertiary`.
-- Travel is a full-bleed map (Leaflet + OpenStreetMap) with a glass stop panel overlaid on the side: day chips, searchable places, and stop details. Keep yellow markers; do not introduce a second brand hue for map chrome.
+- Travel empty state is a vertical stack: greeting, destination prompt, yellow Add, then a quiet note. Do not place the note beside the greeting. With a trip, Travel is a full-bleed map (Leaflet + OpenStreetMap) with a glass stop panel overlaid on the side: day chips, searchable places, and stop details. Keep yellow markers; do not introduce a second brand hue for map chrome.
 
 ## Elevation & Depth
 
-Depth comes from frosted glass, inset highlights, and **soft, low-opacity** drop shadows — not neon glow stacks or heavy stamped text shadows on titles.
+Depth comes from frosted and **liquid glass**, inset highlights, and **soft, low-opacity** drop shadows — not neon glow stacks or heavy stamped text shadows on titles.
 
-- Panels: `backdrop-filter` blur + translucent fills (`--glass`, `--glass-strong`).
+- Panels: `backdrop-filter` blur + saturate + translucent fills (`--glass`, `--glass-strong`, mobile `--liquid-fill`).
+- Mobile chrome (dock, hero, cards, composer): Apple-like liquid glass — stronger backdrop blur, translucent token fills, specular `on-primary` edge light, quiet outer shadow. The fixed dock tracks the pointer with a sliding liquid lens. Keep yellow as the only loud fill.
 - Shadows: `--shadow`, `--shadow-soft`, `--shadow-pop`, `--glow` (warm, subtle).
 - Hover lift: slight `translateY` + scale; respect `prefers-reduced-motion`.
 - Focused inputs may “bubble pop” (lift, larger radius, yellow-tinted ring) as on Teamwork.
@@ -161,7 +169,7 @@ Use large radii: `rounded.sm` (18px), `rounded.md` (24px), `rounded.lg` (36px). 
 
 - **button-primary:** Yellow fill (`tertiary`) with near-black label (`on-tertiary`), pill shape — the only loud control. Hover deepens to `tertiary-deep`, never a washed lighter tint.
 - **button-secondary / glass controls:** Quiet translucent surfaces with soft borders.
-- **card-glass:** Module shells (todo, tally, teamwork). Prefer glass tokens over opaque white cards.
+- **card-glass / liquid-glass:** Module shells (todo, tally, teamwork). Prefer glass tokens over opaque white cards. Mobile Today / Calendar / dock use the liquid-glass treatment.
 - **input-bubble:** Transparent until focus, then elevated bubble treatment.
 - **kicker:** Small uppercase yellow labels above titles.
 

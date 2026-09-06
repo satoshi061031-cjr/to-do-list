@@ -1,24 +1,27 @@
-/* Mobile Todo — soft Loop home (reference layout) with DESIGN yellow accent. */
+/* Mobile Todo — one-job Today. Tokens from DESIGN.md via styles.css variables. */
 
 body.todo-mobile.todo-loop {
-  /* Same mist background as Calendar / Planner (body::before / ::after in styles.css). */
-  --m-card: var(--surface);
+  --m-card: var(--liquid-fill, var(--surface));
   --m-ink: var(--text);
   --m-muted: var(--text-muted);
   --m-accent: var(--tertiary);
   --m-on-accent: var(--on-tertiary);
-  --m-shadow: 0 10px 28px color-mix(in srgb, var(--primary) 10%, transparent);
+  --m-shadow: var(--liquid-shadow, 0 10px 28px color-mix(in srgb, var(--primary) 10%, transparent));
   min-height: 100dvh;
   background: transparent;
 }
 
-body.todo-mobile .sidebar-trigger,
-body.todo-mobile .app-greeting,
+body.todo-mobile .sidebar-trigger {
+  display: none !important;
+}
+
 body.todo-mobile .language-toggle {
   display: none !important;
 }
 
-/* Shared dock from bento-rail + m-dock.css (agent-first: no + FAB offset). */
+body.todo-mobile .sidebar-chrome .language-toggle {
+  display: inline-flex !important;
+}
 
 body.todo-mobile .due-day-filter-bar[hidden] {
   display: none !important;
@@ -33,6 +36,9 @@ body.todo-mobile .layout {
 body.todo-mobile .main-area {
   width: 100%;
   padding: 0;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
 }
 
 body.todo-mobile .m-shell {
@@ -42,8 +48,8 @@ body.todo-mobile .m-shell {
   width: 100%;
   max-width: 28rem;
   margin: 0 auto;
-  padding: calc(env(safe-area-inset-top, 0px) + var(--space-lg)) var(--space-md)
-    calc(env(safe-area-inset-bottom, 0px) + 6.5rem);
+  padding: calc(env(safe-area-inset-top, 0px) + var(--space-md)) var(--space-md)
+    calc(env(safe-area-inset-bottom, 0px) + 7rem);
   border: 0;
   background: transparent;
   box-shadow: none;
@@ -63,62 +69,160 @@ body.todo-mobile .m-sr-only {
   border: 0;
 }
 
-/* Hero */
-body.todo-mobile .m-hero {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-md);
+body.todo-mobile .guest-save-banner {
+  margin: var(--space-sm) var(--space-md) 0;
+  padding: var(--space-sm) var(--space-md);
+  width: auto;
 }
 
-body.todo-mobile .m-greet {
+body.todo-mobile .guest-save-actions {
+  margin-top: var(--space-sm);
+}
+
+body.todo-mobile .guest-save-title {
+  font-size: var(--type-title-size);
+}
+
+body.todo-mobile .app-greeting {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
   margin: 0;
-  font-size: clamp(1.55rem, 6.5vw, 1.9rem);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+body.todo-mobile .app-greeting-avatar {
+  display: none;
+}
+
+body.todo-mobile .app-greeting-title {
+  margin: 0;
+  font-size: var(--type-title-size);
   line-height: 1.15;
-  letter-spacing: 0.01em;
+  letter-spacing: var(--type-title-tracking);
   color: var(--m-ink);
   font-weight: 400;
 }
 
-body.todo-mobile .m-greet-sub {
-  margin: 0.35rem 0 0;
-  color: var(--m-muted);
-  font-size: 0.95rem;
-  line-height: 1.4;
-}
-
-body.todo-mobile .theme-toggle.m-theme {
-  position: static;
-  width: 2.75rem;
-  height: 2.75rem;
-  padding: 0;
-  border-radius: var(--radius-pill);
-  border: 0;
-  background: var(--m-card);
-  box-shadow: var(--m-shadow);
-  color: var(--m-ink);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-body.todo-mobile .theme-toggle.m-theme .theme-toggle-label {
+body.todo-mobile .app-greeting-time {
   display: none;
 }
 
-body.todo-mobile .theme-toggle.m-theme .theme-toggle-icon {
-  font-size: 1.1rem;
-  line-height: 1;
+body.todo-mobile .m-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding-top: var(--space-xs);
 }
 
-/* Week strip */
-body.todo-mobile .m-week {
+body.todo-mobile .m-top:has(.app-greeting) .m-greet {
+  display: none;
+}
+
+body.todo-mobile .m-greet {
+  margin: 0;
+  font-size: var(--type-title-size);
+  line-height: 1.15;
+  letter-spacing: var(--type-title-tracking);
+  color: var(--m-ink);
+  font-weight: 400;
+}
+
+body.todo-mobile .m-top-actions {
   display: flex;
-  gap: 0.35rem;
-  overflow-x: auto;
-  padding: 0.15rem 0.1rem;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-shrink: 0;
+}
+
+body.todo-mobile .m-dash,
+body.todo-mobile .todo-item,
+body.todo-mobile .m-composer,
+body.todo-mobile .m-agent-toggle {
+  isolation: isolate;
+  background: var(--liquid-sheen), var(--liquid-fill);
+  backdrop-filter: var(--liquid-blur);
+  -webkit-backdrop-filter: var(--liquid-blur);
+  border: 1px solid var(--liquid-edge);
+  box-shadow: var(--liquid-shadow);
+}
+
+body.todo-mobile .m-dash {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-lg) var(--space-md);
+  border-radius: var(--radius-lg);
+}
+
+body.todo-mobile .m-dash-kicker {
+  margin: 0;
+  color: var(--m-ink);
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  letter-spacing: var(--type-label-tracking);
+  text-transform: none;
+}
+
+body.todo-mobile .m-dash-title {
+  margin: 0.35rem 0 0;
+  color: var(--m-ink);
+  font-size: var(--type-title-size);
+  line-height: 1.2;
+  letter-spacing: var(--type-title-tracking);
+}
+
+body.todo-mobile .m-dash-add {
+  flex-shrink: 0;
+  min-height: 2.5rem;
+  padding-inline: 1rem;
+}
+
+body.todo-mobile .m-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-top: var(--space-xs);
+}
+
+body.todo-mobile .m-section-title {
+  margin: 0;
+  color: var(--m-ink);
+  font-size: var(--type-title-size);
+  font-weight: 400;
+  letter-spacing: var(--type-title-tracking);
+}
+
+body.todo-mobile .m-done-toggle {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--m-muted);
+  font: inherit;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+body.todo-mobile .m-done-toggle[aria-pressed="true"] {
+  color: var(--m-ink);
+}
+
+body.todo-mobile .m-week,
+body.todo-mobile .m-source,
+body.todo-mobile .due-day-filter-bar,
+body.todo-mobile .evening-review,
+body.todo-mobile .m-evening {
+  display: none !important;
 }
 
 body.todo-mobile .m-week::-webkit-scrollbar {
@@ -126,9 +230,9 @@ body.todo-mobile .m-week::-webkit-scrollbar {
 }
 
 body.todo-mobile .m-day {
-  flex: 0 0 auto;
-  min-width: 3.15rem;
-  padding: 0.55rem 0.45rem;
+  flex: 1 0 0;
+  min-width: 2.6rem;
+  padding: 0.4rem 0.2rem;
   border: 0;
   border-radius: var(--radius-md);
   background: transparent;
@@ -138,17 +242,17 @@ body.todo-mobile .m-day {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.2rem;
+  gap: 0.12rem;
 }
 
 body.todo-mobile .m-day-wd {
-  font-size: 0.68rem;
+  font-size: 0.62rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
 body.todo-mobile .m-day-num {
-  font-size: 1.05rem;
+  font-size: 0.95rem;
   line-height: 1;
   color: var(--m-ink);
 }
@@ -156,7 +260,6 @@ body.todo-mobile .m-day-num {
 body.todo-mobile .m-day.is-selected {
   background: color-mix(in srgb, var(--m-accent) 28%, var(--m-card));
   color: var(--m-on-accent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--m-accent) 45%, transparent);
 }
 
 body.todo-mobile .m-day.is-selected .m-day-num {
@@ -167,70 +270,28 @@ body.todo-mobile .m-day.is-today:not(.is-selected) .m-day-num {
   color: var(--secondary);
 }
 
-/* Status pills */
-body.todo-mobile .m-status {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-body.todo-mobile .m-status::-webkit-scrollbar {
-  display: none;
-}
-
-body.todo-mobile .m-status-btn,
-body.todo-mobile .filter-btn.m-status-btn {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.55rem 0.95rem;
-  border: 0;
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--m-muted);
-  font: inherit;
-  font-size: 0.92rem;
-  cursor: pointer;
-}
-
-body.todo-mobile .m-status-btn.is-active,
-body.todo-mobile .filter-btn.m-status-btn.is-active {
-  background: var(--m-accent);
-  color: var(--m-on-accent);
-  box-shadow: 0 6px 16px color-mix(in srgb, var(--m-accent) 35%, transparent);
-}
-
-body.todo-mobile .m-status-ico {
-  font-size: 0.85rem;
-  opacity: 0.9;
-}
-
-/* Soft sheet */
+/* Sheet */
 body.todo-mobile .m-sheet {
   margin: 0;
-  padding: var(--space-md) var(--space-md) var(--space-lg);
-  border-radius: var(--radius-lg);
-  background: var(--m-card);
-  border: 1px solid color-mix(in srgb, var(--primary) 6%, transparent);
-  box-shadow: var(--m-shadow);
+  padding: 0.15rem 0.1rem;
+  border-radius: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
-  min-height: 16rem;
+  gap: 0.35rem;
+  min-height: 0;
 }
 
 body.todo-mobile .m-sheet::after {
   display: none;
 }
 
-body.todo-mobile .m-source {
-  display: flex;
-  gap: 0.4rem;
+body.todo-mobile .m-source[hidden] {
+  display: none !important;
 }
 
 body.todo-mobile .m-source .todo-source-btn {
@@ -251,30 +312,44 @@ body.todo-mobile .m-loop-block {
   margin: 0;
 }
 
-body.todo-mobile .m-loop-block:not(:has(.todo-item)):not(:has(.daily-loop-reminders:not([hidden]))) {
+body.todo-mobile .daily-loop-list,
+body.todo-mobile .daily-loop-empty {
+  display: none !important;
+}
+
+body.todo-mobile .m-loop-block:not(:has(.daily-loop-reminders:not([hidden]))) {
   display: none;
 }
 
-body.todo-mobile .m-todo-list,
-body.todo-mobile .daily-loop-list {
+body.todo-mobile .m-todo-list {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: var(--space-sm);
 }
 
 body.todo-mobile .todo-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.75rem;
   margin: 0;
-  padding: 0.65rem 0.35rem;
-  border: 0;
-  border-radius: var(--radius-md);
-  background: transparent;
-  box-shadow: none;
+  padding: var(--space-md);
+  border-radius: var(--radius-lg);
+}
+
+body.todo-mobile .todo-block-handle,
+body.todo-mobile .todo-repeat,
+body.todo-mobile .todo-repeat-badge {
+  display: none;
+}
+
+body.todo-mobile .todo-item .todo-due {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--m-muted);
+  font-size: var(--type-label-size);
 }
 
 body.todo-mobile .todo-item .todo-check,
@@ -285,36 +360,39 @@ body.todo-mobile .todo-item input[type="checkbox"] {
   accent-color: var(--m-accent);
 }
 
-body.todo-mobile .todo-item .todo-text,
 body.todo-mobile .todo-item .todo-label {
   font-size: 1rem;
   color: var(--m-ink);
 }
 
-body.todo-mobile .todo-item.completed .todo-text,
-body.todo-mobile .todo-item.completed .todo-label {
-  color: var(--m-muted);
-}
-
-body.todo-mobile .empty-state {
-  display: none;
-  margin: 1.25rem 0;
-  text-align: center;
-  color: var(--m-muted);
-}
-
-body.todo-mobile .empty-state.is-visible {
+body.todo-mobile .todo-item .m-task-status {
   display: block;
+  margin-top: 0.2rem;
+  color: var(--m-muted);
+  font-size: var(--type-label-size);
+  letter-spacing: var(--type-label-tracking);
+}
+
+body.todo-mobile .todo-item.completed .todo-text,
+body.todo-mobile .todo-item.completed .todo-label,
+body.todo-mobile .todo-item.completed .m-task-status {
+  color: var(--m-muted);
+}
+
+body.todo-mobile .empty-state,
+body.todo-mobile .empty-state.is-visible {
+  display: none !important;
 }
 
 body.todo-mobile .m-footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-  margin-top: 0.25rem;
-  color: var(--m-muted);
-  font-size: 0.82rem;
+  justify-content: flex-end;
+  margin-top: 0.15rem;
+}
+
+body.todo-mobile .m-footer:not(:has(#clear-completed:not([hidden]))) {
+  display: none;
 }
 
 body.todo-mobile .m-evening:not([hidden]) {
@@ -325,79 +403,121 @@ body.todo-mobile .m-evening:not([hidden]) {
   box-shadow: var(--m-shadow);
 }
 
-/* Composer sits in the page flow — same add path as desktop */
+/* Compact in-flow composer */
 body.todo-mobile .m-composer {
-  position: relative;
-  left: auto;
-  bottom: auto;
-  z-index: 1;
-  width: auto;
-  transform: none;
-  margin: 0 0 var(--space-md);
-  padding: var(--space-md);
-  border-radius: var(--radius-lg);
-  background: var(--m-card);
-  box-shadow: var(--m-shadow);
-  border: 1px solid color-mix(in srgb, var(--primary) 8%, transparent);
-}
-
-body.todo-mobile .m-composer[hidden] {
-  display: none !important;
+  z-index: 2;
+  margin: 0;
+  padding: 0.55rem 0.85rem;
+  border-radius: var(--radius-pill);
 }
 
 body.todo-mobile .m-composer .add-form {
   margin: 0;
+  gap: 0;
 }
 
-body.todo-mobile .m-composer-close {
-  margin-top: 0.65rem;
+body.todo-mobile .m-composer .add-form-notion .add-form-row {
+  padding: 0.2rem 0.15rem 0.2rem 0.2rem;
+  gap: 0.35rem;
+}
+
+body.todo-mobile .m-composer .todo-input {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+body.todo-mobile .m-composer .add-form-submit {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+body.todo-mobile .m-agent-toggle {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 2.65rem;
+  height: 2.65rem;
+  min-height: 0;
+  margin: 0;
+  padding: 0.28rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+body.todo-mobile .m-agent-ghost {
   width: 100%;
-  border: 0;
-  border-radius: var(--radius-pill);
-  padding: 0.65rem;
-  background: var(--m-accent);
-  color: var(--m-on-accent);
-  font: inherit;
-  cursor: pointer;
+  height: 100%;
+  display: block;
+  object-fit: contain;
 }
 
-/* Yellow FAB (page dock is shared via bento-rail + m-dock.css) */
-body.todo-mobile .m-fab {
-  position: fixed;
-  right: max(0.85rem, env(safe-area-inset-right, 0px));
-  bottom: max(0.85rem, env(safe-area-inset-bottom, 0px));
-  z-index: 231;
-  width: 3.55rem;
-  height: 3.55rem;
-  border: 0;
-  border-radius: var(--radius-pill);
-  background: var(--m-accent);
-  color: var(--m-on-accent);
-  font-size: 1.85rem;
-  line-height: 1;
-  box-shadow: 0 10px 22px color-mix(in srgb, var(--m-accent) 45%, transparent);
-  cursor: pointer;
+body.todo-mobile .m-agent-toggle.is-open,
+body.todo-mobile .m-agent-toggle[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--primary) 12%, var(--m-card));
 }
 
-body.todo-mobile.todo-agent-page .m-fab[hidden] {
+body.todo-mobile .m-composer .deadline-picker {
+  flex: 0 0 auto;
+  width: auto;
+  position: relative;
+}
+
+body.todo-mobile .m-composer .deadline-trigger {
+  flex: 0 0 auto;
+  padding: 0.35rem 0.55rem;
+  border: 0;
+  background: color-mix(in srgb, var(--neutral) 65%, transparent);
+  border-radius: var(--radius-pill);
+  font-size: 0.75rem;
+  color: var(--m-muted);
+}
+
+body.todo-mobile .m-composer .deadline-trigger-text {
+  max-width: 5.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.todo-mobile .m-composer .calendar-popover {
+  right: 0;
+  left: auto;
+  transform: none;
+  width: min(18.5rem, calc(100vw - 2rem));
+}
+
+body.todo-mobile .m-composer .deadline-clear-btn {
+  display: none;
+}
+
+body.todo-mobile.todo-source-assigned .m-week,
+body.todo-mobile.todo-source-assigned .m-done-toggle,
+body.todo-mobile .m-composer:has(#add-form[hidden]) {
+  display: none;
+}
+
+body.todo-mobile.todo-agent-page .todo-agent-host,
+body.todo-mobile .m-agent-host {
   display: none !important;
 }
 
-body.todo-mobile .m-agent-host {
-  margin: 0 0 var(--space-md);
-  min-height: 14rem;
+body.todo-mobile .todo-agent {
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 5.75rem);
+  right: max(0.85rem, env(safe-area-inset-right, 0px));
 }
 
-body.todo-mobile.todo-agent-page .todo-agent-page-embed .todo-agent-panel {
-  max-height: min(22rem, 48vh);
-  border-radius: var(--radius-lg);
+body.todo-mobile .todo-agent.todo-agent-rail-docked {
+  position: static;
+  inset: auto;
 }
 
-body.todo-mobile .m-fab:active {
-  transform: scale(0.96);
-}
-
-/* Sidebar as profile drawer */
+/* Sidebar as More drawer */
 body.todo-mobile .sidebar {
   position: fixed;
   top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
@@ -407,6 +527,11 @@ body.todo-mobile .sidebar {
   width: auto;
   z-index: 250;
   border-radius: var(--radius-lg);
+  background: var(--liquid-sheen), var(--liquid-fill-strong);
+  backdrop-filter: var(--liquid-blur);
+  -webkit-backdrop-filter: var(--liquid-blur);
+  border: 1px solid var(--liquid-edge);
+  box-shadow: var(--liquid-shadow);
   transform: translateY(110%);
   transition: transform 0.22s ease;
 }
@@ -421,28 +546,136 @@ body.todo-mobile .backdrop.is-visible {
   z-index: 240;
 }
 
-/* Agent: keep off the dock */
-body.todo-mobile .todo-agent {
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 5.75rem);
-  right: max(0.85rem, env(safe-area-inset-right, 0px));
-}
-
-body.todo-mobile .todo-agent.todo-agent-rail-docked {
-  position: fixed;
-  inset: auto;
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 5.75rem);
-  right: max(0.85rem, env(safe-area-inset-right, 0px));
-  left: auto;
-  top: auto;
-}
-
 :root[data-theme="dark"] body.todo-mobile.todo-loop {
   --m-card: color-mix(in srgb, var(--surface) 55%, black);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  body.todo-mobile .sidebar,
-  body.todo-mobile .m-fab {
+  body.todo-mobile .sidebar {
     transition: none;
   }
+}
+
+/* todo-m.html is the phone shell even when previewed on a wide window. */
+body.todo-mobile.has-bento-rail .layout {
+  flex-direction: column;
+  padding: 0;
+  max-width: none;
+}
+
+body.todo-mobile.has-bento-rail .bento-rail {
+  position: fixed;
+  left: 50%;
+  right: auto;
+  top: auto;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 1.25rem);
+  z-index: 230;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  width: min(22.5rem, calc(100vw - 1.5rem));
+  max-width: none;
+  transform: translate3d(-50%, 0, 0);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+body.todo-mobile.has-bento-rail .bento-rail-nav {
+  --dock-px: 50%;
+  --dock-py: 50%;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  pointer-events: auto;
+  background:
+    radial-gradient(
+      circle at var(--dock-px) var(--dock-py),
+      var(--liquid-spot, color-mix(in srgb, var(--on-primary) 42%, transparent)),
+      color-mix(in srgb, var(--tertiary) 16%, transparent) 28%,
+      transparent 58%
+    ),
+    var(--liquid-sheen),
+    var(--liquid-fill-strong);
+  backdrop-filter: var(--liquid-blur);
+  -webkit-backdrop-filter: var(--liquid-blur);
+  box-shadow: var(--liquid-shadow);
+  border: 1px solid var(--liquid-edge);
+}
+
+body.todo-mobile.has-bento-rail .bento-rail-lens {
+  position: absolute;
+  z-index: 0;
+  top: 50%;
+  left: var(--dock-px);
+  width: 4.4rem;
+  height: 2.55rem;
+  border-radius: var(--radius-pill);
+  background: var(--liquid-spot, color-mix(in srgb, var(--on-primary) 36%, transparent));
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, -50%);
+}
+
+body.todo-mobile.has-bento-rail .bento-rail-nav.is-tracking .bento-rail-lens {
+  opacity: 1;
+}
+
+body.todo-mobile.has-bento-rail .bento-rail-link {
+  position: relative;
+  z-index: 1;
+}
+
+body.todo-mobile .theme-toggle {
+  display: none !important;
+}
+
+body.todo-mobile .sidebar-chrome .theme-toggle,
+body.todo-mobile .sidebar-chrome .language-toggle {
+  display: inline-flex !important;
+  position: static;
+  inset: auto;
+}
+
+body.todo-mobile.has-bento-rail .bento-rail-brand {
+  display: none !important;
+}
+
+body.todo-mobile.has-bento-rail .bento-rail-nav {
+  flex-direction: row;
+  margin-top: 0;
+  flex: 1 1 auto;
+  gap: 0.08rem;
+  width: auto;
+  min-width: 0;
+}
+
+body.todo-mobile.has-bento-rail .bento-rail-sr {
+  position: static;
+  width: auto;
+  height: auto;
+  margin: 0;
+  overflow: hidden;
+  clip: auto;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  font-size: 0.62rem;
+}
+
+body.todo-mobile.has-bento-rail .theme-toggle.bento-rail-theme,
+body.todo-mobile.has-bento-rail .language-toggle.bento-rail-lang {
+  display: none !important;
+}
+
+body.todo-mobile .sidebar-chrome {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin: 0 0 var(--space-sm);
 }

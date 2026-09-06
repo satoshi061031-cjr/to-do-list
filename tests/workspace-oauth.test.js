@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const {
   GOOGLE_WORKSPACE_SCOPES,
   OUTLOOK_WORKSPACE_SCOPES,
+  shouldForceWorkspaceConsent,
   googleEventToWorkspace,
   graphEventToWorkspace,
   buildGoogleEventBody,
@@ -13,6 +14,47 @@ test("Google and Outlook sign-in scopes include mail and calendar", () => {
   assert.match(GOOGLE_WORKSPACE_SCOPES, /calendar\.events/);
   assert.match(OUTLOOK_WORKSPACE_SCOPES, /Mail\.Read/);
   assert.match(OUTLOOK_WORKSPACE_SCOPES, /Calendars\.ReadWrite/);
+});
+
+test("sign-in asks for consent only when mailbox grants are missing", () => {
+  assert.equal(shouldForceWorkspaceConsent([], "gmail", false), false);
+  assert.equal(shouldForceWorkspaceConsent([], "gmail", true), true);
+  assert.equal(
+    shouldForceWorkspaceConsent(
+      [
+        {
+          provider: "gmail",
+          hasCredentials: true,
+          scope: "openid email profile https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/calendar.events",
+        },
+      ],
+      "gmail",
+      false
+    ),
+    false
+  );
+  assert.equal(
+    shouldForceWorkspaceConsent(
+      [{ provider: "gmail", hasCredentials: true, scope: "openid email profile" }],
+      "gmail",
+      false
+    ),
+    true
+  );
+  assert.equal(
+    shouldForceWorkspaceConsent(
+      [
+        {
+          provider: "outlook",
+          hasCredentials: true,
+          scope: "Mail.Read Calendars.ReadWrite",
+        },
+      ],
+      "outlook",
+      false
+    ),
+    false
+  );
 });
 
 test("normalizes Google Calendar events into workspace schedule items", () => {

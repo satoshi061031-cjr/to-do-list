@@ -1,8 +1,8 @@
 /**
  * Route Todo between desktop (todo.html) and mobile (todo-m.html).
- * - Narrow viewport on todo.html → todo-m.html
- * - Direct opens of todo-m.html always stay (so desktop can preview)
- * - ?device=mobile|desktop overrides and sticks for the tab session
+ * - Narrow viewport always uses todo-m.html (desktop force is ignored on phones)
+ * - Direct opens of todo-m.html stay on a wide viewport (so desktop can preview)
+ * - ?device=mobile|desktop overrides on a wide viewport and sticks for the tab session
  */
 (function () {
   const MQ = "(max-width: 819px)";
@@ -24,11 +24,15 @@
     return file === "todo.html" || file === "todo";
   }
 
-  function withSearchHash(base) {
+  function withSearchHash(base, options) {
     const params = new URLSearchParams(location.search);
-    // Keep override in the URL when forcing a device.
     const force = readForce();
-    if (force === "mobile" || force === "desktop") {
+    if (options && options.dropForce) {
+      params.delete("device");
+      try {
+        sessionStorage.removeItem(FORCE_KEY);
+      } catch (_) {}
+    } else if (force === "mobile" || force === "desktop") {
       params.set("device", force);
     } else {
       params.delete("device");
@@ -77,20 +81,23 @@
     const force = readForce();
     const narrow = window.matchMedia(MQ).matches;
 
+    // Phone-width always uses the one-job Today shell, even if a tab once
+    // forced desktop (e.g. ?device=desktop leftover in sessionStorage).
+    if (narrow) {
+      try {
+        sessionStorage.removeItem(FORCE_KEY);
+      } catch (_) {}
+      if (isDesktopTodoPage()) go(withSearchHash("todo-m.html", { dropForce: true }));
+      return;
+    }
+
     if (force === "mobile") {
       if (isDesktopTodoPage()) go(withSearchHash("todo-m.html"));
       return;
     }
     if (force === "desktop") {
       if (isMobileTodoPage()) go(withSearchHash("todo.html"));
-      return;
     }
-
-    // Auto: phones hitting desktop Todo land on the mobile shell.
-    if (narrow && isDesktopTodoPage()) {
-      go(withSearchHash("todo-m.html"));
-    }
-    // Never bounce todo-m → todo on load; opening the mobile URL must work on desktop.
   }
 
   syncRoute();
