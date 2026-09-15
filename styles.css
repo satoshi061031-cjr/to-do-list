@@ -12,7 +12,7 @@
   --border: rgba(255, 255, 255, 0.08);
   --border-soft: rgba(255, 255, 255, 0.05);
   --text: #2c2925;
-  --text-muted: #6f6a62;
+  --text-muted: #5c5852;
   --accent: #4f6368;
   --secondary: #4f6368; /* DESIGN.md colors.secondary — slate structure */
   --accent-soft: rgba(79, 99, 104, 0.12);
@@ -45,7 +45,9 @@
   --shadow-pop: var(--inner-light), 0 22px 56px rgba(28, 31, 30, 0.1);
   --shadow-soft: var(--inner-light), 0 12px 32px rgba(28, 31, 30, 0.05);
   --glow: var(--inner-light), 0 14px 40px rgba(245, 248, 246, 0.14), 0 12px 32px rgba(28, 31, 30, 0.06);
-  --font-family: Impact, Haettenschweiler, "Franklin Gothic Bold", "Arial Narrow Bold", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  --font-display: Impact, Haettenschweiler, "Franklin Gothic Bold", "Arial Narrow Bold", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  --font-ui: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", "Segoe UI", sans-serif;
+  --font-family: var(--font-ui);
   /* DESIGN.md typography.* */
   --type-display-size: 2.5rem;
   --type-title-size: 1.55rem;
@@ -118,6 +120,20 @@ body {
   line-height: 1.65;
   letter-spacing: 0.02em;
   -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3,
+.title,
+.app-greeting-title,
+.calendar-title,
+.tally-heading,
+.teamwork-title-static,
+.planner-month-title,
+.m-dash-title,
+.m-section-title,
+.bento-rail-label,
+[class*="-kicker"] {
+  font-family: var(--font-display);
 }
 
 body::before,
@@ -1201,6 +1217,11 @@ body.has-notif-bell .language-toggle {
   border-radius: var(--radius-sm);
   background: transparent;
   transition: background 0.12s, color 0.12s;
+}
+
+.sidebar-page-link[hidden],
+.sidebar-heading[hidden] {
+  display: none !important;
 }
 
 .sidebar-page-link:hover {

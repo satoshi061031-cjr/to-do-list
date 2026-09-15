@@ -160,6 +160,23 @@
     dockLanguageToggle(rail);
   }
 
+  function syncSidebarForDock() {
+    const inner = document.querySelector(".sidebar-inner");
+    if (!inner) return;
+    const hideDockDupes = isNarrow();
+    inner.querySelectorAll(".sidebar-page-link").forEach((link) => {
+      if (link.closest(".sidebar-more")) return;
+      const href = String(link.getAttribute("href") || "").toLowerCase();
+      const inDock =
+        href.includes("todo") || href.includes("calendar.html") || href.includes("tally.html");
+      link.hidden = hideDockDupes && inDock;
+    });
+    inner.querySelectorAll(".sidebar-heading").forEach((heading) => {
+      const label = heading.textContent.replace(/\s+/g, " ").trim().toLowerCase();
+      if (label === "pages" || label === "页面") heading.hidden = hideDockDupes;
+    });
+  }
+
   function syncNavLinks(nav) {
     if (!(nav instanceof HTMLElement)) return;
     const key = railPagesKey();
@@ -290,6 +307,7 @@
     }
 
     placeAppearanceChrome(rail);
+    syncSidebarForDock();
 
     markCurrent(rail);
     if (window.DailySpaceAgentUi && typeof window.DailySpaceAgentUi.mountFabUnderBrand === "function") {
@@ -405,6 +423,7 @@
       });
     }
     placeAppearanceChrome(rail);
+    syncSidebarForDock();
     markCurrent(rail);
   });
 

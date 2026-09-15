@@ -77,22 +77,22 @@
     "tasksTitle",
   ]);
   const TEAMWORK_DEFAULTS = {
-    kicker: "Notes",
+    kicker: "",
     title: "",
     copy: "",
     statusLabel: "",
     statusMain: "",
     statusSub: "",
-    focusKicker: "Focus",
+    focusKicker: "",
     focusTitle: "",
     focusCopy: "",
-    notesKicker: "Notes",
-    notesTitle: "Private notes",
+    notesKicker: "",
+    notesTitle: "",
     notes: "",
-    membersKicker: "Members",
-    membersTitle: "Local draft members",
-    tasksKicker: "Tasks",
-    tasksTitle: "Local draft tasks",
+    membersKicker: "",
+    membersTitle: "",
+    tasksKicker: "",
+    tasksTitle: "",
     members: [],
   };
 
@@ -255,6 +255,8 @@
           id: column.id,
           title: clean(column.title, 80),
           emoji: clean(column.emoji, 8),
+          status: columnStatusKey(column),
+          systemKey: column.systemKey || "",
         })),
         entries: board.entries.slice(0, 100).map((entry) => ({
           id: entry.id,
@@ -370,13 +372,21 @@
     );
   }
 
-  /** Mirrors planner.js columnStatusKey so both surfaces agree on Planned/Done. */
+  /** Mirrors planner.js: persist status when present, else infer from title. */
+  function inferColumnStatus(title) {
+    const t = String(title || "").trim().toLowerCase();
+    if (!t) return "";
+    if (/(in progress|progress|doing|进行)/.test(t)) return "progress";
+    if (/(on hold|hold|搁置|暂停)/.test(t)) return "hold";
+    if (/(^done$|\bdone\b|已完成|^完成$)/.test(t)) return "done";
+    if (/(planned|to do|to-do|todo|计划|待办)/.test(t)) return "planned";
+    return "";
+  }
+
   function columnStatusKey(column) {
-    const title = String((column && column.title) || "").toLowerCase();
-    if (title.includes("progress")) return "progress";
-    if (title.includes("done")) return "done";
-    if (title.includes("hold")) return "hold";
-    return "planned";
+    const raw = String((column && (column.status || column.systemKey)) || "").toLowerCase();
+    if (raw === "planned" || raw === "progress" || raw === "done" || raw === "hold") return raw;
+    return inferColumnStatus(column && column.title) || "planned";
   }
 
   function plannerColumnByStatus(board, status) {
@@ -503,10 +513,14 @@
           if (!workspace) return failure(action, "Planner not found.");
           const board = planner.boards[workspace.id];
           if (action.type === "planner_add_column") {
+            const title = clean(action.title, 80) || "New column";
+            const status = inferColumnStatus(title) || "planned";
             const column = {
               id: uid(),
-              title: clean(action.title, 80) || "New column",
+              title,
               emoji: clean(action.emoji, 8) || "",
+              status,
+              systemKey: inferColumnStatus(title) ? status : "",
             };
             board.columns.push(column);
             success(action, column.title);

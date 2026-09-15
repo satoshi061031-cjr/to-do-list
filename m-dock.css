@@ -206,9 +206,20 @@ body.calendar-page {
     flex-shrink: 0;
   }
 
-  body.has-bento-rail .theme-toggle.bento-rail-theme,
-  body.has-bento-rail .language-toggle.bento-rail-lang {
+  body.has-bento-rail .sidebar-trigger {
     display: none !important;
+  }
+
+  body.has-bento-rail .theme-toggle.bento-rail-theme,
+  body.has-bento-rail .language-toggle.bento-rail-lang,
+  body.has-bento-rail > .theme-toggle,
+  body.has-bento-rail > .language-toggle {
+    display: none !important;
+  }
+
+  body.has-bento-rail .sidebar-chrome .theme-toggle,
+  body.has-bento-rail .sidebar-chrome .language-toggle {
+    display: inline-flex !important;
   }
 
   .sidebar-chrome {

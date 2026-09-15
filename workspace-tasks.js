@@ -58,15 +58,31 @@
     return false;
   }
 
+  function inferColumnStatus(title) {
+    const t = String(title || "").trim().toLowerCase();
+    if (!t) return "";
+    if (/(in progress|progress|doing|进行)/.test(t)) return "progress";
+    if (/(on hold|hold|搁置|暂停)/.test(t)) return "hold";
+    if (/(^done$|\bdone\b|已完成|^完成$)/.test(t)) return "done";
+    if (/(planned|to do|to-do|todo|计划|待办)/.test(t)) return "planned";
+    return "";
+  }
+
+  function columnStatusKey(column) {
+    const raw = String((column && (column.status || column.systemKey)) || "").toLowerCase();
+    if (raw === "planned" || raw === "progress" || raw === "done" || raw === "hold") return raw;
+    return inferColumnStatus(column && column.title) || "planned";
+  }
+
   function doneColumnId(board) {
     const columns = board && Array.isArray(board.columns) ? board.columns : [];
-    const done = columns.find((column) => /done/i.test(String(column && column.title || "")));
+    const done = columns.find((column) => columnStatusKey(column) === "done");
     return done && typeof done.id === "string" ? done.id : null;
   }
 
   function plannedColumnId(board) {
     const columns = board && Array.isArray(board.columns) ? board.columns : [];
-    const planned = columns.find((column) => /planned|to.?do|ready/i.test(String(column && column.title || "")));
+    const planned = columns.find((column) => columnStatusKey(column) === "planned");
     return planned && typeof planned.id === "string" ? planned.id : columns[0] && columns[0].id;
   }
 

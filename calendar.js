@@ -8,6 +8,29 @@
     return window.DailySpaceI18n?.localeTag() || "en-US";
   }
 
+  function isZhLocale() {
+    return window.DailySpaceI18n?.locale?.() === "zh" || String(uiLocale()).toLowerCase().startsWith("zh");
+  }
+
+  function formatClockTime(value) {
+    const normalized = normalizeTime(value);
+    if (!normalized) return String(value || "").trim();
+    const [hourPart, minutePart] = normalized.split(":");
+    const h = Number(hourPart);
+    const m = Number(minutePart);
+    if (isZhLocale()) {
+      return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    }
+    const suffix = h >= 12 ? "PM" : "AM";
+    const hour12 = ((h + 11) % 12) + 1;
+    return m ? `${hour12}:${String(m).padStart(2, "0")} ${suffix}` : `${hour12} ${suffix}`;
+  }
+
+  function formatWeekHourLabel(hour) {
+    const h = ((Number(hour) % 24) + 24) % 24;
+    return formatClockTime(`${String(h).padStart(2, "0")}:00`);
+  }
+
   /** @type {{ id: string; text: string; completed: boolean; dueDate: string | null; categoryId: string | null }[]} */
   let todos = [];
   /** @type {{ id: string; name: string }[]} */
@@ -290,9 +313,11 @@
   }
 
   function formatTimeRange(startTime, endTime) {
-    if (startTime && endTime) return `${startTime} - ${endTime}`;
-    if (startTime) return `Starts ${startTime}`;
-    if (endTime) return `Due ${endTime}`;
+    const start = startTime ? formatClockTime(startTime) : "";
+    const end = endTime ? formatClockTime(endTime) : "";
+    if (start && end) return `${start}–${end}`;
+    if (start) return `Starts ${start}`;
+    if (end) return `Due ${end}`;
     return "";
   }
 
@@ -654,6 +679,10 @@
       btn.addEventListener("click", () => selectDate(iso));
       weekHeadEl.appendChild(btn);
     });
+    const selectedDayBtn = weekHeadEl.querySelector(".cal-week-day.is-selected");
+    if (selectedDayBtn && typeof selectedDayBtn.scrollIntoView === "function") {
+      selectedDayBtn.scrollIntoView({ inline: "center", block: "nearest", behavior: "instant" });
+    }
 
     const { start: hourStart, end: hourEnd } = weekHourWindow(startIso, endIso);
     const hourCount = hourEnd - hourStart;
@@ -663,9 +692,7 @@
     for (let h = hourStart; h < hourEnd; h += 1) {
       const label = document.createElement("div");
       label.className = "cal-hour-label";
-      const ampm = h >= 12 ? "pm" : "am";
-      const hour12 = ((h + 11) % 12) + 1;
-      label.textContent = `${hour12} ${ampm}`;
+      label.textContent = formatWeekHourLabel(h);
       weekHoursEl.appendChild(label);
     }
 

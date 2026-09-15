@@ -13,7 +13,7 @@
   /** @type {Record<string, { columns: PlannerColumn[]; entries: PlannerEntry[] }>} */
   let boards = {};
 
-  /** @typedef {{ id: string; title: string; emoji: string }} PlannerColumn */
+  /** @typedef {{ id: string; title: string; emoji: string; status?: "planned"|"progress"|"done"|"hold"; systemKey?: string }} PlannerColumn */
   /** @typedef {{ id: string; columnId: string; title: string; note: string; completed: boolean; tags: string[]; expanded: boolean; assigneeUserId?: string|null; dueDate?: string|null }} PlannerEntry */
 
   /** @type {PlannerColumn[]} */
@@ -85,49 +85,95 @@
     return crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random();
   }
 
-  function defaultKanbanColumns() {
-    return [
-      { id: id(), title: "Planned", emoji: "○" },
-      { id: id(), title: "In Progress", emoji: "◎" },
-      { id: id(), title: "Done", emoji: "✓" },
-      { id: id(), title: "On Hold", emoji: "◌" },
-    ];
+  const COLUMN_STATUSES = ["planned", "progress", "done", "hold"];
+  const COLUMN_STATUS_TITLES = {
+    planned: { en: "Planned", zh: "计划" },
+    progress: { en: "In Progress", zh: "进行中" },
+    done: { en: "Done", zh: "已完成" },
+    hold: { en: "On Hold", zh: "搁置" },
+  };
+  const FIXED_COLUMN_SPECS = [
+    { status: "planned", emoji: "○" },
+    { status: "progress", emoji: "◎" },
+    { status: "done", emoji: "✓" },
+    { status: "hold", emoji: "◌" },
+  ];
+
+  function columnStatusTitle(status) {
+    const spec = COLUMN_STATUS_TITLES[status] || COLUMN_STATUS_TITLES.planned;
+    return isZhLocale() ? spec.zh : spec.en;
   }
 
-  const FIXED_COLUMN_SPECS = [
-    { title: "Planned", emoji: "○" },
-    { title: "In Progress", emoji: "◎" },
-    { title: "Done", emoji: "✓" },
-    { title: "On Hold", emoji: "◌" },
-  ];
+  function inferColumnStatus(title) {
+    const t = String(title || "").trim().toLowerCase();
+    if (!t) return "";
+    if (/(in progress|progress|doing|进行)/.test(t)) return "progress";
+    if (/(on hold|hold|搁置|暂停)/.test(t)) return "hold";
+    if (/(^done$|\bdone\b|已完成|^完成$)/.test(t)) return "done";
+    if (/(planned|to do|to-do|todo|计划|待办)/.test(t)) return "planned";
+    return "";
+  }
+
+  function normalizeColumnStatus(col) {
+    const raw = String(col?.status || col?.systemKey || "").toLowerCase();
+    if (COLUMN_STATUSES.includes(raw)) return raw;
+    return inferColumnStatus(col?.title) || "planned";
+  }
+
+  function defaultKanbanColumns() {
+    return FIXED_COLUMN_SPECS.map((spec) => ({
+      id: id(),
+      status: spec.status,
+      systemKey: spec.status,
+      title: columnStatusTitle(spec.status),
+      emoji: spec.emoji,
+    }));
+  }
+
+  function takeColumnForStatus(status, pool) {
+    const index = pool.findIndex((col) => normalizeColumnStatus(col) === status);
+    if (index < 0) return null;
+    return pool.splice(index, 1)[0];
+  }
 
   function ensureFixedKanbanColumns() {
     if (isTeamMode()) return false;
-    const byTitle = new Map(
-      plannerColumns.map((col) => [String(col.title || "").trim().toLowerCase(), col])
-    );
+    const pool = plannerColumns.slice();
     const next = FIXED_COLUMN_SPECS.map((spec) => {
-      const existing = byTitle.get(spec.title.toLowerCase());
+      const existing = takeColumnForStatus(spec.status, pool);
       if (existing) {
-        existing.title = spec.title;
+        existing.status = spec.status;
+        existing.systemKey = spec.status;
+        existing.title = columnStatusTitle(spec.status);
         if (!existing.emoji) existing.emoji = spec.emoji;
         return existing;
       }
-      return { id: id(), title: spec.title, emoji: spec.emoji };
+      return {
+        id: id(),
+        status: spec.status,
+        systemKey: spec.status,
+        title: columnStatusTitle(spec.status),
+        emoji: spec.emoji,
+      };
     });
-    const fixedIds = new Set(next.map((col) => col.id));
     const plannedId = next[0].id;
-    let changed = next.length !== plannerColumns.length;
-    plannerColumns.forEach((col) => {
-      if (fixedIds.has(col.id)) return;
-      changed = true;
+    let changed = next.length !== plannerColumns.length || pool.length > 0;
+    pool.forEach((col) => {
       plannerEntries.forEach((entry) => {
         if (entry.columnId === col.id) entry.columnId = plannedId;
       });
     });
-    FIXED_COLUMN_SPECS.forEach((spec, index) => {
-      if (!byTitle.has(spec.title.toLowerCase())) changed = true;
-      if (plannerColumns[index]?.id !== next[index].id) changed = true;
+    next.forEach((col, index) => {
+      const prev = plannerColumns[index];
+      if (
+        !prev ||
+        prev.id !== col.id ||
+        prev.status !== col.status ||
+        prev.systemKey !== col.systemKey ||
+        prev.title !== col.title
+      ) {
+        changed = true;
+      }
     });
     plannerColumns = next;
     return changed;
@@ -169,11 +215,7 @@
   }
 
   function columnStatusKey(col) {
-    const title = String(col?.title || "").toLowerCase();
-    if (title.includes("progress")) return "progress";
-    if (title.includes("done")) return "done";
-    if (title.includes("hold")) return "hold";
-    return "planned";
+    return normalizeColumnStatus(col);
   }
 
   function findDoneColumn() {
@@ -320,9 +362,17 @@
     for (const c of raw) {
       if (!c || typeof c !== "object" || typeof /** @type {any} */ (c).id !== "string") continue;
       const x = /** @type {any} */ (c);
+      const status = normalizeColumnStatus(x);
+      const systemKey = COLUMN_STATUSES.includes(String(x.systemKey || "").toLowerCase())
+        ? String(x.systemKey).toLowerCase()
+        : inferColumnStatus(x.title)
+          ? status
+          : "";
       out.push({
         id: x.id,
-        title: typeof x.title === "string" ? x.title.trim().slice(0, 80) || "Untitled" : "Untitled",
+        status,
+        systemKey,
+        title: typeof x.title === "string" ? x.title.trim().slice(0, 80) || columnStatusTitle(status) : columnStatusTitle(status),
         emoji: typeof x.emoji === "string" && x.emoji.trim() ? String(x.emoji).trim().slice(0, 8) : "",
       });
     }
@@ -528,6 +578,7 @@
       id: col.id,
       title: col.title,
       emoji: col.emoji || "",
+      status: normalizeColumnStatus(col),
     }));
     plannerEntries = (board.tasks || []).map(taskFromApi);
   }
@@ -1371,7 +1422,7 @@
     const titleInp = document.createElement("input");
     titleInp.type = "text";
     titleInp.className = "planner-column-title-input";
-    titleInp.value = col.title;
+    titleInp.value = col.systemKey ? columnStatusTitle(columnStatusKey(col)) : col.title;
     titleInp.readOnly = true;
     titleInp.setAttribute("aria-label", "Column title");
     titleInp.maxLength = 80;
@@ -1592,6 +1643,7 @@
   });
 
   window.addEventListener("daily-space-locale-changed", () => {
+    if (!isTeamMode() && ensureFixedKanbanColumns()) savePlannerState();
     renderPlannerSidebar();
     renderPlanner();
   });

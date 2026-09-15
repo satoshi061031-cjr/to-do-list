@@ -476,7 +476,29 @@
 
 .teamwork-workspace-panel {
   padding: clamp(1.1rem, 2.5vw, 1.55rem);
-  box-shadow: var(--shadow-soft);
+  border-color: color-mix(in srgb, var(--tertiary) 38%, var(--glass-border));
+  background: color-mix(in srgb, var(--tertiary) 8%, var(--glass));
+  box-shadow: var(--shadow-pop);
+}
+
+.teamwork-planner-link {
+  display: inline-flex;
+  width: fit-content;
+  margin: 0 0 var(--space-sm);
+  text-decoration: none;
+}
+
+.teamwork-section-title {
+  margin: 0 0 var(--space-sm);
+  color: var(--text);
+  font-size: var(--type-title-size);
+  font-weight: 400;
+  letter-spacing: var(--type-title-tracking);
+  line-height: var(--type-display-lh);
+}
+
+.teamwork-workspace-panel > .teamwork-kicker {
+  margin: 0 0 var(--space-xs);
 }
 
 .teamwork-workspace-panel:hover {
@@ -511,7 +533,10 @@
 
 .teamwork-personal-draft {
   padding: 0;
-  box-shadow: var(--shadow-soft);
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--text-muted) 42%, var(--glass-border));
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+  box-shadow: none;
 }
 
 .teamwork-personal-draft:hover {

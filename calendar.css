@@ -1269,14 +1269,24 @@ body.calendar-page .calendar-app > .app-greeting {
     min-width: 0 !important;
     border: 0;
     gap: 0.2rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  body.calendar-page .cal-week-head::-webkit-scrollbar {
+    display: none;
   }
 
   body.calendar-page .cal-week-day {
-    flex: 1 1 0;
-    min-width: 0;
+    flex: 0 0 2.85rem;
+    min-width: 2.85rem;
     min-height: 2.85rem;
     padding: 0.4rem 0.15rem;
     border-radius: var(--radius-md);
+    scroll-snap-align: center;
   }
 
   body.calendar-page .cal-week-day.is-selected {

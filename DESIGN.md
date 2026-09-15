@@ -12,7 +12,7 @@ colors:
   neutral: "#e7e9ea"
   surface: "#f2f4f1"
   text: "#2c2925"
-  text-muted: "#6f6a62"
+  text-muted: "#5c5852"
   accent: "#4f6368"
   accent-soft: "#e8ecec"
   danger: "#a64b45"
@@ -32,7 +32,7 @@ typography:
     fontWeight: 400
     letterSpacing: 0.02em
   body-md:
-    fontFamily: Impact, Haettenschweiler, "Franklin Gothic Bold", "Arial Narrow Bold", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif
+    fontFamily: PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, Segoe UI, sans-serif
     fontSize: 1rem
     fontWeight: 400
     lineHeight: 1.7
@@ -78,6 +78,10 @@ components:
     textColor: "{colors.text}"
     rounded: "{rounded.lg}"
     padding: 20px
+  glass-edge:
+    backgroundColor: "{colors.glass-border}"
+    textColor: "{colors.text}"
+    rounded: "{rounded.lg}"
   page-shell:
     backgroundColor: "{colors.neutral}"
     textColor: "{colors.text}"
@@ -129,27 +133,31 @@ Never invent new brand hues. Never hardcode hex in new UI — use `var(--…)` t
 
 ## Typography
 
-Display and UI currently share a condensed Impact-led stack with **light typographic weight**. Titles stay expressive but airier (`display` ~2.5rem, `title` ~1.55rem, slightly open line-height). Body copy uses generous line-height (`body-md` 1.7). Kickers and field labels use `label-caps` at weight 600 with moderate tracking (0.08em) and the yellow highlight color — not ultra-bold stamped caps.
+Display titles, short kickers, and compact numbers use a condensed Impact-led stack with **light typographic weight**. Titles stay expressive but airier (`display` ~2.5rem, `title` ~1.55rem, slightly open line-height). Kickers and field labels use `label-caps` at weight 600 with moderate tracking (0.08em) and the yellow highlight color — not ultra-bold stamped caps.
 
-Latin glyphs use Impact / condensed fallbacks first. Chinese (and other CJK) glyphs skip those faces and render through explicit East-Asian fallbacks — `PingFang SC`, `Hiragino Sans GB`, `Microsoft YaHei`, then `Noto Sans SC` — before generic `sans-serif`. Keep this full stack on every typography role; do not rely on bare `sans-serif` alone for Chinese.
+Body copy, form fields, mail summaries, and card notes use a readable CJK/UI stack (`body-md`): PingFang SC / Hiragino Sans GB / Microsoft YaHei / Noto Sans SC, then Segoe UI. Do not put long paragraphs in Impact. Body line-height stays generous (`body-md` 1.7).
 
-Do not switch to Inter, Roboto, Arial, or system-ui as the brand voice.
+Latin display glyphs use Impact / condensed fallbacks first. Chinese (and other CJK) glyphs skip those faces and render through explicit East-Asian fallbacks — `PingFang SC`, `Hiragino Sans GB`, `Microsoft YaHei`, then `Noto Sans SC` — before generic `sans-serif`. Keep this full stack on display/title/label roles; body copy should start with the CJK/UI faces. Do not rely on bare `sans-serif` alone for Chinese.
+
+Do not switch to Inter, Roboto, Arial, or system-ui as the brand voice for titles.
 
 ## Layout
 
 - Max content width around `min(1120px, 92vw)`.
 - Module gaps use `spacing.md`–`spacing.lg`.
-- Desktop: multi-column grids with breathing room; mobile: single column, extra top padding for the menu trigger.
+- Desktop: multi-column grids with breathing room; mobile: single column.
+- Phone chrome is one system: desktop keeps the slim rail; phone uses one **fixed, centered** dock (Today / Calendar / Tally / More). Menu, theme, and language live in More — no second Menu button and no corner theme/language pills. The More drawer omits pages already on the dock.
 - One job per section: one heading, one short supporting line, one primary interaction cluster.
 - Todo hub: greeting + Today hero + a visible add form. Agent opens as a centered glass dialog from Ask agent — same overlay language as login and shortcuts, not an in-page chat or side dock. No floating agent FAB on Todo.
 - Todo mobile (`todo-m.html`) is a Welcome-style Today: greeting + circular ghost (agent) top-right, a pill add field with date chip, a liquid-glass hero with remaining count + yellow Add, “Today’s tasks” with a Done link, liquid-glass task cards, and a **fixed, centered** liquid-glass bottom dock. No second add control beside the section title, week strip, status pills, source/filter chips, or evening-review card. The ghost opens the same centered glass agent dialog. Theme and language live in More. Desktop stays denser.
 - Google or Outlook sign-in connects that account across Mail and Calendar (plus workspace snapshot). A guest who already has tasks is reminded to sign in to save.
-- Calendar desktop top module mirrors a schedule header: search + filter chips, “Stay up to date” headline, week-range pill with prev/next, yellow “+ Add reminder”, and Today/Week/Month view toggles — then the week time grid and quiet selected-day strip. Tokens stay yellow `tertiary` / glass; no cream or second brand hue.
-- Calendar phone is a Schedule page: month label + horizontal day strip, a vertical timeline of reminder cards (time gutter + liquid-glass cards), one pill reminder field, and the same **fixed, centered** liquid-glass dock. No yellow + next to the dock. Search, filter chips, the week time grid, task composer, end time, and priority stay on desktop.
+- Calendar desktop top module mirrors a schedule header: search + filter chips, “Stay up to date” headline, week-range pill with prev/next, yellow “+ Add reminder”, and Today/Week/Month view toggles — then the week time grid and quiet selected-day strip. Hour labels follow the UI language (08:00 in Chinese, 8 AM in English). Tokens stay yellow `tertiary` / glass; no cream or second brand hue.
+- Calendar phone is a Schedule page: month label + horizontal day strip (selected day stays in view), a vertical timeline of reminder cards (time gutter + liquid-glass cards), one pill reminder field, and the same **fixed, centered** liquid-glass dock. No yellow + next to the dock. Search, filter chips, the week time grid, task composer, end time, and priority stay on desktop. Reminder ranges use the same locale clock as the week axis (`08:00–20:00` vs `8 AM`).
 - Tally phone is today’s spend, a single amount + category field, and the month’s list. The agent ghost sits top-right of the heading — same place as Today. Charts, shared switch, export, and the add FAB stay off the first screen; the sheet is for edit and shared/FX details. Desktop keeps the fuller ledger.
-- Planner board uses a soft Kanban layout **inside the main panel only**: glass panel + muted column tracks, glass cards, Day/Week/Month/Year range pills, and search. Fixed columns are Planned / In Progress / Done / On Hold (not deletable). Cards add only via `+ Add card` under a column.
+- Planner board uses a soft Kanban layout **inside the main panel only**: glass panel + muted column tracks, glass cards, Day/Week/Month/Year range pills, and search. Fixed columns persist `status` (`planned` / `progress` / `done` / `hold`) and localize their titles; completion syncs by status, not by the English word “Done”. Columns are not deletable. Cards add only via `+ Add card` under a column.
 - Planner header is greeting + title (“Landing Page”). Collapsed cards show title + note preview; expand to edit. Site chrome (bento rail, menu sidebar, greeting) stays the shared Daily Space pattern. Accent remains yellow `tertiary`.
 - Travel empty state is a vertical stack: greeting, destination prompt, yellow Add, then a quiet note. Do not place the note beside the greeting. With a trip, Travel is a full-bleed map (Leaflet + OpenStreetMap) with a glass stop panel overlaid on the side: day chips, searchable places, and stop details. Keep yellow markers; do not introduce a second brand hue for map chrome.
+- Teamwork splits **shared workspace** (invite people, Planner assignments — solid glass with a yellow edge) from **device-only notes** (dashed quieter panel). Default labels stay as localized placeholders and are not written into saved user values.
 
 ## Elevation & Depth
 

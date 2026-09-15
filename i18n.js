@@ -130,6 +130,9 @@
     "On this device": "仅本机",
     "Device only": "仅本机",
     "Private notes": "私人备注",
+    "Shared workspace": "共享工作空间",
+    "Invite & assign": "邀请并指派",
+    "Open team boards": "打开团队看板",
     "Never synced to workspace members": "不会同步给工作空间成员",
     "This block stays on this device. Use the workspace above only to invite people and assign from Planner.":
       "此区域只保存在本机。上方工作空间仅用于邀请同事，并在 Planner 团队看板指派。",

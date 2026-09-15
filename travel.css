@@ -272,8 +272,8 @@
   display: none;
 }
 
-/* Hide the duplicate bottom theme pill when the bento dock already has theme. */
-body.travel-page.has-bento-rail .theme-toggle:not(.bento-rail-theme) {
+/* Hide the duplicate bottom theme pill; More drawer keeps its copy. */
+body.travel-page.has-bento-rail > .theme-toggle:not(.bento-rail-theme) {
   display: none !important;
 }
 

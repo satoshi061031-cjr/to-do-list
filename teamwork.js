@@ -1,23 +1,33 @@
 (function () {
   const STORAGE_KEY = "teamwork-page-v1";
 
+  const TEMPLATE_VALUES = new Set([
+    "Notes",
+    "Focus",
+    "Private notes",
+    "Availability",
+    "Local task notes",
+    "Local only",
+    "Tasks",
+  ]);
+
   const defaults = {
-    kicker: "Notes",
+    kicker: "",
     title: "",
     copy: "",
     statusLabel: "",
     statusMain: "",
     statusSub: "",
-    focusKicker: "Focus",
+    focusKicker: "",
     focusTitle: "",
     focusCopy: "",
-    notesKicker: "Notes",
-    notesTitle: "Private notes",
+    notesKicker: "",
+    notesTitle: "",
     notes: "",
-    membersKicker: "Local only",
-    membersTitle: "Availability",
-    tasksKicker: "Tasks",
-    tasksTitle: "Local task notes",
+    membersKicker: "",
+    membersTitle: "",
+    tasksKicker: "",
+    tasksTitle: "",
     members: [],
   };
 
@@ -30,15 +40,26 @@
   const memberRoleInput = document.getElementById("teamwork-member-role");
   const taskGrid = document.getElementById("teamwork-task-grid");
 
+  function scrubTemplateValue(value) {
+    const text = typeof value === "string" ? value.trim() : "";
+    if (!text || TEMPLATE_VALUES.has(text)) return "";
+    return value;
+  }
+
   function loadState() {
     try {
       const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
       if (!parsed || typeof parsed !== "object") return cloneDefaults();
-      return {
+      const merged = {
         ...defaults,
         ...parsed,
         members: Array.isArray(parsed.members) ? parsed.members : defaults.members,
       };
+      Object.keys(defaults).forEach((key) => {
+        if (key === "members") return;
+        if (typeof merged[key] === "string") merged[key] = scrubTemplateValue(merged[key]);
+      });
+      return merged;
     } catch (_) {
       return cloneDefaults();
     }

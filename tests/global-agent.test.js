@@ -188,6 +188,25 @@ test("planner completion and the Done column stay in sync both ways", () => {
   assert.equal(card().columnId, planned.id);
 });
 
+test("planner Done sync follows column status, not the English title", () => {
+  const { api } = createAgentData();
+  api.applyActions([
+    { type: "planner_add_column", title: "计划" },
+    { type: "planner_add_column", title: "已完成" },
+    { type: "planner_add_card", title: "本地化卡片", columnTitle: "计划" },
+  ]);
+  const board = Object.values(api.getSnapshot().planner.boards)[0];
+  const planned = board.columns.find((column) => column.status === "planned");
+  const done = board.columns.find((column) => column.status === "done");
+  const card = () => Object.values(api.getSnapshot().planner.boards)[0].entries[0];
+  assert.equal(planned.title, "计划");
+  assert.equal(done.title, "已完成");
+  assert.equal(card().columnId, planned.id);
+  assert.equal(api.applyActions([{ type: "planner_complete_card", matchText: "本地化卡片" }])[0].ok, true);
+  assert.equal(card().completed, true);
+  assert.equal(card().columnId, done.id);
+});
+
 test("normalizes flexible clock times and keeps dueTime on todos", () => {
   const { normalizeGlobalResult } = require("../server/global-agent");
   const result = normalizeGlobalResult(
