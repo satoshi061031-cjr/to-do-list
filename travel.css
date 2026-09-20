@@ -189,6 +189,11 @@
   background: color-mix(in srgb, var(--bg) 88%, black);
 }
 
+/* Tint OSM itself in dark theme. Keep markers in their own pane, unfiltered. */
+.travel-map.is-dark-basemap .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.88) saturate(0.35);
+}
+
 .travel-map .leaflet-control-zoom a,
 .travel-map .leaflet-control-attribution {
   border-color: var(--glass-border) !important;

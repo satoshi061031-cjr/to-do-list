@@ -623,17 +623,26 @@
 
   function removeCategory(catId, e) {
     e.stopPropagation();
-    const label = categoryLabelById(catId);
-    if (!window.confirm(`Delete category “${label}”? Tasks in it stay, without a category.`)) return;
+    const index = categories.findIndex((c) => c.id === catId);
+    if (index === -1) return;
+    const removed = categories[index];
+    const detached = todos.filter((t) => t.categoryId === catId).map((t) => t.id);
+    const wasSelected = selectedCategoryKey === catId;
     todos = todos.map((t) => (t.categoryId === catId ? { ...t, categoryId: null } : t));
     categories = categories.filter((c) => c.id !== catId);
-    if (selectedCategoryKey === catId) {
+    if (wasSelected) {
       selectedCategoryKey = "__all__";
       resetViewDayFilter();
     }
     saveAll();
     renderCategorySidebar();
     render();
+    offerUndo("Category deleted", () => {
+      categories.splice(Math.min(index, categories.length), 0, removed);
+      const reattach = new Set(detached);
+      todos = todos.map((t) => (reattach.has(t.id) ? { ...t, categoryId: catId } : t));
+      if (wasSelected) selectedCategoryKey = catId;
+    });
   }
 
   function renderCategorySidebar() {
@@ -1962,20 +1971,45 @@
     render();
   }
 
+  function offerUndo(message, restore) {
+    if (!window.DailySpaceUndo) return;
+    window.DailySpaceUndo.offer(message, () => {
+      restore();
+      saveAll();
+      renderCategorySidebar();
+      render();
+    });
+  }
+
   function remove(todoId) {
+    const index = todos.findIndex((x) => x.id === todoId);
+    if (index === -1) return;
+    const removed = todos[index];
     todos = todos.filter((x) => x.id !== todoId);
     saveAll();
     renderCategorySidebar();
     render();
+    offerUndo("Task deleted", () => {
+      todos.splice(Math.min(index, todos.length), 0, removed);
+    });
   }
 
   /** Remove completed tasks in the current sidebar category scope. */
   function clearCompletedInScope() {
     const drop = new Set(todosInCategoryAndDayScope().filter((t) => t.completed).map((t) => t.id));
+    if (!drop.size) return;
+    const restore = todos
+      .map((todo, index) => ({ todo, index }))
+      .filter((entry) => drop.has(entry.todo.id));
     todos = todos.filter((t) => !drop.has(t.id));
     saveAll();
     renderCategorySidebar();
     render();
+    offerUndo("Completed tasks cleared", () => {
+      restore.forEach((entry) => {
+        todos.splice(Math.min(entry.index, todos.length), 0, entry.todo);
+      });
+    });
   }
 
   function setFilter(next) {

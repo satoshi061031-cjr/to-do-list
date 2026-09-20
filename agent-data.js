@@ -742,20 +742,30 @@
     return (Array.isArray(actions) ? actions : []).some((action) => DESTRUCTIVE.has(action?.type));
   }
 
+  /** Dialog text never passes through the DOM translator, so pick it here. */
+  function t(en, zh) {
+    const i18n = typeof window !== "undefined" ? window.DailySpaceI18n : null;
+    return i18n && typeof i18n.t === "function" ? i18n.t(en, zh) : en;
+  }
+
   function confirmationText(actions) {
     const labels = {
-      todo_delete: "Delete to-do",
-      planner_delete_column: "Delete planner column",
-      planner_delete_card: "Delete planner card",
-      calendar_delete_reminder: "Delete reminder",
-      tally_delete_expense: "Delete expense",
-      tally_set_budget: "Change monthly budget",
-      teamwork_delete_member: "Delete local draft member",
-      teamwork_delete_task: "Delete local draft task",
+      todo_delete: t("Delete to-do", "删除待办"),
+      planner_delete_column: t("Delete planner column", "删除计划板栏目"),
+      planner_delete_card: t("Delete planner card", "删除计划板卡片"),
+      calendar_delete_reminder: t("Delete reminder", "删除提醒"),
+      tally_delete_expense: t("Delete expense", "删除支出"),
+      tally_set_budget: t("Change monthly budget", "修改月度预算"),
+      teamwork_delete_member: t("Delete local draft member", "删除本地草稿成员"),
+      teamwork_delete_task: t("Delete local draft task", "删除本地草稿任务"),
     };
     const risky = (Array.isArray(actions) ? actions : []).filter((action) => DESTRUCTIVE.has(action?.type));
     if (!risky.length) return "";
-    return `Confirm ${risky.length} sensitive change${risky.length === 1 ? "" : "s"}?\n\n${risky
+    const heading = t(
+      `Confirm ${risky.length} sensitive change${risky.length === 1 ? "" : "s"}?`,
+      `确认 ${risky.length} 项敏感改动？`
+    );
+    return `${heading}\n\n${risky
       .map((action) => `• ${labels[action.type] || action.type.replaceAll("_", " ")}`)
       .join("\n")}`;
   }

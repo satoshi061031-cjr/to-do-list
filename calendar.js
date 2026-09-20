@@ -12,6 +12,10 @@
     return window.DailySpaceI18n?.locale?.() === "zh" || String(uiLocale()).toLowerCase().startsWith("zh");
   }
 
+  function t(en, zh) {
+    return isZhLocale() ? zh : en;
+  }
+
   function formatClockTime(value) {
     const normalized = normalizeTime(value);
     if (!normalized) return String(value || "").trim();
@@ -544,7 +548,11 @@
     const start = normalizeTime(startTime);
     const end = normalizeTime(endTime);
     if (start && end && end < start) {
-      window.alert("End time should be later than start time.");
+      // Anchored to the field instead of a blocking alert.
+      reminderEndInput.setCustomValidity(
+        t("End time should be later than start time.", "结束时间需要晚于开始时间。")
+      );
+      reminderEndInput.reportValidity();
       reminderEndInput.focus();
       return;
     }
@@ -583,9 +591,17 @@
   }
 
   function removeReminder(reminderId) {
+    const index = reminders.findIndex((reminder) => reminder.id === reminderId);
+    if (index === -1) return;
+    const removed = reminders[index];
     reminders = reminders.filter((reminder) => reminder.id !== reminderId);
     saveCalendarState();
     render();
+    window.DailySpaceUndo?.offer("Reminder deleted", () => {
+      reminders.splice(Math.min(index, reminders.length), 0, removed);
+      saveCalendarState();
+      render();
+    });
   }
 
   function toggleTask(todoId) {
@@ -763,9 +779,7 @@
         block.title = "Click to delete reminder";
         block.addEventListener("click", (e) => {
           e.stopPropagation();
-          if (window.confirm(`Delete reminder “${reminder.text}”?`)) {
-            removeReminder(reminder.id);
-          }
+          removeReminder(reminder.id);
         });
         col.appendChild(block);
       });
@@ -1095,6 +1109,10 @@
       calSearchQuery = calSearchInput.value;
       render();
     });
+  }
+
+  if (reminderEndInput) {
+    reminderEndInput.addEventListener("input", () => reminderEndInput.setCustomValidity(""));
   }
 
   if (reminderForm) {

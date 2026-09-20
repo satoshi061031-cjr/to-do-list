@@ -309,6 +309,11 @@ function initWorkspacePanel() {
     });
   }
 
+  /** Dialog text never passes through the DOM translator, so pick it here. */
+  function t(en, zh) {
+    return window.DailySpaceI18n?.locale?.() === "zh" ? zh : en;
+  }
+
   function setStatus(message, isError) {
     if (!statusEl) return;
     statusEl.textContent = message || "";
@@ -671,7 +676,7 @@ function initWorkspacePanel() {
     leaveBtn.addEventListener("click", async () => {
       const workspace = selectedWorkspace();
       if (!workspace) return;
-      if (!window.confirm(`Leave “${workspace.name}”?`)) return;
+      if (!window.confirm(t(`Leave “${workspace.name}”?`, `退出“${workspace.name}”？`))) return;
       try {
         await request(`/api/workspaces/${encodeURIComponent(workspace.id)}/leave`, { method: "POST" });
         setStatus(`Left ${workspace.name}.`);
@@ -686,7 +691,13 @@ function initWorkspacePanel() {
     deleteWorkspaceBtn.addEventListener("click", async () => {
       const workspace = selectedWorkspace();
       if (!workspace) return;
-      if (!window.confirm(`Delete workspace “${workspace.name}”? This cannot be undone.`)) return;
+      const confirmed = window.confirm(
+        t(
+          `Delete workspace “${workspace.name}”? This cannot be undone.`,
+          `删除工作区“${workspace.name}”？此操作无法撤销。`
+        )
+      );
+      if (!confirmed) return;
       try {
         await request(`/api/workspaces/${encodeURIComponent(workspace.id)}`, { method: "DELETE" });
         setStatus(`Deleted ${workspace.name}.`);
@@ -735,7 +746,10 @@ function initWorkspacePanel() {
       const workspace = selectedWorkspace();
       const userId = removeBtn.getAttribute("data-remove-member");
       if (!workspace || !userId) return;
-      if (!window.confirm(`Remove ${userId} from this workspace?`)) return;
+      const confirmed = window.confirm(
+        t(`Remove ${userId} from this workspace?`, `将 ${userId} 移出这个工作区？`)
+      );
+      if (!confirmed) return;
       try {
         await request(
           `/api/workspaces/${encodeURIComponent(workspace.id)}/members/${encodeURIComponent(userId)}`,

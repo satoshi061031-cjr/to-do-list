@@ -196,8 +196,9 @@ body.calendar-page {
     white-space: nowrap;
     text-overflow: ellipsis;
     max-width: 100%;
-    font-size: 0.62rem;
-    letter-spacing: 0.01em;
+    font-size: var(--type-label-size);
+    letter-spacing: var(--type-label-tracking);
+    font-family: var(--font-ui);
   }
 
   body.has-bento-rail .bento-rail-link svg {

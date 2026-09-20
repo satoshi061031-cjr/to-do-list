@@ -103,6 +103,33 @@
   color-scheme: dark;
 }
 
+@media (max-width: 819px) {
+  :root {
+    --type-label-size: 0.8125rem;
+    --type-label-tracking: 0.02em;
+    --type-display-lh: 1.2;
+    --type-title-tracking: 0.01em;
+  }
+
+  html[lang^="zh"] {
+    --type-display-tracking: 0;
+    --type-title-tracking: 0;
+    --type-body-tracking: 0;
+    --type-label-tracking: 0;
+  }
+
+  input[type="text"],
+  input[type="search"],
+  input[type="email"],
+  input[type="number"],
+  input[type="date"],
+  input[type="time"],
+  textarea,
+  select {
+    font-size: var(--type-body-size);
+  }
+}
+
 *,
 *::before,
 *::after {
@@ -118,22 +145,32 @@ body {
   background-attachment: fixed;
   color: var(--text);
   line-height: 1.65;
-  letter-spacing: 0.02em;
+  letter-spacing: var(--type-body-tracking);
   -webkit-font-smoothing: antialiased;
 }
 
-h1, h2, h3,
+h1, h2,
 .title,
 .app-greeting-title,
 .calendar-title,
 .tally-heading,
 .teamwork-title-static,
 .planner-month-title,
+.planner-title,
 .m-dash-title,
 .m-section-title,
 .bento-rail-label,
 [class*="-kicker"] {
   font-family: var(--font-display);
+}
+
+/* Card and list titles are content, not posters. */
+.planner-card-face-title,
+.planner-card-title,
+.todo-label,
+.todo-text,
+.todo-item-text {
+  font-family: var(--font-ui);
 }
 
 body::before,
@@ -653,6 +690,58 @@ body.has-notif-bell .language-toggle {
   flex-wrap: wrap;
   gap: var(--space-sm);
   margin-top: var(--space-md);
+}
+
+.undo-bar {
+  position: fixed;
+  left: 50%;
+  bottom: var(--space-lg);
+  z-index: 225;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  width: min(26rem, calc(100vw - 2rem));
+  padding: var(--space-sm) var(--space-sm) var(--space-sm) var(--space-md);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  background: var(--glass-strong);
+  box-shadow: var(--shadow-pop);
+  backdrop-filter: blur(14px) saturate(1.08);
+  -webkit-backdrop-filter: blur(14px) saturate(1.08);
+  color: var(--text);
+  /* Slide only. A throttled tab that never advances the animation still shows
+     an opaque bar, which matters when the message is the only path to undo. */
+  transform: translateX(-50%);
+  animation: undo-bar-in 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.undo-bar[hidden] {
+  display: none;
+}
+
+@keyframes undo-bar-in {
+  from {
+    transform: translate(-50%, 0.5rem);
+  }
+}
+
+.undo-bar-text {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--type-body-size);
+  letter-spacing: var(--type-body-tracking);
+}
+
+.undo-bar-action {
+  flex-shrink: 0;
+  min-height: 2.75rem;
+  padding-inline: 1.15rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .undo-bar {
+    animation: none;
+  }
 }
 
 .notif-bell {
@@ -2602,20 +2691,8 @@ body.todo-source-assigned .evening-review {
 
 .add-form-submit {
   flex-shrink: 0;
-}
-
-@media (min-width: 820px) {
-  .add-form-submit {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-  }
+  min-height: 2.35rem;
+  padding-inline: 1.1rem;
 }
 
 .toolbar-quiet {
@@ -3368,6 +3445,19 @@ body.todo-source-assigned .app-atmosphere {
   opacity: 1;
 }
 
+/* Hover cannot reveal anything on touch, so the control stays visible there. */
+@media (hover: none), (max-width: 819px) {
+  .todo-delete,
+  .category-remove {
+    opacity: 1;
+  }
+
+  .todo-delete {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+}
+
 .todo-delete:hover {
   background: color-mix(in srgb, var(--danger) 14%, transparent);
   color: var(--danger);
@@ -3837,7 +3927,8 @@ body.due-day-page-open {
     flex-direction: column;
   }
 
-  .btn-primary {
+  .add-form-row .btn-primary,
+  .guest-save-actions .btn {
     width: 100%;
   }
 
@@ -4241,6 +4332,22 @@ body.has-bento-rail .bento-rail {
   background: var(--bento-rail-bg);
   color: var(--bento-rail-fg);
   box-shadow: var(--shadow-soft);
+}
+
+@media (min-width: 820px) {
+  body.has-bento-rail .bento-rail {
+    align-self: flex-start;
+    position: sticky;
+    top: var(--space-md);
+    height: calc(100dvh - var(--space-md) * 2);
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - var(--space-md) * 2);
+    box-sizing: border-box;
+  }
+
+  body.has-bento-rail .bento-rail-nav {
+    min-height: 0;
+    overflow: auto;
+  }
 }
 
 body.has-bento-rail .bento-rail-brand {

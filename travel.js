@@ -1015,16 +1015,12 @@
   }
 
   function basemapSpec() {
-    const dark = isDarkTheme();
     return {
-      url: dark
-        ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-        : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+      url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
       options: {
         maxZoom: 19,
-        subdomains: "abcd",
         attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       },
     };
   }
@@ -1773,7 +1769,7 @@
   deleteTripBtn?.addEventListener("click", async () => {
     const trip = activeTrip();
     if (!trip) return;
-    if (!window.confirm(`Delete trip “${trip.name}”?`)) return;
+    if (!window.confirm(t(`Delete trip “${trip.name}”?`, `删除行程“${trip.name}”？`))) return;
     if (isSharedTrip(trip)) {
       if (trip.role !== "owner") return;
       try {

@@ -1339,6 +1339,11 @@ body.calendar-page .calendar-app > .app-greeting {
     order: 2;
   }
 
+  body.calendar-page .cal-week-day-wd {
+    font-size: var(--type-label-size);
+    letter-spacing: var(--type-label-tracking);
+  }
+
   body.calendar-page .cal-phone-kicker {
     display: block;
     margin: 0 0 0.15rem;
@@ -1346,7 +1351,7 @@ body.calendar-page .calendar-app > .app-greeting {
     font-size: var(--type-title-size);
     font-weight: 400;
     letter-spacing: var(--type-title-tracking);
-    line-height: 1.15;
+    line-height: var(--type-display-lh);
   }
 
   body.calendar-page .cal-composer {

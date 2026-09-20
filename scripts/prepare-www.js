@@ -48,6 +48,7 @@ const files = [
   "workspace-tasks.js",
   "daily-loop.js",
   "bento-rail.js",
+  "undo-bar.js",
   "vendor/leaflet/leaflet.css",
   "vendor/leaflet/leaflet.js",
   "vendor/leaflet/images/marker-icon.png",

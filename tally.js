@@ -281,9 +281,17 @@
         `;
         row.querySelector(".tally-record-delete").addEventListener("click", (event) => {
           event.stopPropagation();
+          const index = state.records.findIndex((item) => item.id === record.id);
+          if (index === -1) return;
+          const removed = state.records[index];
           state.records = state.records.filter((item) => item.id !== record.id);
           saveState();
           render();
+          window.DailySpaceUndo?.offer("Expense deleted", () => {
+            state.records.splice(Math.min(index, state.records.length), 0, removed);
+            saveState();
+            render();
+          });
         });
         row.addEventListener("click", (event) => {
           if (!event.target.closest(".tally-record-delete")) setSheetOpen(true, record);

@@ -13,6 +13,13 @@
     STORAGE_THEME,
   ];
   const USER_SNAPSHOT_INTERVAL_MS = 30000;
+
+  /** Dialog text never passes through the DOM translator, so pick it here. */
+  function t(en, zh) {
+    const i18n = window.DailySpaceI18n;
+    return i18n && typeof i18n.t === "function" ? i18n.t(en, zh) : en;
+  }
+
   const USER_LOCAL_CACHE_PREFIX = "daily-space-user-cache-v1:";
   const USER_BASELINE_PREFIX = "daily-space-user-baseline-v1:";
   const USER_LAST_ID_STORAGE = "daily-space-last-user-v1";
@@ -655,11 +662,19 @@
         const provider = providerButton.getAttribute("data-provider") || "provider";
         if (provider === "google") {
           startGoogleSignIn().catch(function (error) {
-            window.alert(error instanceof Error ? error.message : "Google sign-in failed.");
+            window.alert(
+              error instanceof Error
+                ? error.message
+                : t("Google sign-in failed.", "Google 登录失败。")
+            );
           });
         } else if (provider === "outlook") {
           startOutlookSignIn().catch(function (error) {
-            window.alert(error instanceof Error ? error.message : "Outlook sign-in failed.");
+            window.alert(
+              error instanceof Error
+                ? error.message
+                : t("Outlook sign-in failed.", "Outlook 登录失败。")
+            );
           });
         }
       }
@@ -671,7 +686,9 @@
         try {
           await downloadUserDataExport();
         } catch (error) {
-          window.alert(error instanceof Error ? error.message : "Export failed.");
+          window.alert(
+            error instanceof Error ? error.message : t("Export failed.", "导出失败。")
+          );
         } finally {
           exportButton.removeAttribute("disabled");
         }
@@ -681,7 +698,10 @@
     if (deleteButton) {
       deleteButton.addEventListener("click", async function () {
         const confirmed = window.confirm(
-          "Delete this Daily Space account?\n\nThis removes your cloud snapshot and connected mailboxes on the server. This device will be signed out."
+          t(
+            "Delete this Daily Space account?\n\nThis removes your cloud snapshot and connected mailboxes on the server. This device will be signed out.",
+            "删除这个 Daily Space 账号？\n\n服务器上的云端备份和已连接的邮箱都会被移除，本设备将退出登录。"
+          )
         );
         if (!confirmed) return;
         deleteButton.setAttribute("disabled", "true");
@@ -700,7 +720,11 @@
           closeModal();
           window.location.href = "todo.html#today";
         } catch (error) {
-          window.alert(error instanceof Error ? error.message : "Could not delete account.");
+          window.alert(
+            error instanceof Error
+              ? error.message
+              : t("Could not delete account.", "无法删除账号。")
+          );
         } finally {
           deleteButton.removeAttribute("disabled");
         }
@@ -949,7 +973,9 @@
       const provider = providerButton.getAttribute("data-welcome-provider");
       if (provider !== "google" && provider !== "outlook") return;
       startWelcomeSignIn(provider).catch(function (error) {
-        window.alert(error instanceof Error ? error.message : "Sign-in failed.");
+        window.alert(
+          error instanceof Error ? error.message : t("Sign-in failed.", "登录失败。")
+        );
       });
     });
 
@@ -2028,6 +2054,15 @@
       if (existing) existing.remove();
     }
 
+    /** A row-flex main area would lay the banner out as a narrow side column. */
+    function bannerHost() {
+      const main = document.querySelector(".main-area");
+      if (!main) return document.querySelector(".app") || document.body;
+      const style = window.getComputedStyle(main);
+      const isRow = style.display.includes("flex") && style.flexDirection.startsWith("row");
+      return isRow && main.firstElementChild ? main.firstElementChild : main;
+    }
+
     function renderBanner() {
       removeBanner();
       if (signedIn() || dismissed() || !hasWork()) return;
@@ -2046,8 +2081,7 @@
         '<button type="button" class="btn" data-guest-signin="outlook">Continue with Outlook</button>' +
         '<button type="button" class="btn btn-ghost" data-guest-save-later>Later</button>' +
         "</div>";
-      const host =
-        document.querySelector(".main-area") || document.querySelector(".app") || document.body;
+      const host = bannerHost();
       host.insertBefore(banner, host.firstChild);
       if (window.DailySpaceI18n && typeof window.DailySpaceI18n.apply === "function") {
         window.DailySpaceI18n.apply();
@@ -2075,7 +2109,9 @@
         provider === "outlook" ? auth.startOutlookSignIn : auth.startGoogleSignIn;
       if (typeof start === "function") {
         start().catch(function (error) {
-          window.alert(error instanceof Error ? error.message : "Sign-in failed.");
+          window.alert(
+            error instanceof Error ? error.message : t("Sign-in failed.", "登录失败。")
+          );
         });
       }
     });

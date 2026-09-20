@@ -67,10 +67,17 @@
   const plannerAddColumnBtn = document.getElementById("planner-add-column");
   const plannerClearDoneBtn = document.getElementById("planner-clear-done");
   const plannerSearchInput = document.getElementById("planner-search");
+  const plannerStatusStripEl = document.getElementById("planner-status-strip");
   let plannerSearchQuery = "";
+  let selectedColumnId = "";
 
   function isZhLocale() {
     return window.DailySpaceI18n?.locale?.() === "zh";
+  }
+
+  /** Dialog text never passes through the DOM translator, so pick it here. */
+  function t(en, zh) {
+    return isZhLocale() ? zh : en;
   }
   const plannerTeamStatusEl = document.createElement("p");
   plannerTeamStatusEl.className = "planner-team-status";
@@ -102,6 +109,52 @@
   function columnStatusTitle(status) {
     const spec = COLUMN_STATUS_TITLES[status] || COLUMN_STATUS_TITLES.planned;
     return isZhLocale() ? spec.zh : spec.en;
+  }
+
+  function columnDisplayTitle(col) {
+    return col.systemKey ? columnStatusTitle(columnStatusKey(col)) : col.title;
+  }
+
+  function ensureSelectedColumn() {
+    if (plannerColumns.some((col) => col.id === selectedColumnId)) return;
+    const planned = plannerColumns.find((col) => columnStatusKey(col) === "planned");
+    selectedColumnId = (planned || plannerColumns[0] || {}).id || "";
+  }
+
+  function renderStatusStrip() {
+    if (!plannerStatusStripEl) return;
+    const phone = isMobileSidebar();
+    plannerStatusStripEl.hidden = !phone || plannerColumns.length === 0;
+    if (plannerStatusStripEl.hidden) {
+      plannerStatusStripEl.innerHTML = "";
+      return;
+    }
+    ensureSelectedColumn();
+    plannerStatusStripEl.innerHTML = "";
+    plannerColumns.forEach((col) => {
+      const count = plannerEntries.filter((entry) => entry.columnId === col.id && entryMatchesSearch(entry)).length;
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "planner-status-chip" + (col.id === selectedColumnId ? " is-selected" : "");
+      btn.setAttribute("aria-pressed", col.id === selectedColumnId ? "true" : "false");
+      const label = document.createElement("span");
+      label.className = "planner-status-chip-label";
+      label.textContent = columnDisplayTitle(col);
+      const countEl = document.createElement("span");
+      countEl.className = "planner-status-chip-count";
+      countEl.textContent = String(count);
+      btn.append(label, countEl);
+      btn.addEventListener("click", () => {
+        if (selectedColumnId === col.id) return;
+        selectedColumnId = col.id;
+        renderPlanner();
+      });
+      plannerStatusStripEl.appendChild(btn);
+    });
+    const selected = plannerStatusStripEl.querySelector(".is-selected");
+    if (selected && typeof selected.scrollIntoView === "function") {
+      selected.scrollIntoView({ inline: "center", block: "nearest", behavior: "instant" });
+    }
   }
 
   function inferColumnStatus(title) {
@@ -810,6 +863,7 @@
     const e = plannerEntries.find((x) => x.id === entryId);
     if (!e || e.columnId === columnId) return;
     e.columnId = columnId;
+    if (isMobileSidebar()) selectedColumnId = columnId;
     /** @type {{ columnId: string; completed?: boolean }} */
     const patch = { columnId };
     const doneCol = findDoneColumn();
@@ -1001,8 +1055,8 @@
     evt.stopPropagation();
     if (planners.length <= 1) return;
     const target = planners.find((p) => p.id === plannerId);
-    const name = target ? target.name : "planner";
-    if (!window.confirm(`Delete planner “${name}”?`)) return;
+    const name = target ? target.name : t("planner", "计划板");
+    if (!window.confirm(t(`Delete planner “${name}”?`, `删除计划板“${name}”？`))) return;
     boards[selectedPlannerId] = { columns: plannerColumns, entries: plannerEntries };
     planners = planners.filter((p) => p.id !== plannerId);
     delete boards[plannerId];
@@ -1124,7 +1178,7 @@
         plannerColumns.forEach((col) => {
           const opt = document.createElement("option");
           opt.value = col.id;
-          opt.textContent = `${col.emoji ? col.emoji + " " : ""}${col.title}`.trim();
+          opt.textContent = columnDisplayTitle(col);
           if (col.id === entry.columnId) opt.selected = true;
           moveSelect.appendChild(opt);
         });
@@ -1351,7 +1405,8 @@
 
   async function removeTeamBoard(boardId, boardName) {
     if (!canManageTeamBoards) return;
-    if (!window.confirm(`Delete team board “${boardName || "Board"}”?`)) return;
+    const label = boardName || t("Board", "看板");
+    if (!window.confirm(t(`Delete team board “${label}”?`, `删除团队看板“${label}”？`))) return;
     try {
       await apiRequest(`/api/boards/${encodeURIComponent(boardId)}`, { method: "DELETE" });
       if (selectedTeamBoardId === boardId) {
@@ -1373,9 +1428,10 @@
 
   async function createTeamBoard() {
     if (!canManageTeamBoards || !selectedWorkspaceId) return;
-    const name = window.prompt("Team board name", "Team board");
+    const fallback = t("Team board", "团队看板");
+    const name = window.prompt(t("Team board name", "团队看板名称"), fallback);
     if (name == null) return;
-    const trimmed = String(name).trim().slice(0, 80) || "Team board";
+    const trimmed = String(name).trim().slice(0, 80) || fallback;
     try {
       const created = await apiRequest(`/api/workspaces/${encodeURIComponent(selectedWorkspaceId)}/boards`, {
         method: "POST",
@@ -1422,7 +1478,7 @@
     const titleInp = document.createElement("input");
     titleInp.type = "text";
     titleInp.className = "planner-column-title-input";
-    titleInp.value = col.systemKey ? columnStatusTitle(columnStatusKey(col)) : col.title;
+    titleInp.value = columnDisplayTitle(col);
     titleInp.readOnly = true;
     titleInp.setAttribute("aria-label", "Column title");
     titleInp.maxLength = 80;
@@ -1591,10 +1647,15 @@
     }
 
     plannerBoardEl.innerHTML = "";
+    ensureSelectedColumn();
+    renderStatusStrip();
     if (isEmpty) return;
-
     plannerColumns.forEach((col) => {
-      plannerBoardEl.appendChild(buildPlannerColumnEl(col));
+      const colEl = buildPlannerColumnEl(col);
+      if (isMobileSidebar() && col.id === selectedColumnId) {
+        colEl.classList.add("is-phone-active");
+      }
+      plannerBoardEl.appendChild(colEl);
     });
   }
 
@@ -1647,6 +1708,12 @@
     renderPlannerSidebar();
     renderPlanner();
   });
+
+  if (typeof window.matchMedia === "function") {
+    window.matchMedia("(max-width: 819px)").addEventListener("change", () => {
+      renderPlanner();
+    });
+  }
 
   window.addEventListener("daily-space-auth-updated", () => {
     loadTeamBoards().then(() => {

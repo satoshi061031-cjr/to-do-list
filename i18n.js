@@ -284,6 +284,12 @@
     "Sign in to Daily Space to pull your inbox.": "登录 Daily Space 后即可拉取收件箱。",
     "No mailbox yet — connect Gmail or Outlook below.": "还没有邮箱 — 请在下方连接 Gmail 或 Outlook。",
     "Clear completed": "清除已完成",
+    Undo: "撤销",
+    "Task deleted": "已删除任务",
+    "Expense deleted": "已删除支出",
+    "Reminder deleted": "已删除提醒",
+    "Category deleted": "已删除分类",
+    "Completed tasks cleared": "已清除完成的任务",
     "Clear day": "清除日期筛选",
     "No tasks yet—add your first one above.": "还没有任务，在上方添加第一项吧。",
     "All caught up": "全部完成",
@@ -654,6 +660,7 @@
     "e.g. Add buy milk today…": "例如：今天 买牛奶…",
     "Search anything…": "搜索任何内容…",
     "Search cards": "搜索卡片",
+    "Board columns": "看板列",
     "Column title": "分栏标题",
     "Search tasks & reminders…": "搜索任务和提醒…",
     "Search schedule": "搜索日程",
@@ -1014,11 +1021,17 @@
     });
   }
 
+  /** Pick a string by locale. For text the DOM translator never sees: dialogs, alerts. */
+  function t(en, zh) {
+    return locale() === "zh" ? zh : en;
+  }
+
   window.DailySpaceI18n = {
     locale,
     localeTag,
     setLocale,
     apply,
+    t,
   };
 
   document.addEventListener("DOMContentLoaded", () => {

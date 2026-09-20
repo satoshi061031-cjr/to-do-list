@@ -139,6 +139,8 @@ Body copy, form fields, mail summaries, and card notes use a readable CJK/UI sta
 
 Latin display glyphs use Impact / condensed fallbacks first. Chinese (and other CJK) glyphs skip those faces and render through explicit East-Asian fallbacks — `PingFang SC`, `Hiragino Sans GB`, `Microsoft YaHei`, then `Noto Sans SC` — before generic `sans-serif`. Keep this full stack on display/title/label roles; body copy should start with the CJK/UI faces. Do not rely on bare `sans-serif` alone for Chinese.
 
+On phone (≤819px), remap `label-caps` to ~13px (`0.8125rem`) and display line-height to 1.2 so dock, chips, and greetings stay readable at arm’s length. Do not keep 10px dock labels. Chinese (`html[lang^=zh]`) uses zero letter-spacing — the 0.08em label tracking is a Latin caps device. Card titles, task names, and notes always use the body CJK/UI stack, never Impact. Phone text fields stay at `body-md` (16px) so iOS does not zoom on focus.
+
 Do not switch to Inter, Roboto, Arial, or system-ui as the brand voice for titles.
 
 ## Layout
@@ -146,9 +148,11 @@ Do not switch to Inter, Roboto, Arial, or system-ui as the brand voice for title
 - Max content width around `min(1120px, 92vw)`.
 - Module gaps use `spacing.md`–`spacing.lg`.
 - Desktop: multi-column grids with breathing room; mobile: single column.
-- Phone chrome is one system: desktop keeps the slim rail; phone uses one **fixed, centered** dock (Today / Calendar / Tally / More). Menu, theme, and language live in More — no second Menu button and no corner theme/language pills. The More drawer omits pages already on the dock.
+- Phone chrome is one system: desktop keeps the slim rail **stuck to the viewport** (theme and language stay at its foot — they must not scroll away with long pages); phone uses one **fixed, centered** dock (Today / Calendar / Tally / More). Menu, theme, and language live in More on the phone — no second Menu button and no corner theme/language pills. The More drawer omits pages already on the dock.
 - One job per section: one heading, one short supporting line, one primary interaction cluster.
-- Todo hub: greeting + Today hero + a visible add form. Agent opens as a centered glass dialog from Ask agent — same overlay language as login and shortcuts, not an in-page chat or side dock. No floating agent FAB on Todo.
+- The guest “sign in to keep this work” notice is a full-width glass card at the top of the page content column, never a side column beside it.
+- Full-width buttons belong to containers that stack (the phone add form, the guest notice). Do not widen `button-primary` globally at a breakpoint — it crushes text beside it in flex rows.
+- Todo hub: greeting + Today hero + a visible add form (desktop includes the yellow Add next to the field — do not clip it to a 1×1 screen-reader node). Agent opens as a centered glass dialog from Ask agent — same overlay language as login and shortcuts, not an in-page chat or side dock. No floating agent FAB on Todo.
 - Todo mobile (`todo-m.html`) is a Welcome-style Today: greeting + circular ghost (agent) top-right, a pill add field with date chip, a liquid-glass hero with remaining count + yellow Add, “Today’s tasks” with a Done link, liquid-glass task cards, and a **fixed, centered** liquid-glass bottom dock. No second add control beside the section title, week strip, status pills, source/filter chips, or evening-review card. The ghost opens the same centered glass agent dialog. Theme and language live in More. Desktop stays denser.
 - Google or Outlook sign-in connects that account across Mail and Calendar (plus workspace snapshot). A guest who already has tasks is reminded to sign in to save.
 - Calendar desktop top module mirrors a schedule header: search + filter chips, “Stay up to date” headline, week-range pill with prev/next, yellow “+ Add reminder”, and Today/Week/Month view toggles — then the week time grid and quiet selected-day strip. Hour labels follow the UI language (08:00 in Chinese, 8 AM in English). Tokens stay yellow `tertiary` / glass; no cream or second brand hue.
@@ -156,7 +160,8 @@ Do not switch to Inter, Roboto, Arial, or system-ui as the brand voice for title
 - Tally phone is today’s spend, a single amount + category field, and the month’s list. The agent ghost sits top-right of the heading — same place as Today. Charts, shared switch, export, and the add FAB stay off the first screen; the sheet is for edit and shared/FX details. Desktop keeps the fuller ledger.
 - Planner board uses a soft Kanban layout **inside the main panel only**: glass panel + muted column tracks, glass cards, Day/Week/Month/Year range pills, and search. Fixed columns persist `status` (`planned` / `progress` / `done` / `hold`) and localize their titles; completion syncs by status, not by the English word “Done”. Columns are not deletable. Cards add only via `+ Add card` under a column.
 - Planner header is greeting + title (“Landing Page”). Collapsed cards show title + note preview; expand to edit. Site chrome (bento rail, menu sidebar, greeting) stays the shared Daily Space pattern. Accent remains yellow `tertiary`.
-- Travel empty state is a vertical stack: greeting, destination prompt, yellow Add, then a quiet note. Do not place the note beside the greeting. With a trip, Travel is a full-bleed map (Leaflet + OpenStreetMap) with a glass stop panel overlaid on the side: day chips, searchable places, and stop details. Keep yellow markers; do not introduce a second brand hue for map chrome.
+- Planner phone is one status at a time: greeting + board title with the agent ghost top-right, status chips (Planned / In Progress / Done / On Hold) with counts, then a vertical liquid-glass card list. The four-column Kanban stays on desktop. Move a card by expanding it and picking a column — do not rely on drag.
+- Travel empty state is a vertical stack: greeting, destination prompt, yellow Add, then a quiet note. Do not place the note beside the greeting. With a trip, Travel is a full-bleed map (Leaflet + **OpenStreetMap tiles**, no basemap API key) with a glass stop panel overlaid on the side: day chips, searchable places, and stop details. Dark theme tints the OSM pane; markers stay unfiltered yellow. Do not use Carto/Mapbox raster tiles that render “API KEY REQUIRED”.
 - Teamwork splits **shared workspace** (invite people, Planner assignments — solid glass with a yellow edge) from **device-only notes** (dashed quieter panel). Default labels stay as localized placeholders and are not written into saved user values.
 
 ## Elevation & Depth
@@ -180,8 +185,17 @@ Use large radii: `rounded.sm` (18px), `rounded.md` (24px), `rounded.lg` (36px). 
 - **card-glass / liquid-glass:** Module shells (todo, tally, teamwork). Prefer glass tokens over opaque white cards. Mobile Today / Calendar / dock use the liquid-glass treatment.
 - **input-bubble:** Transparent until focus, then elevated bubble treatment.
 - **kicker:** Small uppercase yellow labels above titles.
+- **undo-bar:** Glass pill, bottom-centered, holding one short message plus a yellow Undo. It measures the dock and sits above it rather than assuming a breakpoint. Visible ~6s, dismissable with Escape.
 
 Variants that need hover/active states should keep the same token family; do not introduce purple, glow-heavy, or multi-shadow fashion defaults.
+
+## Destructive Actions
+
+- Deleting a task, expense, reminder, or category applies immediately and offers the undo bar. Do not put a confirm in front of a reversible delete.
+- Reserve `confirm` for things the app cannot restore: account deletion, leaving or deleting a shared workspace, removing a member, deleting a planner or trip.
+- Hover cannot reveal anything on touch. Row delete controls stay visible and are at least 2.75rem square below the phone breakpoint; desktop keeps hover reveal.
+- Field errors belong on the field (`setCustomValidity` + `reportValidity`), not in a blocking `alert`.
+- Dialog and alert copy never reaches the DOM translator, so pick it through `DailySpaceI18n.t(en, zh)`.
 
 ## Do's and Don'ts
 

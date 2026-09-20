@@ -103,7 +103,7 @@ body.todo-mobile .app-greeting-avatar {
 body.todo-mobile .app-greeting-title {
   margin: 0;
   font-size: var(--type-title-size);
-  line-height: 1.15;
+  line-height: var(--type-display-lh);
   letter-spacing: var(--type-title-tracking);
   color: var(--m-ink);
   font-weight: 400;
@@ -128,7 +128,7 @@ body.todo-mobile .m-top:has(.app-greeting) .m-greet {
 body.todo-mobile .m-greet {
   margin: 0;
   font-size: var(--type-title-size);
-  line-height: 1.15;
+  line-height: var(--type-display-lh);
   letter-spacing: var(--type-title-tracking);
   color: var(--m-ink);
   font-weight: 400;
@@ -175,7 +175,7 @@ body.todo-mobile .m-dash-title {
   margin: 0.35rem 0 0;
   color: var(--m-ink);
   font-size: var(--type-title-size);
-  line-height: 1.2;
+  line-height: var(--type-display-lh);
   letter-spacing: var(--type-title-tracking);
 }
 
@@ -246,8 +246,8 @@ body.todo-mobile .m-day {
 }
 
 body.todo-mobile .m-day-wd {
-  font-size: 0.62rem;
-  letter-spacing: 0.04em;
+  font-size: var(--type-label-size);
+  letter-spacing: var(--type-label-tracking);
   text-transform: uppercase;
 }
 
@@ -371,6 +371,7 @@ body.todo-mobile .todo-item .m-task-status {
   color: var(--m-muted);
   font-size: var(--type-label-size);
   letter-spacing: var(--type-label-tracking);
+  font-family: var(--font-ui);
 }
 
 body.todo-mobile .todo-item.completed .todo-text,
@@ -665,7 +666,9 @@ body.todo-mobile.has-bento-rail .bento-rail-sr {
   white-space: nowrap;
   text-overflow: ellipsis;
   max-width: 100%;
-  font-size: 0.62rem;
+  font-size: var(--type-label-size);
+  letter-spacing: var(--type-label-tracking);
+  font-family: var(--font-ui);
 }
 
 body.todo-mobile.has-bento-rail .theme-toggle.bento-rail-theme,
