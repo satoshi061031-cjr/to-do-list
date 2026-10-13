@@ -437,7 +437,7 @@
         <button type="button" class="auth-close" data-auth-close data-dialog-close aria-label="Close login">×</button>
         <p class="auth-kicker">Daily Space</p>
         <h2 class="auth-title" id="auth-title">Sign in</h2>
-        <p class="auth-copy">Continue with a provider to keep your workspace synced.</p>
+        <p class="auth-copy">Sign in with Google to sync your workspace, or continue as guest to keep it on this device.</p>
         <div class="auth-provider-list">
           <button type="button" class="auth-provider" data-provider="google">
             <span class="auth-provider-icon" aria-hidden="true">
@@ -462,20 +462,15 @@
             </span>
             <span>Sign in with Google</span>
           </button>
-          <button type="button" class="auth-provider" data-provider="outlook">
+          <button type="button" class="auth-provider" data-auth-guest>
             <span class="auth-provider-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" focusable="false">
-                <path fill="#f25022" d="M2 2h9.2v9.2H2z" />
-                <path fill="#7fba00" d="M12.8 2H22v9.2h-9.2z" />
-                <path fill="#00a4ef" d="M2 12.8h9.2V22H2z" />
-                <path fill="#ffb900" d="M12.8 12.8H22V22h-9.2z" />
-              </svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" focusable="false"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
             </span>
-            <span>Sign in with Outlook</span>
+            <span>Continue as guest</span>
           </button>
         </div>
         <div class="auth-account-actions" hidden>
-          <p class="auth-account-hint">Signed in with Google or Outlook, Mail and Calendar use that same account.</p>
+          <p class="auth-account-hint">Mail and Calendar use your connected account.</p>
           <button type="button" class="auth-export">Download my data</button>
           <button type="button" class="auth-delete">Delete account</button>
           <p class="auth-install-hint" hidden></p>
@@ -516,7 +511,7 @@
     function renderAuth() {
       const state = readAuthState();
       authLabel.textContent = state ? state.label : "Sign in";
-      authHint.textContent = state ? state.provider : "Google or Outlook";
+      authHint.textContent = state ? state.provider : "Google or local guest";
       if (!state) {
         authSync.hidden = true;
       } else if (userSnapshotStatus === "offline" || !isBrowserOnline()) {
@@ -568,7 +563,7 @@
       if (authCopy) {
         authCopy.textContent = state
           ? "Download a copy, fix sync conflicts from the Account row, or delete your cloud account."
-          : "Continue with a provider to keep your workspace synced.";
+          : "Sign in with Google to sync your workspace, or continue as guest to keep it on this device.";
       }
       updateInstallHint();
       renderGreeting();
@@ -630,27 +625,8 @@
       window.location.href = payload.authUrl;
     }
 
-    async function startOutlookSignIn() {
-      const response = await fetch("/api/auth/outlook/start", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          returnTo: window.location.pathname + window.location.search,
-        }),
-      });
-      const payload = await response.json().catch(function () {
-        return {};
-      });
-      if (!response.ok) {
-        throw new Error((payload && payload.error) || "Outlook sign-in failed.");
-      }
-      if (!payload.authUrl) throw new Error("Missing Outlook authorization URL.");
-      window.location.href = payload.authUrl;
-    }
-
     window.DailySpaceAuth = {
       startGoogleSignIn,
-      startOutlookSignIn,
     };
 
     authButton.addEventListener("click", openModal);
@@ -658,7 +634,10 @@
     modal.addEventListener("click", function (event) {
       const target = event.target;
       if (!(target instanceof Element)) return;
-      if (target.matches("[data-auth-close]")) closeModal();
+      if (target.matches("[data-auth-close]") || target.closest("[data-auth-guest]")) {
+        closeModal();
+        return;
+      }
       const providerButton = target.closest(".auth-provider");
       if (providerButton) {
         const provider = providerButton.getAttribute("data-provider") || "provider";
@@ -668,14 +647,6 @@
               error instanceof Error
                 ? error.message
                 : t("Google sign-in failed.", "Google 登录失败。")
-            );
-          });
-        } else if (provider === "outlook") {
-          startOutlookSignIn().catch(function (error) {
-            window.alert(
-              error instanceof Error
-                ? error.message
-                : t("Outlook sign-in failed.", "Outlook 登录失败。")
             );
           });
         }
@@ -973,7 +944,7 @@
       const providerButton = target.closest("[data-welcome-provider]");
       if (!providerButton) return;
       const provider = providerButton.getAttribute("data-welcome-provider");
-      if (provider !== "google" && provider !== "outlook") return;
+      if (provider !== "google") return;
       startWelcomeSignIn(provider).catch(function (error) {
         window.alert(
           error instanceof Error ? error.message : t("Sign-in failed.", "登录失败。")
@@ -2106,11 +2077,10 @@
         '<div class="guest-save-copy">' +
         '<p class="guest-save-kicker">Guest</p>' +
         '<p class="guest-save-title">Sign in to keep this work</p>' +
-        '<p class="guest-save-hint">You have tasks on this device. Connect Google or Outlook to save them to your account.</p>' +
+        '<p class="guest-save-hint">You have tasks on this device. Sign in with Google to sync them, or keep using Guest locally.</p>' +
         "</div>" +
         '<div class="guest-save-actions">' +
         '<button type="button" class="btn btn-primary" data-guest-signin="google">Continue with Google</button>' +
-        '<button type="button" class="btn" data-guest-signin="outlook">Continue with Outlook</button>' +
         '<button type="button" class="btn btn-ghost" data-guest-save-later>Later</button>' +
         "</div>";
       const host = bannerHost();
@@ -2137,8 +2107,8 @@
       const provider = button.getAttribute("data-guest-signin");
       const auth = window.DailySpaceAuth;
       if (!auth) return;
-      const start =
-        provider === "outlook" ? auth.startOutlookSignIn : auth.startGoogleSignIn;
+      if (provider !== "google") return;
+      const start = auth.startGoogleSignIn;
       if (typeof start === "function") {
         start().catch(function (error) {
           window.alert(

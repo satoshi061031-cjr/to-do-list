@@ -60,6 +60,43 @@ test("browser interactions on desktop and touch screens", { timeout: 90_000 }, a
     }
   }
 
+  await t.test("Google sign-in and local Guest are consistent and preserve device data", async () => {
+    const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    const signins = [];
+    await page.route("**/api/auth/google/start", async route => {
+      signins.push(route.request().postDataJSON());
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ authUrl: `${base}/todo-m.html?oauth-test=1#today` }) });
+    });
+    await page.goto(`${base}/index.html`, { waitUntil: "load" });
+    await page.locator(".welcome-lens").click();
+    assert.equal(await page.locator("[data-welcome-provider]").count(), 1);
+    assert.equal(await page.locator("[data-welcome-provider]").getAttribute("data-welcome-provider"), "google");
+    await page.locator(".welcome-enter").click();
+    await page.waitForURL(/todo-m\.html/);
+    const saved = await page.evaluate(() => localStorage.getItem("todo-app-v2"));
+    assert.equal(signins.length, 0, "Guest must not start OAuth");
+    assert.equal(await page.locator("[data-guest-signin]").count(), 1);
+    await page.locator("#bento-menu-toggle").click();
+    await page.locator(".sidebar-auth-entry").click();
+    await page.locator(".auth-modal").waitFor({ state: "visible" });
+    assert.equal(await page.locator(".auth-modal [data-provider]").count(), 1);
+    assert.equal(await page.locator(".auth-modal [data-provider]").getAttribute("data-provider"), "google");
+    await page.locator("[data-auth-guest]").click();
+    await page.locator(".auth-modal").waitFor({ state: "hidden" });
+    assert.equal(await page.evaluate(() => localStorage.getItem("todo-app-v2")), saved);
+    assert.equal(signins.length, 0);
+    assert.equal(await page.evaluate(() => localStorage.getItem("daily-space-auth-v1")), null);
+    await page.locator(".sidebar-auth-entry").click();
+    await page.locator('[data-provider="google"]').click();
+    await page.waitForURL(/oauth-test=1/);
+    assert.equal(signins.length, 1, "Google must still start OAuth");
+    assert.ok(signins[0].returnTo.includes("todo-m.html"));
+    assert.equal(await page.evaluate(() => localStorage.getItem("todo-app-v2")), saved);
+    await page.goto(`${base}/mail.html`, { waitUntil: "load" });
+    assert.equal(await page.locator('[data-quick-provider="outlook"]').count(), 0);
+    assert.equal(await page.locator('[data-quick-provider="gmail"]').count(), 2);
+  });
+
   await t.test("completion and addition preserve unrelated rows and focus", async () => {
     const page = await pageFor();
     await page.goto(`${base}/todo.html`, { waitUntil: "load" });

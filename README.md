@@ -16,7 +16,7 @@ Live app: start at `/todo.html` (PWA start URL). Welcome screen: `/` or `/index.
 | **Mail** | Sign in → connect mailbox → digest → add to Today (batch select supported) |
 | **Agent** | Optional helper for Todo/today and other modules (needs LLM key) |
 
-**Sign-in flow:** Menu → Sign in (Google / Outlook) for cloud sync, mail, and calendar. Guest mode works locally until you sign in to save.
+**Sign-in flow:** Menu → Sign in with Google for cloud sync, Gmail, and calendar, or Continue as guest for device-local use. The welcome page and account dialog offer the same two choices. Outlook and WeChat cannot start a new sign-in; existing account data and linked mailboxes are retained.
 
 Guest mode works locally with `localStorage`; mail, cloud sync, and workspace invites need a signed-in session.
 
@@ -74,18 +74,18 @@ Copy `.env.example` → `.env`. Important variables:
 |---|---|
 | `MAIL_OAUTH_BASE_URL` | Public origin for OAuth callbacks (`http://localhost:3000` locally; `https://….onrender.com` in prod) |
 | `GOOGLE_OAUTH_*` | Google login + Gmail mail OAuth |
-| `MICROSOFT_OAUTH_*` | Outlook login + mail OAuth |
+| `MICROSOFT_OAUTH_*` | Optional legacy linked-mailbox OAuth; not a new sign-in provider |
 | `MAIL_TOKEN_ENCRYPTION_KEY` | Encrypt mail tokens at rest (`openssl rand -base64 32`) |
 | `GROQ_API_KEY` or `OPENAI_API_KEY` | Todo Agent + Mail inbox AI digest |
 | `SUPABASE_*` | Cloud user snapshots |
 | `CAPACITOR_SERVER_URL` | Native shell loads this HTTPS origin |
 
-Sign-in with Google or Outlook requests identity, mail, and calendar together. Returning users only pick an account unless mailbox or calendar access is missing.
+Sign-in with Google requests identity, mail, and calendar together. Returning users only pick an account unless mailbox or calendar access is missing.
 
 ### Useful API routes
 
-- Auth: `/api/auth/me`, Google / Outlook start + callback
-- Calendar: `/api/calendar/events` (Google / Outlook calendar for the signed-in account)
+- Auth: `/api/auth/me`, Google start + callback; old Outlook/WeChat start endpoints return HTTP 410
+- Calendar: `/api/calendar/events` (Google calendar, plus previously linked accounts)
 - Sync: `/api/user/snapshot`, `/api/user/export`, `DELETE /api/user/account`
 - Mail: `/api/mail/accounts`, `…/messages`, `…/digest`, OAuth start/callbacks
 - Agent: `/api/agent`, `/api/agent/status`
@@ -110,7 +110,7 @@ npm run cap:android   # or cap:ios
 1. Connect the GitHub repo; use `npm start` (or your existing Render Blueprint).
 2. The existing `render.yaml` uses Render's free plan with ephemeral filesystem storage. For production SQLite data, choose a service plan supporting a persistent disk in Render settings, mount it at `/var/data`, and set `DAILY_SPACE_DB_PATH=/var/data/daily-space.sqlite`. This requires a paid plan; the repository does not activate or purchase it. Before changing paths, back up the existing database and restore it onto the persistent disk. Otherwise the new path starts an empty database. Run only one service instance against this SQLite database; horizontal scaling needs a shared database architecture.
 3. Set `MAIL_OAUTH_BASE_URL` to the Render HTTPS URL.
-4. Set the same OAuth redirect URIs in Google and Microsoft consoles.
+4. Set the Google OAuth redirect URIs in the Google console.
 5. Set `GROQ_API_KEY` for Agent + Mail digests.
 6. Optional: `ALERT_WEBHOOK_URL` for critical error pings.
 

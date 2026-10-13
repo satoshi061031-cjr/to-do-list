@@ -112,7 +112,19 @@ test("e2e critical path: welcome Daily Loop + guest today→calendar→mail task
   const welcomeHtml = await welcome.text();
   assert.match(welcomeHtml, /Daily Loop/i);
   assert.match(welcomeHtml, /Continue as guest/);
-  assert.doesNotMatch(welcomeHtml, /WeChat|wechat/);
+  assert.match(welcomeHtml, /data-welcome-provider="google"/);
+  assert.doesNotMatch(welcomeHtml, /Outlook|outlook|WeChat|wechat/);
+
+  for (const provider of ["outlook", "wechat"]) {
+    const disabled = await fetch(`${baseUrl}/api/auth/${provider}/start`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ returnTo: "/todo.html" }),
+    });
+    assert.equal(disabled.status, 410);
+    assert.equal((await disabled.json()).code, "AUTH_PROVIDER_DISABLED");
+    assert.equal(disabled.headers.get("set-cookie"), null);
+  }
 
   const todo = await fetch(`${baseUrl}/todo.html`);
   assert.equal(todo.status, 200);

@@ -26,8 +26,8 @@
     "One habit.": "一个习惯。",
     "See what’s due today, clear overdue, and close the day — Todo is the hub.":
       "看清今天到期、清理逾期、收尾一天——待办是中枢。",
-    "See what’s due today, clear overdue, and close the day — Todo is the hub. Google or Outlook sign-in connects mail and calendar for that account.":
-      "看清今天到期、清理逾期、收尾一天——待办是中枢。用 Google 或 Outlook 登录后，邮件和日历都会接到这个账号。",
+    "Sign in with Google for cloud sync, or continue as guest on this device.":
+      "用 Google 登录并同步，或以访客身份在本机使用。",
     "Meet Daily Space.": "认识 Daily Space。",
     "Your personal productivity space.": "你的个人效率空间。",
     "Your workspace for personal focus and team assignment.": "兼顾个人专注与团队分派的工作空间。",
@@ -48,13 +48,13 @@
       "安装提示：用浏览器的「安装应用」或「添加到主屏幕」，快捷打开 Daily Loop。",
     "Your data stays on this device and in your cloud snapshot while signed in.":
       "登录期间，数据保存在本机，并同步到云端快照。",
-    "Signed in with Google or Outlook, Mail and Calendar use that same account.":
-      "用 Google 或 Outlook 登录后，邮件和日历使用同一账号。",
-    "Signed in with Google or Outlook, Mail and Calendar use that same account. WeChat keeps a cloud snapshot on this workspace.":
+    "Mail and Calendar use your connected account.":
+      "邮件和日历使用你已连接的账号。",
+    "Mail and Calendar use your connected account. WeChat keeps a cloud snapshot on this workspace.":
       "用 Google 或 Outlook 登录后，邮件和日历使用同一账号。微信登录只同步本工作区的云快照。",
     "Sign in to keep this work": "登录以保存这些内容",
-    "You have tasks on this device. Connect Google or Outlook to save them to your account.":
-      "这台设备上已有任务。连接 Google 或 Outlook，即可保存到你的账号。",
+    "You have tasks on this device. Sign in with Google to sync them, or keep using Guest locally.":
+      "这台设备上已有任务。用 Google 登录以同步，或继续以 Guest 在本机使用。",
     "You have tasks on this device. Connect Google, Outlook, or WeChat to save them to your account.":
       "这台设备上已有任务。连接 Google、Outlook 或微信，即可保存到你的账号。",
     Later: "稍后再说",
@@ -74,10 +74,10 @@
     "Type a task below, or ask the agent — works even offline.": "在下方输入任务，或问助手——离线也能加。",
     "No due-today tasks yet — type one above, ask the agent, or mark the day closed.":
       "今天还没有到期任务——在上方加一项、问助手，或直接收尾。",
-    "Google and Outlook sign-in already open that mailbox. Use these buttons only to add another account.":
-      "用 Google 或 Outlook 登录后邮箱已经打开。只有要加另一个邮箱时才用这些按钮。",
-    "Mail digest uses the Google or Outlook account you signed in with. Add another mailbox only if you need a second inbox.":
-      "邮件摘要使用你登录的 Google 或 Outlook 账号。只有需要第二个收件箱时再添加邮箱。",
+    "Google sign-in already opens your Gmail inbox. Connect another Google account only if you need a second inbox.":
+      "Google 登录后即可打开 Gmail 收件箱。仅在需要第二个收件箱时连接另一个 Google 账号。",
+    "Mail digest uses your Google account. Guest mode keeps your tasks on this device.":
+      "邮件摘要使用你的 Google 账号。Guest 模式的任务保存在本机。",
     "Stay up to date": "保持同步",
     Schedule: "日程",
     "Today’s tasks": "今天的任务",
@@ -135,7 +135,7 @@
     "Swipe up to enter": "向上滑动进入",
     "Swipe up to continue": "向上滑动继续",
     "Move to the left edge to open the menu": "移到左边缘即可打开菜单",
-    "Google or Outlook": "Google 或 Outlook",
+    "Google or local guest": "Google 或 Guest 本地使用",
     "Google, Outlook, or WeChat": "Google、Outlook 或微信",
     "On this device": "仅本机",
     "Device only": "仅本机",
@@ -274,8 +274,8 @@
       "离线仍可本地加待办。连接邮箱和 Agent 可获得摘要帮助。",
     "On Today": "已在今天",
     "You’re offline. Connect to refresh mail.": "当前离线。联网后再刷新邮件。",
-    "Mailbox needs authorization — connect Gmail or Outlook to read mail.":
-      "邮箱需要授权 — 连接 Gmail 或 Outlook 才能读信。",
+    "Mailbox needs authorization — connect Gmail to read mail.":
+      "邮箱需要授权 — 连接 Gmail 才能读信。",
     "Selected messages are already on Today.": "所选邮件已在今天。",
     "Reading on this device": "本机可读",
     "Add selected to Today": "把所选加到今天",
@@ -292,7 +292,7 @@
     "Connect Gmail or Outlook to pull recent mail and build today’s digest.": "连接 Gmail 或 Outlook，拉取最近邮件并生成今日摘要。",
     "Connect Gmail or Outlook to pull recent mail and build today's digest.": "连接 Gmail 或 Outlook，拉取最近邮件并生成今日摘要。",
     "Sign in to Daily Space to pull your inbox.": "登录 Daily Space 后即可拉取收件箱。",
-    "No mailbox yet — connect Gmail or Outlook below.": "还没有邮箱 — 请在下方连接 Gmail 或 Outlook。",
+    "No mailbox yet — connect Gmail below.": "还没有邮箱 — 请在下方连接 Gmail。",
     "Clear completed": "清除已完成",
     Undo: "撤销",
     "Task deleted": "已删除任务",
@@ -511,7 +511,7 @@
     "Sign in with WeChat": "使用微信登录",
     "Recent messages": "最近邮件",
     "Manage mailboxes": "管理邮箱",
-    "Gmail and Outlook use OAuth to authorize this device.": "Gmail 和 Outlook 使用 OAuth 授权此设备。",
+    "Gmail uses Google OAuth to authorize this device.": "Gmail 使用 Google OAuth 授权此设备。",
     "Loading messages…": "正在加载邮件…",
     "No recent inbox messages.": "暂无最近收件。",
     "Mailbox disconnected.": "邮箱已断开。",
@@ -549,7 +549,7 @@
     Member: "成员",
     Unnamed: "未命名",
     "Add task...": "添加任务…",
-    "Continue with a provider to keep your workspace synced.": "选择服务商登录，以保持工作空间同步。",
+    "Sign in with Google to sync your workspace, or continue as guest to keep it on this device.": "用 Google 登录以同步工作空间，或以访客身份继续，仅保存在本机。",
     "OAuth needs a backend or auth service before these providers can become real sign-ins.":
       "OAuth 需要后端或认证服务才能完成真实登录。",
     "Name this space…": "给这个空间起个名字…",

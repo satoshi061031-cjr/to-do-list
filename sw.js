@@ -1,4 +1,4 @@
-const CACHE_NAME = 'todo-v304';
+const CACHE_NAME = 'todo-v305';
 const SCOPE_PATH = new URL(self.registration.scope).pathname.replace(/\/$/, '');
 const withScope = (path) => `${SCOPE_PATH}${path}`;
 const urlsToCache = [

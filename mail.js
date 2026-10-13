@@ -812,7 +812,7 @@
     if (connectTitle) connectTitle.textContent = "Sign in to Daily Space first";
     if (connectHint) {
       connectHint.textContent =
-        "Mail digest uses the Google or Outlook account you signed in with. Add another mailbox only if you need a second inbox.";
+        "Mail digest uses your Google account. Guest mode keeps your tasks on this device.";
     }
     if (signInSpaceBtn) signInSpaceBtn.hidden = false;
     if (oauthQuick) oauthQuick.hidden = true;
@@ -826,7 +826,7 @@
     if (connectTitle) connectTitle.textContent = "Connect your mailbox";
     if (connectHint) {
       connectHint.textContent =
-        "Google and Outlook sign-in already open that mailbox. Use these buttons only to add another account.";
+        "Google sign-in already opens your Gmail inbox. Connect another Google account only if you need a second inbox.";
     }
     if (signInSpaceBtn) signInSpaceBtn.hidden = true;
     if (oauthQuick) oauthQuick.hidden = false;
@@ -854,9 +854,9 @@
       setDigest("");
       latestMessages = [];
       if (accounts.some((account) => account.needsMailOAuth)) {
-        setPageStatus("Mailbox needs authorization — connect Gmail or Outlook to read mail.");
+        setPageStatus("Mailbox needs authorization — connect Gmail to read mail.");
       } else {
-        setPageStatus("No mailbox yet — connect Gmail or Outlook below.");
+        setPageStatus("No mailbox yet — connect Gmail below.");
       }
     }
   }

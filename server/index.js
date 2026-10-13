@@ -963,24 +963,10 @@ async function handleApi(request, response, url) {
   }
 
   if (method === "POST" && url.pathname === "/api/auth/outlook/start") {
-    const body = await readJson(request);
-    const returnTo = sanitizeReturnTo(body.returnTo || "/todo.html");
-    const state = crypto.randomUUID();
-    const providerConfig = getOutlookSignInConfig(request);
-    const forceConsent = shouldForceWorkspaceConsent(
-      session && session.userId ? listMailAccounts(session.userId) : [],
-      "outlook",
-      Boolean(body.forceConsent)
-    );
-    createOauthState({
-      state,
-      provider: "outlook-login",
-      returnTo,
-    });
     sendJson(response, {
-      ok: true,
-      authUrl: buildSignInAuthUrl("outlook", providerConfig, state, { forceConsent }),
-    });
+      error: "Sign in with Google or continue as a local guest.",
+      code: "AUTH_PROVIDER_DISABLED",
+    }, 410);
     return;
   }
 
@@ -1084,19 +1070,10 @@ async function handleApi(request, response, url) {
   }
 
   if (method === "POST" && url.pathname === "/api/auth/wechat/start") {
-    const body = await readJson(request);
-    const returnTo = sanitizeReturnTo(body.returnTo || "/todo.html");
-    const state = crypto.randomUUID();
-    const providerConfig = getWeChatSignInConfig(request);
-    createOauthState({
-      state,
-      provider: "wechat-login",
-      returnTo,
-    });
     sendJson(response, {
-      ok: true,
-      authUrl: buildWeChatAuthUrl(providerConfig, state),
-    });
+      error: "Sign in with Google or continue as a local guest.",
+      code: "AUTH_PROVIDER_DISABLED",
+    }, 410);
     return;
   }
 
