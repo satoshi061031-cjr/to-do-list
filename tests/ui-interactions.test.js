@@ -223,6 +223,86 @@ test("browser interactions on desktop and touch screens", { timeout: 90_000 }, a
     assert.equal(await page.locator("#m-filter-completed").getAttribute("aria-selected"), "true");
   });
 
+  async function touchDock(page, from, to, ending = "touchEnd") {
+    const cdp = await page.context().newCDPSession(page);
+    const points = { x: from.x, y: from.y };
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [points] });
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{
+      x: from.x + (to.x - from.x) * 0.2, y: from.y + (to.y - from.y) * 0.2,
+    }] });
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [to] });
+    if (ending) await cdp.send("Input.dispatchTouchEvent", { type: ending, touchPoints: [] });
+    return cdp;
+  }
+  async function dockCenter(page, selector) {
+    const rect = await page.locator(selector).boundingBox();
+    return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+  }
+
+  await t.test("phone dock follows touch and navigates once on release", async () => {
+    const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await page.goto(`${base}/todo-m.html`, { waitUntil: "load" });
+    await page.locator(".bento-rail-nav.dock-ready").waitFor();
+    const from = await dockCenter(page, '[data-rail-page="todo"]');
+    const to = await dockCenter(page, '[data-rail-page="calendar"]');
+    const position = { x: to.x - 10, y: to.y };
+    const cdp = await touchDock(page, from, position, null);
+    assert.ok(page.url().includes("todo-m.html"), "preview must not navigate");
+    await page.waitForFunction(x => {
+      const rect = document.querySelector(".bento-rail-lens").getBoundingClientRect();
+      return Math.abs(rect.x + rect.width / 2 - x) < 2;
+    }, position.x);
+    const capsule = await page.locator(".bento-rail-lens").boundingBox();
+    assert.ok(Math.abs(capsule.x + capsule.width / 2 - position.x) < 2, "capsule follows the finger");
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await page.waitForURL(`${base}/calendar.html`);
+    assert.equal(await page.locator('[data-rail-page="calendar"]').getAttribute("aria-current"), "page");
+    await page.locator('[data-rail-page="tally"]').click();
+    await page.waitForURL(`${base}/tally.html`);
+    assert.equal(await page.locator('[data-rail-page="tally"]').getAttribute("aria-current"), "page");
+    assert.equal(await page.evaluate(() => sessionStorage.getItem("daily-space-dock-transition-v1")), null);
+    assert.ok(await page.evaluate(() => history.length < 6), "a gesture must not create duplicate navigation");
+  });
+
+  await t.test("dock cancellation restores selection and More opens once", async () => {
+    const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await page.goto(`${base}/todo-m.html`, { waitUntil: "load" });
+    await page.locator(".bento-rail-nav.dock-ready").waitFor();
+    const from = await dockCenter(page, '[data-rail-page="todo"]');
+    const to = await dockCenter(page, '[data-rail-page="calendar"]');
+    await touchDock(page, from, to, "touchCancel");
+    assert.ok(page.url().includes("todo-m.html"));
+    await page.waitForFunction(() => document.querySelector('[data-rail-page="todo"]').hasAttribute("data-dock-active"));
+    await touchDock(page, from, { x: from.x + 2, y: from.y - 50 });
+    assert.ok(page.url().includes("todo-m.html"), "vertical movement must not change page");
+    const more = await dockCenter(page, "#bento-menu-toggle");
+    await touchDock(page, from, more);
+    assert.equal(await page.locator("#bento-menu-toggle").getAttribute("aria-expanded"), "true");
+    assert.ok(await page.locator("#sidebar").isVisible());
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(() => document.querySelector('[data-rail-page="todo"]').hasAttribute("data-dock-active"));
+    await page.locator("#bento-menu-toggle").focus();
+    await page.keyboard.press("Enter");
+    assert.equal(await page.locator("#bento-menu-toggle").getAttribute("aria-expanded"), "true");
+  });
+
+  await t.test("dock gestures work with reduced motion and after resizing", async () => {
+    const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, reducedMotion: "reduce" });
+    await page.goto(`${base}/calendar.html`, { waitUntil: "load" });
+    await page.locator(".bento-rail-nav.dock-ready").waitFor();
+    assert.equal(await page.locator(".bento-rail-lens").evaluate(node => getComputedStyle(node).transitionDuration), "0s");
+    await touchDock(page, await dockCenter(page, '[data-rail-page="calendar"]'), await dockCenter(page, '[data-rail-page="tally"]'));
+    await page.waitForURL(`${base}/tally.html`);
+    assert.equal(await page.locator(".main-area").evaluate(node => node.getAnimations().length), 0);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.waitForFunction(() => !document.body.classList.contains("has-mobile-dock"));
+    assert.equal(await page.locator(".bento-rail-lens").evaluate(node => getComputedStyle(node).display), "none");
+    await page.setViewportSize({ width: 360, height: 844 });
+    await page.locator(".bento-rail-nav.dock-ready").waitFor();
+    await touchDock(page, await dockCenter(page, '[data-rail-page="tally"]'), await dockCenter(page, '[data-rail-page="calendar"]'));
+    await page.waitForURL(`${base}/calendar.html`);
+  });
+
   await t.test("phone layouts expose 44px task controls without horizontal overflow", async () => {
     for (const width of [360, 390, 768]) {
       const page = await pageFor({ viewport: { width, height: 844 }, isMobile: true, hasTouch: true });

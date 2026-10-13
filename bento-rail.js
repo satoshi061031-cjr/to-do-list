@@ -318,36 +318,193 @@
     return rail;
   }
 
-  function wireDockLens(nav) {
-    if (!(nav instanceof HTMLElement) || nav.dataset.lensWired === "1") return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    nav.dataset.lensWired = "1";
-    nav.style.setProperty("--dock-px", "50%");
-    nav.style.setProperty("--dock-py", "50%");
+  function wireDockGesture(nav) {
+    if (!(nav instanceof HTMLElement) || nav.dataset.gestureWired === "1") return;
+    nav.dataset.gestureWired = "1";
+    const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const transitionKey = "daily-space-dock-transition-v1";
+    let gesture = null;
+    let suppressClick = false;
+    let frame = 0;
+    let center = 0;
+    let startup = true;
 
-    function track(event) {
-      const rect = nav.getBoundingClientRect();
-      if (!rect.width || !rect.height) return;
-      const x = ((event.clientX - rect.left) / rect.width) * 100;
-      const y = ((event.clientY - rect.top) / rect.height) * 100;
-      nav.style.setProperty("--dock-px", `${Math.max(4, Math.min(96, x))}%`);
-      nav.style.setProperty("--dock-py", `${Math.max(12, Math.min(88, y))}%`);
-      nav.classList.add("is-tracking");
+    const controls = () => Array.from(nav.querySelectorAll(".bento-rail-link"));
+    function selected() {
+      return nav.querySelector('[aria-expanded="true"]') ||
+        nav.querySelector('[aria-current="page"]') || controls().at(-1);
+    }
+    function geometry(control) {
+      const box = nav.getBoundingClientRect();
+      const rect = control.getBoundingClientRect();
+      return { x: rect.left - box.left, y: rect.top - box.top,
+        width: rect.width, height: rect.height, center: rect.left - box.left + rect.width / 2 };
+    }
+    function highlight(control) {
+      for (const item of controls()) item.toggleAttribute("data-dock-active", item === control);
+    }
+    function place(control, position) {
+      if (!control || !isNarrow()) return;
+      const rect = geometry(control);
+      center = position ?? rect.center;
+      nav.style.setProperty("--dock-active-x", `${center - rect.width / 2}px`);
+      nav.style.setProperty("--dock-active-y", `${rect.y}px`);
+      nav.style.setProperty("--dock-active-width", `${rect.width}px`);
+      nav.style.setProperty("--dock-active-height", `${rect.height}px`);
+      nav.style.setProperty("--dock-active-visible", "1");
+      highlight(control);
+    }
+    function fraction() {
+      const items = controls();
+      const first = geometry(items[0]).center;
+      const last = geometry(items.at(-1)).center;
+      return last > first ? (center - first) / (last - first) : 0;
+    }
+    function readTransition() {
+      try {
+        const saved = JSON.parse(sessionStorage.getItem(transitionKey) || "null");
+        sessionStorage.removeItem(transitionKey);
+        return saved && saved.to === location.pathname && Date.now() - saved.at < 3000 &&
+          Number.isFinite(saved.from) && saved.from >= 0 && saved.from <= 1 ? saved : null;
+      } catch (_) { return null; }
+    }
+    function sync() {
+      if (gesture?.dragging) return;
+      if (!isNarrow()) {
+        nav.classList.remove("dock-ready");
+        nav.style.setProperty("--dock-active-visible", "0");
+        highlight(null);
+        return;
+      }
+      if (!nav.querySelector(".bento-rail-lens")) return;
+      const target = selected();
+      if (!target) return;
+      const saved = startup ? readTransition() : null;
+      startup = false;
+      if (!nav.classList.contains("dock-ready") || (saved && !motion.matches)) {
+        nav.classList.add("dock-instant");
+        const items = controls();
+        const first = geometry(items[0]).center;
+        const last = geometry(items.at(-1)).center;
+        place(target, saved && !motion.matches ? first + saved.from * (last - first) : undefined);
+        nav.classList.add("dock-ready");
+        // Commit the initial geometry before transitioning to the destination.
+        nav.getBoundingClientRect();
+        requestAnimationFrame(() => {
+          nav.classList.remove("dock-instant");
+          if (!gesture?.dragging) place(selected());
+        });
+        if (saved && !motion.matches) {
+          const direction = Math.sign(controls().indexOf(target) / (items.length - 1) - saved.from);
+          document.querySelector(".main-area")?.animate([
+            { opacity: 0.92, transform: `translateX(${direction * 8}px)` },
+            { opacity: 1, transform: "translateX(0)" },
+          ], { duration: 160, easing: "ease-out" });
+        }
+      } else place(target);
+    }
+    function schedule() {
+      if (frame) return;
+      frame = requestAnimationFrame(() => { frame = 0; sync(); });
+    }
+    function activate(control) {
+      if (!control) return;
+      if (control instanceof HTMLAnchorElement) control.click();
+      else if (control.getAttribute("aria-expanded") !== "true") control.click();
+      else sync();
+    }
+    function finish(cancelled) {
+      if (!gesture) return;
+      const ending = gesture;
+      gesture = null;
+      nav.classList.remove("is-dragging");
+      if (nav.hasPointerCapture(ending.id)) nav.releasePointerCapture(ending.id);
+      if (ending.dragging || cancelled) suppressClick = true;
+      if (ending.dragging) {
+        if (!cancelled) activate(ending.target);
+        else sync();
+      } else sync();
     }
 
-    nav.addEventListener("pointermove", track);
-    nav.addEventListener("pointerdown", track);
-    nav.addEventListener("pointerleave", () => {
-      nav.classList.remove("is-tracking");
-      nav.style.setProperty("--dock-px", "50%");
-      nav.style.setProperty("--dock-py", "50%");
+    nav.addEventListener("pointerdown", (event) => {
+      if (!isNarrow() || event.button !== 0) return;
+      if (!event.isPrimary) { finish(true); return; }
+      suppressClick = false;
+      if (!event.target.closest(".bento-rail-link")) return;
+      gesture = { id: event.pointerId, x: event.clientX, y: event.clientY,
+        dragging: false, target: null };
     });
+    nav.addEventListener("pointermove", (event) => {
+      if (!gesture || gesture.id !== event.pointerId) return;
+      const dx = event.clientX - gesture.x;
+      const dy = event.clientY - gesture.y;
+      if (!gesture.dragging) {
+        if (Math.abs(dy) > 8 && Math.abs(dy) >= Math.abs(dx)) { finish(true); return; }
+        if (Math.abs(dx) < 8 || Math.abs(dx) <= Math.abs(dy)) return;
+        gesture.dragging = true;
+        nav.setPointerCapture(event.pointerId);
+        nav.classList.add("is-dragging");
+      }
+      const box = nav.getBoundingClientRect();
+      const items = controls();
+      const x = Math.max(geometry(items[0]).center,
+        Math.min(geometry(items.at(-1)).center, event.clientX - box.left));
+      const target = items.reduce((closest, item) =>
+        Math.abs(geometry(item).center - x) < Math.abs(geometry(closest).center - x) ? item : closest);
+      gesture.target = target;
+      place(target, x);
+    });
+    nav.addEventListener("pointerup", (event) => {
+      if (!gesture || gesture.id !== event.pointerId) return;
+      const box = nav.getBoundingClientRect();
+      finish(event.clientY < box.top - 24 || event.clientY > box.bottom + 24);
+    });
+    nav.addEventListener("pointercancel", () => finish(true));
+    nav.addEventListener("lostpointercapture", (event) => {
+      // Touch starts with implicit capture on the icon/label. Its transfer to
+      // the dock bubbles a loss event from that child; the gesture is still live.
+      if (event.target === nav && gesture?.id === event.pointerId) finish(true);
+    });
+    window.addEventListener("blur", () => finish(true));
+    window.addEventListener("pagehide", () => finish(true));
+    window.addEventListener("resize", () => { finish(true); schedule(); });
+    window.addEventListener("pageshow", schedule);
+    motion.addEventListener("change", schedule);
+
+    nav.addEventListener("click", (event) => {
+      if (suppressClick && event.isTrusted && event.detail > 0) {
+        suppressClick = false;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+      }
+      if (!isNarrow() || event.defaultPrevented || event.button > 0 ||
+          event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const control = event.target.closest(".bento-rail-link");
+      if (!control) return;
+      if (control instanceof HTMLAnchorElement) {
+        const next = new URL(control.href, location.href);
+        if (next.pathname !== location.pathname && next.origin === location.origin) {
+          try {
+            sessionStorage.setItem(transitionKey, JSON.stringify({
+              from: Math.max(0, Math.min(1, fraction())), to: next.pathname, at: Date.now(),
+            }));
+          } catch (_) {}
+        }
+      }
+      place(control);
+    }, true);
+    new MutationObserver(schedule).observe(nav, {
+      subtree: true, childList: true, attributes: true, attributeFilter: ["aria-current", "aria-expanded"],
+    });
+    new ResizeObserver(schedule).observe(nav);
+    schedule();
   }
 
   function wire() {
     const rail = ensureRail();
     if (!rail) return;
-    wireDockLens(rail.querySelector(".bento-rail-nav"));
+    wireDockGesture(rail.querySelector(".bento-rail-nav"));
 
     const menuBtn = document.getElementById("bento-menu-toggle");
     if (menuBtn && !menuBtn.dataset.railWired) {
@@ -412,7 +569,7 @@
         lens.setAttribute("aria-hidden", "true");
         nav.insertBefore(lens, nav.firstChild);
       }
-      wireDockLens(nav);
+      wireDockGesture(nav);
     }
     const menuBtn = document.getElementById("bento-menu-toggle");
     if (menuBtn && !menuBtn.dataset.railWired) {

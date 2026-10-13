@@ -180,7 +180,7 @@ components:
 
 ## Visual direction
 
-The user supplied Luma as the visual reference: simple, restrained, monochrome. This supersedes the previous photographic mist and liquid-glass direction. Use plain black or white page backgrounds, text hierarchy, open lists, and generous section spacing. Keep the yellow brand token for a small identity mark; primary actions use contrasting monochrome fills. No photographic backgrounds, decorative gradients, glowing edges, floating lenses, or card around every item. Preserve the existing productivity workflows and Daily Space identity.
+The user supplied Luma as the visual reference: simple, restrained, monochrome. This supersedes the previous photographic mist and liquid-glass direction. Use plain black or white page backgrounds, text hierarchy, open lists, and generous section spacing. Keep the yellow brand token for a small identity mark; primary actions use contrasting monochrome fills. No photographic backgrounds, decorative gradients, glowing edges, hover-following decoration, or card around every item. Preserve the existing productivity workflows and Daily Space identity.
 
 ## Colors and depth
 
@@ -198,7 +198,7 @@ Use rounded.sm for input controls and contained board cards, rounded.md for modu
 
 ## Navigation and interactions
 
-Desktop keeps the rail stuck to the viewport with theme and language at its foot. Phone keeps one centered fixed dock (Today / Calendar / Tally / More), with theme and language inside More. Active dock items use clear text on a slightly darker/lighter neutral capsule. Keep all interactive targets at least 44px and preserve safe-area padding. One action cluster per page region; no overlapping corner controls.
+Desktop keeps the rail stuck to the viewport with theme and language at its foot. Phone keeps one centered fixed dock (Today / Calendar / Tally / More), with theme and language inside More. Active dock items use clear text on one moving neutral capsule. Horizontal dragging inside the dock previews a destination with the capsule following the finger; release activates the nearest control once. Vertical motion, pointer cancellation, focus loss, or releasing well outside the dock restores the current selection. Dragging to More opens the drawer, and closing it returns the capsule to the current page. Plain clicks and keyboard activation remain native; modified link clicks open normally. Keep the dock touch-action as pan-y/pinch-zoom so vertical scrolling remains available. A valid cross-page navigation carries only its temporary capsule position to the destination for a 220ms slide, with a restrained 160ms/8px page entrance. Respect reduced motion by switching instantly while keeping the gesture. Keep all interactive targets at least 44px and preserve safe-area padding. One action cluster per page region; no overlapping corner controls.
 
 Today phone keeps title, date and remaining count, To do / Completed tabs, separate completion controls and task detail actions. A compact bottom New task action stays above the dock within thumb reach. Use a simple line icon for the assistant. The bottom editor retains title, date shortcuts, folded category/time/repeat, saved drafts, consecutive entry, IME handling, keyboard-safe Save, and Back-to-close. Hide dock and capture while editing. Delete remains in details with Undo.
 

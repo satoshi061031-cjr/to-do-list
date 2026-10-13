@@ -116,6 +116,8 @@ npm run cap:android   # or cap:ios
 
 ## Phone task interaction
 
+The bottom dock supports tapping or dragging horizontally to select a page; release switches once, and dragging to More opens the drawer. The selection capsule follows the finger and slides to its resting position. Vertical scrolling and cancelled gestures leave the current page intact; reduced motion keeps gestures but removes the transition.
+
 The phone Today page has one New task action above the tab bar. Tap a task's text to edit details, or its checkbox to complete it. New and edit share a bottom sheet with date shortcuts and folded time/category/repeat settings. After adding, the sheet stays open for the next entry; editing saves and closes it. Closing or returning preserves a device-local draft, scoped to the signed-in account (or guest); drafts are not cloud snapshots. Delete is in task details and offers Undo. The completed tab and scroll position are remembered for the tab session. The editor follows `visualViewport`, hides navigation while open, and blocks submissions during IME composition.
 
 ## Database backup and recovery
