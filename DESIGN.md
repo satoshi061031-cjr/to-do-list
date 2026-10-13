@@ -1,51 +1,94 @@
 ---
 version: alpha
 name: Daily Space
-description: Quiet glass productivity workspace — frosted and liquid-glass panels, soft mist backgrounds, light condensed display type, and a single warm yellow call-to-action for personal focus and team assignment.
+description: Minimal productivity workspace inspired by Luma — monochrome surfaces, open lists, system typography, restrained frosted navigation, and a small yellow brand accent.
 colors:
-  primary: "#35322e"
-  on-primary: "#faf8f4"
-  secondary: "#4f6368"
+  primary: "#171717"
+  on-primary: "#ffffff"
+  secondary: "#686868"
   tertiary: "#e5c235"
-  on-tertiary: "#1a1814"
+  on-tertiary: "#171717"
   tertiary-deep: "#c9a91c"
-  neutral: "#e7e9ea"
-  surface: "#f2f4f1"
-  text: "#2c2925"
-  text-muted: "#5c5852"
-  accent: "#4f6368"
-  accent-soft: "#e8ecec"
+  neutral: "#ffffff"
+  surface: "#f5f5f5"
+  panel: "#ffffff"
+  surface-dark: "#161616"
+  panel-dark: "#1d1d1d"
+  neutral-dark: "#000000"
+  text-dark: "#f5f5f5"
+  muted-dark: "#999999"
+  text: "#171717"
+  text-muted: "#686868"
+  accent: "#686868"
+  accent-soft: "#eeeeee"
   danger: "#a64b45"
   success: "#5a6b58"
   glass-border: "#ffffff14"
   highlight: "#e5c235"
 typography:
   display:
-    fontFamily: Impact, Haettenschweiler, "Franklin Gothic Bold", "Arial Narrow Bold", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif
-    fontSize: 2.5rem
-    fontWeight: 400
-    lineHeight: 1.05
-    letterSpacing: 0.01em
+    fontFamily: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif
+    fontSize: 2rem
+    fontWeight: 600
+    lineHeight: 1.2
+    letterSpacing: 0
   title:
-    fontFamily: Impact, Haettenschweiler, "Franklin Gothic Bold", "Arial Narrow Bold", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif
-    fontSize: 1.55rem
-    fontWeight: 400
-    letterSpacing: 0.02em
+    fontFamily: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif
+    fontSize: 1.5rem
+    fontWeight: 600
+    lineHeight: 1.3
+    letterSpacing: 0
   body-md:
-    fontFamily: PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, Segoe UI, sans-serif
+    fontFamily: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif
     fontSize: 1rem
     fontWeight: 400
-    lineHeight: 1.7
-    letterSpacing: 0.02em
+    lineHeight: 1.5
+    letterSpacing: 0
   label-caps:
-    fontFamily: Impact, Haettenschweiler, "Franklin Gothic Bold", "Arial Narrow Bold", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif
-    fontSize: 0.72rem
+    fontFamily: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif
+    fontSize: 0.875rem
     fontWeight: 600
-    letterSpacing: 0.08em
+    letterSpacing: 0
+  phone-display:
+    fontFamily: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif
+    fontSize: 2rem
+    fontWeight: 600
+    lineHeight: 1.2
+    letterSpacing: 0
+  phone-title:
+    fontFamily: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif
+    fontSize: 1.5rem
+    fontWeight: 600
+    lineHeight: 1.3
+    letterSpacing: 0
+  phone-task:
+    fontFamily: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif
+    fontSize: 1rem
+    fontWeight: 500
+    lineHeight: 1.45
+    letterSpacing: 0
+  phone-body:
+    fontFamily: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif
+    fontSize: 1rem
+    fontWeight: 400
+    lineHeight: 1.5
+    letterSpacing: 0
+  phone-meta:
+    fontFamily: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif
+    fontSize: 0.875rem
+    fontWeight: 400
+    lineHeight: 1.4
+    letterSpacing: 0
+  phone-action:
+    fontFamily: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif
+    fontSize: 0.9375rem
+    fontWeight: 600
+    lineHeight: 1.3
+    letterSpacing: 0
 rounded:
-  sm: 18px
-  md: 24px
-  lg: 36px
+  sm: 12px
+  md: 18px
+  lg: 28px
   pill: 999px
 spacing:
   xs: 4px
@@ -55,14 +98,14 @@ spacing:
   xl: 40px
 components:
   button-primary:
-    backgroundColor: "{colors.tertiary}"
-    textColor: "{colors.on-tertiary}"
+    backgroundColor: "{colors.primary}"
+    textColor: "{colors.on-primary}"
     rounded: "{rounded.pill}"
     padding: 12px
     typography: "{typography.body-md}"
   button-primary-hover:
-    backgroundColor: "{colors.tertiary-deep}"
-    textColor: "{colors.on-tertiary}"
+    backgroundColor: "{colors.text-muted}"
+    textColor: "{colors.on-primary}"
   button-secondary:
     backgroundColor: "{colors.accent-soft}"
     textColor: "{colors.accent}"
@@ -94,7 +137,7 @@ components:
     rounded: "{rounded.md}"
     padding: 12px
   kicker:
-    textColor: "{colors.highlight}"
+    textColor: "{colors.text-muted}"
     typography: "{typography.label-caps}"
   danger-action:
     backgroundColor: "{colors.danger}"
@@ -108,107 +151,63 @@ components:
     backgroundColor: "{colors.neutral}"
     textColor: "{colors.text-muted}"
     rounded: "{rounded.sm}"
+  editor-panel:
+    backgroundColor: "{colors.panel}"
+    textColor: "{colors.text}"
+    rounded: "{rounded.lg}"
+  reading-surface-dark:
+    backgroundColor: "{colors.surface-dark}"
+    textColor: "{colors.text-dark}"
+    rounded: "{rounded.md}"
+  editor-panel-dark:
+    backgroundColor: "{colors.panel-dark}"
+    textColor: "{colors.text-dark}"
+    rounded: "{rounded.lg}"
+  brand-mark:
+    backgroundColor: "{colors.highlight}"
+    textColor: "{colors.on-tertiary}"
+    rounded: "{rounded.pill}"
+  brand-mark-pressed:
+    backgroundColor: "{colors.tertiary-deep}"
+    textColor: "{colors.on-tertiary}"
+  dark-page:
+    backgroundColor: "{colors.neutral-dark}"
+    textColor: "{colors.text-dark}"
+  dark-caption:
+    textColor: "{colors.muted-dark}"
+    typography: "{typography.phone-meta}"
 ---
 
-## Overview
+## Visual direction
 
-Daily Space is a calm productivity workspace. The visual language is **frosted and liquid glass over misty photographic backgrounds**: translucent panels, specular edge light, soft glass depth, and light condensed display typography. Interaction is driven by a single warm yellow accent (`tertiary` / `highlight`), not purple gradients or terracotta brochure looks.
+The user supplied Luma as the visual reference: simple, restrained, monochrome. This supersedes the previous photographic mist and liquid-glass direction. Use plain black or white page backgrounds, text hierarchy, open lists, and generous section spacing. Keep the yellow brand token for a small identity mark; primary actions use contrasting monochrome fills. No photographic backgrounds, decorative gradients, glowing edges, floating lenses, or card around every item. Preserve the existing productivity workflows and Daily Space identity.
 
-Prefer atmosphere over dashboard density. Keep typographic weight light — airy titles, softer label caps, and quiet shadows rather than stamped contrast. First viewports should feel like one composed space — brand/greeting, one primary action area, and quiet supporting modules — not a control panel of cards and stats. Personal tools stay first-class; shared team surfaces should feel quieter than the yellow primary CTA, never a second brand color. A slim page rail is fine when it supports navigation without competing with the Today composition.
+## Colors and depth
 
-## Colors
-
-The light theme is the default token set. Dark theme mirrors the same roles with inverted values in CSS (`:root[data-theme="dark"]`); when editing UI, keep the same token names and map through CSS variables.
-
-- **primary (#35322e):** Dense ink for strong text and primary chrome.
-- **secondary / accent (#4f6368):** Cool slate for secondary actions, links, and muted structure.
-- **tertiary / highlight (#e5c235):** Sole energetic accent for primary buttons, kickers, and focus rings. Paired with near-black `on-tertiary` (#1a1814) so yellow CTAs stay readable on light mist.
-- **tertiary-deep (#c9a91c):** Hover / pressed yellow — deeper than resting tertiary, never a washed-out lighter tint.
-- **neutral (#e7e9ea):** Page wash behind the photographic blur.
-- **surface (#f2f4f1):** Solid stand-in for glass panels; in CSS prefer `var(--glass)` / `var(--glass-strong)` radial fills.
-- **text / text-muted:** Body and caption hierarchy.
-- **danger / success:** Sparse semantic colors — never replace the yellow CTA.
-
-Never invent new brand hues. Never hardcode hex in new UI — use `var(--…)` that map to these tokens.
+Map the light palette and the explicit dark color tokens through the same CSS roles. Light pages use neutral white with ink text and secondary gray; dark pages use neutral-dark black, text-dark, and muted-dark. Cards requiring containment use surface or surface-dark. Editors use panel or panel-dark. Thin separators derive from text at 8% opacity. The phone dock uses a Luma-inspired frosted surface: 72% surface opacity, 28px backdrop blur with 1.15 saturation, a subtle monochrome 6% top tint, a 14% text-derived border, and one quiet shadow. Its active capsule uses neutral at 56% opacity; inactive dark labels mix muted-dark 70% with text-dark 30% for readability over the blurred content. Content lists have no backdrop blur or drop shadow. Modal sheets retain one quiet elevation shadow. Success and danger are semantic, accompanied by checked state, strikethrough, or explicit labels.
 
 ## Typography
 
-Display titles, short kickers, and compact numbers use a condensed Impact-led stack with **light typographic weight**. Titles stay expressive but airier (`display` ~2.5rem, `title` ~1.55rem, slightly open line-height). Kickers and field labels use `label-caps` at weight 600 with moderate tracking (0.08em) and the yellow highlight color — not ultra-bold stamped caps.
+Use the system font stack on both phone and desktop. Display is 32px/600, section and sheet title 24px/600, task title 16px/500, body and input 16px/400, metadata 14px/400, actions 15px/600. Zero extra tracking. Use sentence case, readable CJK fallbacks, and tabular time and amount numerals. Phone inputs remain 16px to avoid focus zoom. Do not download platform fonts.
 
-Body copy, form fields, mail summaries, and card notes use a readable CJK/UI stack (`body-md`): PingFang SC / Hiragino Sans GB / Microsoft YaHei / Noto Sans SC, then Segoe UI. Do not put long paragraphs in Impact. Body line-height stays generous (`body-md` 1.7).
+## Layout and shapes
 
-Latin display glyphs use Impact / condensed fallbacks first. Chinese (and other CJK) glyphs skip those faces and render through explicit East-Asian fallbacks — `PingFang SC`, `Hiragino Sans GB`, `Microsoft YaHei`, then `Noto Sans SC` — before generic `sans-serif`. Keep this full stack on display/title/label roles; body copy should start with the CJK/UI faces. Do not rely on bare `sans-serif` alone for Chinese.
+Desktop rail and workspace share a centered `min(1120px, 92vw)` boundary with spacing.lg gaps. Reading columns cap at 48rem; Calendar, Planner, and Teamwork use the remaining width. Phone uses spacing.md horizontal padding, spacing.lg between sections, open rows with a 72px minimum and spacing.sm vertical padding. Long titles wrap and grow naturally. Metadata starts underneath the title. Empty space is intentional.
 
-On phone (≤819px), remap `label-caps` to ~13px (`0.8125rem`) and display line-height to 1.2 so dock, chips, and greetings stay readable at arm’s length. Do not keep 10px dock labels. Chinese (`html[lang^=zh]`) uses zero letter-spacing — the 0.08em label tracking is a Latin caps device. Card titles, task names, and notes always use the body CJK/UI stack, never Impact. Phone text fields stay at `body-md` (16px) so iOS does not zoom on focus.
+Use rounded.sm for input controls and contained board cards, rounded.md for module panels, rounded.lg for sheets, and rounded.pill for compact actions and navigation. Task and reminder lists use open rows, with only a subtle separator where it helps. Avoid nested rounded boxes. Selectors use quiet text or monochrome selection; no yellow filled navigation.
 
-Do not switch to Inter, Roboto, Arial, or system-ui as the brand voice for titles.
+## Navigation and interactions
 
-## Layout
+Desktop keeps the rail stuck to the viewport with theme and language at its foot. Phone keeps one centered fixed dock (Today / Calendar / Tally / More), with theme and language inside More. Active dock items use clear text on a slightly darker/lighter neutral capsule. Keep all interactive targets at least 44px and preserve safe-area padding. One action cluster per page region; no overlapping corner controls.
 
-- Max content width around `min(1120px, 92vw)`.
-- Module gaps use `spacing.md`–`spacing.lg`.
-- Desktop: multi-column grids with breathing room; mobile: single column.
-- Phone chrome is one system: desktop keeps the slim rail **stuck to the viewport** (theme and language stay at its foot — they must not scroll away with long pages); phone uses one **fixed, centered** dock (Today / Calendar / Tally / More). Menu, theme, and language live in More on the phone — no second Menu button and no corner theme/language pills. The More drawer omits pages already on the dock.
-- One job per section: one heading, one short supporting line, one primary interaction cluster.
-- The guest “sign in to keep this work” notice is a full-width glass card at the top of the page content column, never a side column beside it.
-- Full-width buttons belong to containers that stack (the phone add form, the guest notice). Do not widen `button-primary` globally at a breakpoint — it crushes text beside it in flex rows.
-- Todo hub: greeting + Today hero + a visible add form (desktop includes the yellow Add next to the field — do not clip it to a 1×1 screen-reader node). Agent opens as a centered glass dialog from Ask agent — same overlay language as login and shortcuts, not an in-page chat or side dock. No floating agent FAB on Todo.
-- Todo mobile (`todo-m.html`) is a Welcome-style Today: greeting + circular ghost (agent) top-right, a pill add field with date chip, a liquid-glass hero with remaining count + yellow Add, “Today’s tasks” with a Done link, liquid-glass task cards, and a **fixed, centered** liquid-glass bottom dock. No second add control beside the section title, week strip, status pills, source/filter chips, or evening-review card. The ghost opens the same centered glass agent dialog. Theme and language live in More. Desktop stays denser.
-- Google or Outlook sign-in connects that account across Mail and Calendar (plus workspace snapshot). A guest who already has tasks is reminded to sign in to save.
-- Calendar desktop top module mirrors a schedule header: search + filter chips, “Stay up to date” headline, week-range pill with prev/next, yellow “+ Add reminder”, and Today/Week/Month view toggles — then the week time grid and quiet selected-day strip. Hour labels follow the UI language (08:00 in Chinese, 8 AM in English). Tokens stay yellow `tertiary` / glass; no cream or second brand hue.
-- Calendar phone is a Schedule page: month label + horizontal day strip (selected day stays in view), a vertical timeline of reminder cards (time gutter + liquid-glass cards), one pill reminder field, and the same **fixed, centered** liquid-glass dock. No yellow + next to the dock. Search, filter chips, the week time grid, task composer, end time, and priority stay on desktop. Reminder ranges use the same locale clock as the week axis (`08:00–20:00` vs `8 AM`).
-- Tally phone is today’s spend, a single amount + category field, and the month’s list. The agent ghost sits top-right of the heading — same place as Today. Charts, shared switch, export, and the add FAB stay off the first screen; the sheet is for edit and shared/FX details. Desktop keeps the fuller ledger.
-- Planner board uses a soft Kanban layout **inside the main panel only**: glass panel + muted column tracks, glass cards, Day/Week/Month/Year range pills, and search. Fixed columns persist `status` (`planned` / `progress` / `done` / `hold`) and localize their titles; completion syncs by status, not by the English word “Done”. Columns are not deletable. Cards add only via `+ Add card` under a column.
-- Planner header is greeting + title (“Landing Page”). Collapsed cards show title + note preview; expand to edit. Site chrome (bento rail, menu sidebar, greeting) stays the shared Daily Space pattern. Accent remains yellow `tertiary`.
-- Planner phone is one status at a time: greeting + board title with the agent ghost top-right, status chips (Planned / In Progress / Done / On Hold) with counts, then a vertical liquid-glass card list. The four-column Kanban stays on desktop. Move a card by expanding it and picking a column — do not rely on drag.
-- Travel empty state is a vertical stack: greeting, destination prompt, yellow Add, then a quiet note. Do not place the note beside the greeting. With a trip, Travel is a full-bleed map (Leaflet + **OpenStreetMap tiles**, no basemap API key) with a glass stop panel overlaid on the side: day chips, searchable places, and stop details. Dark theme tints the OSM pane; markers stay unfiltered yellow. Do not use Carto/Mapbox raster tiles that render “API KEY REQUIRED”.
-- Teamwork splits **shared workspace** (invite people, Planner assignments — solid glass with a yellow edge) from **device-only notes** (dashed quieter panel). Default labels stay as localized placeholders and are not written into saved user values.
+Today phone keeps title, date and remaining count, To do / Completed tabs, separate completion controls and task detail actions. A compact bottom New task action stays above the dock within thumb reach. Use a simple line icon for the assistant. The bottom editor retains title, date shortcuts, folded category/time/repeat, saved drafts, consecutive entry, IME handling, keyboard-safe Save, and Back-to-close. Hide dock and capture while editing. Delete remains in details with Undo.
 
-## Elevation & Depth
+Desktop Today keeps a visible composer and Ask agent trigger. Calendar desktop keeps the week grid and search; phone keeps the day strip and vertical reminders with an inline composer. Tally phone keeps today's total and quick entry; fuller charts remain on desktop. Planner phone shows one status at a time and uses explicit move controls; desktop retains the four-column board. Shared Teamwork and device-only notes retain distinct labels and a quiet dashed separator. Mail remains an aligned vertical reading column. Travel retains its functional map and stop panel. Do not remove controls merely to simplify the first screen.
 
-Depth comes from frosted and **liquid glass**, inset highlights, and **soft, low-opacity** drop shadows — not neon glow stacks or heavy stamped text shadows on titles.
+## Motion and accessibility
 
-- Panels: `backdrop-filter` blur + saturate + translucent fills (`--glass`, `--glass-strong`, mobile `--liquid-fill`).
-- Mobile chrome (dock, hero, cards, composer): Apple-like liquid glass — stronger backdrop blur, translucent token fills, specular `on-primary` edge light, quiet outer shadow. The fixed dock tracks the pointer with a sliding liquid lens. Keep yellow as the only loud fill.
-- Shadows: `--shadow`, `--shadow-soft`, `--shadow-pop`, `--glow` (warm, subtle).
-- Hover lift: slight `translateY` + scale; respect `prefers-reduced-motion`.
-- Focused inputs may “bubble pop” (lift, larger radius, yellow-tinted ring) as on Teamwork.
+Use brief opacity or small translation transitions, without scaling content cards or glowing hover states. Keep keyboard focus clearly visible with the text token and an outline; never remove focus feedback. Honor reduced motion (dock blur reduces to 16px) and reduced transparency (solid surface with no blur). Browsers without backdrop-filter receive a solid dock. Apply the same dock to the explicit phone shell on wide preview windows; desktop rails retain solid surfaces. Preserve modal focus traps, scroll locking, account-scoped drafts, and Undo. No new blocking confirmations for reversible deletions.
 
-## Shapes
+## Implementation
 
-Use large radii: `rounded.sm` (18px), `rounded.md` (24px), `rounded.lg` (36px). Pills (`rounded.pill`) for primary buttons and compact toggles. Avoid sharp broadsheet zero-radius layouts and tiny 4px chips.
-
-## Components
-
-- **button-primary:** Yellow fill (`tertiary`) with near-black label (`on-tertiary`), pill shape — the only loud control. Hover deepens to `tertiary-deep`, never a washed lighter tint.
-- **button-secondary / glass controls:** Quiet translucent surfaces with soft borders.
-- **card-glass / liquid-glass:** Module shells (todo, tally, teamwork). Prefer glass tokens over opaque white cards. Mobile Today / Calendar / dock use the liquid-glass treatment.
-- **input-bubble:** Transparent until focus, then elevated bubble treatment.
-- **kicker:** Small uppercase yellow labels above titles.
-- **undo-bar:** Glass pill, bottom-centered, holding one short message plus a yellow Undo. It measures the dock and sits above it rather than assuming a breakpoint. Visible ~6s, dismissable with Escape.
-
-Variants that need hover/active states should keep the same token family; do not introduce purple, glow-heavy, or multi-shadow fashion defaults.
-
-## Destructive Actions
-
-- Deleting a task, expense, reminder, or category applies immediately and offers the undo bar. Do not put a confirm in front of a reversible delete.
-- Reserve `confirm` for things the app cannot restore: account deletion, leaving or deleting a shared workspace, removing a member, deleting a planner or trip.
-- Hover cannot reveal anything on touch. Row delete controls stay visible and are at least 2.75rem square below the phone breakpoint; desktop keeps hover reveal.
-- Field errors belong on the field (`setCustomValidity` + `reportValidity`), not in a blocking `alert`.
-- Dialog and alert copy never reaches the DOM translator, so pick it through `DailySpaceI18n.t(en, zh)`.
-
-## Do's and Don'ts
-
-**Do**
-
-- Read this file before editing UI.
-- Map colors/spacing/radius through existing CSS variables in `styles.css` (and page CSS files).
-- Keep photographic mist backgrounds and glass panels as the atmospheric base.
-- Preserve light/dark parity via the same token roles.
-
-**Don't**
-
-- Hardcode new hex colors in components.
-- Default to purple-on-white, cream+terracotta, or dense newspaper layouts.
-- Fill the first viewport with stats strips, promo chips, or card grids that fight the brand.
-- Add emoji ornaments or glow-for-glow’s-sake effects.
+Use tokens from this file for colors, typography, spacing, and radii. Shared presentation lives in visual-refinement.css, loaded after page styles. Keep page behavior in the existing vanilla JS modules. Changes apply equally to light and dark modes and do not force a theme on existing users.

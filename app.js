@@ -1020,7 +1020,7 @@
     const label = document.createElement("span");
     label.className = "todo-label";
     label.textContent = todo.text;
-    if (allowDelete && todoSource === "personal") {
+    if (allowDelete && todoSource === "personal" && !isMobileTodoPage()) {
       label.contentEditable = "true";
       label.spellcheck = false;
       label.setAttribute("role", "textbox");
@@ -1048,6 +1048,21 @@
           return;
         }
         if (next !== todo.text) renameTodo(todo.id, next);
+        else render();
+      });
+    }
+
+    if (isMobileTodoPage() && todoSource === "personal") {
+      main.classList.add("is-task-action");
+      main.setAttribute("role", "button");
+      main.tabIndex = 0;
+      main.setAttribute("aria-label", `${window.DailySpaceI18n?.t("Edit task", "编辑任务") || "Edit task"}: ${todo.text}`);
+      const edit = () => window.DailySpaceMobileTodo?.openEdit(todo.id);
+      main.addEventListener("click", edit);
+      main.addEventListener("keydown", event => {
+        if (event.target === main && !event.isComposing && (event.key === "Enter" || event.key === " ")) {
+          event.preventDefault(); edit();
+        }
       });
     }
 
@@ -1077,8 +1092,21 @@
           ? `Overdue · ${formatDueDate(todo.dueDate)}`
           : `Due ${formatDueDate(todo.dueDate)}`
         : "Due";
-      dueEl.textContent = todo.dueTime ? `${datePart} · ${todo.dueTime}` : datePart;
+      const mobileDate = todo.dueDate === todayIso()
+        ? (window.DailySpaceI18n?.t("Today", "今天") || "Today") : formatDueDate(todo.dueDate);
+      const displayDate = isMobileTodoPage() ? mobileDate : datePart;
+      dueEl.textContent = todo.dueTime ? `${displayDate} · ${todo.dueTime}` : displayDate;
       main.appendChild(dueEl);
+    }
+
+    if (isMobileTodoPage()) {
+      const metadata = [...main.querySelectorAll(".todo-category-pill, .todo-due")];
+      if (metadata.length) {
+        const meta = document.createElement("span");
+        meta.className = "m-task-meta";
+        meta.append(...metadata);
+        main.appendChild(meta);
+      }
     }
 
     if (todoSource === "personal" && !todo.completed) {
@@ -1110,7 +1138,10 @@
       main.appendChild(badge);
     }
 
-    li.append(check, main);
+    const checkTarget = document.createElement("label");
+    checkTarget.className = "todo-check-target";
+    checkTarget.appendChild(check);
+    li.append(checkTarget, main);
 
     if (allowDelete) {
       const del = document.createElement("button");
@@ -1173,15 +1204,10 @@
     if (!dueDayPageDate) return;
     dueDayPageTitle.textContent = `Tasks due ${formatDueDate(dueDayPageDate)}`;
     const list = todos.filter((t) => t.dueDate === dueDayPageDate);
-    dueDayPageList.innerHTML = "";
-    list.forEach((todo) => {
-      dueDayPageList.appendChild(
-        createTodoListItemEl(todo, {
-          showCategoryPill: !!(todo.categoryId && categoryExists(todo.categoryId)),
-          showDueBadge: false,
-        })
-      );
-    });
+    renderTodoRows(dueDayPageList, list, todo => ({
+      showCategoryPill: !!(todo.categoryId && categoryExists(todo.categoryId)),
+      showDueBadge: false,
+    }));
     const empty = list.length === 0;
     dueDayPageEmpty.hidden = !empty;
     dueDayPageList.hidden = empty;
@@ -1190,11 +1216,11 @@
   }
 
   function renderAssigned() {
-    listEl.innerHTML = "";
     syncDueDayFilterBar();
     clearBtn.hidden = true;
 
     if (assignedLoading) {
+      renderTodoRows(listEl, [], () => ({}));
       countEl.textContent = "Loading…";
       emptyEl.classList.add("is-visible");
       emptyEl.textContent = "Loading assigned tasks…";
@@ -1202,6 +1228,7 @@
     }
 
     if (assignedError) {
+      renderTodoRows(listEl, [], () => ({}));
       countEl.textContent = "Assigned";
       emptyEl.classList.add("is-visible");
       emptyEl.textContent = assignedError;
@@ -1209,17 +1236,13 @@
     }
 
     const visible = assignedTasks.filter((t) => !t.completed);
-    visible.forEach((todo) => {
-      listEl.appendChild(
-        createTodoListItemEl(todo, {
-          showCategoryPill: false,
-          showDueBadge: !!todo.dueDate,
-          showBoardMeta: true,
-          allowDelete: false,
-          onToggle: completeAssignedTask,
-        })
-      );
-    });
+    renderTodoRows(listEl, visible, todo => ({
+      showCategoryPill: false,
+      showDueBadge: !!todo.dueDate,
+      showBoardMeta: true,
+      allowDelete: false,
+      onToggle: completeAssignedTask,
+    }));
 
     const left = visible.length;
     countEl.textContent =
@@ -1278,7 +1301,7 @@
     const next = `${window.location.pathname}${window.location.search}${hash}`;
     const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     if (current !== next) {
-      window.history.replaceState({}, "", next);
+      window.history.replaceState(window.history.state || {}, "", next);
     }
   }
 
@@ -1661,7 +1684,19 @@
     }
   }
 
-  function render() {
+  function renderTodoRows(target, rows, options, completedId) {
+    window.DailySpaceTaskList.render(target, rows, {
+      signature: todo => JSON.stringify({
+        todo, options: options(todo), source: todoSource, locale: uiLocale(), day: todayIso(),
+        category: categoryLabelById(todo.categoryId),
+      }),
+      create: todo => createTodoListItemEl(todo, options(todo)),
+      completedId,
+      fallbackFocus: isMobileTodoPage() ? document.getElementById("m-add-task") : input,
+    });
+  }
+
+  function render({ completedId } = {}) {
     syncSourceChrome();
     if (todoSource === "assigned") {
       renderAssigned();
@@ -1670,21 +1705,12 @@
     }
 
     const visible = visibleTodosPipeline();
-    listEl.innerHTML = "";
     syncDueDayFilterBar();
-
-    visible.forEach((todo) => {
-      listEl.appendChild(
-        createTodoListItemEl(todo, {
-          showCategoryPill:
-            selectedCategoryKey === "__all__" &&
-            !!todo.categoryId &&
-            categoryExists(todo.categoryId),
-          showDueBadge: !!todo.dueDate,
-          allowReorder: todoSource === "personal",
-        })
-      );
-    });
+    renderTodoRows(listEl, visible, todo => ({
+      showCategoryPill: selectedCategoryKey === "__all__" && !!todo.categoryId && categoryExists(todo.categoryId),
+      showDueBadge: !!todo.dueDate,
+      allowReorder: todoSource === "personal",
+    }), completedId);
 
     const inScopeBase = todosInCategoryAndDayScope();
     const inScope =
@@ -1745,6 +1771,7 @@
 
     if (dueDayPageDate) renderDueDayPage();
     renderDailyLoop();
+    window.dispatchEvent(new CustomEvent("daily-space-todo-view-updated"));
   }
 
   function add(text, dueDate, categoryIdOverride) {
@@ -1910,6 +1937,23 @@
     };
   }
 
+  function saveMobileTask(draft, taskId) {
+    const text = String(draft.text || "").trim().slice(0, 500);
+    if (!text) return null;
+    let task = taskId ? todos.find(item => item.id === taskId) : null;
+    if (taskId && !task) return null;
+    if (!task) { task = { id: id(), completed: false }; todos.unshift(task); }
+    Object.assign(task, {
+      text,
+      dueDate: ISO_DATE.test(draft.dueDate || "") ? draft.dueDate : null,
+      dueTime: normalizeTime(draft.dueTime),
+      categoryId: categoryExists(draft.categoryId) ? draft.categoryId : null,
+      repeat: ["daily", "weekly", "monthly"].includes(draft.repeat) ? draft.repeat : null,
+    });
+    saveAll(); renderCategorySidebar(); render();
+    return { ...task };
+  }
+
   window.DailySpaceTodo = {
     getSnapshot: getAgentSnapshot,
     applyActions: applyAgentActions,
@@ -1946,7 +1990,7 @@
     if (completing) spawnRepeatFrom(t);
     saveAll();
     renderCategorySidebar();
-    render();
+    render({ completedId: completing ? todoId : null });
   }
 
   function renameTodo(todoId, text) {
@@ -2343,6 +2387,7 @@
   });
 
   input.addEventListener("keydown", (e) => {
+    if (e.isComposing || e.keyCode === 229) return;
     if (slashMenu && !slashMenu.hidden) {
       const count = slashMenu.querySelectorAll(".slash-menu-item").length;
       if (e.key === "ArrowDown") {
@@ -2412,6 +2457,7 @@
   window.addEventListener("daily-space-shortcut", (event) => {
     const action = event.detail && event.detail.action;
     if (action === "new-task") {
+      if (isMobileTodoPage()) { window.DailySpaceMobileTodo?.openNew(); return; }
       if (commandPalette && !commandPalette.hidden) closeCommandPalette();
       input?.focus();
       return;
@@ -2526,6 +2572,11 @@
   }
 
   window.DailySpaceTodo = {
+    getTasks: () => todos.map(task => ({ ...task })),
+    getCategories: () => categories.map(category => ({ ...category })),
+    getView: () => ({ filter, day: viewDueDateFilter || todayIso(), source: todoSource }),
+    saveTask: saveMobileTask,
+    removeTask: remove,
     selectDueDay,
     setFilter,
     openDueDayPage,

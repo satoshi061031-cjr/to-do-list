@@ -7,12 +7,15 @@
     <script src="workspace-search.js"></script>
     <script src="workspace-tasks.js"></script>
     <script src="daily-loop.js"></script>
+    <script src="dialog-focus.js"></script>
     <script src="theme.js"></script>
     <script src="i18n.js"></script>
     <script src="bento-rail.js"></script>
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="m-dock.css" />
     <link rel="stylesheet" href="tally.css" />
+    <link rel="stylesheet" href="mobile-typography.css" />
+    <link rel="stylesheet" href="visual-refinement.css" />
   </head>
   <body class="tally-page">
     <button type="button" class="sidebar-trigger" id="sidebar-trigger" aria-controls="sidebar" aria-expanded="false">
@@ -167,7 +170,7 @@
 
           <button type="button" class="tally-add-fab" id="tally-add-open" aria-label="Add expense">+</button>
 
-          <div class="tally-sheet" id="tally-add-sheet" hidden>
+          <div data-dialog-root class="tally-sheet" id="tally-add-sheet" hidden>
             <button type="button" class="tally-sheet-backdrop" id="tally-add-backdrop" aria-label="Close add expense"></button>
             <section class="tally-sheet-panel" role="dialog" aria-modal="true" aria-labelledby="tally-add-title">
               <div class="tally-sheet-head">
@@ -175,7 +178,7 @@
                   <p id="tally-sheet-eyebrow">New transaction</p>
                   <h2 id="tally-add-title">Add expense</h2>
                 </div>
-                <button type="button" class="tally-sheet-close" id="tally-add-close" aria-label="Close expense sheet">×</button>
+                <button type="button" class="tally-sheet-close" data-dialog-close id="tally-add-close" aria-label="Close expense sheet">×</button>
               </div>
               <form class="tally-form" id="tally-form" autocomplete="off">
                 <label>Date<input type="date" id="tally-date" required /></label>

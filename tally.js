@@ -297,6 +297,7 @@
           if (!event.target.closest(".tally-record-delete")) setSheetOpen(true, record);
         });
         row.addEventListener("keydown", (event) => {
+          if (event.target !== row) return;
           if (event.key !== "Enter" && event.key !== " ") return;
           event.preventDefault();
           setSheetOpen(true, record);

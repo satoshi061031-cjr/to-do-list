@@ -7,12 +7,15 @@
     <script src="workspace-search.js"></script>
     <script src="workspace-tasks.js"></script>
     <script src="daily-loop.js"></script>
+    <script src="dialog-focus.js"></script>
     <script src="theme.js"></script>
     <script src="i18n.js"></script>
     <script src="bento-rail.js"></script>
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="m-dock.css" />
     <link rel="stylesheet" href="mail.css" />
+    <link rel="stylesheet" href="mobile-typography.css" />
+    <link rel="stylesheet" href="visual-refinement.css" />
   </head>
   <body class="mail-page">
     <button type="button" class="sidebar-trigger" id="sidebar-trigger" aria-controls="sidebar" aria-expanded="false">
@@ -193,7 +196,7 @@
             </div>
           </details>
 
-          <div class="mail-booking-sheet" id="mail-booking-sheet" hidden>
+          <div data-dialog-root class="mail-booking-sheet" id="mail-booking-sheet" hidden>
             <button
               type="button"
               class="mail-booking-backdrop"
@@ -214,7 +217,7 @@
                 <button
                   type="button"
                   class="mail-booking-close"
-                  id="mail-booking-close"
+                  data-dialog-close id="mail-booking-close"
                   aria-label="Close booking import"
                 >×</button>
               </div>

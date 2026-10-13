@@ -8,6 +8,16 @@
   let originalTitle = "";
 
   const ZH = {
+    "Delete task": "删除任务",
+    "Time": "时间",
+    "Task": "任务",
+    "Tomorrow": "明天",
+    "Choose date": "选择日期",
+    "More options": "更多选项",
+    "Discard draft": "丢弃草稿",
+    "What needs doing?": "有什么要做的？",
+    "Close task editor": "关闭任务编辑",
+    "No category": "无分类",
     "A new era of focus is here.": "专注的新纪元已经到来。",
     "A new era of": "专注的新纪元",
     "focus is here.": "已经到来。",

@@ -46,14 +46,15 @@
    * the dock flips to a side rail at a width the bar would otherwise guess at.
    */
   function clearBottomChrome() {
-    const dock = document.querySelector(".bento-rail");
-    if (!dock) return;
-    const rect = dock.getBoundingClientRect();
-    const isBottomDock =
-      rect.height > 0 &&
-      rect.height < window.innerHeight * 0.4 &&
-      window.innerHeight - rect.bottom < 80;
-    bar.style.bottom = isBottomDock ? `${window.innerHeight - rect.top + 21}px` : "";
+    let chromeTop = window.innerHeight;
+    for (const element of document.querySelectorAll(".bento-rail, .m-add-bar")) {
+      if (getComputedStyle(element).visibility === "hidden") continue;
+      const rect = element.getBoundingClientRect();
+      if (rect.height > 0 && rect.height < window.innerHeight * 0.4 && window.innerHeight - rect.bottom < 180) {
+        chromeTop = Math.min(chromeTop, rect.top);
+      }
+    }
+    bar.style.bottom = chromeTop < window.innerHeight ? `${window.innerHeight - chromeTop + 21}px` : "";
   }
 
   function hide() {

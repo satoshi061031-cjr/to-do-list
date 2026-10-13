@@ -31,6 +31,8 @@
   let userSnapshotBaseline = "";
   let userSnapshotLastSyncedAt = "";
   let userSnapshotStatus = "idle";
+  let userSnapshotRevision = null;
+  let userSnapshotWriteInFlight = false;
 
   function isBrowserOnline() {
     return typeof navigator === "undefined" || navigator.onLine !== false;
@@ -427,11 +429,12 @@
 
     const modal = document.createElement("div");
     modal.className = "auth-modal";
+    modal.setAttribute("data-dialog-root", "");
     modal.hidden = true;
     modal.innerHTML = `
       <div class="auth-modal-backdrop" data-auth-close></div>
       <section class="auth-card" role="dialog" aria-modal="true" aria-labelledby="auth-title">
-        <button type="button" class="auth-close" data-auth-close aria-label="Close login">×</button>
+        <button type="button" class="auth-close" data-auth-close data-dialog-close aria-label="Close login">×</button>
         <p class="auth-kicker">Daily Space</p>
         <h2 class="auth-title" id="auth-title">Sign in</h2>
         <p class="auth-copy">Continue with a provider to keep your workspace synced.</p>
@@ -529,9 +532,8 @@
           keepLocal.addEventListener("click", function (event) {
             event.preventDefault();
             event.stopPropagation();
-            keepLocalSnapshotOverCloud().catch(function () {
-              userSnapshotStatus = "error";
-              emitUserSnapshotUpdate();
+            keepLocalSnapshotOverCloud().catch(function (error) {
+              handleSnapshotFailure(error);
             });
           });
         }
@@ -986,20 +988,35 @@
     }
   }
 
+  function handleSnapshotFailure(error) {
+    userSnapshotStatus = !isBrowserOnline() ? "offline"
+      : error?.code === "SNAPSHOT_CONFLICT" ? "conflict" : "error";
+    emitUserSnapshotUpdate();
+  }
+
   async function requestUserSnapshot(method, payload) {
-    const response = await fetch("/api/user/snapshot", {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: payload ? JSON.stringify(payload) : undefined,
-    });
-    const data = await response.json().catch(function () {
-      return {};
-    });
-    if (!response.ok) {
-      const message = data && typeof data.error === "string" ? data.error : "User sync request failed.";
-      throw new Error(message);
+    const writing = method === "PUT";
+    if (writing && (userSnapshotWriteInFlight || userSnapshotRevision == null)) {
+      throw new Error("Wait for cloud data to load before syncing.");
     }
-    return data;
+    if (writing) userSnapshotWriteInFlight = true;
+    try {
+      const response = await fetch("/api/user/snapshot", {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: payload ? JSON.stringify({ ...payload, baseRevision: userSnapshotRevision }) : undefined,
+      });
+      const data = await response.json().catch(function () { return {}; });
+      if (!response.ok) {
+        throw Object.assign(new Error(data.error || "User sync request failed."), {
+          code: data.code, status: response.status,
+        });
+      }
+      if (writing) userSnapshotRevision = data.revision;
+      return data;
+    } finally {
+      if (writing) userSnapshotWriteInFlight = false;
+    }
   }
 
   function collectPayloadForKeys(keys) {
@@ -1139,6 +1156,7 @@
     userSnapshotStatus = "syncing";
     emitUserSnapshotUpdate();
     const data = await requestUserSnapshot("GET");
+    userSnapshotRevision = data.revision;
     const nextPayload = data.payload && typeof data.payload === "object" ? data.payload : {};
     applyUserSnapshotPayload(nextPayload, { clearMissing: true });
     userSnapshotUserId = userId;
@@ -1160,6 +1178,9 @@
     }
     userSnapshotStatus = "syncing";
     emitUserSnapshotUpdate();
+    // The user explicitly chose this device; still protect against changes after this read.
+    const latest = await requestUserSnapshot("GET");
+    userSnapshotRevision = latest.revision;
     const payload = collectUserSnapshotPayload();
     const saved = await requestUserSnapshot("PUT", { payload });
     userSnapshotUserId = userId;
@@ -1216,12 +1237,14 @@
     }
     const previousUserId = userSnapshotUserId || readLastUserId();
     const localPayload = collectUserSnapshotPayload();
+    if (previousUserId !== userId) userSnapshotRevision = null;
     if (previousUserId && previousUserId !== userId) {
       writeUserLocalCache(previousUserId, localPayload);
     }
     userSnapshotStatus = "syncing";
     emitUserSnapshotUpdate();
     const data = await requestUserSnapshot("GET");
+    userSnapshotRevision = data.revision;
     let nextPayload = data.payload && typeof data.payload === "object" ? data.payload : {};
     let syncedAt = data.updatedAt || "";
     if (!data.updatedAt) {
@@ -1277,7 +1300,7 @@
     userSnapshotStatus = "syncing";
     emitUserSnapshotUpdate();
     try {
-      if (userSnapshotUserId !== userId) {
+      if (userSnapshotUserId !== userId || userSnapshotRevision == null) {
         await loadSnapshotForCurrentUser();
         return;
       }
@@ -1296,10 +1319,9 @@
       }
       userSnapshotStatus = "ok";
       emitUserSnapshotUpdate();
-    } catch (_) {
+    } catch (error) {
       writeUserLocalCache(userId, collectUserSnapshotPayload());
-      userSnapshotStatus = isBrowserOnline() ? "error" : "offline";
-      emitUserSnapshotUpdate();
+      handleSnapshotFailure(error);
     } finally {
       userSnapshotInFlight = false;
     }
@@ -1321,15 +1343,23 @@
       emitUserSnapshotUpdate();
       return;
     }
-    const body = JSON.stringify({ payload });
+    if (userSnapshotWriteInFlight || userSnapshotInFlight || userSnapshotRevision == null) return;
+    const body = JSON.stringify({ payload, baseRevision: userSnapshotRevision });
     if (new Blob([body]).size > 60 * 1024) return;
+    userSnapshotWriteInFlight = true;
     fetch("/api/user/snapshot", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body,
       keepalive: true,
-    }).catch(function () {
-      /* local per-user cache remains available for the next retry */
+    }).then(async function (response) {
+      const data = await response.json();
+      if (!response.ok) throw Object.assign(new Error(data.error), { code: data.code });
+      userSnapshotRevision = data.revision;
+      setSyncedBaseline(userId, payload);
+      userSnapshotLastSyncedAt = data.updatedAt;
+    }).catch(handleSnapshotFailure).finally(function () {
+      userSnapshotWriteInFlight = false;
     });
   }
 
@@ -1343,6 +1373,7 @@
     window.clearInterval(userSnapshotTimer);
     userSnapshotTimer = 0;
     userSnapshotUserId = "";
+    userSnapshotRevision = null;
     userSnapshotBaseline = "";
     userSnapshotLastSyncedAt = "";
     userSnapshotStatus = "idle";
@@ -1364,11 +1395,10 @@
     if (forceLoad || userSnapshotUserId !== userId) {
       try {
         await loadSnapshotForCurrentUser();
-      } catch (_) {
+      } catch (error) {
         /* keep UX responsive even if sync unavailable */
         writeUserLocalCache(userId, collectUserSnapshotPayload());
-        userSnapshotStatus = isBrowserOnline() ? "error" : "offline";
-        emitUserSnapshotUpdate();
+        handleSnapshotFailure(error);
       }
     } else {
       emitUserSnapshotUpdate();
@@ -1725,6 +1755,7 @@
     try {
       if (plugins.App && typeof plugins.App.addListener === "function") {
         plugins.App.addListener("backButton", function (event) {
+          if (window.DailySpaceMobileTodo?.closeIfOpen()) return;
           if (event && event.canGoBack) {
             window.history.back();
           } else if (plugins.App.exitApp) {
@@ -1870,11 +1901,12 @@
       sheet = document.createElement("div");
       sheet.id = "shortcuts-sheet";
       sheet.className = "shortcuts-sheet";
+      sheet.setAttribute("data-dialog-root", "");
       sheet.hidden = true;
       sheet.innerHTML = `
         <div class="shortcuts-sheet-backdrop" data-shortcuts-close></div>
         <section class="shortcuts-sheet-panel" role="dialog" aria-modal="true" aria-labelledby="shortcuts-title">
-          <button type="button" class="shortcuts-sheet-close" data-shortcuts-close aria-label="Close shortcuts">×</button>
+          <button type="button" class="shortcuts-sheet-close" data-shortcuts-close data-dialog-close aria-label="Close shortcuts">×</button>
           <p class="shortcuts-sheet-kicker">Daily Space</p>
           <h2 class="shortcuts-sheet-title" id="shortcuts-title">Keyboard shortcuts</h2>
           <p class="shortcuts-sheet-copy">Press ? anytime to open this list. Keys are ignored while typing.</p>

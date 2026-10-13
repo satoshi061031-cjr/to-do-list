@@ -12,11 +12,20 @@ function createFakeSupabase() {
   return {
     rows,
     client: {
+      async rpc(name, { p_user_id: id, p_payload: payload, p_base_revision: base }) {
+        assert.equal(name, "save_user_snapshot");
+        const old = rows.get(id);
+        if ((!old && base !== 0) || (old && old.revision !== base)) return { data: [], error: null };
+        const saved = { user_id: id, payload, updated_at: new Date().toISOString(), revision: base + 1 };
+        rows.set(id, saved);
+        return { data: [saved], error: null };
+      },
       from(table) {
         assert.equal(table, "user_snapshots");
         let selectedUserId = "";
         let pendingRow = null;
         let mode = "read";
+        let ignoreDuplicates = false;
         const builder = {
           select() {
             return builder;
@@ -32,9 +41,15 @@ function createFakeSupabase() {
             return builder;
           },
           async maybeSingle() {
+            if (pendingRow) {
+              if (ignoreDuplicates && rows.has(pendingRow.user_id)) return { data: null, error: null };
+              rows.set(pendingRow.user_id, pendingRow);
+              return { data: pendingRow, error: null };
+            }
             return { data: rows.get(selectedUserId) || null, error: null };
           },
-          upsert(row) {
+          upsert(row, options = {}) {
+            ignoreDuplicates = options.ignoreDuplicates;
             pendingRow = row;
             return builder;
           },
@@ -188,4 +203,33 @@ test("sqlite-only store can delete snapshots", async () => {
   const result = await store.deleteSnapshot("local-delete@example.com");
   assert.equal(result.removed, true);
   assert.equal(rows.size, 0);
+});
+
+
+test("Supabase rejects stale writes and duplicate first creation", async () => {
+  const fake = createFakeSupabase();
+  const store = createSnapshotStore({ supabase: fake.client, sqliteGet: () => null });
+  const first = await store.upsertSnapshot("alice@example.com", { "todo-theme": "light" }, 0);
+  assert.equal(first.revision, 1);
+  const newer = await store.upsertSnapshot("alice@example.com", { "todo-theme": "dark" }, 1);
+  assert.equal(newer.revision, 2);
+  for (const base of [0, 1]) {
+    await assert.rejects(store.upsertSnapshot("alice@example.com", { "todo-theme": "stale" }, base),
+      error => error.statusCode === 409 && error.currentRevision === 2);
+  }
+  assert.equal((await store.getSnapshot("alice@example.com")).payload["todo-theme"], "dark");
+  await assert.rejects(store.upsertSnapshot("alice@example.com", {}, null), /nonnegative integer/);
+});
+
+test("legacy migration never overwrites a concurrent cloud creation", async () => {
+  const fake = createFakeSupabase();
+  const store = createSnapshotStore({ supabase: fake.client, sqliteGet: () => {
+    fake.rows.set("alice@example.com", {
+      user_id: "alice@example.com", payload: { "todo-theme": "dark" }, revision: 3, updated_at: "cloud",
+    });
+    return { payload: { "todo-theme": "light" }, updatedAt: "legacy" };
+  } });
+  const snapshot = await store.getSnapshot("alice@example.com");
+  assert.equal(snapshot.revision, 3);
+  assert.equal(snapshot.payload["todo-theme"], "dark");
 });

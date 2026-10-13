@@ -1,144 +1,214 @@
-/**
- * Mobile Today chrome — week strip, collapsed agent, Done/Today toggle.
- */
+/** Phone task capture and details, sharing the existing Todo store. */
 (function () {
   if (!document.body.classList.contains("todo-mobile")) return;
-
-  function isoLocal(date) {
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-  }
-
-  function markWeek(iso) {
-    const strip = document.getElementById("m-week-strip");
-    if (!strip) return;
-    strip.querySelectorAll(".m-day").forEach((el) => {
-      const on = el.getAttribute("data-iso") === iso;
-      el.classList.toggle("is-selected", on);
-      el.setAttribute("aria-selected", on ? "true" : "false");
-    });
-  }
-
-  function selectDay(iso) {
-    markWeek(iso);
+  function boot() {
     const api = window.DailySpaceTodo;
-    if (api && typeof api.selectDueDay === "function") {
-      api.selectDueDay(iso);
-    }
-  }
+    if (!api) return;
+    const root = document.getElementById("m-task-editor");
+    const form = document.getElementById("m-task-form");
+    const title = document.getElementById("m-task-title");
+    const date = document.getElementById("m-task-date");
+    const time = document.getElementById("m-task-time");
+    const category = document.getElementById("m-task-category");
+    const repeat = document.getElementById("m-task-repeat");
+    const details = document.getElementById("m-task-details");
+    const status = document.getElementById("m-task-status");
+    const save = document.getElementById("m-task-save");
+    const remove = document.getElementById("m-task-delete");
+    const todayButton = document.getElementById("m-task-today");
+    const tomorrowButton = document.getElementById("m-task-tomorrow");
+    const customButton = document.getElementById("m-task-custom");
+    const empty = document.createElement("p");
+    empty.className = "m-task-empty";
+    document.getElementById("todo-list").after(empty);
+    let taskId = null;
+    let draftKey = "";
+    let composing = false;
+    let closingHistory = false;
+    let returnScroll = 0;
+    const VIEW_KEY = "daily-space-phone-view-v1";
 
-  function buildWeek() {
-    const strip = document.getElementById("m-week-strip");
-    if (!strip) return;
-    const today = new Date();
-    today.setHours(12, 0, 0, 0);
-    const start = new Date(today);
-    start.setDate(today.getDate() - 3);
-    const todayKey = isoLocal(today);
-    strip.innerHTML = "";
-    for (let i = 0; i < 7; i += 1) {
-      const d = new Date(start);
-      d.setDate(start.getDate() + i);
-      const iso = isoLocal(d);
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "m-day" + (iso === todayKey ? " is-today is-selected" : "");
-      btn.setAttribute("role", "option");
-      btn.setAttribute("data-iso", iso);
-      btn.setAttribute("aria-selected", iso === todayKey ? "true" : "false");
-      const wd = d.toLocaleDateString(undefined, { weekday: "short" });
-      btn.innerHTML =
-        `<span class="m-day-wd">${wd}</span>` +
-        `<span class="m-day-num">${d.getDate()}</span>`;
-      btn.addEventListener("click", () => selectDay(iso));
-      strip.appendChild(btn);
+    const t = (en, zh) => window.DailySpaceI18n?.t(en, zh) || en;
+    const locale = () => window.DailySpaceI18n?.localeTag() || "en";
+    function isoLocal(value) {
+      return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
     }
-  }
-
-  function syncAgentToggle(open) {
-    const btn = document.getElementById("m-agent-toggle");
-    const host = document.getElementById("todo-agent-host");
-    if (btn) {
-      btn.setAttribute("aria-expanded", open ? "true" : "false");
-      btn.classList.toggle("is-open", open);
+    const today = () => isoLocal(new Date());
+    function tomorrow() { const value = new Date(); value.setDate(value.getDate() + 1); return isoLocal(value); }
+    function owner() {
+      try { return JSON.parse(localStorage.getItem("daily-space-auth-v1") || "null")?.email || "guest"; }
+      catch (_) { return "guest"; }
     }
-    if (host) host.hidden = !open;
-    document.body.classList.toggle("m-agent-sheet-open", open);
-  }
+    function read(key) {
+      try { return JSON.parse(sessionStorage.getItem(key) || "null"); } catch (_) { return null; }
+    }
+    function write(key, value) {
+      try { sessionStorage.setItem(key, JSON.stringify(value)); } catch (_) { /* Storage may be unavailable. */ }
+    }
+    function readDraft(key) {
+      try { return JSON.parse(localStorage.getItem(key) || "null"); } catch (_) { return null; }
+    }
+    function clearDraft() {
+      try { localStorage.removeItem(draftKey); } catch (_) {}
+    }
+    function snapshot() {
+      return { text: title.value, dueDate: date.value, dueTime: time.value,
+        categoryId: category.value || null, repeat: repeat.value || null };
+    }
+    function storeDraft() {
+      if (!root.hidden && draftKey) {
+        try { localStorage.setItem(draftKey, JSON.stringify(snapshot())); } catch (_) {}
+      }
+    }
+    function showStatus(en, zh) { status.textContent = t(en, zh); }
 
-  function wireAgent() {
-    const btn = document.getElementById("m-agent-toggle");
-    if (!btn) return;
-    btn.addEventListener("click", () => {
-      const host = document.getElementById("todo-agent-host");
-      const open = Boolean(host && host.hidden);
-      if (window.DailySpaceAgentUi && typeof window.DailySpaceAgentUi.setOpen === "function") {
-        window.DailySpaceAgentUi.setOpen(open);
-      } else {
-        syncAgentToggle(open);
+    function syncDates() {
+      todayButton.setAttribute("aria-pressed", String(date.value === today()));
+      tomorrowButton.setAttribute("aria-pressed", String(date.value === tomorrow()));
+      const custom = date.value && date.value !== today() && date.value !== tomorrow();
+      customButton.setAttribute("aria-pressed", String(Boolean(custom)));
+      customButton.textContent = custom
+        ? new Date(`${date.value}T12:00:00`).toLocaleDateString(locale(), { month: "short", day: "numeric" })
+        : t("Choose date", "选择日期");
+      save.disabled = !title.value.trim() || composing;
+    }
+    function fill(value) {
+      title.value = value?.text || "";
+      date.value = value?.dueDate || today();
+      time.value = value?.dueTime || "";
+      repeat.value = value?.repeat || "";
+      category.replaceChildren();
+      category.add(new Option(t("No category", "无分类"), ""));
+      for (const item of api.getCategories()) category.add(new Option(item.name, item.id));
+      category.value = value?.categoryId || "";
+      date.hidden = date.value === today() || date.value === tomorrow();
+      syncDates();
+    }
+    function syncViewport() {
+      if (root.hidden) return;
+      const viewport = window.visualViewport;
+      root.style.setProperty("--m-editor-height", `${viewport?.height || innerHeight}px`);
+      root.style.setProperty("--m-editor-top", `${viewport?.offsetTop || 0}px`);
+    }
+    function open(id, push = true) {
+      if (closingHistory) return;
+      const task = id ? api.getTasks().find(item => item.id === id) : null;
+      if (id && !task) return;
+      taskId = id || null;
+      draftKey = `daily-space-phone-draft-v1:${owner()}:${taskId || "new"}`;
+      const draft = readDraft(draftKey);
+      fill(draft || task);
+      details.open = false;
+      document.getElementById("m-task-editor-title").textContent = taskId ? t("Edit task", "编辑任务") : t("New task", "新建任务");
+      save.textContent = taskId ? t("Save changes", "保存更改") : t("Add task", "添加任务");
+      remove.hidden = !taskId;
+      status.textContent = draft ? t("Draft restored", "已恢复草稿") : "";
+      returnScroll = scrollY;
+      root.hidden = false;
+      document.body.classList.add("m-task-editor-open");
+      if (push) history.pushState({ ...history.state, mobileTaskSheet: true, taskId }, "", location.href);
+      syncViewport();
+      // Focus in the initiating gesture so mobile browsers can show their keyboard.
+      title.focus({ preventScroll: true });
+      title.setSelectionRange(title.value.length, title.value.length);
+    }
+    function close({ preserve = true, fromHistory = false } = {}) {
+      if (root.hidden) return false;
+      if (preserve) storeDraft();
+      const editing = taskId;
+      title.blur();
+      root.hidden = true;
+      document.body.classList.remove("m-task-editor-open");
+      composing = false;
+      if (!fromHistory && history.state?.mobileTaskSheet) {
+        closingHistory = true;
+        history.back();
+      }
+      requestAnimationFrame(() => {
+        window.dispatchEvent(new Event("resize"));
+        window.scrollTo({ top: returnScroll, behavior: "instant" });
+        const row = editing && [...document.querySelectorAll("#todo-list .todo-item")].find(node => node.dataset.id === editing);
+        (row?.querySelector(".todo-main") || document.getElementById("m-add-task")).focus({ preventScroll: true });
+      });
+      return true;
+    }
+    document.getElementById("m-add-task").addEventListener("click", () => open(null));
+    document.getElementById("m-task-close").addEventListener("click", () => close());
+    document.getElementById("m-task-backdrop").addEventListener("click", () => close());
+    document.getElementById("m-task-discard").addEventListener("click", () => {
+      clearDraft(); fill(taskId ? api.getTasks().find(item => item.id === taskId) : null);
+      status.textContent = ""; title.focus();
+    });
+    remove.addEventListener("click", () => {
+      if (!taskId) return;
+      api.removeTask(taskId); clearDraft(); close({ preserve: false });
+    });
+    todayButton.addEventListener("click", () => { date.value = today(); date.hidden = true; syncDates(); storeDraft(); });
+    tomorrowButton.addEventListener("click", () => { date.value = tomorrow(); date.hidden = true; syncDates(); storeDraft(); });
+    customButton.addEventListener("click", () => {
+      date.hidden = false;
+      date.focus();
+      try { date.showPicker?.(); } catch (_) { /* The visible date field remains usable. */ }
+    });
+    form.addEventListener("input", () => { status.textContent = ""; syncDates(); storeDraft(); });
+    form.addEventListener("change", () => { syncDates(); storeDraft(); });
+    title.addEventListener("compositionstart", () => { composing = true; syncDates(); });
+    title.addEventListener("compositionend", () => { composing = false; syncDates(); storeDraft(); });
+    title.addEventListener("keydown", event => {
+      if (event.key === "Enter" && (composing || event.isComposing || event.keyCode === 229)) event.preventDefault();
+    });
+    form.addEventListener("submit", event => {
+      event.preventDefault();
+      if (composing || !title.value.trim() || !form.reportValidity()) return;
+      const saved = api.saveTask(snapshot(), taskId);
+      if (!saved) { showStatus("This task is no longer available.", "这条任务已不存在。"); return; }
+      clearDraft();
+      if (taskId) close({ preserve: false });
+      else {
+        title.value = ""; syncDates();
+        showStatus(saved.dueDate === today() ? "Task added. Ready for the next one." : "Task added for the selected date.",
+          saved.dueDate === today() ? "已添加，可以继续输入下一条。" : "已添加到所选日期。");
+        title.focus({ preventScroll: true });
       }
     });
-    document.addEventListener("daily-space-agent-open", (event) => {
-      const detail = event && event.detail;
-      syncAgentToggle(Boolean(detail && detail.open));
+    window.addEventListener("popstate", () => {
+      if (closingHistory) { closingHistory = false; return; }
+      if (!root.hidden && !history.state?.mobileTaskSheet) close({ fromHistory: true });
+      else if (root.hidden && history.state?.mobileTaskSheet) open(history.state.taskId, false);
     });
-  }
-
-  function wireDoneToggle() {
-    const toggle = document.getElementById("m-done-toggle");
-    const api = window.DailySpaceTodo;
-    if (!toggle || !api || typeof api.setFilter !== "function") return;
-
-    function showingCompleted() {
-      const completed = document.querySelector('.filter-btn[data-filter="completed"]');
-      return Boolean(completed && completed.classList.contains("is-active"));
-    }
-
-    function sync() {
-      const on = showingCompleted();
-      toggle.textContent = on ? "Today" : "Done";
-      toggle.setAttribute("aria-pressed", on ? "true" : "false");
-    }
-
-    toggle.addEventListener("click", () => {
-      api.setFilter(showingCompleted() ? "active" : "completed");
-      sync();
+    window.visualViewport?.addEventListener("resize", syncViewport);
+    window.visualViewport?.addEventListener("scroll", syncViewport);
+    window.addEventListener("resize", syncViewport);
+    window.addEventListener("pagehide", () => {
+      storeDraft();
+      write(`${VIEW_KEY}:${owner()}`, { filter: api.getView().filter, scroll: root.hidden ? scrollY : returnScroll });
     });
-    sync();
-  }
-
-  function placeGreeting() {
-    const top = document.querySelector(".m-top-copy");
-    const greeting = document.querySelector(".app-greeting");
-    if (top && greeting && greeting.parentElement !== top) {
-      top.insertBefore(greeting, top.firstChild);
+    window.addEventListener("daily-space-auth-updated", () => close());
+    function renderChrome() {
+      document.getElementById("m-page-date").textContent = new Date().toLocaleDateString(locale(), { weekday: "long", month: "long", day: "numeric" });
+      const view = api.getView();
+      const done = view.filter === "completed";
+      document.body.classList.toggle("m-show-completed", done);
+      document.getElementById("m-filter-active").setAttribute("aria-selected", String(!done));
+      document.getElementById("m-filter-completed").setAttribute("aria-selected", String(done));
+      const tasks = api.getTasks().filter(item => item.dueDate === view.day && Boolean(item.completed) === done);
+      empty.hidden = tasks.length > 0 || view.source !== "personal";
+      empty.textContent = done ? t("No completed tasks yet.", "还没有已完成的任务。") : t("A clear day. Add your first task.", "今天很清爽，添加第一条任务吧。");
     }
+    document.getElementById("m-filter-active").addEventListener("click", () => api.setFilter("active"));
+    document.getElementById("m-filter-completed").addEventListener("click", () => api.setFilter("completed"));
+    document.getElementById("m-agent-toggle").addEventListener("click", () => window.DailySpaceAgentUi?.setOpen(true));
+    window.addEventListener("daily-space-todo-view-updated", renderChrome);
+    window.addEventListener("daily-space-locale-changed", renderChrome);
+    // The shared greeting is for desktop; the phone keeps its stable Today title.
+    document.querySelector(".m-shell .app-greeting")?.remove();
+    const view = read(`${VIEW_KEY}:${owner()}`);
+    if (view?.filter === "completed") api.setFilter("completed");
+    renderChrome();
+    if (view?.scroll) requestAnimationFrame(() => requestAnimationFrame(() => scrollTo(0, view.scroll)));
+    window.DailySpaceMobileTodo = { openEdit: id => open(id), openNew: () => open(null), closeIfOpen: () => close() };
+    if (history.state?.mobileTaskSheet) open(history.state.taskId, false);
   }
-
-  function watchGreeting() {
-    placeGreeting();
-    const host = document.querySelector(".m-shell") || document.querySelector(".app");
-    if (!host) return;
-    const obs = new MutationObserver(() => placeGreeting());
-    obs.observe(host, { childList: true });
-    window.setTimeout(() => obs.disconnect(), 2500);
-  }
-
-  function boot() {
-    const title = document.getElementById("m-greet-title");
-    if (title) title.textContent = "Today";
-    watchGreeting();
-    buildWeek();
-    wireAgent();
-    wireDoneToggle();
-    document.addEventListener("dailyspace:view-day", (event) => {
-      const iso = event && event.detail && event.detail.iso;
-      if (iso) markWeek(iso);
-    });
-  }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", boot);
-  } else {
-    boot();
-  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
+  else boot();
 })();

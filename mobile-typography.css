@@ -1,0 +1,161 @@
+/* DESIGN.md typography.phone-*; system fonts are supplied by the device. */
+:root {
+  --phone-font: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  --phone-display-size: 2rem;
+  --phone-display-weight: 600;
+  --phone-display-lh: 1.2;
+  --phone-title-size: 1.5rem;
+  --phone-title-weight: 600;
+  --phone-title-lh: 1.3;
+  --phone-task-size: 1rem;
+  --phone-task-weight: 500;
+  --phone-task-lh: 1.45;
+  --phone-body-size: 1rem;
+  --phone-body-weight: 400;
+  --phone-body-lh: 1.5;
+  --phone-meta-size: 0.875rem;
+  --phone-meta-weight: 400;
+  --phone-meta-lh: 1.4;
+  --phone-action-size: 0.9375rem;
+  --phone-action-weight: 600;
+  --phone-action-lh: 1.3;
+}
+
+@media (max-width: 819px) {
+  :root {
+    --font-display: var(--phone-font);
+    --font-ui: var(--phone-font);
+    --font-family: var(--phone-font);
+    --type-display-size: var(--phone-display-size);
+    --type-display-lh: var(--phone-display-lh);
+    --type-title-size: var(--phone-title-size);
+    --type-body-size: var(--phone-body-size);
+    --type-body-lh: var(--phone-body-lh);
+    --type-label-size: var(--phone-meta-size);
+    --type-label-weight: var(--phone-meta-weight);
+    --type-display-tracking: 0;
+    --type-title-tracking: 0;
+    --type-body-tracking: 0;
+    --type-label-tracking: 0;
+  }
+
+  body { font-family: var(--phone-font); letter-spacing: 0; }
+  body.has-mobile-dock h1,
+  body.has-mobile-dock .planner-title,
+  body.has-mobile-dock .calendar-title,
+  body.has-mobile-dock .mail-title,
+  body.has-mobile-dock .tally-heading,
+  body.has-mobile-dock .teamwork-title-static {
+    font-family: var(--phone-font);
+    font-weight: var(--phone-display-weight);
+    line-height: var(--phone-display-lh);
+    letter-spacing: 0;
+  }
+  body.has-mobile-dock h2,
+  body.has-mobile-dock .todo-agent-title {
+    font-family: var(--phone-font);
+    font-weight: var(--phone-title-weight);
+    line-height: var(--phone-title-lh);
+    letter-spacing: 0;
+  }
+  body.has-mobile-dock button,
+  body.has-mobile-dock .btn {
+    font-family: var(--phone-font);
+    font-weight: var(--phone-action-weight);
+    letter-spacing: 0;
+    text-transform: none;
+  }
+  body.has-mobile-dock .btn {
+    font-size: var(--phone-action-size);
+    line-height: var(--phone-action-lh);
+  }
+  body.has-mobile-dock .bento-rail-link {
+    font-family: var(--phone-font);
+    font-size: var(--phone-meta-size);
+    font-weight: var(--phone-meta-weight);
+    letter-spacing: 0;
+    text-transform: none;
+  }
+  .todo-due,
+  .tally-hero-amount,
+  .tally-record-amount,
+  .tally-stat-value,
+  .planner-card-due,
+  .cal-hour-label,
+  .cal-week-hour {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* The explicit phone shell can also be previewed on a wide desktop window. */
+body.todo-mobile {
+  --font-display: var(--phone-font);
+  --font-ui: var(--phone-font);
+  --font-family: var(--phone-font);
+  --type-display-size: var(--phone-display-size);
+  --type-title-size: var(--phone-title-size);
+  --type-body-size: var(--phone-body-size);
+  --type-body-lh: var(--phone-body-lh);
+  --type-label-size: var(--phone-meta-size);
+  --type-label-weight: var(--phone-meta-weight);
+  --type-display-tracking: 0;
+  --type-title-tracking: 0;
+  --type-body-tracking: 0;
+  --type-label-tracking: 0;
+  font-family: var(--phone-font);
+  letter-spacing: 0;
+}
+body.todo-mobile .m-greet {
+  font-size: var(--phone-display-size);
+  font-weight: var(--phone-display-weight);
+  line-height: var(--phone-display-lh);
+  letter-spacing: 0;
+}
+body.todo-mobile .m-task-panel-head h2 {
+  font-size: var(--phone-title-size);
+  font-weight: var(--phone-title-weight);
+  line-height: var(--phone-title-lh);
+}
+body.todo-mobile .todo-item .todo-label {
+  font-size: var(--phone-task-size);
+  font-weight: var(--phone-task-weight);
+  line-height: var(--phone-task-lh);
+}
+body.todo-mobile .m-page-date,
+body.todo-mobile .m-page-count,
+body.todo-mobile .m-task-meta,
+body.todo-mobile .m-task-meta .todo-category-pill,
+body.todo-mobile .m-task-meta .todo-due,
+body.todo-mobile .m-task-fields label,
+body.todo-mobile .m-task-details summary,
+body.todo-mobile .m-task-status {
+  font-size: var(--phone-meta-size);
+  font-weight: var(--phone-meta-weight);
+  line-height: var(--phone-meta-lh);
+  letter-spacing: 0;
+}
+body.todo-mobile .m-add-task,
+body.todo-mobile .m-task-save,
+body.todo-mobile .m-task-tabs button,
+body.todo-mobile .m-date-chip,
+body.todo-mobile .m-task-secondary-actions button {
+  font-family: var(--phone-font);
+  font-size: var(--phone-action-size);
+  font-weight: var(--phone-action-weight);
+  line-height: var(--phone-action-lh);
+  letter-spacing: 0;
+  text-transform: none;
+}
+body.todo-mobile .m-task-title,
+body.todo-mobile .m-task-fields input,
+body.todo-mobile .m-task-fields select,
+body.todo-mobile #m-task-date {
+  font-size: var(--phone-body-size);
+  font-weight: var(--phone-body-weight);
+  line-height: var(--phone-body-lh);
+}
+body.todo-mobile .m-page-count,
+body.todo-mobile .todo-due,
+body.todo-mobile #m-task-time {
+  font-variant-numeric: tabular-nums;
+}

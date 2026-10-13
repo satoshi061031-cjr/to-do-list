@@ -97,9 +97,9 @@
   panel.className = "todo-agent";
   panel.innerHTML = `
     <button type="button" class="todo-agent-fab" aria-expanded="false" aria-controls="todo-agent-overlay" aria-label="Open Daily Space Agent">
-      <img class="todo-agent-fab-ghost" src="welcome-sticker.png" alt="" aria-hidden="true" />
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5Z"/></svg>
     </button>
-    <div class="todo-agent-overlay" id="todo-agent-overlay" hidden>
+    <div data-dialog-root class="todo-agent-overlay" id="todo-agent-overlay" hidden>
       <button type="button" class="todo-agent-backdrop" aria-label="Close agent"></button>
       <section class="todo-agent-panel" id="todo-agent-panel" role="dialog" aria-modal="true" aria-labelledby="todo-agent-title">
         <header class="todo-agent-header">
@@ -107,7 +107,7 @@
             <p class="todo-agent-kicker">Daily Space</p>
             <h2 class="todo-agent-title" id="todo-agent-title">${agentTitle}</h2>
           </div>
-          <button type="button" class="todo-agent-close" aria-label="Close agent">×</button>
+          <button type="button" data-dialog-close class="todo-agent-close" aria-label="Close agent">×</button>
         </header>
         <div class="todo-agent-messages" id="todo-agent-messages" aria-live="polite"></div>
         <form class="todo-agent-form" autocomplete="off">

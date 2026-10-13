@@ -8,11 +8,14 @@
     <script src="workspace-search.js"></script>
     <script src="workspace-tasks.js"></script>
     <script src="daily-loop.js"></script>
+    <script src="dialog-focus.js"></script>
     <script src="theme.js"></script>
     <script src="i18n.js"></script>
     <script src="bento-rail.js"></script>
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="m-dock.css" />
+    <link rel="stylesheet" href="mobile-typography.css" />
+    <link rel="stylesheet" href="visual-refinement.css" />
   </head>
   <body class="todo-bento todo-agent-page">
     <button type="button" class="sidebar-trigger" id="sidebar-trigger" aria-controls="sidebar" aria-expanded="false">
@@ -262,11 +265,11 @@
       <span class="theme-toggle-label">Dark</span>
     </button>
 
-    <div id="due-day-page" class="due-day-page" hidden role="dialog" aria-modal="true" aria-labelledby="due-day-page-title">
+    <div id="due-day-page" data-dialog-root class="due-day-page" hidden role="dialog" aria-modal="true" aria-labelledby="due-day-page-title">
       <div class="due-day-page-backdrop" id="due-day-page-backdrop" tabindex="-1" aria-hidden="true"></div>
       <div class="due-day-page-sheet">
         <header class="due-day-page-header">
-          <button type="button" class="btn due-day-page-back" id="due-day-page-close">← Back</button>
+          <button type="button" class="btn due-day-page-back" data-dialog-close id="due-day-page-close">← Back</button>
           <h2 id="due-day-page-title" class="due-day-page-title"></h2>
           <p id="due-day-page-sub" class="due-day-page-sub"></p>
         </header>
@@ -276,14 +279,14 @@
     </div>
 
     <div
-      class="command-palette"
+      data-dialog-root class="command-palette"
       id="todo-command-palette"
       hidden
       role="dialog"
       aria-modal="true"
       aria-label="Jump"
     >
-      <div class="command-palette-backdrop" id="todo-command-backdrop"></div>
+      <div class="command-palette-backdrop" data-dialog-close id="todo-command-backdrop"></div>
       <div class="command-palette-panel">
         <input
           type="search"
@@ -299,6 +302,7 @@
     </div>
 
     <script src="undo-bar.js"></script>
+    <script src="task-list.js"></script>
     <script src="app.js"></script>
     <script src="agent-data.js"></script>
     <script src="agent-ui.js"></script>

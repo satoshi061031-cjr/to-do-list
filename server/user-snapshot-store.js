@@ -78,27 +78,30 @@ function createSnapshotStore(options = {}) {
     const { data, error } = await supabase
       .from("user_snapshots")
       .upsert(
-        { user_id: userId, payload, updated_at: updatedAt },
-        { onConflict: "user_id" }
+        { user_id: userId, payload, updated_at: updatedAt, revision: 1 },
+        { onConflict: "user_id", ignoreDuplicates: true }
       )
-      .select("payload, updated_at")
-      .single();
+      .select("payload, updated_at, revision")
+      .maybeSingle();
     if (error) throw snapshotError(`Supabase migration failed: ${error.message}`, 502);
+    // Another instance may have already created cloud data; never overwrite it during migration.
+    if (!data) return getSnapshot(userId, false);
     return {
+      revision: data.revision,
       payload: data?.payload || payload,
       updatedAt: data?.updated_at || updatedAt,
       migrated: true,
     };
   }
 
-  async function getSnapshot(userId) {
+  async function getSnapshot(userId, migrate = true) {
     const id = normalizeUserId(userId);
     if (!id) throw snapshotError("userId is required.", 400);
     if (!supabase) return sqliteGet(id);
 
     const { data, error } = await supabase
       .from("user_snapshots")
-      .select("payload, updated_at")
+      .select("payload, updated_at, revision")
       .eq("user_id", id)
       .maybeSingle();
     if (error) throw snapshotError(`Supabase read failed: ${error.message}`, 502);
@@ -106,31 +109,34 @@ function createSnapshotStore(options = {}) {
       return {
         payload: data.payload && typeof data.payload === "object" ? data.payload : {},
         updatedAt: data.updated_at || null,
+        revision: data.revision,
       };
     }
-    return migrateLegacySnapshot(id);
+    return migrate ? migrateLegacySnapshot(id) : null;
   }
 
-  async function upsertSnapshot(userId, rawPayload) {
+  async function upsertSnapshot(userId, rawPayload, baseRevision = 0) {
     const id = normalizeUserId(userId);
     if (!id) throw snapshotError("userId is required.", 400);
+    if (!Number.isSafeInteger(baseRevision) || baseRevision < 0) {
+      throw snapshotError("baseRevision must be a nonnegative integer.", 400);
+    }
     const payload = sanitizeSnapshotPayload(rawPayload);
-    if (!supabase) return sqliteUpsert(id, payload);
+    if (!supabase) return sqliteUpsert(id, payload, baseRevision);
 
-    const updatedAt = new Date().toISOString();
-    const { data, error } = await supabase
-      .from("user_snapshots")
-      .upsert(
-        { user_id: id, payload, updated_at: updatedAt },
-        { onConflict: "user_id" }
-      )
-      .select("updated_at")
-      .single();
+    // The database performs compare-and-swap atomically, including first creation.
+    const { data, error } = await supabase.rpc("save_user_snapshot", {
+      p_user_id: id, p_payload: payload, p_base_revision: baseRevision,
+    });
     if (error) throw snapshotError(`Supabase write failed: ${error.message}`, 502);
-    return {
-      userId: id,
-      updatedAt: data?.updated_at || updatedAt,
-    };
+    const saved = data?.[0];
+    if (!saved) {
+      const conflict = snapshotError("Your cloud data changed. Choose which version to keep.", 409);
+      conflict.code = "SNAPSHOT_CONFLICT";
+      conflict.currentRevision = (await getSnapshot(id, false))?.revision || 0;
+      throw conflict;
+    }
+    return { userId: id, updatedAt: saved.updated_at, revision: saved.revision };
   }
 
   async function deleteSnapshot(userId) {

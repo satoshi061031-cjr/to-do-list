@@ -9,12 +9,15 @@
     <script src="workspace-search.js"></script>
     <script src="workspace-tasks.js"></script>
     <script src="daily-loop.js"></script>
+    <script src="dialog-focus.js"></script>
     <script src="theme.js"></script>
     <script src="i18n.js"></script>
     <script src="bento-rail.js"></script>
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="m-dock.css" />
     <link rel="stylesheet" href="todo-mobile.css" />
+    <link rel="stylesheet" href="mobile-typography.css" />
+    <link rel="stylesheet" href="visual-refinement.css" />
   </head>
   <body class="todo-mobile todo-loop todo-agent-page">
     <button type="button" class="sidebar-trigger" id="sidebar-trigger" aria-controls="sidebar" aria-expanded="false">
@@ -65,6 +68,8 @@
           <header class="m-top" id="m-top">
             <div class="m-top-copy">
               <h1 class="m-greet" id="m-greet-title">Today</h1>
+              <p class="m-page-date" id="m-page-date"></p>
+              <p class="m-page-count" id="count-text">0 tasks left</p>
             </div>
             <div class="m-top-actions">
               <button
@@ -75,14 +80,14 @@
                 aria-controls="todo-agent-overlay"
                 aria-label="Ask agent"
               >
-                <img class="m-agent-ghost" src="welcome-sticker.png" alt="" aria-hidden="true" />
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5Z"/></svg>
               </button>
             </div>
           </header>
 
           <div class="m-week" id="m-week-strip" role="listbox" aria-label="Week"></div>
 
-          <div class="m-composer" id="m-composer">
+          <div class="m-composer" id="m-composer" aria-hidden="true" inert>
             <form class="add-form add-form-notion" id="add-form" autocomplete="off">
               <div class="add-form-row">
                 <input
@@ -138,17 +143,9 @@
             </form>
           </div>
 
-          <section class="m-dash" aria-label="Today summary">
-            <div class="m-dash-copy">
-              <p class="m-dash-kicker">Today</p>
-              <p class="m-dash-title" id="count-text">0 tasks left</p>
-            </div>
-            <button type="submit" class="btn btn-primary m-dash-add" form="add-form">Add</button>
-          </section>
-
-          <div class="m-section-head">
-            <h2 class="m-section-title">Today’s tasks</h2>
-            <button type="button" class="m-done-toggle" id="m-done-toggle" aria-pressed="false">Done</button>
+          <div class="m-task-tabs" role="tablist" aria-label="Filter tasks">
+            <button type="button" id="m-filter-active" role="tab" aria-selected="true">To do</button>
+            <button type="button" id="m-filter-completed" role="tab" aria-selected="false">Completed</button>
           </div>
 
           <section class="todo-agent-host m-agent-host" id="todo-agent-host" hidden aria-label="Daily Space Agent"></section>
@@ -247,11 +244,11 @@
       </main>
     </div>
 
-    <div id="due-day-page" class="due-day-page" hidden role="dialog" aria-modal="true" aria-labelledby="due-day-page-title">
+    <div id="due-day-page" data-dialog-root class="due-day-page" hidden role="dialog" aria-modal="true" aria-labelledby="due-day-page-title">
       <div class="due-day-page-backdrop" id="due-day-page-backdrop" tabindex="-1" aria-hidden="true"></div>
       <div class="due-day-page-sheet">
         <header class="due-day-page-header">
-          <button type="button" class="btn due-day-page-back" id="due-day-page-close">← Back</button>
+          <button type="button" class="btn due-day-page-back" data-dialog-close id="due-day-page-close">← Back</button>
           <h2 id="due-day-page-title" class="due-day-page-title"></h2>
           <p id="due-day-page-sub" class="due-day-page-sub"></p>
         </header>
@@ -260,8 +257,8 @@
       </div>
     </div>
 
-    <div class="command-palette" id="todo-command-palette" hidden role="dialog" aria-modal="true" aria-label="Jump">
-      <div class="command-palette-backdrop" id="todo-command-backdrop"></div>
+    <div data-dialog-root class="command-palette" id="todo-command-palette" hidden role="dialog" aria-modal="true" aria-label="Jump">
+      <div class="command-palette-backdrop" data-dialog-close id="todo-command-backdrop"></div>
       <div class="command-palette-panel">
         <input
           type="search"
@@ -276,7 +273,54 @@
       </div>
     </div>
 
+    <div class="m-add-bar">
+      <button type="button" class="btn btn-primary m-add-task" id="m-add-task">
+        <span aria-hidden="true">＋</span> <span>New task</span>
+      </button>
+    </div>
+
+    <div class="m-task-editor" id="m-task-editor" data-dialog-root hidden>
+      <button type="button" class="m-task-backdrop" id="m-task-backdrop" aria-label="Close task editor"></button>
+      <section class="m-task-panel" role="dialog" aria-modal="true" aria-labelledby="m-task-editor-title">
+        <div class="m-sheet-handle" aria-hidden="true"></div>
+        <header class="m-task-panel-head">
+          <h2 id="m-task-editor-title">New task</h2>
+          <button type="button" class="m-task-close" id="m-task-close" data-dialog-close aria-label="Close task editor">×</button>
+        </header>
+        <form id="m-task-form" class="m-task-form" autocomplete="off">
+          <div class="m-task-body">
+            <label class="m-task-title-label" for="m-task-title">Task</label>
+            <input type="text" id="m-task-title" class="m-task-title" placeholder="What needs doing?" maxlength="500" required enterkeyhint="done" />
+            <div class="m-task-dates" role="group" aria-label="Due date">
+              <button type="button" class="m-date-chip" id="m-task-today" aria-pressed="true">Today</button>
+              <button type="button" class="m-date-chip" id="m-task-tomorrow" aria-pressed="false">Tomorrow</button>
+              <button type="button" class="m-date-chip" id="m-task-custom" aria-pressed="false">Choose date</button>
+            </div>
+            <input type="date" id="m-task-date" aria-label="Due date" required hidden />
+            <details class="m-task-details" id="m-task-details">
+              <summary>More options</summary>
+              <div class="m-task-fields">
+                <label>Time<input type="time" id="m-task-time" /></label>
+                <label>Category<select id="m-task-category"></select></label>
+                <label>Repeat<select id="m-task-repeat">
+                  <option value="">Once</option><option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option><option value="monthly">Monthly</option>
+                </select></label>
+              </div>
+              <div class="m-task-secondary-actions">
+                <button type="button" id="m-task-discard">Discard draft</button>
+                <button type="button" class="m-task-delete" id="m-task-delete" hidden>Delete task</button>
+              </div>
+            </details>
+            <p class="m-task-status" id="m-task-status" role="status" aria-live="polite"></p>
+          </div>
+          <button type="submit" class="btn btn-primary m-task-save" id="m-task-save">Add task</button>
+        </form>
+      </section>
+    </div>
+
     <script src="undo-bar.js"></script>
+    <script src="task-list.js"></script>
     <script src="app.js"></script>
     <script src="agent-data.js"></script>
     <script src="agent-ui.js"></script>

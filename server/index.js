@@ -3,6 +3,9 @@ const http = require("node:http");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const tls = require("node:tls");
+const PUBLIC_ASSETS = new Set(require("./public-assets"));
+const { createAgentLimiter } = require("./agent-limiter");
+const agentLimiter = createAgentLimiter();
 const {
   consumeOauthState,
   createOauthState,
@@ -93,7 +96,7 @@ async function handleRequest(request, response) {
     await handleApi(request, response, url);
     return;
   }
-  serveStatic(response, url.pathname);
+  await serveStatic(response, url.pathname);
 }
 
 async function handleApi(request, response, url) {
@@ -459,24 +462,32 @@ async function handleApi(request, response, url) {
 
   if (method === "POST" && url.pathname === "/api/agent") {
     const body = await readJson(request);
-    const result = await runGlobalAgent({
-      message: body.message,
-      context: body.context,
-      today: body.today,
-      currentPage: body.currentPage,
-    });
+    const release = agentLimiter.acquire(request.socket.remoteAddress, session?.userId);
+    let result;
+    try {
+      result = await runGlobalAgent({
+        message: body.message,
+        context: body.context,
+        today: body.today,
+        currentPage: body.currentPage,
+      });
+    } finally { release(); }
     sendJson(response, { ok: true, ...result });
     return;
   }
 
   if (method === "POST" && url.pathname === "/api/agent/todo") {
     const body = await readJson(request);
-    const result = await runTodoAgent({
-      message: body.message,
-      todos: body.todos,
-      categories: body.categories,
-      today: body.today,
-    });
+    const release = agentLimiter.acquire(request.socket.remoteAddress, session?.userId);
+    let result;
+    try {
+      result = await runTodoAgent({
+        message: body.message,
+        todos: body.todos,
+        categories: body.categories,
+        today: body.today,
+      });
+    } finally { release(); }
     sendJson(response, { ok: true, ...result });
     return;
   }
@@ -500,6 +511,7 @@ async function handleApi(request, response, url) {
       userId: session.userId,
       payload: snapshot?.payload || {},
       updatedAt: snapshot?.updatedAt || null,
+      revision: snapshot?.revision || 0,
     });
     return;
   }
@@ -507,12 +519,19 @@ async function handleApi(request, response, url) {
   if (method === "PUT" && url.pathname === "/api/user/snapshot") {
     enforceUserSession(session);
     const body = await readJson(request);
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      throw Object.assign(new Error("Snapshot request must be an object."), { statusCode: 400 });
+    }
     const payload = body && typeof body.payload === "object" && body.payload ? body.payload : {};
-    const saved = await getUserSnapshotStore().upsertSnapshot(session.userId, payload);
+    if (!Object.hasOwn(body, "baseRevision")) {
+      throw Object.assign(new Error("baseRevision is required. Refresh the app before syncing."), { statusCode: 428 });
+    }
+    const saved = await getUserSnapshotStore().upsertSnapshot(session.userId, payload, body.baseRevision);
     sendJson(response, {
       ok: true,
       userId: saved.userId,
       updatedAt: saved.updatedAt,
+      revision: saved.revision,
     });
     return;
   }
@@ -527,6 +546,7 @@ async function handleApi(request, response, url) {
       userId: session.userId,
       payload: snapshot?.payload || {},
       updatedAt: snapshot?.updatedAt || null,
+      revision: snapshot?.revision || 0,
     };
     response.setHeader(
       "Content-Disposition",
@@ -1601,31 +1621,40 @@ async function handleApi(request, response, url) {
   throw error;
 }
 
-function serveStatic(response, pathname) {
-  const cleanPath = decodeURIComponent(pathname.split("?")[0]);
+async function serveStatic(response, pathname) {
+  let cleanPath;
+  try { cleanPath = decodeURIComponent(pathname); } catch (_) {
+    sendText(response, "Bad request", 400);
+    return;
+  }
   let relative = cleanPath === "/" ? "index.html" : cleanPath.replace(/^\/+/, "");
   if (relative === "stocks" || relative === "stocks.html") {
     sendText(response, "Stock signals were removed from Daily Space.", 410);
     return;
   }
 
-  const filePath = path.resolve(ROOT_DIR, relative);
-  if (!filePath.startsWith(ROOT_DIR)) {
-    sendText(response, "Forbidden", 403);
+  if (!PUBLIC_ASSETS.has(relative)) {
+    sendText(response, "Not found", 404);
     return;
   }
-
-  fs.readFile(filePath, (error, data) => {
-    if (error) {
-      sendText(response, "Not found", 404);
+  try {
+    const filePath = await fs.promises.realpath(path.join(ROOT_DIR, relative));
+    // Reject symlinks into private files, even when their public filename is allowed.
+    if (filePath !== path.join(ROOT_DIR, relative)) {
+      sendText(response, "Forbidden", 403);
       return;
     }
+    const data = await fs.promises.readFile(filePath);
     response.writeHead(200, {
       "Content-Type": contentType(filePath),
       "Cache-Control": "no-cache",
+      "X-Content-Type-Options": "nosniff",
     });
     response.end(data);
-  });
+  } catch (error) {
+    if (error.code !== "ENOENT" && error.code !== "ENOTDIR") throw error;
+    sendText(response, "Not found", 404);
+  }
 }
 
 function sendJson(response, payload, status = 200) {
@@ -1768,6 +1797,7 @@ function sendError(response, error) {
     console.error(error);
     notifyCriticalError(error, status);
   }
+  if (error.retryAfter) response.setHeader("Retry-After", String(error.retryAfter));
   const body = { error: error.message || "Unexpected server error." };
   if (error.code) body.code = error.code;
   if (Number.isInteger(error.currentRevision)) {

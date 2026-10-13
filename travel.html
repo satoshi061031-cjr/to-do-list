@@ -7,6 +7,7 @@
     <script src="workspace-search.js"></script>
     <script src="workspace-tasks.js"></script>
     <script src="daily-loop.js"></script>
+    <script src="dialog-focus.js"></script>
     <script src="theme.js"></script>
     <script src="i18n.js"></script>
     <script src="bento-rail.js"></script>
@@ -14,6 +15,8 @@
     <link rel="stylesheet" href="m-dock.css" />
     <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
     <link rel="stylesheet" href="travel.css" />
+    <link rel="stylesheet" href="mobile-typography.css" />
+    <link rel="stylesheet" href="visual-refinement.css" />
   </head>
   <body class="travel-page">
     <button type="button" class="sidebar-trigger" id="sidebar-trigger" aria-controls="sidebar" aria-expanded="false">
@@ -175,7 +178,7 @@
             </div>
           </section>
 
-          <div class="travel-sheet" id="travel-new-sheet" hidden>
+          <div data-dialog-root class="travel-sheet" id="travel-new-sheet" hidden>
             <button type="button" class="travel-sheet-backdrop" id="travel-new-backdrop" aria-label="Close new trip"></button>
             <section class="travel-sheet-panel" role="dialog" aria-modal="true" aria-labelledby="travel-new-title">
               <div class="travel-sheet-head">
@@ -183,7 +186,7 @@
                   <p class="travel-kicker">New trip</p>
                   <h2 id="travel-new-title">Where are you going?</h2>
                 </div>
-                <button type="button" class="travel-sheet-close" id="travel-new-close" aria-label="Close new trip">×</button>
+                <button type="button" class="travel-sheet-close" data-dialog-close id="travel-new-close" aria-label="Close new trip">×</button>
               </div>
               <form class="travel-form" id="travel-new-form" autocomplete="off">
                 <label>Trip name<input type="text" id="travel-new-name" placeholder="Japan spring" maxlength="60" required /></label>

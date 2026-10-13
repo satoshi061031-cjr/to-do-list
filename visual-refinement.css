@@ -1,0 +1,378 @@
+/* DESIGN.md — monochrome surfaces, open lists, restrained chrome. */
+:root {
+  --bg: #ffffff;
+  --neutral: #ffffff;
+  --surface: #f5f5f5;
+  --surface-muted: #eeeeee;
+  --surface-hover: #eeeeee;
+  --text: #171717;
+  --text-muted: #686868;
+  --primary: #171717;
+  --on-primary: #ffffff;
+  --primary-hover: #686868;
+  --secondary: #686868;
+  --accent: var(--secondary);
+  --accent-hover: var(--text);
+  --accent-soft: var(--surface-muted);
+  --content-surface: var(--surface);
+  --panel-surface: #ffffff;
+  --content-fill: var(--content-surface);
+  --panel-fill: var(--panel-surface);
+  --quiet-line: color-mix(in srgb, var(--text) 8%, transparent);
+  --border: var(--quiet-line);
+  --border-soft: var(--quiet-line);
+  --glass-border: var(--quiet-line);
+  --glass: var(--surface);
+  --glass-strong: var(--surface-muted);
+  --inner-light: 0 0 0 transparent;
+  --shadow: none;
+  --shadow-soft: none;
+  --shadow-pop: 0 12px 36px color-mix(in srgb, var(--text) 12%, transparent);
+  --glow: none;
+  --radius: 18px;
+  --radius-sm: 12px;
+  --radius-lg: 28px;
+  --font-display: var(--phone-font);
+  --font-ui: var(--phone-font);
+  --font-family: var(--phone-font);
+  --type-display-size: var(--phone-display-size);
+  --type-title-size: var(--phone-title-size);
+  --type-body-size: var(--phone-body-size);
+  --type-label-size: var(--phone-meta-size);
+  --type-display-lh: var(--phone-display-lh);
+  --type-body-lh: var(--phone-body-lh);
+  --type-display-tracking: 0;
+  --type-title-tracking: 0;
+  --type-body-tracking: 0;
+  --type-label-tracking: 0;
+}
+:root[data-theme="dark"] {
+  --bg: #000000;
+  --neutral: #000000;
+  --surface: #161616;
+  --surface-muted: #1d1d1d;
+  --surface-hover: #1d1d1d;
+  --text: #f5f5f5;
+  --text-muted: #999999;
+  --primary: #f5f5f5;
+  --primary-hover: #999999;
+  --on-primary: #171717;
+  --secondary: #999999;
+  --accent: var(--secondary);
+  --accent-hover: var(--text);
+  --accent-soft: var(--surface-muted);
+  --border: var(--quiet-line);
+  --border-soft: var(--quiet-line);
+  --glass-border: var(--quiet-line);
+  --glass: var(--surface);
+  --glass-strong: var(--surface-muted);
+  --inner-light: 0 0 0 transparent;
+  --panel-surface: #1d1d1d;
+  --shadow: none;
+  --shadow-soft: none;
+  --shadow-pop: 0 12px 36px color-mix(in srgb, var(--neutral) 40%, transparent);
+  --glow: none;
+}
+html { background: var(--bg); }
+body,
+:root[data-theme="dark"] body { background: var(--bg); font-family: var(--font-ui); letter-spacing: 0; }
+body::before,
+body::after,
+:root[data-theme="dark"] body::before,
+:root[data-theme="dark"] body::after { display: none; }
+
+h1, h2, .title, .planner-title, .calendar-title, .tally-heading {
+  font-family: var(--font-ui);
+  font-weight: var(--phone-display-weight);
+  letter-spacing: 0;
+}
+.app-greeting-title { color: var(--text); font-size: var(--type-title-size); }
+.app-greeting-time { color: var(--text-muted); text-shadow: none; }
+.tally-overview-label { color: var(--text-muted); }
+body.calendar-page.calendar-week-workspace {
+  --cal-accent: var(--primary);
+  --cal-on-accent: var(--on-primary);
+}
+body.planner-page.planner-kanban {
+  --pl-accent: var(--primary);
+  --pl-on-accent: var(--on-primary);
+  --pl-progress: var(--text-muted);
+}
+[class*="-kicker"], .teamwork-eyebrow { color: var(--text-muted); font-family: var(--font-ui); text-transform: none; }
+.btn,
+.sidebar-page-link,
+.filter-btn,
+.todo-category-pill { letter-spacing: 0; text-transform: none; }
+.btn { font-size: var(--phone-action-size); font-weight: var(--phone-action-weight); }
+.btn-primary,
+.btn-category-submit,
+.tally-fab,
+.tally-empty-cta {
+  background: var(--primary);
+  color: var(--on-primary);
+  border-color: transparent;
+  box-shadow: none;
+}
+.btn-primary:hover,
+.btn-category-submit:hover,
+.tally-fab:hover,
+.tally-empty-cta:hover { background: var(--primary-hover); color: var(--on-primary); box-shadow: none; }
+.btn:hover,
+.category-btn:hover,
+.sidebar-page-link:hover,
+.filter-btn:hover { transform: none; box-shadow: none; }
+.todo-input:focus { transform: none; box-shadow: none; outline: 2px solid var(--text); outline-offset: 2px; }
+.todo-agent-fab:hover,
+body.has-bento-rail .todo-agent-fab-rail:hover { transform: none; box-shadow: none; }
+.teamwork-title:focus,
+.teamwork-copy:focus,
+.teamwork-card-title:focus,
+.teamwork-inline-input:focus,
+.teamwork-form-input:focus,
+.teamwork-member-input:focus,
+.teamwork-task-input:focus {
+  animation: none;
+  transform: none;
+  box-shadow: none;
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+.teamwork-member-row:focus-within,
+.teamwork-task-item:focus-within { transform: none; box-shadow: none; }
+.teamwork-workspace-panel,
+.teamwork-workspace-panel:hover { border-color: var(--quiet-line); background: transparent; transform: none; box-shadow: none; }
+:where(button, input, select, textarea, a):focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 3px;
+}
+
+/* Space and type separate reading sections instead of nested panels. */
+body.todo-bento .today-tasks,
+.mail-card,
+.teamwork-card,
+.tally-overview-card,
+.tally-record-group-card,
+.cal-shell .cal-composer,
+.planner-shell {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.mail-hero.mail-card:hover,
+.teamwork-hero.teamwork-card:hover,
+.mail-connect-panel:hover,
+.mail-inbox-panel:hover,
+.planner-card:hover { transform: none; filter: none; box-shadow: none; }
+.mail-message-item,
+.planner-card { background: var(--surface); border-color: transparent; box-shadow: none; border-radius: var(--radius-sm); }
+.planner-card.is-due-focus { border-color: var(--text-muted); }
+.cal-shell .cal-week { background: var(--surface); border-color: var(--quiet-line); box-shadow: none; }
+.m-task-panel,
+.tally-sheet-panel,
+.mail-booking-panel,
+.travel-sheet-panel,
+.todo-agent-panel,
+.sidebar-inner { background: var(--panel-fill); border-color: var(--quiet-line); }
+.m-task-backdrop { background: color-mix(in srgb, var(--neutral) 60%, transparent); }
+.m-task-title,
+.m-task-fields input,
+.m-task-fields select,
+#m-task-date { background: var(--surface); border-color: transparent; border-radius: var(--radius-sm); }
+.m-task-title:focus { outline-color: var(--text); }
+.m-date-chip { background: var(--surface); border-color: transparent; }
+.m-date-chip[aria-pressed="true"] { color: var(--text); border-color: var(--text-muted); background: var(--surface-muted); }
+
+body.todo-bento .today-tasks .todo-item,
+body.todo-mobile .todo-item {
+  background: transparent;
+  border-color: transparent;
+  border-radius: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+body.todo-bento .today-tasks .todo-item:hover,
+body.todo-bento .today-tasks .todo-item.is-editing,
+body.todo-mobile .todo-item:hover { background: var(--surface); }
+.todo-category-pill { padding: 0; background: transparent; border: 0; color: var(--text-muted); font-weight: 400; }
+.todo-main { gap: var(--space-xs); }
+body.todo-mobile .todo-item { padding: var(--space-sm) 0; min-height: 4.5rem; gap: var(--space-sm); }
+body.todo-mobile .todo-main.is-task-action { padding-block: var(--space-xs); border-radius: var(--radius-sm); }
+body.todo-mobile .todo-item .todo-due { margin-top: 0; }
+body.todo-mobile .todo-item .todo-due.is-overdue { color: var(--danger); }
+body.todo-mobile .m-todo-list { gap: var(--space-sm); }
+body.todo-mobile .todo-item input.todo-check[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 1.35rem;
+  height: 1.35rem;
+  margin: 0;
+  border: 1.5px solid var(--text-muted);
+  border-radius: 50%;
+  background: transparent;
+  display: grid;
+  place-content: center;
+}
+body.todo-mobile .todo-item input.todo-check[type="checkbox"]:checked { background: var(--primary); border-color: var(--primary); }
+body.todo-mobile .todo-item input.todo-check[type="checkbox"]:checked::after {
+  content: "";
+  width: var(--space-xs);
+  height: var(--space-sm);
+  border: solid var(--on-primary);
+  border-width: 0 1.5px 1.5px 0;
+  transform: translateY(-1px) rotate(45deg);
+}
+body.todo-mobile .m-shell { gap: var(--space-lg); padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12rem); }
+body.todo-mobile .m-top { align-items: flex-start; }
+body.todo-mobile .m-greet { font-size: var(--phone-title-size); margin: 0 0 var(--space-sm); }
+body.todo-mobile .m-page-date { color: var(--text-muted); }
+body.todo-mobile .m-page-count { margin-top: var(--space-xs); }
+body.todo-mobile .m-agent-toggle,
+.todo-agent-fab,
+.todo-agent-inline-trigger {
+  background: var(--surface);
+  border: 1px solid var(--quiet-line);
+  box-shadow: none;
+  border-radius: var(--radius-pill);
+  color: var(--text);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.m-task-tabs {
+  display: flex;
+  gap: var(--space-md);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.m-task-tabs button { min-width: 2.75rem; min-height: 2.75rem; padding: var(--space-sm) 0; border-radius: 0; font-weight: 400; border-bottom: 2px solid transparent; }
+.m-task-tabs button[aria-selected="true"] { background: transparent; color: var(--text); border-bottom-color: var(--text); box-shadow: none; }
+.m-task-tabs button:focus-visible,
+body.todo-mobile .todo-main.is-task-action:focus-visible,
+.m-date-chip:focus-visible { outline-color: var(--text); }
+.m-add-bar { left: auto; right: max(var(--space-md), calc((100vw - 28rem) / 2 + var(--space-md))); width: auto; transform: none; }
+.m-add-task { padding-inline: var(--space-md); min-height: 2.75rem; gap: var(--space-sm); }
+
+/* One neutral navigation surface. Brand color is confined to the identity mark. */
+body.has-bento-rail { --bento-rail-bg: var(--surface); --bento-rail-fg: var(--text); }
+:root[data-theme="dark"] body.has-bento-rail { --bento-rail-bg: var(--surface); --bento-rail-fg: var(--text); }
+body.has-bento-rail .bento-rail { border: 1px solid var(--quiet-line); box-shadow: none; }
+body.has-bento-rail .bento-rail-link { color: var(--text-muted); }
+body.has-bento-rail .bento-rail-link.is-current,
+body.has-bento-rail .bento-rail-link[aria-current="page"],
+body.has-bento-rail .bento-rail-link[aria-expanded="true"] { color: var(--text); background: var(--surface-muted); }
+body.has-bento-rail .bento-rail-link:hover,
+body.has-bento-rail .bento-rail-link:focus-visible { color: var(--text); background: var(--surface-muted); }
+body.has-bento-rail .bento-rail-link:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+body.has-bento-rail .bento-rail-lens { display: none; }
+body.todo-bento .today-status-pill { background: transparent; border: 0; box-shadow: none; backdrop-filter: none; }
+body.todo-bento .today-status-pill.has-alert .daily-loop-pill-count { color: var(--danger); }
+body.todo-bento .today-status-pill.is-empty#daily-loop-pill-overdue .daily-loop-pill-count { color: var(--text-muted); }
+body.todo-bento .today-kicker { color: var(--text-muted); }
+
+@media (min-width: 820px) {
+  body.has-bento-rail .layout,
+  body.planner-page.has-bento-rail .layout { width: min(1120px, 92vw); max-width: min(1120px, 92vw); margin-inline: auto; gap: var(--space-lg); }
+  body.todo-bento .app.bento-shell.today-shell { width: min(48rem, 100%); max-width: min(48rem, 100%); padding: var(--space-lg) 0 var(--space-xl); gap: var(--space-lg); }
+  body.todo-bento .today-hero { padding: 0; align-items: center; }
+  body.todo-bento .today-title { font-size: var(--type-display-size); font-weight: var(--phone-display-weight); letter-spacing: 0; }
+  body.todo-bento .today-tasks { padding: 0; }
+  body.todo-bento .today-tasks .todo-list { gap: var(--space-sm); }
+  body.todo-bento .today-tasks .todo-item { padding: var(--space-sm) 0; border-bottom-color: var(--quiet-line); }
+  body.todo-bento .add-form-row { border-color: var(--quiet-line); }
+  .calendar-app { padding: var(--space-lg) 0 var(--space-xl); }
+  .tally-app { width: min(48rem, 100%); padding: var(--space-lg) 0 var(--space-xl); }
+  .mail-page .main-area,
+  .teamwork-page .main-area { padding: var(--space-lg) 0; }
+  .mail-app { width: min(48rem, 100%); align-content: start; gap: var(--space-lg); }
+  .teamwork-app { width: 100%; padding-top: 0; gap: var(--space-lg); }
+  .mail-hero,
+  .teamwork-hero,
+  .mail-connect-panel,
+  .mail-inbox-panel,
+  .mail-manage-panel { padding: var(--space-md) 0; }
+}
+@media (max-width: 819px) {
+  body.has-bento-rail .bento-rail { border: 0; }
+  .tally-page .app-greeting,
+  .planner-page .app-greeting,
+  .mail-page .app-greeting,
+  .teamwork-page .app-greeting { display: none; }
+  body.has-bento-rail .bento-rail-link svg { width: 20px; height: 20px; }
+  body.has-bento-rail .bento-rail-sr { font-size: var(--phone-meta-size); }
+  body.calendar-page .calendar-list-item { background: transparent; border-color: transparent; border-radius: 0; box-shadow: none; backdrop-filter: none; }
+  body.calendar-page .cal-composer { background: transparent; border-radius: 0; }
+  body.calendar-page .cal-range { background: var(--surface); color: var(--text); }
+  body.calendar-page .cal-week-day.is-selected { background: var(--surface); border-color: transparent; box-shadow: none; }
+  body.calendar-page .cal-week-day.is-selected .cal-week-day-num { background: var(--primary); color: var(--on-primary); }
+  body.calendar-page .reminder-form,
+  .tally-quick { background: var(--surface); border-color: transparent; box-shadow: none; backdrop-filter: none; }
+  .tally-overview-card { background: transparent; }
+  .tally-empty-panel { background: transparent; border-color: transparent; box-shadow: none; }
+  .tally-progress span { background: var(--text-muted); }
+  .tally-progress span.is-over { background: var(--danger); }
+  .mail-card,
+  .teamwork-card { padding: var(--space-md) 0; border-radius: 0; }
+  .tally-view-switch { background: transparent; border-color: transparent; }
+  .tally-view-switch button.is-active { background: var(--surface); }
+}
+@media (hover: none) {
+  body.todo-mobile .todo-item:hover { background: transparent; }
+}
+
+/* Luma-inspired frosted dock, including the explicit phone shell on wide screens. */
+body.has-mobile-dock {
+  --dock-fill: var(--surface);
+  --dock-blur: blur(28px) saturate(1.15);
+  --dock-edge: color-mix(in srgb, var(--text) 14%, transparent);
+  --dock-tint: color-mix(in srgb, var(--text) 6%, transparent);
+  --dock-selection: color-mix(in srgb, var(--neutral) 56%, transparent);
+  --dock-muted: var(--text-muted);
+}
+:root[data-theme="dark"] body.has-mobile-dock {
+  --dock-muted: color-mix(in srgb, var(--text-muted) 70%, var(--text));
+}
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  body.has-mobile-dock {
+    --dock-fill: color-mix(in srgb, var(--surface) 72%, transparent);
+  }
+}
+/* Keep the tint and blur on the same fixed surface. */
+body.has-mobile-dock.has-bento-rail .bento-rail {
+  background: linear-gradient(180deg, var(--dock-tint), transparent), var(--dock-fill);
+  border: 1px solid var(--dock-edge);
+  border-radius: var(--radius-pill);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--text) 8%, transparent),
+    0 8px 24px color-mix(in srgb, var(--on-tertiary) 12%, transparent);
+  backdrop-filter: var(--dock-blur);
+  -webkit-backdrop-filter: var(--dock-blur);
+}
+body.has-mobile-dock.has-bento-rail .bento-rail-nav {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  padding: var(--space-xs);
+}
+body.has-mobile-dock.has-bento-rail .bento-rail-link {
+  color: var(--dock-muted);
+}
+body.has-mobile-dock.has-bento-rail .bento-rail-link.is-current,
+body.has-mobile-dock.has-bento-rail .bento-rail-link[aria-current="page"],
+body.has-mobile-dock.has-bento-rail .bento-rail-link[aria-expanded="true"],
+body.has-mobile-dock.has-bento-rail .bento-rail-link:focus-visible {
+  color: var(--text);
+  background: var(--dock-selection);
+}
+@media (prefers-reduced-motion: reduce) {
+  body.has-mobile-dock { --dock-blur: blur(16px); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  body.has-mobile-dock { --dock-fill: var(--surface); --dock-blur: none; }
+  body.has-mobile-dock.has-bento-rail .bento-rail { background: var(--dock-fill); }
+}

@@ -97,6 +97,16 @@ test("e2e critical path: welcome Daily Loop + guest today→calendar→mail task
 
   await waitForServer(baseUrl);
 
+  // Public assets remain usable; no private checkout files may be downloaded.
+  for (const route of ["/server/index.js", "/server/data/daily-space.sqlite", "/package.json",
+    "/package-lock.json", "/.env", "/.git/config", "/capacitor.config.js", "/tests/e2e-critical-path.test.js",
+    "/scripts/prepare-www.js", "/%2eenv", "/server%2findex.js", "/vendor/leaflet/../../server/index.js"]) {
+    assert.equal((await fetch(`${baseUrl}${route}`)).status, 404, route);
+  }
+  const assets = require("../server/public-assets");
+  for (const asset of assets) assert.equal((await fetch(`${baseUrl}/${asset}`)).status, 200, asset);
+  assert.equal((await fetch(`${baseUrl}/%ZZ`)).status, 400);
+
   const welcome = await fetch(`${baseUrl}/index.html`);
   assert.equal(welcome.status, 200);
   const welcomeHtml = await welcome.text();
@@ -118,10 +128,13 @@ test("e2e critical path: welcome Daily Loop + guest today→calendar→mail task
   const todoMHtml = await todoM.text();
   assert.match(todoMHtml, /id="add-form"/);
   assert.match(todoMHtml, /id="m-agent-toggle"/);
-  assert.match(todoMHtml, /id="m-done-toggle"/);
-  assert.match(todoMHtml, /id="m-dash-add"|m-dash-add/);
+  assert.doesNotMatch(todoMHtml, /id="m-done-toggle"/);
+  assert.match(todoMHtml, /id="m-add-task"/);
+  assert.match(todoMHtml, /id="m-task-form"/);
+  assert.match(todoMHtml, /id="m-filter-active"/);
+  assert.match(todoMHtml, /id="m-filter-completed"/);
   assert.doesNotMatch(todoMHtml, /id="m-fab-add"/);
-  assert.match(todoMHtml, /Today’s tasks|Today's tasks/);
+  assert.match(todoMHtml, /id="m-task-editor"[^>]*hidden/);
   assert.doesNotMatch(todoMHtml, /Pending/);
   assert.match(todoMHtml, /id="count-text"/);
 
@@ -194,6 +207,36 @@ test("e2e critical path: welcome Daily Loop + guest today→calendar→mail task
     provider: "Google",
     label: "Owner",
   });
+  const snapshotHeaders = { "Content-Type": "application/json", cookie: googleCookie };
+  const readSnapshot = async () => (await fetch(`${baseUrl}/api/user/snapshot`, { headers: snapshotHeaders })).json();
+  const saveSnapshot = (payload, baseRevision) => fetch(`${baseUrl}/api/user/snapshot`, {
+    method: "PUT", headers: snapshotHeaders, body: JSON.stringify({ payload, baseRevision }),
+  });
+  assert.equal((await readSnapshot()).revision, 0);
+  assert.equal((await saveSnapshot({ "todo-theme": "light" })).status, 428);
+  assert.equal((await saveSnapshot({}, null)).status, 400);
+  const malformed = await fetch(`${baseUrl}/api/user/snapshot`, {
+    method: "PUT", headers: snapshotHeaders, body: "null",
+  });
+  assert.equal(malformed.status, 400);
+  const initial = await saveSnapshot({ "todo-theme": "light" }, 0);
+  assert.equal(initial.status, 200);
+  const revision = (await initial.json()).revision;
+  // Two devices submit against the same revision; exactly one succeeds.
+  const concurrent = await Promise.all([
+    saveSnapshot({ "todo-theme": "dark" }, revision),
+    saveSnapshot({ "todo-theme": "stale" }, revision),
+  ]);
+  assert.deepEqual(concurrent.map(r => r.status).sort(), [200, 409]);
+  const conflict = await concurrent.find(r => r.status === 409).json();
+  assert.equal(conflict.code, "SNAPSHOT_CONFLICT");
+  assert.equal(conflict.currentRevision, 2);
+  assert.equal((await saveSnapshot({ "todo-theme": "stale" }, 0)).status, 409);
+  assert.equal((await readSnapshot()).revision, 2);
+  const resolved = await saveSnapshot({ "todo-theme": "chosen" }, 2);
+  assert.equal(resolved.status, 200);
+  assert.equal((await readSnapshot()).payload["todo-theme"], "chosen");
+
   const createdTrip = await fetch(`${baseUrl}/api/travel/trips`, {
     method: "POST",
     headers: { "Content-Type": "application/json", cookie: googleCookie },
@@ -249,6 +292,18 @@ test("e2e critical path: welcome Daily Loop + guest today→calendar→mail task
   );
   assert.equal(imported.status, 200);
   assert.equal((await imported.json()).imported.length, 1);
+
+  for (let i = 0; i < 20; i += 1) {
+    const route = i % 2 ? "/api/agent/todo" : "/api/agent";
+    const result = await fetch(`${baseUrl}${route}`, { method: "POST",
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: "hello" }) });
+    assert.notEqual(result.status, 429);
+  }
+  const limited = await fetch(`${baseUrl}/api/agent`, { method: "POST",
+    headers: { "Content-Type": "application/json", "X-Forwarded-For": "203.0.113.8" },
+    body: JSON.stringify({ message: "hello" }) });
+  assert.equal(limited.status, 429);
+  assert.ok(Number(limited.headers.get("Retry-After")) > 0);
 
   // Guest substitute for “login → today → calendar → mail→task”
   const today = todayIso();

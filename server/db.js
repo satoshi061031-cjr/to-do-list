@@ -242,6 +242,11 @@ function migrate(database) {
     `);
   }
 
+  const snapshotColumns = database.prepare("PRAGMA table_info(user_snapshots)").all();
+  if (!snapshotColumns.some((column) => column.name === "revision")) {
+    database.exec("ALTER TABLE user_snapshots ADD COLUMN revision INTEGER NOT NULL DEFAULT 1");
+  }
+
   const oauthStateColumns = database.prepare("PRAGMA table_info(oauth_states)").all();
   if (!oauthStateColumns.some((column) => column.name === "user_id")) {
     database.exec(`ALTER TABLE oauth_states ADD COLUMN user_id TEXT`);
@@ -400,11 +405,12 @@ function removeMailAccountByProviderEmail(userId, provider, email) {
 function getUserSnapshot(userId) {
   const id = String(userId || "").trim().toLowerCase();
   if (!id) return null;
-  const row = getDb().prepare("SELECT payload_json, updated_at FROM user_snapshots WHERE user_id = ?").get(id);
+  const row = getDb().prepare("SELECT payload_json, updated_at, revision FROM user_snapshots WHERE user_id = ?").get(id);
   if (!row) return null;
   return {
     payload: fromJson(row.payload_json, {}),
     updatedAt: row.updated_at,
+    revision: row.revision,
   };
 }
 
@@ -422,27 +428,28 @@ function removeAllMailAccountsForUser(userId) {
   return { removed: Number(result.changes || 0) };
 }
 
-function upsertUserSnapshot(userId, payload) {
+function upsertUserSnapshot(userId, payload, baseRevision = 0) {
   const id = String(userId || "").trim().toLowerCase();
-  if (!id) {
-    const error = new Error("userId is required.");
-    error.statusCode = 400;
-    throw error;
+  if (!id) throw Object.assign(new Error("userId is required."), { statusCode: 400 });
+  if (!Number.isSafeInteger(baseRevision) || baseRevision < 0) {
+    throw Object.assign(new Error("baseRevision must be a nonnegative integer."), { statusCode: 400 });
   }
   const timestamp = nowIso();
-  getDb()
-    .prepare(
-      `INSERT INTO user_snapshots (user_id, payload_json, updated_at)
-       VALUES (?, ?, ?)
-       ON CONFLICT(user_id) DO UPDATE SET
-         payload_json = excluded.payload_json,
-         updated_at = excluded.updated_at`
-    )
-    .run(id, toJson(payload && typeof payload === "object" ? payload : {}), timestamp);
-  return {
-    userId: id,
-    updatedAt: timestamp,
-  };
+  const database = getDb();
+  const row = baseRevision === 0
+    ? database.prepare(`INSERT INTO user_snapshots (user_id, payload_json, updated_at, revision)
+        VALUES (?, ?, ?, 1) ON CONFLICT(user_id) DO NOTHING RETURNING revision`)
+        .get(id, toJson(payload), timestamp)
+    : database.prepare(`UPDATE user_snapshots SET payload_json = ?, updated_at = ?, revision = revision + 1
+        WHERE user_id = ? AND revision = ? RETURNING revision`)
+        .get(toJson(payload), timestamp, id, baseRevision);
+  if (!row) {
+    throw Object.assign(new Error("Your cloud data changed. Choose which version to keep."), {
+      statusCode: 409, code: "SNAPSHOT_CONFLICT",
+      currentRevision: getUserSnapshot(id)?.revision || 0,
+    });
+  }
+  return { userId: id, updatedAt: timestamp, revision: row.revision };
 }
 
 function createOauthState(input) {
