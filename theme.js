@@ -3,6 +3,7 @@
   const STORAGE_AUTH = "daily-space-auth-v1";
   const USER_SNAPSHOT_KEYS = [
     "todo-app-v2",
+    "task-templates-v1",
     "planner-app-v1",
     "calendar-app-v1",
     "tally-book-v1",

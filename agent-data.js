@@ -326,6 +326,8 @@
           fxRate: Number(record.fxRate) > 0 ? Number(record.fxRate) : 1,
           category: clean(record.category, 40),
           note: clean(record.note, 120),
+          tripId: clean(record.tripId, 160) || null,
+          tripName: clean(record.tripName, 60),
           scope: record.scope === "shared" ? "shared" : "personal",
           paidById: record.paidById || tally.selfPersonId,
           splitAmongIds: Array.isArray(record.splitAmongIds)

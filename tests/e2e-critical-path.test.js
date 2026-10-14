@@ -231,9 +231,11 @@ test("e2e critical path: welcome Daily Loop + guest today→calendar→mail task
     method: "PUT", headers: snapshotHeaders, body: "null",
   });
   assert.equal(malformed.status, 400);
-  const initial = await saveSnapshot({ "todo-theme": "light" }, 0);
+  const templates = JSON.stringify({ templates: [{ id: "work-template", name: "Work", items: [{ text: "Focus", offsetDays: 0 }] }] });
+  const initial = await saveSnapshot({ "todo-theme": "light", "task-templates-v1": templates }, 0);
   assert.equal(initial.status, 200);
   const revision = (await initial.json()).revision;
+  assert.equal((await readSnapshot()).payload["task-templates-v1"], templates);
   // Two devices submit against the same revision; exactly one succeeds.
   const concurrent = await Promise.all([
     saveSnapshot({ "todo-theme": "dark" }, revision),

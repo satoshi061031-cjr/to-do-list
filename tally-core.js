@@ -77,6 +77,8 @@
       fxRate: currency === baseCurrency ? 1 : fxRate > 0 ? fxRate : 1,
       category: clean(record.category, 40) || "Expense",
       note: clean(record.note, 120),
+      tripId: clean(record.tripId, 160) || null,
+      tripName: clean(record.tripName, 60),
       scope,
       paidById:
         scope === "shared" && validPeople.has(record.paidById)
@@ -108,6 +110,9 @@
       baseCurrency,
       selfPersonId: self.id,
       people,
+      tripBudgets: Object.fromEntries(Object.entries(state.tripBudgets && typeof state.tripBudgets === "object" ? state.tripBudgets : {}).slice(0, 100).filter(([key, value]) =>
+        !["__proto__", "constructor", "prototype"].includes(key) && key.length <= 160 && Number.isFinite(Number(value?.amount)) && Number(value.amount) > 0
+      ).map(([key, value]) => [key, { amount: Number(value.amount), currency: currencyCode(value.currency, baseCurrency) }])),
       records: [],
       settlements: Array.isArray(state.settlements) ? state.settlements.slice(0, 200) : [],
     };

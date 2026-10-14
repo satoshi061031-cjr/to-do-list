@@ -78,7 +78,8 @@
     if (typeof onUndo !== "function") return;
     ensureBar();
     clearTimer();
-    pendingUndo = onUndo;
+    const owner = window.DailySpaceView?.owner();
+    pendingUndo = () => { if (window.DailySpaceView?.owner() === owner) onUndo(); };
     textEl.textContent = message;
     bar.hidden = false;
     clearBottomChrome();
@@ -96,6 +97,8 @@
   window.addEventListener("resize", () => {
     if (bar && !bar.hidden) clearBottomChrome();
   });
+
+  window.addEventListener("daily-space-auth-updated", hide);
 
   window.DailySpaceUndo = { offer, hide };
 })();

@@ -25,6 +25,8 @@
   const amountInput = $("tally-amount");
   const categoryInput = $("tally-category");
   const noteInput = $("tally-note");
+  const tripInput = $("tally-trip");
+  let tripFilter = new URLSearchParams(location.search).get("tripFilter") || "";
   const scopeInput = $("tally-scope");
   const recordCurrencyInput = $("tally-record-currency");
   const fxField = $("tally-fx-field");
@@ -106,7 +108,8 @@
   }
 
   function activeRecords() {
-    return viewMode === "shared" ? Core.sharedRecords(state.records) : Core.personalRecords(state.records);
+    const records = viewMode === "shared" ? Core.sharedRecords(state.records) : Core.personalRecords(state.records);
+    return tripFilter ? records.filter(record => window.DailySpaceTripExpenses.matches(record, tripFilter)) : records;
   }
 
   function recordsForMonth(records, year, month) {
@@ -128,6 +131,7 @@
 
   function saveState() {
     state = Core.writeState(state);
+    window.dispatchEvent(new CustomEvent("daily-space-agent-data-updated", { detail: { domains: ["tally"] } }));
   }
 
   function viewAnchorDate() {
@@ -276,6 +280,7 @@
           <div class="tally-record-main">
             <div class="tally-record-category">${escapeHtml(record.category)}</div>
             <div class="tally-record-note">${escapeHtml(detail)}</div>
+            ${record.tripId ? `<div class="tally-record-trip" data-i18n-ignore>${escapeHtml(window.DailySpaceTripExpenses.trips().find(trip => trip.ref === record.tripId)?.name || record.tripName || (isZh() ? "关联行程" : "Linked trip"))}</div>` : ""}
           </div>
           <div class="tally-record-amount">${originalMoney(record)}${converted}</div>
           <button type="button" class="tally-record-delete" aria-label="Delete record">×</button>
@@ -472,6 +477,7 @@
     if (addSheet.hidden) return;
     window.DailySpaceView.write("tally", { draft: { id: editingId, date: dateInput.value,
       amount: amountInput.value, category: categoryInput.value, note: noteInput.value,
+      tripId: tripInput.value || null, tripName: tripInput.selectedOptions[0]?.dataset.tripName || "",
       scope: scopeInput.value, currency: recordCurrencyInput.value, fxRate: fxRateInput.value,
       paidById: paidByInput.value, splitAmongIds: Array.from(splitPeopleEl.querySelectorAll("input:checked")).map(input => input.value) } });
   }
@@ -493,6 +499,7 @@
     amountInput.value = value?.amount || "";
     categoryInput.value = value?.category || "";
     noteInput.value = value?.note || "";
+    window.DailySpaceTripExpenses.populate(tripInput, value?.tripId || "", value?.tripName);
     scopeInput.value = value?.scope || (viewMode === "shared" ? "shared" : "personal");
     recordCurrencyInput.value = value?.currency || state.baseCurrency;
     fxRateInput.value = String(value?.fxRate || 1);
@@ -535,6 +542,8 @@
         fxRate: Number(fxRateInput.value) || 1,
         category,
         note: noteInput.value,
+        tripId: tripInput.value || null,
+        tripName: tripInput.value ? tripInput.selectedOptions[0]?.dataset.tripName || "" : "",
         scope: shared ? "shared" : "personal",
         paidById: paidByInput.value,
         splitAmongIds,
@@ -604,8 +613,9 @@
   exportBtn?.addEventListener("click", () => {
     document.getElementById("tally-tools").open = false;
     const rows = [
-      ["date", "amount", "currency", "fxRate", "category", "note", "scope", "paidBy"],
+      ["id", "date", "amount", "currency", "fxRate", "category", "note", "scope", "paidById", "splitAmongIds", "tripId", "tripName", "_format"],
       ...state.records.map((record) => [
+        record.id,
         record.date || "",
         record.amount ?? "",
         record.currency || state.baseCurrency || "",
@@ -613,16 +623,17 @@
         record.category || "",
         record.note || "",
         record.scope || "personal",
-        record.paidBy || "",
+        record.paidById || "",
+        record.splitAmongIds.join("|"),
+        record.tripId || "",
+        record.tripName || "",
+        "daily-space-csv-v1",
       ]),
     ];
     const csv = rows
       .map((row) =>
         row
-          .map((value) => {
-            const text = String(value ?? "");
-            return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
-          })
+          .map(window.DailySpaceWorkspaceCore.csvCell)
           .join(",")
       )
       .join("\n");
@@ -711,8 +722,22 @@
     viewMode = savedView.mode === "shared" ? "shared" : "personal";
   }
   if (!window.matchMedia("(max-width: 819px)").matches) document.getElementById("tally-insights").open = true;
+  if (tripFilter) {
+    const filter = document.createElement("button"); filter.type = "button"; filter.className = "tally-trip-filter";
+    filter.textContent = `${isZh() ? "旅行费用" : "Trip expenses"} · ${window.DailySpaceTripExpenses.trips().find(trip => trip.ref === tripFilter)?.name || ""} ×`;
+    filter.addEventListener("click", () => { tripFilter = ""; filter.remove(); const params = new URLSearchParams(location.search); params.delete("tripFilter"); history.replaceState(history.state, "", `${location.pathname}?${params}${location.hash}`); render(); });
+    document.querySelector(".tally-view-switch").after(filter);
+  }
   saveState();
   render();
+  const captureParams = new URLSearchParams(location.search);
+  if (captureParams.get("trip") && !captureParams.has("focus")) {
+    const ref = captureParams.get("trip").slice(0, 160); const name = captureParams.get("tripName")?.slice(0, 60) || "";
+    const seed = { tripId: ref, tripName: name, date: window.DailySpaceWorkspaceCore.date(captureParams.get("date")) || todayIso() };
+    const existingDraft = window.DailySpaceView.read("tally").draft;
+    window.DailySpaceView.write("tally", { draft: { ...(existingDraft?.id === null ? existingDraft : {}), ...seed, id: null } });
+    requestAnimationFrame(() => setSheetOpen(true));
+  }
   const searchTarget = window.DailySpaceSearch?.target();
   if (searchTarget?.focus === "expense") {
     const record = state.records.find(item => item.id === searchTarget.id);

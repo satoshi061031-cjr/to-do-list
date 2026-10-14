@@ -812,3 +812,60 @@ body.todo-mobile .task-batch-bar { bottom: calc(86px + env(safe-area-inset-botto
 body.todo-mobile .task-detail-fields { margin: 0; flex-shrink: 0; }
 body.todo-mobile .task-source-link, body.todo-mobile .task-snooze-actions { flex-shrink: 0; }
 body.task-selecting #todo-list .task-batch-check input { accent-color: var(--primary); }
+/* Templates and data tools use the same compact sheets as task capture. */
+.workspace-tool-sheet { position: fixed; z-index: 400; inset: auto 0; top: var(--workspace-sheet-top, 0px); height: min(var(--workspace-sheet-height, 100dvh), 100dvh); display: grid; place-items: center; padding: var(--space-md); box-sizing: border-box; }
+.workspace-tool-sheet[hidden] { display: none !important; }
+.workspace-tool-backdrop { position: absolute; inset: 0; border: 0; background: color-mix(in srgb, var(--text) 32%, transparent); }
+.workspace-tool-panel { position: relative; width: min(540px, 100%); max-height: 100%; min-height: 0; display: flex; flex-direction: column; overflow: hidden; border-radius: var(--radius-lg); background: var(--panel-surface); color: var(--text); box-shadow: var(--shadow-pop); }
+.workspace-tool-panel header { display: flex; justify-content: space-between; align-items: center; gap: var(--space-sm); padding: var(--space-md); flex-shrink: 0; }
+.workspace-tool-panel h2 { margin: 0; font: var(--phone-title-weight) var(--phone-title-size)/var(--phone-title-lh) var(--font-ui); }
+.workspace-tool-panel button, .workspace-task-shortcuts button, .auth-data-tools { min-height: 44px; min-width: 44px; border: 0; border-radius: var(--radius-sm); padding: var(--space-sm); background: var(--surface); color: var(--text); font: var(--phone-action-weight) var(--phone-action-size)/var(--phone-action-lh) var(--font-ui); cursor: pointer; }
+.workspace-tool-panel button:disabled { opacity: .45; cursor: default; }
+.workspace-tool-panel .btn-primary { background: var(--primary); color: var(--on-primary); }
+.workspace-tool-body { min-height: 0; padding: 0 var(--space-md); overflow: auto; overscroll-behavior: contain; font: var(--phone-body-weight) var(--phone-body-size)/var(--phone-body-lh) var(--font-ui); }
+.workspace-tool-body p, .workspace-tool-status { color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+.workspace-tool-body label { display: grid; gap: var(--space-sm); margin: var(--space-md) 0; color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+.workspace-tool-body input, .workspace-tool-body select, .workspace-tool-body textarea { width: 100%; min-height: 44px; min-width: 0; padding: var(--space-sm); box-sizing: border-box; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text); font: var(--phone-body-weight) var(--phone-body-size)/var(--phone-body-lh) var(--font-ui); }
+.workspace-tool-body textarea { resize: vertical; }
+.workspace-tool-body input[type=file] { overflow: hidden; }
+.workspace-template-row { display: flex; gap: var(--space-sm); align-items: center; border-bottom: 1px solid var(--border); padding: var(--space-sm) 0; }
+.workspace-template-row button:first-child { flex: 1; text-align: left; background: transparent; }
+.workspace-template-row button[aria-pressed=true] { background: var(--surface-muted); color: var(--text); }
+.workspace-template-preview { padding-left: var(--space-md); color: var(--text-muted); }
+.workspace-template-preview li { margin: var(--space-sm) 0; }
+.workspace-tool-footer { display: flex; gap: var(--space-sm); flex-wrap: wrap; padding: var(--space-md) var(--space-md) calc(var(--space-md) + env(safe-area-inset-bottom, 0px)); flex-shrink: 0; }
+.workspace-tool-footer .btn-primary { flex: 1; }
+.workspace-tool-status { margin: var(--space-sm) var(--space-md) 0; max-height: 72px; overflow: auto; flex-shrink: 0; }
+.workspace-tool-status:empty { display: none; }
+.workspace-import-preview { padding: var(--space-sm) 0; }
+.workspace-tool-body summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; color: var(--text-muted); }
+.workspace-task-shortcuts { display: flex; flex-wrap: wrap; gap: var(--space-sm); min-width: 0; }
+.workspace-task-shortcuts button { color: var(--text-muted); background: transparent; }
+.task-selection-head { gap: var(--space-sm); }
+body.task-selecting .workspace-task-shortcuts { display: none; }
+.auth-data-tools { display: block; width: 100%; margin-top: var(--space-sm); }
+body.workspace-tool-open .bento-rail, body.workspace-tool-open .m-add-bar, body.workspace-tool-open .task-batch-bar, body.workspace-tool-open #tally-add-open { visibility: hidden; }
+.trip-expenses { margin: var(--space-md) 0; color: var(--text); }
+.trip-expenses[hidden] { display: none; }
+.trip-expenses > summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; font: var(--phone-action-weight) var(--phone-action-size)/var(--phone-action-lh) var(--font-ui); }
+.trip-expense-note, .tally-record-trip { color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+.trip-expense-budget { display: grid; gap: var(--space-sm); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+.trip-expense-budget input { min-height: 44px; min-width: 0; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); padding: var(--space-sm); font: var(--phone-body-weight) var(--phone-body-size)/var(--phone-body-lh) var(--font-ui); }
+.trip-expense-list { list-style: none; padding: 0; margin: var(--space-md) 0; }
+.trip-expense-list li { display: flex; justify-content: space-between; gap: var(--space-sm); padding: var(--space-sm) 0; }
+.trip-expense-records a, .trip-expenses > a { display: flex; align-items: center; min-height: 44px; color: var(--text); text-decoration: none; font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+.trip-expenses .trip-expense-add { font-size: var(--phone-action-size); font-weight: var(--phone-action-weight); }
+.tally-trip-filter { min-height: 44px; padding: var(--space-sm); margin-bottom: var(--space-md); border: 0; border-radius: var(--radius-pill); color: var(--text-muted); background: var(--surface); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+@media (max-width: 819px) {
+  .workspace-tool-sheet { padding: var(--space-md) 0 0; place-items: end center; }
+  .workspace-tool-panel { border-radius: var(--radius-lg) var(--radius-lg) 0 0; width: min(100%, 540px); }
+  .workspace-task-shortcuts { flex: 1; }
+  .trip-expense-records a { overflow-wrap: anywhere; }
+}
+@media (prefers-reduced-motion: no-preference) { .workspace-tool-panel { animation: task-detail-enter 160ms ease-out; } }
+.workspace-tool-body p, .workspace-template-preview li, .workspace-template-row button { overflow-wrap: anywhere; }
+.trip-expense-history > summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+body.tally-page .tally-submit-btn { background: var(--primary); color: var(--on-primary); border-color: var(--primary); font-size: var(--phone-action-size); font-weight: var(--phone-action-weight); }
+body.tally-page .tally-submit-btn:hover { background: var(--primary-hover); }
+body.tally-page #tally-sheet-eyebrow { color: var(--text-muted); }
+body.tally-page .tally-category-suggestions button { background: var(--surface); color: var(--text); border-color: var(--border); }

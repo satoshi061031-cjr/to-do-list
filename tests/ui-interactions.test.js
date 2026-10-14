@@ -989,5 +989,70 @@ test("browser interactions on desktop and touch screens", { timeout: 120_000 }, 
     assert.ok(requests.some(request => request.startsWith('DELETE:')));
   });
 
+  await t.test("templates apply fresh checklists on a chosen date, save selections and undo creation", async () => {
+    const page=await pageFor({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
+    await page.goto(`${base}/todo-m.html`,{waitUntil:'load'});
+    await page.locator('.workspace-task-shortcuts button').first().click();
+    await page.locator('[data-template-id=builtin-review]').click();
+    await page.locator('.workspace-tool-body input[type=date]').fill('2026-12-31');
+    await trapped(page,'.workspace-tool-panel');
+    await captureMail(page,'templates-390-light.png');
+    await page.locator('.workspace-tool-footer .btn-primary').click();
+    const created=await page.evaluate(()=>window.DailySpaceTodo.getTasks().find(task=>task.text==='Review the week'));
+    assert.equal(created.dueDate,'2026-12-31');assert.equal(created.subtasks.length,3);assert.equal(created.subtasks.every(task=>!task.completed),true);
+    await page.locator('#undo-bar button').click();assert.equal(await page.evaluate(()=>window.DailySpaceTodo.getTasks().length),3);
+    await page.evaluate(()=>window.DailySpaceTodo.selectDueDay(new Date().toISOString().slice(0,10)));
+    await page.locator('#task-select-mode').click();await page.locator('#task-select-all').click();await page.locator('.task-batch-options summary').click();await page.locator('[data-save-template]').click();
+    await page.locator('[data-template-name]').fill('Morning routine');
+    await page.goBack();await page.locator('.workspace-tool-sheet').waitFor({state:'hidden'});
+    await page.locator('[data-save-template]').click();assert.equal(await page.locator('[data-template-name]').inputValue(),'Morning routine');
+    await page.locator('.workspace-tool-footer .btn-primary').click();
+    const templates=await page.evaluate(()=>JSON.parse(localStorage.getItem('task-templates-v1')).templates);assert.equal(templates.length,1);assert.equal(templates[0].items.length,3);
+    await page.locator(`[data-template-id="${templates[0].id}"]`).click();await page.locator('.workspace-tool-footer .btn-primary').click();
+    assert.equal(await page.evaluate(()=>window.DailySpaceTodo.getTasks().length),6);
+    await page.locator('.workspace-task-shortcuts button').first().click();
+    await page.locator(`[data-template-id="${templates[0].id}"]`).locator('..').locator('button').last().click();
+    await page.locator('.workspace-tool-sheet').waitFor({state:'hidden'});assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('task-templates-v1')).templates.length),0);
+    await page.locator('#undo-bar button').click();assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('task-templates-v1')).templates.length),1);
+    await page.evaluate(()=>{window.DailySpaceUndo.offer('Private undo',()=>{window.wrongIdentityUndo=true;});window.dispatchEvent(new Event('daily-space-auth-updated'));});
+    assert.equal(await page.locator('#undo-bar').isVisible(),false);assert.equal(await page.evaluate(()=>window.wrongIdentityUndo),undefined);
+    await page.setViewportSize({width:320,height:568});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  });
+
+  await t.test("file preview merges CSV safely, re-imports once and rejects stale or malformed data", async () => {
+    const page=await pageFor({viewport:{width:390,height:844},isMobile:true,hasTouch:true});const remote=[];page.on('request',request=>{if(request.url().includes('/api/user/snapshot')&&request.method()==='PUT')remote.push(request.url());});
+    await page.goto(`${base}/todo-m.html`,{waitUntil:'load'});await page.locator('.workspace-task-shortcuts button').nth(1).click();
+    await page.locator('#workspace-import-format').selectOption('todo');
+    const file={name:'tasks.csv',mimeType:'text/csv',buffer:Buffer.from('text,dueDate,dueTime,category,notes\n"A new, useful task",2026-10-14,14:00,Work,"Two lines\nwith detail"')};
+    await page.locator('#workspace-import-file').setInputFiles(file);await page.locator('#workspace-import-apply:not([disabled])').waitFor();
+    assert.equal(await page.evaluate(()=>window.DailySpaceTodo.getTasks().length),3);await captureMail(page,'import-preview-390-light.png');
+    await page.locator('#workspace-import-apply').click();assert.equal(await page.evaluate(()=>window.DailySpaceTodo.getTasks().length),4);
+    await page.locator('#workspace-import-file').setInputFiles(file);await page.locator('#workspace-import-preview').getByText(/existing kept/).waitFor();assert.equal(await page.locator('#workspace-import-apply').isDisabled(),true);
+    const another={...file,buffer:Buffer.from('text,dueDate\nAnother task,2026-10-14')};await page.locator('#workspace-import-file').setInputFiles(another);await page.locator('#workspace-import-apply:not([disabled])').waitFor();
+    await page.evaluate(()=>window.DailySpaceTodo.saveTask({text:'Edited while previewing',dueDate:new Date().toISOString().slice(0,10)},'a'));
+    await page.locator('#workspace-import-apply').click();assert.ok((await page.locator('.workspace-tool-status').textContent()).includes('changed'));assert.equal(await page.evaluate(()=>window.DailySpaceTodo.getTasks().some(task=>task.text==='Another task')),false);
+    await page.locator('#workspace-import-file').setInputFiles({...file,buffer:Buffer.from('text,dueDate\nBad date,2026-02-30')});await page.locator('.workspace-tool-status').getByText(/Invalid date/).waitFor();assert.equal(await page.locator('#workspace-import-apply').isDisabled(),true);assert.deepEqual(remote,[]);
+    await page.setViewportSize({width:320,height:420});const save=await page.locator('#workspace-import-apply').boundingBox();assert.ok(save.y+save.height<=420);await trapped(page,'.workspace-tool-panel');
+  });
+
+  await t.test("travel costs use saved exchange rates, persist budget and link capture back to the trip", async () => {
+    const page=await pageFor({viewport:{width:390,height:844},isMobile:true,hasTouch:true});await seedWorkspace(page);
+    await page.addInitScript(()=>{if(sessionStorage.getItem('trip-expense-fixture'))return;sessionStorage.setItem('trip-expense-fixture','1');const state=JSON.parse(localStorage.getItem('tally-book-v1'));const lunch=state.records.find(record=>record.id==='lunch');lunch.tripId='focus-trip';lunch.tripName='Search destination trip';lunch.date='2026-11-04';state.records.push({id:'hotel-cost',date:'2026-11-04',amount:20,currency:'USD',fxRate:7.1,category:'Hotel',scope:'personal',tripId:'focus-trip',tripName:'Search destination trip'});localStorage.setItem('tally-book-v1',JSON.stringify(state));});
+    await page.goto(`${base}/travel.html?focus=trip&id=focus-trip`,{waitUntil:'load'});
+    await page.locator('#travel-expenses > summary').click();assert.ok((await page.locator('#travel-expenses > summary').textContent()).includes('190.00'));
+    await page.locator('.trip-expense-budget input').fill('200');await page.locator('.trip-expense-budget input').dispatchEvent('change');assert.ok((await page.locator('#travel-expenses').textContent()).includes('10.00'));
+    await page.evaluate(()=>document.documentElement.dataset.theme='dark');await captureMail(page,'travel-expenses-390-dark.png');
+    await page.locator('#travel-days .travel-day-chip').nth(1).click();
+    const capture=await page.locator('.trip-expense-add').boundingBox(),rail=await page.locator('.bento-rail').boundingBox();assert.ok(capture.y+capture.height<=rail.y,'trip capture must clear the dock');
+    await page.locator('.trip-expense-add').click();await page.waitForURL(/tally.html/);await page.locator('#tally-add-sheet').waitFor({state:'visible'});
+    assert.equal(await page.locator('#tally-trip').inputValue(),'focus-trip');assert.equal(await page.locator('#tally-date').inputValue(),'2026-11-05');
+    await page.locator('#tally-amount').fill('50');await page.locator('#tally-category').fill('Transport');await captureMail(page,'trip-expense-editor-390-dark.png');await page.locator('#tally-submit').click();await page.locator('#tally-add-sheet').waitFor({state:'hidden'});
+    const expense=await page.evaluate(()=>JSON.parse(localStorage.getItem('tally-book-v1')).records.find(record=>record.category==='Transport'));assert.equal(expense.tripId,'focus-trip');assert.equal(expense.tripName,'Search destination trip');
+    await page.goto(`${base}/travel.html?focus=trip&id=focus-trip`,{waitUntil:'load'});await page.locator('#travel-expenses > summary').click();assert.ok((await page.locator('#travel-expenses > summary').textContent()).includes('240.00'));assert.ok((await page.locator('#travel-expenses').textContent()).includes('40.00'));
+    await page.locator(".trip-expense-history summary").click();
+    await page.locator(`.trip-expense-records a[href*="${expense.id}"]`).click();await page.waitForURL(/focus=expense/);await page.locator('#tally-add-sheet').waitFor({state:'visible'});assert.equal(await page.locator('#tally-trip').inputValue(),'focus-trip');
+    await page.locator('#tally-trip').selectOption('');await page.locator('#tally-submit').click();assert.equal(await page.evaluate(id=>JSON.parse(localStorage.getItem('tally-book-v1')).records.find(record=>record.id===id).tripId,expense.id),null);
+  });
+
   assert.deepEqual(errors, [], "no uncaught browser errors");
 });

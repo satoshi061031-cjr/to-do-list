@@ -2619,6 +2619,20 @@
     getView: () => ({ filter, day: viewDueDateFilter || todayIso(), source: todoSource }),
     saveTask: saveMobileTask,
     removeTask: remove,
+    createTasks(drafts) {
+      const created = drafts.filter(draft => String(draft.text || "").trim()).map(draft => {
+        const category = draft.categoryName ? ensureCategoryByName(draft.categoryName) : null;
+        return { id: id(), text: String(draft.text).trim().slice(0, 500), completed: false,
+          dueDate: ISO_DATE.test(draft.dueDate || "") ? draft.dueDate : null, dueTime: normalizeTime(draft.dueTime),
+          categoryId: category?.id || null, repeat: null, notes: String(draft.notes || "").slice(0, 10000),
+          subtasks: window.DailySpaceTaskFields.fields(draft).subtasks, remindAt: null };
+      });
+      selectedCategoryKey = "__all__";
+      todos.unshift(...created); saveAll(); renderCategorySidebar(); render();
+      const ids = new Set(created.map(task => task.id));
+      offerUndo(window.DailySpaceI18n?.t("Template applied", "已应用模板") || "Template applied", () => { todos = todos.filter(task => !ids.has(task.id)); });
+      return created;
+    },
     batchTasks(ids, action, value) {
       const selected = new Set(ids);
       const before = structuredClone(todos.filter(task => selected.has(task.id)));

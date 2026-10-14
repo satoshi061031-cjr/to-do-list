@@ -1730,6 +1730,7 @@
   function renderWorkspace({ preserveMap = false } = {}) {
     renderTripSelect();
     const trip = activeTrip();
+    window.DailySpaceTripExpenses?.render(trip ? { ...trip, ref: isSharedTrip(trip) ? sharedSelectionId(trip.id) : trip.id } : null, activeDay);
     const pageMeta = document.getElementById("travel-page-meta");
     if (pageMeta) pageMeta.textContent = trip ? `${trip.name} · ${t(`Day ${activeDay}`, `第 ${activeDay} 天`)}` : t("Your trips and itinerary.", "你的旅行和每日行程。");
     document.body.classList.toggle("travel-has-trip", Boolean(trip) && !pendingInviteToken);
@@ -1956,6 +1957,10 @@
     }
     startSharedPoll();
     pollActiveSharedTrip();
+  });
+  window.addEventListener("daily-space-agent-data-updated", event => {
+    if (event.detail?.domains?.includes("travel")) { loadState(); renderWorkspace({ preserveMap: true }); }
+    else if (event.detail?.domains?.includes("tally")) { const trip = activeTrip(); window.DailySpaceTripExpenses?.render(trip ? { ...trip, ref: isSharedTrip(trip) ? sharedSelectionId(trip.id) : trip.id } : null, activeDay); }
   });
   window.addEventListener("daily-space-auth-updated", () => {
     bootTravel().catch(() => {});

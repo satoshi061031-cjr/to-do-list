@@ -103,7 +103,9 @@
     const categorise = button(t('Set category', '设置分类'), () => apply('category', category.value || null));
     const primary = element('div', '', 'task-batch-primary'); primary.append(count, complete, tomorrow);
     const secondary = element('details', '', 'task-batch-options'); secondary.append(element('summary', t('Date & category', '日期与分类')));
-    const choices = element('div', '', 'task-batch-choices'); choices.append(day, move, category, categorise); secondary.append(choices); bar.append(primary, secondary); document.body.append(bar);
+    const choices = element('div', '', 'task-batch-choices'); choices.append(day, move, category, categorise); secondary.append(choices);
+    const saveTemplate = button(t('Save as template', '存为模板'), () => window.DailySpaceWorkspaceTools?.saveTemplate([...selected]));
+    saveTemplate.dataset.saveTemplate = ''; secondary.append(saveTemplate); bar.append(primary, secondary); document.body.append(bar);
     function localIso(date) { return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`; }
     function visibleRows() { return [...list.querySelectorAll('.todo-item:not(.is-leaving)')]; }
     function apply(action, value) { if (!selected.size) return; api.batchTasks([...selected], action, value); selected.clear(); selecting = false; refresh(); toggle.focus({ preventScroll: true }); }
@@ -123,10 +125,11 @@
         check.setAttribute('aria-label', `${localized('Select task', '选择任务')}: ${row.querySelector('.todo-label')?.textContent || ''}`);
         check.checked = selected.has(row.dataset.id); row.classList.toggle('task-is-selected', check.checked);
       });
-      count.textContent = `${selected.size} ${localized('selected', '项已选')}`; [complete, tomorrow, categorise].forEach(node => { node.disabled = !selected.size; }); move.disabled = !selected.size || !day.value;
+      count.textContent = `${selected.size} ${localized('selected', '项已选')}`; [complete, tomorrow, categorise, saveTemplate].forEach(node => { node.disabled = !selected.size; }); move.disabled = !selected.size || !day.value;
       const current = category.value; category.replaceChildren(new Option(localized('No category', '无分类'), '')); api.getCategories().forEach(item => category.add(new Option(item.name, item.id))); category.value = current;
       window.dispatchEvent(new Event('resize'));
     }
+    window.DailySpaceTaskDetails.clearSelection = () => { selecting = false; selected.clear(); refresh(); };
     all.addEventListener('change', () => { selected.clear(); if (all.checked) visibleRows().forEach(row => selected.add(row.dataset.id)); refresh(); });
     const selectRow = event => { if (!selecting || (event.type === 'keydown' && !['Enter', ' '].includes(event.key))) return;
       const main = event.target.closest('.todo-main'); if (!main) return; event.preventDefault(); event.stopImmediatePropagation(); const id = main.closest('.todo-item').dataset.id;

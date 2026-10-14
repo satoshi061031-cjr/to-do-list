@@ -8,6 +8,10 @@
   let originalTitle = "";
 
   const ZH = {
+    "Import & backup": "导入与备份",
+    "Templates": "模板",
+    "Save as template": "存为模板",
+    "Template applied": "已应用模板",
     "Cancel selection": "取消选择",
     "Remind in 10 min": "10 分钟后提醒",
     "Remind tomorrow": "明天提醒",

@@ -7,6 +7,9 @@
     <script src="workspace-search.js"></script>
     <script src="workspace-tasks.js"></script>
     <script src="task-fields.js"></script>
+    <script src="tally-core.js"></script>
+    <script src="workspace-tools-core.js"></script>
+    <script src="trip-expenses.js"></script>
     <script src="reminder-client.js"></script>
     <script src="daily-loop.js"></script>
     <script src="dialog-focus.js"></script>
@@ -219,6 +222,7 @@
                   <datalist id="tally-category-options"></datalist>
                   <div class="tally-category-suggestions" id="tally-category-suggestions" hidden></div>
                 </label>
+                <label>Trip<select id="tally-trip" data-i18n-ignore></select></label>
                 <label>Note<input type="text" id="tally-note" placeholder="Optional note" maxlength="120" /></label>
                 <div class="tally-shared-fields" id="tally-shared-fields" hidden>
                   <label>
@@ -243,10 +247,10 @@
       <span class="theme-toggle-label">Dark</span>
     </button>
 
-    <script src="tally-core.js"></script>
     <script src="undo-bar.js"></script>
     <script src="tally.js"></script>
     <script src="agent-data.js"></script>
     <script src="agent-ui.js"></script>
+    <script src="workspace-tools.js"></script>
   </body>
 </html>
