@@ -275,6 +275,10 @@
           name: clean(category.name, 48),
         })),
         todos: todo.todos.slice(0, 120).map((item) => ({
+          ...window.DailySpaceTaskFields?.fields(item),
+          // Bound assistant context without truncating the stored task details.
+          notes: clean(item.notes, 500),
+          subtasks: (window.DailySpaceTaskFields?.fields(item).subtasks || []).slice(0, 8).map(subtask => ({ ...subtask, text: clean(subtask.text, 120) })),
           id: item.id,
           text: clean(item.text, 300),
           completed: Boolean(item.completed),
@@ -458,6 +462,7 @@
             dueDate: validDate(action.dueDate) ? action.dueDate : null,
             dueTime,
             categoryId: category ? category.id : null,
+            ...window.DailySpaceTaskFields?.fields(action),
             sourceMailId: sourceMailId || null,
             repeat: normalizeRepeat(action.repeat),
           });
@@ -474,6 +479,7 @@
               const repeat = normalizeRepeat(item.repeat);
               if (repeat) {
                 todo.todos.unshift({
+                  ...window.DailySpaceTaskFields?.recurrence(item),
                   id: uid(),
                   text: item.text,
                   completed: false,

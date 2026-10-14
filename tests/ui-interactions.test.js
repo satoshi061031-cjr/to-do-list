@@ -869,5 +869,125 @@ test("browser interactions on desktop and touch screens", { timeout: 120_000 }, 
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   });
 
+  await t.test("task notes and subtasks preserve drafts, sources, calendar edits and recurrence", async () => {
+    const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await page.addInitScript(() => { const state = JSON.parse(localStorage.getItem("todo-app-v2")); state.todos[0].sourceMailId = "mail:fixture:a"; state.todos[0].sourceMailUrl = "https://mail.google.com/mail/?authuser=fixture%40example.test#all/a"; localStorage.setItem("todo-app-v2", JSON.stringify(state)); });
+    await page.goto(`${base}/todo-m.html`, { waitUntil: "load" });
+    await page.locator('#todo-list [data-id="a"] .todo-main').click();
+    await page.locator('.task-detail-fields summary').click();
+    await page.locator('[data-task-notes]').fill("设计评审：先整理交互问题，再确认移动端方案。");
+    await page.locator('[data-subtask-add]').click();
+    await page.locator('[data-subtask-text]').fill("整理移动端反馈");
+    await page.locator('[data-subtask-add]').click();
+    await page.locator('[data-subtask-text]').nth(1).fill("确认下一步安排");
+    await page.locator('.task-subtask-check').first().click();
+    await page.goBack();
+    await page.locator('#m-task-editor').waitFor({ state: "hidden" });
+    await page.reload(); await page.locator('#todo-list [data-id="a"] .todo-main').click();
+    assert.ok((await page.locator('[data-task-notes]').inputValue()).includes("设计评审"));
+    assert.equal(await page.locator('[data-subtask-text]').count(), 2);
+    assert.equal(await page.locator('.task-subtask-check input').first().isChecked(), true);
+    assert.ok((await page.locator('.task-source-link').getAttribute('href')).startsWith('https://mail.google.com/'));
+    await page.locator('#m-task-details summary').click(); await page.locator('#m-task-repeat').selectOption('weekly');
+    await page.evaluate(() => document.documentElement.dataset.theme = 'dark');
+    await captureMail(page, 'task-details-390-dark.png');
+    await page.locator('#m-task-save').click(); await page.locator('#m-task-editor').waitFor({ state: "hidden" });
+    await page.goto(`${base}/calendar.html`, { waitUntil: "load" });
+    await page.locator('#calendar-capture').click(); await page.locator('[data-calendar-kind=task]').click();
+    await page.locator('#day-task-input').fill('Calendar compatibility fixture'); await page.locator('#calendar-editor-save').click();
+    await page.locator('#calendar-editor-sheet').waitFor({ state: 'hidden' });
+    await page.goto(`${base}/todo-m.html`, { waitUntil: "load" });
+    await page.locator('#todo-list [data-id="a"] .todo-check').click();
+    const state = await page.evaluate(() => JSON.parse(localStorage.getItem('todo-app-v2')));
+    const next = state.todos.find(task => task.repeat === 'weekly' && !task.completed);
+    assert.equal(next.notes, state.todos.find(task => task.id === 'a').notes); assert.equal(next.subtasks.length, 2); assert.equal(next.subtasks.every(task => !task.completed), true);
+    assert.notEqual(next.subtasks[0].id, state.todos.find(task => task.id === 'a').subtasks[0].id);
+  });
+
+  await t.test("batch selection is scoped, reschedules and categorises tasks with reversible recurrence", async () => {
+    const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await page.addInitScript(() => { const state = JSON.parse(localStorage.getItem('todo-app-v2')); state.categories = [{ id: 'work', name: '工作' }]; state.todos[0].repeat = 'weekly'; state.todos.push({ id: 'hidden-future', text: 'Future', dueDate: '2027-02-01', completed: false }); localStorage.setItem('todo-app-v2', JSON.stringify(state)); });
+    await page.goto(`${base}/todo-m.html`, { waitUntil: 'load' });
+    await page.locator('#task-select-mode').click(); await page.locator('#task-select-all').click();
+    assert.equal(await page.locator('.task-batch-check input:checked').count(), 3);
+    await page.locator('.task-batch-options summary').click(); await page.locator('.task-batch-bar select').selectOption('work');
+    await page.locator('.task-batch-choices button').nth(1).click();
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('todo-app-v2')).todos.filter(task => task.categoryId === 'work').length), 3);
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('todo-app-v2')).todos.find(task => task.id === 'hidden-future').categoryId), null);
+    await page.locator('#task-select-mode').click(); await page.locator('#task-select-all').click();
+    await page.evaluate(() => document.documentElement.dataset.theme = 'dark'); await captureMail(page, 'task-batch-390-dark.png');
+    const bar = await page.locator('.task-batch-bar').boundingBox(); const dock = await page.locator('.bento-rail').boundingBox();
+    assert.ok(bar.y + bar.height <= dock.y, 'batch bar must clear the dock');
+    await page.locator('.task-batch-primary button').first().click();
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('todo-app-v2')).todos.filter(task => task.completed).length), 3);
+    await page.locator('#undo-bar button').click();
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('todo-app-v2')).todos.length), 4);
+    await page.locator('#task-select-mode').click(); await page.locator('#todo-list [data-id="b"] .todo-main').click();
+    assert.equal(await page.locator('#task-select-all').evaluate(input => input.indeterminate), true);
+    await page.locator('.task-batch-primary button').nth(1).click();
+    assert.ok(await page.evaluate(() => { const value = new Date(); value.setDate(value.getDate()+1); const task = JSON.parse(localStorage.getItem('todo-app-v2')).todos.find(task => task.id === 'b'); return task.dueDate === `${value.getFullYear()}-${String(value.getMonth()+1).padStart(2,'0')}-${String(value.getDate()).padStart(2,'0')}`; }));
+    await page.setViewportSize({ width: 320, height: 568 }); await page.locator('#task-select-mode').click(); await page.locator('#task-select-all').click(); await page.locator('.task-batch-options summary').click();
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    await page.locator('.task-batch-choices input').fill('2026-11-01'); await page.locator('.task-batch-choices button').first().click();
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('todo-app-v2')).todos.filter(task => task.dueDate === '2026-11-01').length), 2);
+  });
+
+  await t.test("desktop details trap focus and Guest snooze stays local", async () => {
+    const page = await pageFor(); const remote = []; page.on('request', request => { if (request.url().includes('/api/reminders/')) remote.push(request.url()); });
+    await page.goto(`${base}/todo.html`, { waitUntil: 'load' });
+    await page.locator('#todo-list [data-id="a"] .task-details-open').click();
+    await trapped(page, '.task-desktop-panel');
+    await page.locator('.task-desktop-panel .task-detail-fields summary').click();
+    await page.locator('.task-desktop-panel [data-task-notes]').fill('A desktop note');
+    await page.locator('.task-desktop-save').click(); await page.locator('.task-desktop-editor').waitFor({ state: 'hidden' });
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('todo-app-v2')).todos.find(task => task.id === 'a').notes), 'A desktop note');
+    const before = Date.now(); await page.evaluate(() => window.DailySpaceReminders.defer('todo', 'a', 10));
+    assert.ok(await page.evaluate(before => JSON.parse(localStorage.getItem('todo-app-v2')).todos.find(task => task.id === 'a').remindAt >= before + 600000, before));
+    assert.deepEqual(remote, [], 'Guest reminders must never send tasks to a server');
+    await page.locator('#task-select-mode').click(); await page.locator('#task-select-all').click();
+    assert.equal(await page.locator('#todo-list .todo-label').first().getAttribute('contenteditable'), 'false');
+    await captureMail(page, 'task-batch-desktop-light.png');
+    await page.locator('.task-batch-primary button').first().click();
+    await page.evaluate(() => { const task = window.DailySpaceTodo.getTasks().find(task => task.id === 'a'); window.DailySpaceTodo.saveTask({ ...task, notes: 'Edited after the batch' }, task.id); });
+    await page.locator('#undo-bar button').click();
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('todo-app-v2')).todos.find(task => task.id === 'a').notes), 'Edited after the batch');
+  });
+
+  await t.test("Google background opt-in syncs changes and avoids simultaneous local alerts", async () => {
+    const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await seedWorkspace(page, true);
+    await page.addInitScript(() => {
+      let sub = null; let localAlerts = 0;
+      class TestNotification { static permission = 'default'; static async requestPermission() { this.permission = 'granted'; return 'granted'; } constructor() { localAlerts++; } }
+      window.Notification = TestNotification;
+      const registration = { showNotification: async () => { localAlerts++; }, pushManager: { getSubscription: async () => sub, subscribe: async () => {
+        sub = { endpoint: 'https://fcm.googleapis.com/fixture-browser', toJSON: () => ({ endpoint: sub.endpoint, keys: { p256dh: 'fixture', auth: 'fixture' } }), unsubscribe: async () => { sub = null; return true; } }; return sub;
+      } } };
+      Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: { ready: Promise.resolve(registration), addEventListener() {}, register: async () => registration } });
+      window.localAlertCount = () => localAlerts;
+    });
+    let active = false; const schedules = []; const requests = [];
+    await page.route('**/api/reminders/**', async route => {
+      const request = route.request(); requests.push(request.method() + ':' + new URL(request.url()).pathname);
+      let response;
+      if (request.url().includes('/status')) response = { configured: true, publicKey: 'AAAA', enabled: active };
+      else if (request.method() === 'DELETE') { active = false; response = { ok: true }; }
+      else { active = true; schedules.push(request.postDataJSON().jobs); response = { ok: true }; }
+      await route.fulfill({ contentType: 'application/json', body: JSON.stringify(response) });
+    });
+    await page.goto(`${base}/todo-m.html`, { waitUntil: 'load' });
+    await page.locator('.reminder-settings summary').click(); await page.locator('.reminder-settings button').click();
+    await page.waitForFunction(() => document.querySelector('.reminder-settings [role=status]').textContent.includes('Background reminders on'));
+    assert.ok(schedules.length > 0); assert.ok(schedules[0].some(job => job.source === 'todo:design'));
+    await page.evaluate(() => window.DailySpaceReminders.tick()); assert.equal(await page.evaluate(() => window.localAlertCount()), 0);
+    await page.locator('#todo-list [data-id=design] .todo-check').click();
+    await page.waitForFunction(() => document.querySelector('.reminder-settings [role=status]').textContent.includes('Background reminders on'));
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('daily-space-user-sync-updated', { detail: { status: 'ok' } })));
+    await page.waitForTimeout(100);
+    assert.ok(!schedules.at(-1).some(job => job.source === 'todo:design'), 'completed task must leave the schedule');
+    await page.locator('.reminder-settings button').click();
+    assert.ok(requests.some(request => request.startsWith('DELETE:')));
+  });
+
   assert.deepEqual(errors, [], "no uncaught browser errors");
 });

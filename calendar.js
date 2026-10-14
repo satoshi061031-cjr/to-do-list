@@ -356,6 +356,7 @@
       .map((t) => {
         const x = /** @type {any} */ (t);
         return {
+          ...window.DailySpaceTaskFields?.fields(x),
           id: x.id,
           text: x.text.slice(0, 500),
           completed: x.completed,
@@ -387,6 +388,7 @@
         const x = /** @type {any} */ (r);
         return {
           id: x.id,
+          remindAt: Number.isFinite(x.remindAt) ? x.remindAt : null,
           date: x.date,
           text: x.text.trim().slice(0, 200),
           startTime: normalizeTime(x.startTime),
@@ -612,6 +614,9 @@
       else next.setMonth(next.getMonth() + 1);
       todos.unshift({
         ...todo,
+        ...window.DailySpaceTaskFields?.recurrence(todo),
+        sourceMailId: null,
+        sourceMailUrl: null,
         id: id(),
         completed: false,
         dueDate: dateToIso(next),

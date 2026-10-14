@@ -260,7 +260,7 @@
       categoryId = t.categoryId;
     const sourceMailId =
       typeof t.sourceMailId === "string" && t.sourceMailId.trim() ? t.sourceMailId.trim().slice(0, 120) : null;
-    return { id: t.id, text: t.text, completed: t.completed, dueDate, dueTime, categoryId, sourceMailId, repeat: normalizeRepeat(t.repeat) };
+    return { ...window.DailySpaceTaskFields?.fields(t), id: t.id, text: t.text, completed: t.completed, dueDate, dueTime, categoryId, sourceMailId, repeat: normalizeRepeat(t.repeat) };
   }
 
   /** @param {Array | undefined | null} list */
@@ -1067,6 +1067,13 @@
     }
 
     main.appendChild(label);
+    if (todo.notes || todo.subtasks?.length) {
+      const detail = document.createElement("span"); detail.className = "task-detail-meta";
+      detail.textContent = [todo.notes ? (window.DailySpaceI18n?.t("Note", "备注") || "Note") : "",
+        todo.subtasks?.length ? `${todo.subtasks.filter(item => item.completed).length}/${todo.subtasks.length}` : ""].filter(Boolean).join(" · ");
+      main.append(detail);
+    }
+
 
     if (opts.showBoardMeta && (todo.boardName || todo.workspaceName)) {
       const meta = document.createElement("span");
@@ -1143,6 +1150,11 @@
     checkTarget.appendChild(check);
     li.append(checkTarget, main);
 
+    if (allowDelete && todoSource === "personal" && !isMobileTodoPage()) {
+      const details = document.createElement("button"); details.type = "button"; details.className = "task-details-open";
+      details.textContent = "···"; details.setAttribute("aria-label", window.DailySpaceI18n?.t("Task details", "任务详情") || "Task details");
+      details.addEventListener("click", () => window.DailySpaceTaskDetails?.open(todo.id)); li.append(details);
+    }
     if (allowDelete) {
       const del = document.createElement("button");
       del.type = "button";
@@ -1943,7 +1955,10 @@
     let task = taskId ? todos.find(item => item.id === taskId) : null;
     if (taskId && !task) return null;
     if (!task) { task = { id: id(), completed: false }; todos.unshift(task); }
+    if (task.dueDate !== (draft.dueDate || null) || (task.dueTime || null) !== normalizeTime(draft.dueTime)) task.remindAt = null;
     Object.assign(task, {
+      ...(Object.hasOwn(draft, "notes") ? { notes: String(draft.notes || "").slice(0, 10000) } : {}),
+      ...(Object.hasOwn(draft, "subtasks") ? { subtasks: window.DailySpaceTaskFields.fields(draft).subtasks } : {}),
       text,
       dueDate: ISO_DATE.test(draft.dueDate || "") ? draft.dueDate : null,
       dueTime: normalizeTime(draft.dueTime),
@@ -1971,6 +1986,7 @@
     const repeat = normalizeRepeat(item.repeat);
     if (!repeat) return;
     todos.unshift({
+      ...window.DailySpaceTaskFields?.recurrence(item),
       id: id(),
       text: item.text,
       completed: false,
@@ -2598,11 +2614,33 @@
   else requestAnimationFrame(focusSearchTask);
 
   window.DailySpaceTodo = {
-    getTasks: () => todos.map(task => ({ ...task })),
+    getTasks: () => structuredClone(todos),
     getCategories: () => categories.map(category => ({ ...category })),
     getView: () => ({ filter, day: viewDueDateFilter || todayIso(), source: todoSource }),
     saveTask: saveMobileTask,
     removeTask: remove,
+    batchTasks(ids, action, value) {
+      const selected = new Set(ids);
+      const before = structuredClone(todos.filter(task => selected.has(task.id)));
+      const oldIds = new Set(todos.map(task => task.id));
+      for (const task of [...todos]) {
+        if (!selected.has(task.id)) continue;
+        if (action === "complete" && !task.completed) { task.completed = true; spawnRepeatFrom(task); }
+        if (action === "date" && ISO_DATE.test(value || "")) { task.dueDate = value; task.remindAt = null; }
+        if (action === "category" && (value === null || categoryExists(value))) task.categoryId = value;
+      }
+      const spawned = new Set(todos.filter(task => !oldIds.has(task.id)).map(task => task.id));
+      saveAll(); renderCategorySidebar(); render();
+      offerUndo(window.DailySpaceI18n?.t("Tasks updated", "已更新任务") || "Tasks updated", () => {
+        todos = todos.filter(task => !spawned.has(task.id));
+        before.forEach(original => {
+          const task = todos.find(item => item.id === original.id); if (!task) return;
+          if (action === "complete") task.completed = original.completed;
+          if (action === "date") { task.dueDate = original.dueDate; task.remindAt = original.remindAt; }
+          if (action === "category") task.categoryId = original.categoryId;
+        });
+      });
+    },
     selectDueDay,
     setFilter,
     openDueDayPage,

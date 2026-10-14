@@ -27,6 +27,7 @@ function loadScript(filename, extra = {}) {
   };
   const context = vm.createContext({
     window,
+    document: extra.document,
     localStorage,
     CustomEvent,
     crypto,
@@ -152,4 +153,45 @@ test("search exposes source records once and keeps tasks whose source was remove
   assert.ok(search.search("Encoded destination")[0].href.includes(encodeURIComponent("a&b /中文")));
   values.set("calendar-app-v1", JSON.stringify({ reminders: [] }));
   assert.match(search.search("Linked appointment")[0].href, /focus=todo/);
+});
+
+test('rescheduling linked work updates source dates and preserves task notes and checklist', () => {
+  const values = new Map([
+    ['todo-app-v2', JSON.stringify({ categories: [], todos: [
+      { id: 't1', text: 'Appointment', dueDate: '2026-10-15', dueTime: '11:00', completed: false, sourceReminderId: 'r1', notes: 'Keep note', subtasks: [{ id: 's1', text: 'Prepare', completed: true }] },
+      { id: 't2', text: 'Project', dueDate: '2026-10-15', completed: false, sourcePlannerId: 'c1' },
+    ] })],
+    ['calendar-app-v1', JSON.stringify({ reminders: [{ id: 'r1', text: 'Appointment', date: '2026-10-14', startTime: '09:00', endTime: '10:00', remindAt: 1 }] })],
+    ['planner-app-v1', JSON.stringify({ boards: { b1: { columns: [], entries: [{ id: 'c1', title: 'Project', dueDate: '2026-10-14', completed: false }] } } })],
+  ]);
+  const { window } = loadScript('workspace-tasks.js', { values });
+  window.DailySpaceTasks.syncLinkedWork({ from: 'todo', silent: true });
+  const reminder = JSON.parse(values.get('calendar-app-v1')).reminders[0];
+  assert.equal(reminder.date, '2026-10-15'); assert.equal(reminder.startTime, '11:00'); assert.equal(reminder.endTime, '12:00'); assert.equal(reminder.remindAt, null);
+  assert.equal(JSON.parse(values.get('planner-app-v1')).boards.b1.entries[0].dueDate, '2026-10-15');
+  const task = JSON.parse(values.get('todo-app-v2')).todos[0]; assert.equal(task.notes, 'Keep note'); assert.equal(task.subtasks[0].completed, true);
+});
+
+test('local reminder postponement survives linked-task synchronization and never writes to the server', async () => {
+  const values = new Map([
+    ['todo-app-v2', JSON.stringify({ categories: [], todos: [{ id: 'task', text: 'Appointment', dueDate: '2026-10-14', dueTime: '11:00', completed: false, sourceReminderId: 'r1' }] })],
+    ['calendar-app-v1', JSON.stringify({ reminders: [{ id: 'r1', text: 'Appointment', date: '2026-10-14', startTime: '11:00', linkedTodoId: 'task' }] })],
+  ]);
+  const document = { querySelectorAll: () => [] };
+  const { window } = loadScript('reminder-client.js', { values, document });
+  const before = Date.now(); await window.DailySpaceReminders.defer('reminder', 'r1', 10);
+  const reminder = JSON.parse(values.get('calendar-app-v1')).reminders[0]; const task = JSON.parse(values.get('todo-app-v2')).todos[0];
+  assert.ok(reminder.remindAt >= before + 600000); assert.equal(task.remindAt, reminder.remindAt);
+  loadScript('workspace-tasks.js', { values, window }); window.DailySpaceTasks.syncLinkedWork({ from: 'todo', silent: true });
+  assert.equal(JSON.parse(values.get('calendar-app-v1')).reminders[0].remindAt, task.remindAt);
+});
+
+
+test('assistant context bounds rich task details without truncating stored notes', () => {
+  const values = new Map([['todo-app-v2', JSON.stringify({ categories: [], todos: [{ id: 'rich', text: 'Rich task', dueDate: '2026-10-14', completed: false, notes: 'n'.repeat(10000), subtasks: Array.from({ length: 20 }, (_, index) => ({ id: `s${index}`, text: 'x'.repeat(500), completed: false })) }] })]]);
+  const { window } = loadScript('task-fields.js', { values }); loadScript('agent-data.js', { values, window });
+  const task = window.DailySpaceAgentData.getSnapshot().todo.todos[0];
+  assert.equal(task.notes.length, 500); assert.equal(task.subtasks.length, 8); assert.equal(task.subtasks[0].text.length, 120);
+  window.DailySpaceAgentData.applyActions([{ type: 'todo_update', todoId: 'rich', text: 'Renamed rich task' }]);
+  const stored = JSON.parse(values.get('todo-app-v2')).todos[0]; assert.equal(stored.notes.length, 10000); assert.equal(stored.subtasks.length, 20);
 });

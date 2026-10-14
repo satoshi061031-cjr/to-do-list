@@ -79,6 +79,10 @@ const SESSION_COOKIE_NAME = "daily_space_session";
 
 loadEnv();
 getDb();
+const reminderStore = require("./reminder-store").createReminderStore(getDb());
+const reminderTimer = setInterval(() => reminderStore.tick().catch(() => console.error("Reminder scheduler failed.")), 15000);
+reminderTimer.unref();
+reminderStore.tick().catch(() => console.error("Reminder scheduler failed."));
 
 const server = http.createServer((request, response) => {
   handleRequest(request, response).catch((error) => {
@@ -102,6 +106,35 @@ async function handleRequest(request, response) {
 async function handleApi(request, response, url) {
   const method = request.method || "GET";
   const session = readSessionFromRequest(request);
+  if (url.pathname.startsWith("/api/reminders/")) {
+    if (method !== "GET") {
+      const origin = request.headers.origin;
+      const forwardedProtocol = String(request.headers["x-forwarded-proto"] || "").split(",")[0].trim();
+      const expectedOrigin = `${forwardedProtocol === "https" || request.socket.encrypted ? "https" : "http"}://${request.headers.host}`;
+      if (origin && origin !== expectedOrigin) throw Object.assign(new Error("Cross-origin reminder request denied."), { statusCode: 403 });
+      if (request.headers["sec-fetch-site"] === "cross-site") throw Object.assign(new Error("Cross-site reminder request denied."), { statusCode: 403 });
+    }
+    if (method === "GET" && url.pathname === "/api/reminders/status") {
+      sendJson(response, reminderStore.status(session?.userId, url.searchParams.get("endpoint"))); return;
+    }
+    if (method === "POST" && url.pathname === "/api/reminders/action") {
+      const body = await readJson(request);
+      sendJson(response, { ok: true, dueAt: reminderStore.defer(body?.jobId, body?.token, body?.action) }); return;
+    }
+    enforceUserSession(session);
+    if (!isGoogleAccountProvider(session.provider)) throw Object.assign(new Error("Background reminders require Google sign-in."), { statusCode: 403, code: "GOOGLE_SESSION_REQUIRED" });
+    const body = await readJson(request);
+    if (method === "POST" && url.pathname === "/api/reminders/subscription") {
+      reminderStore.subscribe(session.userId, body?.subscription); reminderStore.sync(session.userId, body?.jobs); sendJson(response, { ok: true }); return;
+    }
+    if (method === "DELETE" && url.pathname === "/api/reminders/subscription") {
+      reminderStore.unsubscribe(session.userId, body?.endpoint); sendJson(response, { ok: true }); return;
+    }
+    if (method === "PUT" && url.pathname === "/api/reminders/schedule") {
+      sendJson(response, { ok: true, count: reminderStore.sync(session.userId, body?.jobs) }); return;
+    }
+    throw Object.assign(new Error("Reminder route not found."), { statusCode: 404 });
+  }
 
   if (method === "GET" && url.pathname === "/api/health") {
     sendJson(response, {
@@ -498,6 +531,7 @@ async function handleApi(request, response, url) {
   }
 
   if (method === "POST" && url.pathname === "/api/auth/logout") {
+    if (session?.userId) reminderStore.revokeOwner(session.userId);
     clearSessionCookie(response);
     sendJson(response, { ok: true });
     return;
@@ -559,6 +593,7 @@ async function handleApi(request, response, url) {
   if (method === "DELETE" && url.pathname === "/api/user/account") {
     enforceUserSession(session);
     const userId = session.userId;
+    reminderStore.revokeOwner(userId);
     const mail = removeAllMailAccountsForUser(userId);
     const snapshot = await getUserSnapshotStore().deleteSnapshot(userId);
     clearSessionCookie(response);

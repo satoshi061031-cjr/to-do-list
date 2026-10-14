@@ -8,6 +8,28 @@
   let originalTitle = "";
 
   const ZH = {
+    "Cancel selection": "取消选择",
+    "Remind in 10 min": "10 分钟后提醒",
+    "Remind tomorrow": "明天提醒",
+    "Notes & checklist": "备注与子任务",
+    "＋ Add a subtask": "＋ 添加子任务",
+    "Complete subtask": "完成子任务",
+    "Subtask": "子任务",
+    "Remove subtask": "删除子任务",
+    "Task details": "任务详情",
+    "Close": "关闭",
+    "Draft restored": "已恢复草稿",
+    "This task is no longer available.": "这条任务已不存在。",
+    "Select visible": "选择当前列表",
+    "Batch task actions": "批量任务操作",
+    "Complete": "完成",
+    "Reschedule date": "改期日期",
+    "Reschedule": "改期",
+    "Batch category": "批量分类",
+    "Set category": "设置分类",
+    "Date & category": "日期与分类",
+    "Select task": "选择任务",
+
     "Trip view": "行程视图",
     "Map": "地图",
 

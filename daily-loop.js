@@ -270,6 +270,7 @@
   }
 
   async function requestNotificationPermission() {
+    if (window.DailySpaceReminders) return window.DailySpaceReminders.enable();
     if (!notificationsSupported()) return "unsupported";
     if (Notification.permission === "granted") return "granted";
     if (Notification.permission === "denied") return "denied";
@@ -324,6 +325,7 @@
   }
 
   function tickReminderNotifications() {
+    if (window.DailySpaceReminders) { window.DailySpaceReminders.tick(); return; }
     if (!notificationsSupported() || Notification.permission !== "granted") return;
     const today = todayIso();
     const hm = nowHm();
@@ -363,6 +365,7 @@
   }
 
   function setupReminderNotifications() {
+    if (window.DailySpaceReminders) { window.DailySpaceReminders.setup(); return; }
     if (!notificationsSupported()) return;
     tickReminderNotifications();
     window.setInterval(tickReminderNotifications, 30000);

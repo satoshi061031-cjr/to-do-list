@@ -108,6 +108,29 @@ npm run cap:sync
 npm run cap:android   # or cap:ios
 ```
 
+## Task details and batch actions
+
+Open a task on phone or use its **Task details** button on desktop to save notes and a checklist. Drafts survive Back/reload and are scoped to the current account or Guest. Checklist progress appears quietly in the task row; completing the main task does not automatically check its subtasks. Repeating tasks copy the note and create a fresh, unchecked checklist. Mail tasks link to the original Gmail thread when added with this version; older mail tasks return to Mail. Linked calendar and project tasks return to their source.
+
+Use **Select** above the task list to select individual tasks or the visible list. **Complete**, **Tomorrow**, or the disclosed **Date & category** controls apply only to the selection. Batch changes have Undo, including any next occurrences created by completing repeat tasks. Assigned/shared tasks continue to use their existing collaboration controls.
+
+## Reminders and background push
+
+The **Reminders** disclosure below Todo, or beside Calendar's reminder control, shows the actual device status. Google users can opt in to Web Push. Reminders are stored in SQLite and sent by the running server every 15 seconds, independent of an open browser page. Timed tasks/reminders use their time; untimed dated tasks use 19:00 in the device's time zone. Completing/deleting a task removes its pending job after account sync. A linked calendar reminder appears once and stops notifying when its task is completed.
+
+Notification actions offer **10 minutes later** and **Tomorrow** (09:00 in the recorded time zone), without opening the page. Task details offer the same postponement controls. Postponement changes the next alert rather than the task deadline. Actions on removed/rescheduled reminders expire. Jobs retain their delivered/postponed state across normal reloads and server restarts; transient delivery failures retry up to three times and dead device subscriptions are removed. Sign-out or account deletion revokes that account's background reminders and subscriptions; other devices will need to opt in again.
+
+To enable production Web Push:
+
+1. Generate a key pair with `npx web-push generate-vapid-keys --json` in a private terminal. Set `VAPID_PUBLIC_KEY`, **`VAPID_PRIVATE_KEY`**, and `VAPID_SUBJECT` (your real `mailto:` contact or HTTPS support page) in secure deployment environment settings. Keep the key pair stable across deployments. Never commit the private key.
+2. Use HTTPS, an **always-running server**, and a persistent `DAILY_SPACE_DB_PATH`; this scheduler supports one Node service instance. The default Render free Blueprint sleeps and has ephemeral storage, so adding keys alone does not make it a reliable reminder service. Configure the hosting plan/disk yourself; the repository does not activate paid hosting.
+3. Sign in with Google, wait for account sync, then open **Reminders → Enable reminders** on each device and grant notification permission. On iPhone/iPad, Web Push requires iOS/iPadOS 16.4+ and adding the site to the Home Screen. The Capacitor shell does not gain native local notifications from this Web Push implementation.
+4. Test a future timed task, close the page, and confirm delivery and both postponement actions on the actual device. Automated checks exercise scheduling, encryption, ownership, cancellation and service worker actions, but do not send real provider pushes or validate physical OS delivery.
+
+Guest reminder data stays local and is never uploaded to the push API. Guest and unconfigured-server fallbacks alert only while a page is running; the UI states this limit. Browser permissions, OS notification settings, connectivity and hosting uptime still govern delivery. Offline edits must finish account and reminder sync before closing the page; the UI reports a failed schedule update. Local notification postponement reopens the page to save locally. Notification action buttons vary by browser; use task details when unavailable.
+
+Pending reminders/device subscriptions use SQLite even when personal snapshots use Supabase. Include them in the existing SQLite backup/recovery process. Only the configured public VAPID key is exposed to the client; private credentials and action capabilities are never cached as API responses.
+
 ## Deploy (Render)
 
 1. Connect the GitHub repo; use `npm start` (or your existing Render Blueprint).

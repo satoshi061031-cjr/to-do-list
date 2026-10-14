@@ -40,6 +40,13 @@ services:
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
+      # Optional Web Push. Enable only on an always-running service with persistent SQLite.
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        sync: false
       - key: GROQ_API_KEY
         sync: false
       - key: MAIL_OAUTH_BASE_URL

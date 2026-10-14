@@ -135,6 +135,7 @@
             categoryId: null,
             sourceMailId: null,
             sourceReminderId: reminder.id,
+            remindAt: Number.isSafeInteger(reminder.remindAt) ? reminder.remindAt : null,
             repeat: null,
           };
           todos.unshift(todo);
@@ -148,6 +149,20 @@
           todo.sourceReminderId = reminder.id;
           changed = true;
         }
+        if (from === "todo" && validDate(todo.dueDate)) {
+          if (reminder.date !== todo.dueDate) { reminder.date = todo.dueDate; changed = true; }
+          const start = validTime(todo.dueTime);
+          if (validTime(reminder.startTime) !== start) {
+            const minutes = value => value ? Number(value.slice(0, 2)) * 60 + Number(value.slice(3)) : null;
+            const oldStart = minutes(validTime(reminder.startTime)), oldEnd = minutes(validTime(reminder.endTime));
+            const end = start && oldStart !== null && oldEnd !== null && oldEnd > oldStart ? minutes(start) + oldEnd - oldStart : null;
+            reminder.startTime = start;
+            reminder.endTime = end !== null && end < 1440 ? `${String(Math.floor(end / 60)).padStart(2, "0")}:${String(end % 60).padStart(2, "0")}` : null;
+            changed = true;
+          }
+          if ((reminder.remindAt || null) !== (todo.remindAt || null)) { reminder.remindAt = todo.remindAt || null; changed = true; }
+        }
+        if (from !== "todo" && (todo.remindAt || null) !== (reminder.remindAt || null)) { todo.remindAt = reminder.remindAt || null; changed = true; }
         if (!todo.completed && from !== "todo") {
           if (todo.dueDate !== date) {
             todo.dueDate = date;
@@ -199,6 +214,7 @@
           const cardDone = Boolean(entry.completed);
           syncCompletion(from, todo, entry, board);
           if (Boolean(todo.completed) !== wasDone || Boolean(entry.completed) !== cardDone) changed = true;
+          if (from === "todo" && validDate(todo.dueDate) && entry.dueDate !== todo.dueDate) { entry.dueDate = todo.dueDate; changed = true; }
           if (!todo.completed && todo.dueDate !== date && from !== "todo") {
             todo.dueDate = date;
             changed = true;

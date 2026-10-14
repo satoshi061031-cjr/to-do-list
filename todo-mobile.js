@@ -12,6 +12,7 @@
     const category = document.getElementById("m-task-category");
     const repeat = document.getElementById("m-task-repeat");
     const details = document.getElementById("m-task-details");
+    const extraFields = window.DailySpaceTaskDetails.mount(form, document.getElementById("m-task-date"));
     const status = document.getElementById("m-task-status");
     const save = document.getElementById("m-task-save");
     const remove = document.getElementById("m-task-delete");
@@ -52,7 +53,7 @@
       try { localStorage.removeItem(draftKey); } catch (_) {}
     }
     function snapshot() {
-      return { text: title.value, dueDate: date.value, dueTime: time.value,
+      return { ...extraFields.value(), text: title.value, dueDate: date.value, dueTime: time.value,
         categoryId: category.value || null, repeat: repeat.value || null };
     }
     function storeDraft() {
@@ -72,7 +73,8 @@
         : t("Choose date", "选择日期");
       save.disabled = !title.value.trim() || composing;
     }
-    function fill(value) {
+    function fill(value, source = value) {
+      extraFields.fill(value, source);
       title.value = value?.text || "";
       date.value = value?.dueDate || today();
       time.value = value?.dueTime || "";
@@ -97,7 +99,7 @@
       taskId = id || null;
       draftKey = `daily-space-phone-draft-v1:${owner()}:${taskId || "new"}`;
       const draft = readDraft(draftKey);
-      fill(draft || task);
+      fill(draft || task, task);
       details.open = false;
       document.getElementById("m-task-editor-title").textContent = taskId ? t("Edit task", "编辑任务") : t("New task", "新建任务");
       save.textContent = taskId ? t("Save changes", "保存更改") : t("Add task", "添加任务");
@@ -165,7 +167,7 @@
       clearDraft();
       if (taskId) close({ preserve: false });
       else {
-        title.value = ""; syncDates();
+        title.value = ""; extraFields.fill(null); syncDates();
         showStatus(saved.dueDate === today() ? "Task added. Ready for the next one." : "Task added for the selected date.",
           saved.dueDate === today() ? "已添加，可以继续输入下一条。" : "已添加到所选日期。");
         title.focus({ preventScroll: true });

@@ -303,6 +303,7 @@
           dueDate: todayIso(),
           categoryName: null,
           sourceMailId: mailTaskKey(message),
+        sourceMailUrl: mailSourceUrl(message),
         },
       ]);
       const ok = Array.isArray(applied) && applied.some((item) => item && item.ok !== false);
@@ -319,6 +320,11 @@
     }
     setInboxStatus("Could not add task on this device.", true);
     return false;
+  }
+
+  function mailSourceUrl(message) {
+    const account = selectedAccount();
+    return /gmail|google/i.test(account?.provider || "") ? `https://mail.google.com/mail/?authuser=${encodeURIComponent(account.email)}#all/${encodeURIComponent(message.threadId || message.id)}` : null;
   }
 
   function addSelectedAsTodayTasks() {
@@ -343,6 +349,7 @@
         dueDate: todayIso(),
         categoryName: null,
         sourceMailId: mailTaskKey(message),
+        sourceMailUrl: mailSourceUrl(message),
       }))
     );
     const added = Array.isArray(applied) ? applied.filter((item) => item && item.ok !== false).length : 0;
