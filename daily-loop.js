@@ -482,6 +482,9 @@
       window.requestAnimationFrame(() => input.focus());
     }
 
+    window.DailySpaceSearchUi = { open: openPalette, close: closePalette };
+    palette.querySelector("[data-search-close], .command-palette-backdrop")?.setAttribute("data-dialog-close", "");
+
     function render(query) {
       items = searchApi.search(query, 12);
       activeIndex = 0;
@@ -491,7 +494,9 @@
         li.className = "command-palette-item" + (index === 0 ? " is-active" : "");
         li.setAttribute("role", "option");
         li.innerHTML = `<span class="command-palette-label"></span><span class="command-palette-hint"></span>`;
-        li.querySelector(".command-palette-label").textContent = item.label;
+        const label = li.querySelector(".command-palette-label");
+        label.textContent = item.label;
+        if (item.kind === "item") label.dataset.i18nIgnore = "";
         li.querySelector(".command-palette-hint").textContent = item.hint || "";
         li.addEventListener("click", () => run(item));
         list.appendChild(li);

@@ -1212,23 +1212,13 @@ body.calendar-page .calendar-app > .app-greeting {
     max-width: 28rem;
   }
 
-  body.calendar-page .cal-search,
   body.calendar-page .cal-upcoming,
   body.calendar-page .cal-add-btn,
-  body.calendar-page #calendar-today,
   body.calendar-page .cal-week-body,
   body.calendar-page .cal-week-empty,
   body.calendar-page .cal-week-corner,
-  body.calendar-page .day-task-form,
   body.calendar-page .day-task-label,
-  body.calendar-page .reminder-time-field:has(#reminder-end-time),
-  body.calendar-page .reminder-priority-field,
   body.calendar-page .calendar-alerts-btn,
-  body.calendar-page .cal-shell .calendar-title,
-  body.calendar-page .cal-shell .calendar-meta,
-  body.calendar-page .selected-day-head,
-  body.calendar-page .cal-day-block:has(#day-task-form),
-  body.calendar-page .cal-day-block:has(#reminder-form) > .cal-day-kicker,
   body.calendar-page > .theme-toggle,
   body.calendar-page > .language-toggle {
     display: none !important;

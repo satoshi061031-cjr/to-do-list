@@ -8,6 +8,23 @@
   let originalTitle = "";
 
   const ZH = {
+    "Trip view": "行程视图",
+    "Map": "地图",
+
+    "Trip storage": "行程的保存与共享",
+    "Budget settings": "预算设置",
+    "Projects": "项目",
+    "Filter schedule": "筛选日程",
+    "Close calendar editor": "关闭日历编辑",
+    "Entry type": "条目类型",
+    "Reminder": "提醒",
+    "Add to this day": "添加到这一天",
+    "Quick entry": "快速记一笔",
+    "Workspaces and assigned tasks.": "工作空间与分派给你的任务。",
+    "Your trips and itinerary.": "你的旅行和每日行程。",
+    "No trips yet": "还没有旅行计划",
+    "Saved on this device. Sign in to sync.": "已保存在本机，登录后可同步。",
+
     "Selected messages": "已选邮件",
     "Close message": "关闭邮件",
     "Connect Gmail to read your inbox and turn messages into tasks.": "连接 Gmail，查看收件箱并将邮件转为待办。",
@@ -174,7 +191,7 @@
     Tally: "记账",
     Team: "团队",
     "To-do list": "待办清单",
-    Planner: "计划",
+    Planner: "项目",
     Calendar: "日历",
     "Tally book": "记账本",
     "Tally Book": "记账本",

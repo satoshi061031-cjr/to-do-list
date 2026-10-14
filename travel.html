@@ -30,7 +30,7 @@
           <div class="sidebar-heading">Pages</div>
           <a href="todo.html#today" class="sidebar-page-link">Todo</a>
           <a href="calendar.html" class="sidebar-page-link">Calendar</a>
-          <a href="planner.html" class="sidebar-page-link">Planner</a>
+          <a href="planner.html" class="sidebar-page-link">Projects</a>
           <a href="mail.html" class="sidebar-page-link">Mail</a>
           <a href="tally.html" class="sidebar-page-link">Tally book</a>
           <details class="sidebar-more" open>
@@ -43,15 +43,18 @@
 
       <main class="main-area">
         <div class="travel-app">
+          <header class="workspace-page-header" data-page-header><div><h1 class="workspace-page-title">Travel</h1><p class="workspace-page-meta" id="travel-page-meta">Your trips and itinerary.</p></div><div class="page-action-cluster"></div></header>
           <section class="travel-empty" id="travel-empty" hidden>
-            <h1 class="travel-empty-greeting" id="travel-empty-greeting">Good morning</h1>
+            <h2 class="travel-empty-greeting" id="travel-empty-greeting">No trips yet</h2>
             <p class="travel-empty-prompt">Where&rsquo;s your destination?</p>
             <button type="button" class="btn btn-primary travel-add-btn" id="travel-empty-add">Add</button>
           </section>
-          <p class="travel-preview-banner" role="status">
+          <details class="travel-info"><summary>Trip storage</summary>
+          <p class="travel-preview-banner">
             Personal trips stay on this device and in your cloud snapshot. Shared trips live with Google collaborators.
             <a href="todo.html#today">Back to Today</a>
           </p>
+          </details>
 
           <section class="travel-invite-preview" id="travel-invite-preview" hidden aria-labelledby="travel-invite-title">
             <p class="travel-kicker">Shared trip invitation</p>
@@ -64,6 +67,7 @@
             </button>
           </section>
 
+          <div class="travel-view-switch" role="group" aria-label="Trip view"><button type="button" data-travel-view="itinerary" aria-pressed="true">Itinerary</button><button type="button" data-travel-view="map" aria-pressed="false">Map</button></div>
           <section class="travel-workspace" id="travel-workspace" hidden>
             <div class="travel-map" id="travel-map" role="application" aria-label="Trip map"></div>
 

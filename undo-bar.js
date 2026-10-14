@@ -47,7 +47,7 @@
    */
   function clearBottomChrome() {
     let chromeTop = window.innerHeight;
-    for (const element of document.querySelectorAll(".bento-rail, .m-add-bar")) {
+    for (const element of document.querySelectorAll(".bento-rail, .m-add-bar, .calendar-capture-bar, #tally-add-open, .mail-batch-bar")) {
       if (getComputedStyle(element).visibility === "hidden") continue;
       const rect = element.getBoundingClientRect();
       if (rect.height > 0 && rect.height < window.innerHeight * 0.4 && window.innerHeight - rect.bottom < 180) {

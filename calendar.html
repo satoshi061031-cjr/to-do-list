@@ -29,7 +29,7 @@
           <div class="sidebar-heading">Pages</div>
           <a href="todo.html#today" class="sidebar-page-link">Todo</a>
           <a href="calendar.html" class="sidebar-page-link is-active" aria-current="page">Calendar</a>
-          <a href="planner.html" class="sidebar-page-link">Planner</a>
+          <a href="planner.html" class="sidebar-page-link">Projects</a>
           <a href="mail.html" class="sidebar-page-link">Mail</a>
           <a href="tally.html" class="sidebar-page-link">Tally book</a>
           <details class="sidebar-more" open>
@@ -44,6 +44,38 @@
         <div class="calendar-app calendar-app-solo cal-shell">
           <section class="cal-board" aria-label="Week calendar">
             <header class="cal-top">
+              <div class="cal-top-main" data-page-header>
+                <div class="cal-top-copy">
+                  <h1 class="calendar-title" id="calendar-title">Calendar</h1>
+                  <p class="calendar-meta" id="calendar-meta"></p>
+                  <div class="cal-upcoming" id="cal-upcoming" hidden>
+                    <span class="cal-upcoming-kicker">Upcoming</span>
+                    <span class="cal-upcoming-text" id="cal-upcoming-text"></span>
+                    <span class="cal-upcoming-time" id="cal-upcoming-time"></span>
+                  </div>
+                </div>
+
+                <div class="page-action-cluster"></div>
+              </div>
+              <div class="cal-toolbar" aria-label="Calendar controls">
+                  <div class="cal-range" role="group" aria-label="Week range">
+                    <button type="button" class="cal-range-nav" id="calendar-prev" aria-label="Previous week">‹</button>
+                    <button type="button" class="cal-range-pill" id="calendar-range" aria-live="polite">
+                      <span id="calendar-range-label">This week</span>
+                    </button>
+                    <button type="button" class="cal-range-nav" id="calendar-next" aria-label="Next week">›</button>
+                  </div>
+
+                  <button type="button" class="btn btn-primary cal-add-btn" id="calendar-add-event">
+                    + Add reminder
+                  </button>
+
+                  <button type="button" class="cal-view-btn" id="calendar-today">
+                    Today
+                  </button>
+              </div>
+              <details class="cal-search-disclosure" id="calendar-search-options" data-page-menu>
+                <summary>Filter schedule</summary>
               <form class="cal-search" id="cal-search-form" role="search" autocomplete="off">
                 <label class="cal-sr" for="cal-search-input">Search schedule</label>
                 <input
@@ -60,36 +92,7 @@
                 </div>
               </form>
 
-              <div class="cal-top-main">
-                <div class="cal-top-copy">
-                  <p class="cal-phone-kicker">Schedule</p>
-                  <h1 class="calendar-title" id="calendar-title">Stay up to date</h1>
-                  <p class="calendar-meta" id="calendar-meta"></p>
-                  <div class="cal-upcoming" id="cal-upcoming" hidden>
-                    <span class="cal-upcoming-kicker">Upcoming</span>
-                    <span class="cal-upcoming-text" id="cal-upcoming-text"></span>
-                    <span class="cal-upcoming-time" id="cal-upcoming-time"></span>
-                  </div>
-                </div>
-
-                <div class="cal-toolbar" aria-label="Calendar controls">
-                  <div class="cal-range" role="group" aria-label="Week range">
-                    <button type="button" class="cal-range-nav" id="calendar-prev" aria-label="Previous week">‹</button>
-                    <button type="button" class="cal-range-pill" id="calendar-range" aria-live="polite">
-                      <span id="calendar-range-label">This week</span>
-                    </button>
-                    <button type="button" class="cal-range-nav" id="calendar-next" aria-label="Next week">›</button>
-                  </div>
-
-                  <button type="button" class="btn btn-primary cal-add-btn" id="calendar-add-event">
-                    + Add reminder
-                  </button>
-
-                  <button type="button" class="cal-view-btn" id="calendar-today">
-                    Today
-                  </button>
-                </div>
-              </div>
+              </details>
             </header>
 
             <div class="cal-week" id="week-grid">
@@ -118,6 +121,7 @@
                     <input
                       type="text"
                       id="day-task-input"
+                      required
                       class="day-task-input"
                       placeholder="Add a task for this day…"
                       maxlength="500"
@@ -136,6 +140,7 @@
                   <input
                     type="text"
                     id="reminder-input"
+                    required
                     class="reminder-input"
                     placeholder="Add a timed reminder…"
                     maxlength="200"
@@ -169,6 +174,20 @@
           </section>
         </div>
       </main>
+    </div>
+
+    <div class="calendar-capture-bar"><button type="button" class="btn btn-primary" id="calendar-capture">Add to this day</button></div>
+    <div class="calendar-editor-sheet" id="calendar-editor-sheet" data-dialog-root hidden>
+      <button type="button" class="calendar-editor-backdrop" id="calendar-editor-backdrop" aria-label="Close calendar editor"></button>
+      <section class="calendar-editor-panel" role="dialog" aria-modal="true" aria-labelledby="calendar-editor-title">
+        <header class="calendar-editor-head"><h2 id="calendar-editor-title">Add to this day</h2><button class="workspace-icon-button" type="button" id="calendar-editor-close" data-dialog-close aria-label="Close calendar editor">×</button></header>
+        <div class="calendar-editor-body">
+          <p id="calendar-editor-date" class="workspace-page-meta" data-i18n-ignore></p>
+          <div class="calendar-editor-tabs" role="group" aria-label="Entry type"><button type="button" data-calendar-kind="task" aria-pressed="false">Task</button><button type="button" data-calendar-kind="reminder" aria-pressed="true">Reminder</button></div>
+          <div id="calendar-editor-form"></div>
+        </div>
+        <footer class="calendar-editor-footer"><button type="submit" class="btn btn-primary" id="calendar-editor-save" form="reminder-form">Add reminder</button></footer>
+      </section>
     </div>
 
     <button type="button" class="theme-toggle" id="theme-toggle" aria-pressed="false">

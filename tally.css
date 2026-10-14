@@ -973,12 +973,6 @@ body.tally-sheet-open {
     box-shadow: var(--liquid-shadow, var(--shadow-soft));
   }
 
-  .tally-view-switch,
-  .tally-add-fab,
-  #tally-export,
-  .tally-overview-card > :not(.tally-today-strip) {
-    display: none !important;
-  }
 
   .tally-overview-card {
     margin: 0 0 var(--space-sm);

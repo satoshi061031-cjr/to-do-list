@@ -117,4 +117,41 @@
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, { once: true });
   else start();
+
+  // Use one history entry per editor so the phone Back gesture closes it first.
+  window.DailySpaceDialogHistory = {
+    create(key, { isOpen, restore, close }) {
+      let closing = false;
+      window.addEventListener("popstate", () => {
+        if (closing) { closing = false; return; }
+        const state = history.state?.workspaceSheet;
+        if (state?.key === key && state.owner === window.DailySpaceView?.owner()) restore(state.data);
+        else if (isOpen()) close(true);
+      });
+      return {
+        push(data) {
+          if (closing) return false;
+          if (history.state?.workspaceSheet?.key !== key) history.pushState({ ...history.state,
+            workspaceSheet: { key, data, owner: window.DailySpaceView?.owner() } }, "", location.href);
+          return true;
+        },
+        back() {
+          if (history.state?.workspaceSheet?.key !== key) return;
+          closing = true;
+          history.back();
+        },
+      };
+    },
+    fitViewport(root) {
+      const update = () => {
+        root.style.setProperty("--workspace-sheet-height", `${window.visualViewport?.height || innerHeight}px`);
+        root.style.setProperty("--workspace-sheet-top", `${window.visualViewport?.offsetTop || 0}px`);
+      };
+      window.visualViewport?.addEventListener("resize", update);
+      window.visualViewport?.addEventListener("scroll", update);
+      window.addEventListener("resize", update);
+      update();
+      return update;
+    },
+  };
 })();

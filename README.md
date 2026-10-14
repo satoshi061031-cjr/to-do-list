@@ -9,10 +9,10 @@ Live app: start at `/todo.html` (PWA start URL). Welcome screen: `/` or `/index.
 | Surface | Role |
 |---|---|
 | **Todo** | Daily Loop hub — due today, overdue, assigned, today’s reminders. Phone Today is a single list plus add field. |
-| **Calendar** | Month + day panel; add tasks for a day; reminders |
-| **Planner** | Personal / team boards (flow); Board + This week by due date |
+| **Calendar** | Desktop week grid; phone day agenda and task/reminder sheet with drafts and Back-to-close |
+| **Projects / Planner** | Personal and team boards; phone status columns; direct links to cards |
 | **Teamwork** | Private notes on-device + light invite so you can assign from Planner |
-| **Tally** | Expense log; spent today also shows in Evening review |
+| **Tally** | Today’s spend and recent records; optional quick entry/insights, More tools, expense editor drafts |
 | **Mail** | Open inbox rows → message reader → add to Today; collapsed digest, explicit batch selection, booking/PDF import |
 | **Agent** | Optional helper for Todo/today and other modules (needs LLM key) |
 
@@ -28,6 +28,8 @@ Guest mode works locally with `localStorage`; mail, cloud sync, and workspace in
 - **Alerts:** set `ALERT_WEBHOOK_URL` to receive a POST JSON ping on server 500s / unhandled errors.
 - **Smoke:** `npm test` covers today task → calendar-visible due date → mail-shaped `todo_add`, plus account delete/export helpers.
 - **Browser interactions:** `npm run test:ui` checks desktop and phone controls, modal focus, Mail selection/retry/account isolation and duplicate task prevention. Set `CHROMIUM_PATH` if Chromium is installed outside `/usr/bin/chromium`.
+
+All pages share a compact title, workspace search, notifications and page tools. Workspace search opens the matching task, dated reminder, expense month/editor, project board/card or trip. Linked reminders/cards appear once, and missing targets leave the page usable. Calendar filters, Tally month/view and editor drafts use session preferences scoped to the current Google account or Guest. On phone, Travel offers Itinerary / Map views.
 
 ## Install as PWA
 

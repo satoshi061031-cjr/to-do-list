@@ -244,15 +244,7 @@
     return `${start.toLocaleDateString(uiLocale(), opts)} – ${end.toLocaleDateString(uiLocale(), opts)}`;
   }
 
-  function stayUpToDateTitle() {
-    const greeting = document.querySelector(".app-greeting-title");
-    if (greeting && greeting.textContent) {
-      const parts = greeting.textContent.split(/[,，]/);
-      const name = parts.length > 1 ? parts.slice(1).join(",").trim() : "";
-      if (name) return `Stay up to date, ${name}`;
-    }
-    return "Stay up to date";
-  }
+  function stayUpToDateTitle() { return t("Calendar", "日历"); }
 
   function setCalFilter(next) {
     calFilter = next === "tasks" || next === "reminders" ? next : "all";
@@ -468,7 +460,7 @@
     else if (raw.startsWith("day=")) iso = raw.slice(4);
     if (iso && ISO_DATE.test(iso)) {
       selectedDate = iso;
-    } else {
+    } else if (raw === "today") {
       selectedDate = todayIso();
     }
     const selected = parseIso(selectedDate);
@@ -500,8 +492,12 @@
     return c ? c.name : "Uncategorized";
   }
 
+  function taskCoveredBySchedule(todo) {
+    return (todo.sourceReminderId && reminders.some(reminder => reminder.id === todo.sourceReminderId && reminder.date === todo.dueDate)) ||
+      (todo.externalEventId && googleEvents.some(event => event.id === todo.externalEventId && event.date === todo.dueDate));
+  }
   function todosDueOn(iso) {
-    return todos.filter((todo) => todo.dueDate === iso);
+    return todos.filter(todo => todo.dueDate === iso && !taskCoveredBySchedule(todo));
   }
 
   function remindersForDate(iso) {
@@ -651,6 +647,7 @@
       (todo) =>
         todo.dueDate &&
         isoInRange(todo.dueDate, startIso, endIso) &&
+        !taskCoveredBySchedule(todo) &&
         matchesSearch(todo.text) &&
         calFilter !== "reminders"
     ).length;
@@ -889,9 +886,10 @@
     const isToday = selectedDate === todayIso();
 
     if (selectedDayTitleEl) {
-      selectedDayTitleEl.textContent = isToday
-        ? `Today · ${formatDueDate(selectedDate)}`
+      const dayLabel = isPhoneCalendar()
+        ? parseIso(selectedDate).toLocaleDateString(uiLocale(), { month: "long", day: "numeric" })
         : formatDueDate(selectedDate);
+      selectedDayTitleEl.textContent = isToday ? `${t("Today", "今天")} · ${dayLabel}` : dayLabel;
     }
     if (selectedDayMetaEl) {
       selectedDayMetaEl.textContent = `${dayTasks.length} ${dayTasks.length === 1 ? "task" : "tasks"} · ${dayReminders.length} ${dayReminders.length === 1 ? "reminder" : "reminders"}`;
@@ -946,6 +944,12 @@
     label.textContent = todo.text;
     label.addEventListener("click", () => toggleTask(todo.id));
     main.appendChild(label);
+    if (todo.dueTime) {
+      const time = document.createElement("span");
+      time.className = "calendar-item-sub";
+      time.textContent = formatClockTime(todo.dueTime);
+      main.appendChild(time);
+    }
 
     if (todo.categoryId && categoryExists(todo.categoryId)) {
       const pill = document.createElement("span");
@@ -968,6 +972,8 @@
   function buildReminderItem(reminder) {
     const li = document.createElement("li");
     li.className = "calendar-list-item";
+    li.dataset.reminderId = reminder.id;
+    li.tabIndex = -1;
     if (reminder.startTime) {
       li.dataset.start = reminder.startTime;
       const startMin = minutesFromMidnight(reminder.startTime);
@@ -1034,11 +1040,89 @@
   }
 
   function render() {
+    window.DailySpaceView?.write("calendar", { query: calSearchQuery, filter: calFilter });
     renderWeekGrid();
     renderSelectedDay();
     renderUpcoming();
     syncCalendarAlertsButton();
   }
+
+  const editor = document.getElementById("calendar-editor-sheet");
+  const editorHost = document.getElementById("calendar-editor-form");
+  const editorSave = document.getElementById("calendar-editor-save");
+  const editorDate = document.getElementById("calendar-editor-date");
+  const reminderHome = document.createComment("Reminder form");
+  const taskHome = document.createComment("Task form");
+  reminderForm.before(reminderHome);
+  dayTaskForm.before(taskHome);
+  let editorKind = "reminder";
+  const editorHistory = window.DailySpaceDialogHistory.create("calendar", {
+    isOpen: () => !editor.hidden,
+    restore: data => openEditor(data?.kind || "reminder", true),
+    close: () => closeEditor(true),
+  });
+  const fitEditor = window.DailySpaceDialogHistory.fitViewport(editor);
+  function restoreForms() {
+    reminderHome.after(reminderForm);
+    taskHome.after(dayTaskForm);
+  }
+  function chooseEditorKind(kind) {
+    editorKind = kind === "task" ? "task" : "reminder";
+    restoreForms();
+    const form = editorKind === "task" ? dayTaskForm : reminderForm;
+    editorHost.appendChild(form);
+    editorSave.setAttribute("form", form.id);
+    editorSave.textContent = editorKind === "task" ? t("Add task", "添加任务") : t("Add reminder", "添加提醒");
+    document.querySelectorAll("[data-calendar-kind]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.calendarKind === editorKind)));
+  }
+  function saveEditorDraft() {
+    if (editor.hidden) return;
+    window.DailySpaceView.write("calendar", { draft: { kind: editorKind, task: dayTaskInput.value,
+      reminder: reminderInput.value, start: reminderStartInput.value, end: reminderEndInput.value,
+      priority: reminderPriorityInput.value } });
+  }
+  function openEditor(kind = "reminder", fromHistory = false) {
+    if (!fromHistory && !editorHistory.push({ kind })) return;
+    const draft = window.DailySpaceView.read("calendar").draft;
+    if (draft) {
+      dayTaskInput.value = draft.task || "";
+      reminderInput.value = draft.reminder || "";
+      reminderStartInput.value = draft.start || "";
+      reminderEndInput.value = draft.end || "";
+      reminderPriorityInput.value = draft.priority || "medium";
+    }
+    chooseEditorKind(kind);
+    editorDate.textContent = formatDueDate(selectedDate);
+    editor.hidden = false;
+    document.body.classList.add("calendar-editor-open");
+    fitEditor();
+    (editorKind === "task" ? dayTaskInput : reminderInput).focus({ preventScroll: true });
+  }
+  function closeEditor(fromHistory = false, preserve = true) {
+    if (editor.hidden) return;
+    if (preserve) saveEditorDraft();
+    editor.hidden = true;
+    restoreForms();
+    document.body.classList.remove("calendar-editor-open");
+    if (!fromHistory) editorHistory.back();
+  }
+  document.getElementById("calendar-capture").addEventListener("click", () => openEditor());
+  document.getElementById("calendar-editor-close").addEventListener("click", () => closeEditor());
+  document.getElementById("calendar-editor-backdrop").addEventListener("click", () => closeEditor());
+  document.querySelectorAll("[data-calendar-kind]").forEach(button => button.addEventListener("click", () => {
+    chooseEditorKind(button.dataset.calendarKind);
+    (editorKind === "task" ? dayTaskInput : reminderInput).focus();
+  }));
+  editor.addEventListener("input", saveEditorDraft);
+  editor.addEventListener("change", saveEditorDraft);
+  window.addEventListener("pagehide", saveEditorDraft);
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape" && !editor.hidden) closeEditor();
+  });
+  window.addEventListener("daily-space-auth-updated", () => {
+    closeEditor(false, false);
+    dayTaskInput.value = reminderInput.value = reminderStartInput.value = reminderEndInput.value = "";
+  });
 
   function isMobileSidebar() {
     return window.matchMedia("(max-width: 819px)").matches;
@@ -1083,6 +1167,7 @@
   }
   if (calendarAddEventBtn) {
     calendarAddEventBtn.addEventListener("click", () => {
+      if (isPhoneCalendar()) { openEditor(); return; }
       setCalFilter(calFilter === "tasks" ? "all" : calFilter);
       if (calDayBlocks.reminders instanceof HTMLElement) calDayBlocks.reminders.hidden = false;
       const composer = document.getElementById("cal-composer");
@@ -1118,12 +1203,17 @@
   if (reminderForm) {
     reminderForm.addEventListener("submit", (e) => {
       e.preventDefault();
+      const before = reminders.length;
       addReminder(
         reminderInput.value,
         reminderStartInput.value,
         reminderEndInput.value,
         reminderPriorityInput instanceof HTMLSelectElement ? reminderPriorityInput.value : "medium"
       );
+      if (reminders.length > before && !editor.hidden) {
+        window.DailySpaceView.write("calendar", { draft: null });
+        closeEditor(false, false);
+      }
     });
   }
 
@@ -1132,7 +1222,10 @@
       e.preventDefault();
       addTaskForSelectedDay(dayTaskInput.value);
       dayTaskInput.value = "";
-      dayTaskInput.focus();
+      if (!editor.hidden) {
+        window.DailySpaceView.write("calendar", { draft: null });
+        closeEditor(false, false);
+      } else dayTaskInput.focus();
     });
   }
 
@@ -1197,10 +1290,25 @@
     loadTodoState();
     loadCalendarState();
   }
+  const savedView = window.DailySpaceView.read("calendar");
+  calSearchQuery = typeof savedView.query === "string" ? savedView.query : "";
+  calSearchInput.value = calSearchQuery;
+  setCalFilter(savedView.filter || "all");
+  if (calSearchQuery || calFilter !== "all") document.getElementById("calendar-search-options").open = true;
   focusTodayOnOpen();
   weekStart = startOfWeek(parseIso(selectedDate));
   render();
   refreshExternalEvents().then(() => render());
+  const searchTarget = window.DailySpaceSearch?.target();
+  if (searchTarget?.focus === "reminder") {
+    const reminder = reminders.find(item => item.id === searchTarget.id);
+    if (reminder) {
+      calSearchQuery = ""; calSearchInput.value = "";
+      setCalFilter("all"); selectDate(reminder.date);
+      requestAnimationFrame(() => window.DailySpaceSearch.highlight(reminderListEl.querySelector(`[data-reminder-id="${CSS.escape(reminder.id)}"]`)));
+    } else window.DailySpaceSearch.missing();
+  }
+  if (history.state?.workspaceSheet?.key === "calendar" && history.state.workspaceSheet.owner === window.DailySpaceView.owner()) openEditor(history.state.workspaceSheet.data?.kind, true);
   const refreshHeadline = () => {
     if (calendarTitleEl) calendarTitleEl.textContent = stayUpToDateTitle();
   };

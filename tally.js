@@ -257,6 +257,7 @@
       groupRecords.forEach((record) => {
         const row = document.createElement("div");
         row.className = "tally-record";
+        row.dataset.recordId = record.id;
         row.setAttribute("role", "button");
         row.tabIndex = 0;
         row.setAttribute("aria-label", "Edit record");
@@ -376,6 +377,9 @@
   }
 
   function render() {
+    window.DailySpaceView?.write("tally", { year: viewYear, month: viewMonth, mode: viewMode });
+    const meta = document.getElementById("tally-page-meta");
+    if (meta) meta.textContent = new Date().toLocaleDateString(uiLocale(), { weekday: "long", month: "long", day: "numeric" });
     renderViewSwitch();
     renderPeople();
     renderSummary();
@@ -454,31 +458,64 @@
     submitBtn.textContent = editing ? "Save changes" : "Add transaction";
   }
 
-  function setSheetOpen(open, record) {
+  const sheetHistory = window.DailySpaceDialogHistory.create("tally", {
+    isOpen: () => !addSheet.hidden,
+    restore: data => {
+      const record = data?.id ? state.records.find(item => item.id === data.id) : null;
+      if (data?.id && !record) return;
+      setSheetOpen(true, record, true);
+    },
+    close: () => setSheetOpen(false, null, true),
+  });
+  const fitSheet = window.DailySpaceDialogHistory.fitViewport(addSheet);
+  function saveDraft() {
+    if (addSheet.hidden) return;
+    window.DailySpaceView.write("tally", { draft: { id: editingId, date: dateInput.value,
+      amount: amountInput.value, category: categoryInput.value, note: noteInput.value,
+      scope: scopeInput.value, currency: recordCurrencyInput.value, fxRate: fxRateInput.value,
+      paidById: paidByInput.value, splitAmongIds: Array.from(splitPeopleEl.querySelectorAll("input:checked")).map(input => input.value) } });
+  }
+  function setSheetOpen(open, record, fromHistory = false, preserve = true) {
     if (!open) {
+      if (addSheet.hidden) return;
+      if (preserve) saveDraft();
       editingId = null;
       addSheet.hidden = true;
       document.body.classList.remove("tally-sheet-open");
-      if (addOpenBtn && addOpenBtn.offsetParent) addOpenBtn.focus();
+      if (!fromHistory) sheetHistory.back();
       return;
     }
+    if (!fromHistory && !sheetHistory.push({ id: record?.id || null })) return;
     editingId = record?.id || null;
-    dateInput.value = record?.date || todayIso();
-    amountInput.value = record?.amount || "";
-    categoryInput.value = record?.category || "";
-    noteInput.value = record?.note || "";
-    scopeInput.value = record?.scope || (viewMode === "shared" ? "shared" : "personal");
-    recordCurrencyInput.value = record?.currency || state.baseCurrency;
-    fxRateInput.value = String(record?.fxRate || 1);
+    const draft = window.DailySpaceView.read("tally").draft;
+    const value = draft && draft.id === editingId ? draft : record;
+    dateInput.value = value?.date || todayIso();
+    amountInput.value = value?.amount || "";
+    categoryInput.value = value?.category || "";
+    noteInput.value = value?.note || "";
+    scopeInput.value = value?.scope || (viewMode === "shared" ? "shared" : "personal");
+    recordCurrencyInput.value = value?.currency || state.baseCurrency;
+    fxRateInput.value = String(value?.fxRate || 1);
     syncSheetMode();
     renderPeople();
-    paidByInput.value = record?.paidById || state.selfPersonId;
+    paidByInput.value = value?.paidById || state.selfPersonId;
     syncSharedFields();
+    if (value?.splitAmongIds) splitPeopleEl.querySelectorAll("input").forEach(input => { input.checked = value.splitAmongIds.includes(input.value); });
     syncCategorySuggestions(categoryInput.value);
     addSheet.hidden = false;
     document.body.classList.add("tally-sheet-open");
-    window.requestAnimationFrame(() => amountInput.focus());
+    fitSheet();
+    amountInput.focus({ preventScroll: true });
   }
+  form.addEventListener("input", saveDraft);
+  form.addEventListener("change", saveDraft);
+  window.addEventListener("pagehide", saveDraft);
+  window.addEventListener("daily-space-auth-updated", () => {
+    setSheetOpen(false, null, false, false);
+    form.reset();
+    state = Core.readState();
+    render();
+  });
 
   form.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -515,7 +552,8 @@
     viewMonth = recordDate.getMonth() + 1;
     viewMode = nextRecord.scope === "shared" ? "shared" : "personal";
     saveState();
-    setSheetOpen(false);
+    window.DailySpaceView.write("tally", { draft: null });
+    setSheetOpen(false, null, false, false);
     render();
   });
 
@@ -558,11 +596,13 @@
     render();
   });
   settingsToggle.addEventListener("click", () => {
+    document.getElementById("tally-tools").open = false;
     settingsPanel.hidden = !settingsPanel.hidden;
     settingsToggle.setAttribute("aria-expanded", String(!settingsPanel.hidden));
   });
   const exportBtn = $("tally-export");
   exportBtn?.addEventListener("click", () => {
+    document.getElementById("tally-tools").open = false;
     const rows = [
       ["date", "amount", "currency", "fxRate", "category", "note", "scope", "paidBy"],
       ...state.records.map((record) => [
@@ -613,14 +653,7 @@
   addOpenBtn.addEventListener("click", () => setSheetOpen(true));
   addCloseBtn.addEventListener("click", () => setSheetOpen(false));
   addBackdrop.addEventListener("click", () => setSheetOpen(false));
-  emptyCtaBtn.addEventListener("click", () => {
-    const quickAmount = $("tally-quick-amount");
-    if (window.matchMedia("(max-width: 819px)").matches && quickAmount) {
-      quickAmount.focus();
-      return;
-    }
-    setSheetOpen(true);
-  });
+  emptyCtaBtn.addEventListener("click", () => setSheetOpen(true));
 
   const quickForm = $("tally-quick-form");
   const quickAmount = $("tally-quick-amount");
@@ -672,6 +705,31 @@
   });
   window.addEventListener("daily-space-locale-changed", render);
 
+  const savedView = window.DailySpaceView.read("tally");
+  if (Number.isInteger(savedView.year) && savedView.year >= 1900 && savedView.year <= 9999 && savedView.month >= 1 && savedView.month <= 12) {
+    viewYear = savedView.year; viewMonth = savedView.month;
+    viewMode = savedView.mode === "shared" ? "shared" : "personal";
+  }
+  if (!window.matchMedia("(max-width: 819px)").matches) document.getElementById("tally-insights").open = true;
   saveState();
   render();
+  const searchTarget = window.DailySpaceSearch?.target();
+  if (searchTarget?.focus === "expense") {
+    const record = state.records.find(item => item.id === searchTarget.id);
+    if (record) {
+      const date = parseIso(record.date); viewYear = date.getFullYear(); viewMonth = date.getMonth() + 1;
+      viewMode = record.scope === "shared" ? "shared" : "personal";
+      render();
+      requestAnimationFrame(() => {
+        const node = recordListEl.querySelector(`[data-record-id="${CSS.escape(record.id)}"]`);
+        window.DailySpaceSearch.highlight(node);
+        node?.click();
+      });
+    } else window.DailySpaceSearch.missing();
+  }
+  if (history.state?.workspaceSheet?.key === "tally" && history.state.workspaceSheet.owner === window.DailySpaceView.owner()) {
+    const id = history.state.workspaceSheet.data?.id;
+    const record = id && state.records.find(item => item.id === id);
+    if (!id || record) setSheetOpen(true, record, true);
+  }
 })();

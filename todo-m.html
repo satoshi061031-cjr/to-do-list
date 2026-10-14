@@ -51,7 +51,7 @@
             <div class="sidebar-heading">Pages</div>
             <a href="todo-m.html#today" class="sidebar-page-link is-current" aria-current="page">Todo</a>
             <a href="calendar.html" class="sidebar-page-link">Calendar</a>
-            <a href="planner.html" class="sidebar-page-link">Planner</a>
+            <a href="planner.html" class="sidebar-page-link">Projects</a>
             <a href="mail.html" class="sidebar-page-link">Mail</a>
             <a href="tally.html" class="sidebar-page-link">Tally book</a>
             <details class="sidebar-more" open>
@@ -65,13 +65,13 @@
 
       <main class="main-area">
         <div class="app m-shell">
-          <header class="m-top" id="m-top">
+          <header class="m-top" id="m-top" data-page-header>
             <div class="m-top-copy">
               <h1 class="m-greet" id="m-greet-title">Today</h1>
               <p class="m-page-date" id="m-page-date"></p>
               <p class="m-page-count" id="count-text">0 tasks left</p>
             </div>
-            <div class="m-top-actions">
+            <div class="m-top-actions page-action-cluster">
               <button
                 type="button"
                 class="m-agent-toggle"

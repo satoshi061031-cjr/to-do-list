@@ -35,7 +35,7 @@
   const DESKTOP_LINKS = [
     { id: "todo", href: "todo.html#today", title: "Todo", icon: ICON.todo },
     { id: "calendar", href: "calendar.html", title: "Calendar", icon: ICON.calendar },
-    { id: "planner", href: "planner.html", title: "Planner", icon: ICON.planner },
+    { id: "planner", href: "planner.html", title: "Projects", icon: ICON.planner },
     { id: "mail", href: "mail.html", title: "Mail", icon: ICON.mail },
     { id: "tally", href: "tally.html", title: "Tally book", icon: ICON.tally },
   ];

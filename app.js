@@ -2571,6 +2571,32 @@
     render();
   }
 
+  function focusTask(id) {
+    const task = todos.find(item => item.id === id);
+    if (!task) return false;
+    setTodoSource("personal");
+    selectedCategoryKey = "__all__";
+    renderCategorySidebar();
+    viewDueDateFilter = task.dueDate || null;
+    setFilter(task.completed ? "completed" : "active");
+    publishViewDay();
+    render();
+    if (isMobileTodoPage()) window.DailySpaceMobileTodo?.openEdit(id,
+      !(history.state?.mobileTaskSheet && history.state.taskId === id));
+    else {
+      const node = listEl.querySelector(`[data-id="${CSS.escape(id)}"]`);
+      window.DailySpaceSearch.highlight(node);
+      node?.querySelector(".todo-label")?.focus({ preventScroll: true });
+    }
+    return true;
+  }
+  const focusSearchTask = () => {
+    const target = window.DailySpaceSearch?.target();
+    if (target?.focus === "todo" && !focusTask(target.id)) window.DailySpaceSearch.missing();
+  };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => requestAnimationFrame(focusSearchTask), { once: true });
+  else requestAnimationFrame(focusSearchTask);
+
   window.DailySpaceTodo = {
     getTasks: () => todos.map(task => ({ ...task })),
     getCategories: () => categories.map(category => ({ ...category })),
@@ -2580,5 +2606,6 @@
     selectDueDay,
     setFilter,
     openDueDayPage,
+    focusTask,
   };
 })();

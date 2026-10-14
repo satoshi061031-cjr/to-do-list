@@ -125,7 +125,31 @@ test("workspace search finds todos, trips, and expenses", () => {
   const camera = window.DailySpaceSearch.search("camera");
   assert.ok(camera.some((item) => item.label === "Pack camera"));
   const trip = window.DailySpaceSearch.search("kyoto");
-  assert.ok(trip.some((item) => item.href === "travel.html"));
+  assert.ok(trip.some((item) => item.href === "travel.html?focus=trip&id=trip-1"));
   const spend = window.DailySpaceSearch.search("ramen");
   assert.ok(spend.some((item) => /Tally/.test(item.hint)));
+});
+
+
+test("search exposes source records once and keeps tasks whose source was removed", () => {
+  const values = new Map([
+    ["todo-app-v2", JSON.stringify({ todos: [
+      { id: "linked-reminder", text: "Linked appointment", sourceReminderId: "r1" },
+      { id: "linked-card", text: "Linked project", sourcePlannerId: "c1" },
+      { id: "orphan", text: "Removed source task", sourceReminderId: "deleted" },
+      { id: "a&b /中文", text: "Encoded destination" },
+    ] })],
+    ["calendar-app-v1", JSON.stringify({ reminders: [{ id: "r1", text: "Linked appointment" }] })],
+    ["planner-app-v1", JSON.stringify({ boards: { "board&1": { entries: [{ id: "c1", title: "Linked project" }] } } })],
+  ]);
+  const { window } = loadScript("workspace-search.js", { values });
+  const search = window.DailySpaceSearch;
+  assert.equal(search.search("Linked appointment").length, 1);
+  assert.match(search.search("Linked appointment")[0].href, /^calendar\.html\?focus=reminder&id=r1$/);
+  assert.equal(search.search("Linked project").length, 1);
+  assert.match(search.search("Linked project")[0].href, /board=board%261/);
+  assert.equal(search.search("Removed source task").length, 1);
+  assert.ok(search.search("Encoded destination")[0].href.includes(encodeURIComponent("a&b /中文")));
+  values.set("calendar-app-v1", JSON.stringify({ reminders: [] }));
+  assert.match(search.search("Linked appointment")[0].href, /focus=todo/);
 });

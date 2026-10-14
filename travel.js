@@ -1376,7 +1376,7 @@
   }
 
   function renderEmptyGreeting() {
-    if (emptyGreetingEl) emptyGreetingEl.textContent = greetingText();
+    if (emptyGreetingEl) emptyGreetingEl.textContent = t("No trips yet", "还没有旅行计划");
   }
 
   function renderDays(trip) {
@@ -1714,9 +1714,24 @@
     }
   }
 
+  let phoneTripView = window.DailySpaceView.read("travel").view === "map" ? "map" : "itinerary";
+  function syncTripView() {
+    document.body.classList.toggle("travel-map-view", phoneTripView === "map");
+    document.querySelectorAll("[data-travel-view]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.travelView === phoneTripView)));
+  }
+  document.querySelectorAll("[data-travel-view]").forEach(button => button.addEventListener("click", () => {
+    phoneTripView = button.dataset.travelView === "map" ? "map" : "itinerary";
+    window.DailySpaceView.write("travel", { view: phoneTripView });
+    syncTripView();
+    requestAnimationFrame(() => map?.invalidateSize());
+  }));
+  syncTripView();
+
   function renderWorkspace({ preserveMap = false } = {}) {
     renderTripSelect();
     const trip = activeTrip();
+    const pageMeta = document.getElementById("travel-page-meta");
+    if (pageMeta) pageMeta.textContent = trip ? `${trip.name} · ${t(`Day ${activeDay}`, `第 ${activeDay} 天`)}` : t("Your trips and itinerary.", "你的旅行和每日行程。");
     document.body.classList.toggle("travel-has-trip", Boolean(trip) && !pendingInviteToken);
     if (pendingInviteToken && invitePreviewEl && !invitePreviewEl.hidden) {
       if (emptyEl) emptyEl.hidden = true;
@@ -1958,6 +1973,12 @@
 
   async function bootTravel() {
     loadState();
+    const searchTarget = window.DailySpaceSearch?.target();
+    if (searchTarget?.focus === "trip") {
+      const trip = trips.find(item => item.id === searchTarget.id);
+      if (trip) { activeTripId = trip.id; activeDay = 1; activeStopId = null; saveState(); }
+      else window.DailySpaceSearch.missing();
+    }
     renderWorkspace();
     await loadAuthUser();
     const inviteToken = new URLSearchParams(window.location.search).get("invite");

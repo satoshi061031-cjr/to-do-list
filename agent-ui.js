@@ -197,6 +197,7 @@
   }
 
   function setOpen(open) {
+    const wasOpen = !overlay.hidden;
     if (host instanceof HTMLElement) {
       host.hidden = !open;
     }
@@ -218,8 +219,8 @@
       }
       refreshStatus({ force: true });
       input.focus();
-    } else if (!fab.hidden) {
-      fab.focus();
+    } else if (wasOpen && !fab.hidden) {
+      fab.focus({ preventScroll: true });
     }
   }
 

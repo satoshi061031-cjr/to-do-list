@@ -156,7 +156,7 @@ test("e2e critical path: welcome Daily Loop + guest today→calendar→mail task
   assert.match(calendarHtml, /id="reminder-form"/);
   assert.match(calendarHtml, /id="week-head"/);
   assert.doesNotMatch(calendarHtml, /id="cal-fab-add"/);
-  assert.match(calendarHtml, /Schedule/);
+  assert.match(calendarHtml, /id="calendar-title">Calendar<\/h1>/);
 
   const tally = await fetch(`${baseUrl}/tally.html`);
   assert.equal(tally.status, 200);

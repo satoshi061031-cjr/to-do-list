@@ -49,7 +49,7 @@
             <div class="sidebar-heading">Pages</div>
             <a href="todo.html#today" class="sidebar-page-link is-current" aria-current="page">Todo</a>
             <a href="calendar.html" class="sidebar-page-link">Calendar</a>
-            <a href="planner.html" class="sidebar-page-link">Planner</a>
+            <a href="planner.html" class="sidebar-page-link">Projects</a>
             <a href="mail.html" class="sidebar-page-link">Mail</a>
             <a href="tally.html" class="sidebar-page-link">Tally book</a>
             <details class="sidebar-more" open>
@@ -63,13 +63,12 @@
 
       <main class="main-area">
         <div class="app bento-shell today-shell today-agent-shell">
-          <header class="today-hero">
+          <header class="today-hero" data-page-header>
             <div class="today-hero-copy">
-              <p class="today-kicker">Daily Space Agent</p>
               <h1 class="title today-title">Today</h1>
               <p class="daily-loop-progress today-progress" id="daily-loop-progress">Done today 0 / 0</p>
             </div>
-            <div class="today-hero-actions">
+            <div class="today-hero-actions page-action-cluster">
               <button type="button" class="btn btn-primary daily-loop-focus" id="daily-loop-focus">
                 Ask agent
               </button>

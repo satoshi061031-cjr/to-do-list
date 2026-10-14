@@ -1731,5 +1731,18 @@
   loadPlannerState();
   renderPlannerSidebar();
   renderPlanner();
+  const searchTarget = window.DailySpaceSearch?.target();
+  if (searchTarget?.focus === "card") {
+    const board = boards[searchTarget.board];
+    const entry = board?.entries?.find(item => item.id === searchTarget.id);
+    if (entry) {
+      selectPlanner(searchTarget.board);
+      selectedColumnId = entry.columnId;
+      plannerSearchQuery = ""; plannerSearchInput.value = "";
+      patchPlannerEntry(entry.id, { expanded: true });
+      renderPlanner();
+      requestAnimationFrame(() => window.DailySpaceSearch.highlight(plannerBoardEl.querySelector(`[data-entry-id="${CSS.escape(entry.id)}"]`)));
+    } else window.DailySpaceSearch.missing();
+  }
   loadTeamBoards().then(() => renderPlannerSidebar());
 })();

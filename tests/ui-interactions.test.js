@@ -6,7 +6,7 @@ const path = require("node:path");
 const { spawn } = require("node:child_process");
 const { chromium } = require("playwright-core");
 
-test("browser interactions on desktop and touch screens", { timeout: 90_000 }, async t => {
+test("browser interactions on desktop and touch screens", { timeout: 120_000 }, async t => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "daily-space-ui-"));
   const port = 45000 + Math.floor(Math.random() * 5000);
   const base = `http://127.0.0.1:${port}`;
@@ -180,6 +180,7 @@ test("browser interactions on desktop and touch screens", { timeout: 90_000 }, a
   await t.test("keyboard delete does not open expense editing and Undo restores the row", async () => {
     const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
     await page.goto(`${base}/tally.html`, { waitUntil: "load" });
+    await page.locator("#tally-quick-options > summary").click();
     await page.locator("#tally-quick-amount").fill("12");
     await page.locator("#tally-quick-category").fill("Lunch");
     await page.locator('#tally-quick-form button[type="submit"]').click();
@@ -634,6 +635,238 @@ test("browser interactions on desktop and touch screens", { timeout: 90_000 }, a
     await completed;
     await page.waitForFunction(() => !document.getElementById("mail-detail-booking").disabled);
     assert.ok(!(await page.locator("#mail-booking-sheet").isVisible()), "closing the reader must discard pending booking results");
+  });
+
+  async function seedWorkspace(page, signedIn = false) {
+    await page.addInitScript(signed => {
+      if (sessionStorage.getItem("site-fixtures")) return;
+      sessionStorage.setItem("site-fixtures", "1");
+      sessionStorage.setItem("daily-space-guest-save-dismissed-v1", "1");
+      const now = new Date();
+      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+      const old = "2025-02-15";
+      localStorage.setItem("todo-app-v2", JSON.stringify({ categories: [], selectedCategoryKey: "__all__", todos: [
+        { id: "focus-task:&", text: "Search destination task", completed: true, dueDate: old },
+        { id: "design", text: "整理设计评审的问题", completed: false, dueDate: today, dueTime: "09:30" },
+        { id: "walk", text: "傍晚去河边走走", completed: false, dueDate: today, dueTime: "18:00" },
+      ] }));
+      localStorage.setItem("calendar-app-v1", JSON.stringify({ selectedDate: today, reminders: [
+        { id: "focus-reminder", text: "Search destination reminder", date: old, startTime: "10:00", endTime: "11:00", priority: "medium" },
+        { id: "review", text: "和林夏讨论新版界面", date: today, startTime: "14:00", endTime: "15:00", priority: "medium" },
+        { id: "coffee", text: "咖啡馆见小野", date: today, startTime: "16:30", endTime: "17:00", priority: "low" },
+      ] }));
+      localStorage.setItem("tally-book-v1", JSON.stringify({ baseCurrency: "CNY", budget: 3000, records: [
+        { id: "focus-expense", date: old, amount: 108, category: "Search destination expense", note: "An older record", currency: "CNY", scope: "personal" },
+        { id: "lunch", date: today, amount: 48, category: "午餐", note: "街角的面馆", currency: "CNY", scope: "personal" },
+        { id: "taxi", date: today, amount: 16, category: "交通", note: "回家的地铁", currency: "CNY", scope: "personal" },
+      ] }));
+      const columns = ["planned", "progress", "done", "hold"].map((status, index) => ({ id: status, status, systemKey: status, title: ["Planned", "In Progress", "Done", "On Hold"][index], emoji: "○" }));
+      localStorage.setItem("planner-app-v1", JSON.stringify({ version: 2, planners: [{ id: "board-a", name: "个人项目" }, { id: "board-b", name: "新网站" }], selectedPlannerId: "board-a", boards: {
+        "board-a": { columns, entries: [] },
+        "board-b": { columns, entries: [{ id: "focus-card", columnId: "hold", title: "Search destination card", note: "Details of the right card", completed: false, expanded: false, tags: [] }] },
+      } }));
+      localStorage.setItem("travel-book-v1", JSON.stringify({ version: 5, activeTripId: "trip-a", trips: [
+        { id: "trip-a", name: "东京", destination: "Tokyo", startDate: "2026-11-01", endDate: "2026-11-03", lat: 35.68, lng: 139.69, zoom: 12, stops: [] },
+        { id: "focus-trip", name: "Search destination trip", destination: "Kyoto", startDate: "2026-11-04", endDate: "2026-11-06", lat: 35.01, lng: 135.76, zoom: 12, stops: [] },
+      ] }));
+      if (signed) localStorage.setItem("daily-space-auth-v1", JSON.stringify({ provider: "Google", label: "Reader", email: "reader@gmail.com" }));
+    }, signedIn);
+    await page.route("https://**/*", route => route.abort());
+    if (signedIn) {
+      const json = (route, body) => route.fulfill({ contentType: "application/json", body: JSON.stringify(body) });
+      await page.route("**/api/auth/me", route => json(route, { user: { userId: "reader", email: "reader@gmail.com", label: "Reader", provider: "Google" } }));
+      await page.route("**/api/user/snapshot", route => json(route, { payload: {}, revision: 0 }));
+      await page.route("**/api/me/notifications?*", route => json(route, { notifications: [] }));
+    }
+  }
+  async function openWorkspaceSearch(page, text) {
+    await page.locator("[data-workspace-search]").click();
+    const palette = page.locator(".command-palette:visible");
+    await palette.locator("input[type=search]").fill(text);
+    return palette;
+  }
+
+  await t.test("page headers group search and notifications without overlapping phone controls", async () => {
+    const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await seedWorkspace(page, true);
+    for (const route of ["todo-m.html", "calendar.html", "tally.html", "planner.html", "teamwork.html", "travel.html"]) {
+      await page.goto(`${base}/${route}`, { waitUntil: "load" });
+      const header = page.locator("[data-page-header]").first();
+      await header.locator("[data-workspace-search]").waitFor();
+      const controls = await header.locator(".page-action-cluster > button, .page-action-cluster > details > summary, #notif-bell").evaluateAll(nodes => nodes.filter(node => node.getClientRects().length).map(node => {
+        const box = node.getBoundingClientRect(); return { x: box.x, y: box.y, width: box.width, height: box.height };
+      }));
+      for (const rect of controls) assert.ok(rect.width >= 44 && rect.height >= 44 && rect.x >= 0 && rect.x + rect.width <= 390, route);
+      for (let a = 0; a < controls.length; a++) for (let b = a + 1; b < controls.length; b++) {
+        const first = controls[a], second = controls[b];
+        assert.ok(first.x + first.width <= second.x || second.x + second.width <= first.x || first.y + first.height <= second.y || second.y + second.height <= first.y, route);
+      }
+      await header.locator("[data-workspace-search]").click();
+      await trapped(page, ".command-palette:visible");
+      await page.keyboard.press("Escape");
+      await page.locator(".command-palette:visible").waitFor({ state: "hidden" });
+      assert.ok(await header.locator("[data-workspace-search]").evaluate(node => node === document.activeElement));
+      await page.locator("#notif-bell").click();
+      const panel = await page.locator(".notif-panel").boundingBox();
+      assert.ok(panel.x >= 0 && panel.x + panel.width <= 390, route);
+      await page.keyboard.press("Escape");
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), route);
+    }
+  });
+
+  await t.test("phone Calendar captures tasks and reminders, retains drafts and closes on Back", async () => {
+    const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await seedWorkspace(page);
+    await page.goto(`${base}/calendar.html`, { waitUntil: "load" });
+    assert.ok(await page.locator("#calendar-title").isVisible());
+    assert.ok(await page.locator("#task-list").isVisible());
+    assert.ok(!(await page.locator("#day-task-form").isVisible()));
+    assert.ok(!(await page.locator("#reminder-form").isVisible()));
+    assert.ok(!(await page.locator("#cal-search-input").isVisible()));
+    const capture = await page.locator("#calendar-capture").boundingBox();
+    const dock = await page.locator(".bento-rail").boundingBox();
+    assert.ok(capture.y + capture.height <= dock.y);
+    await page.evaluate(() => window.DailySpaceI18n.setLocale("zh"));
+    await captureMail(page, "calendar-390-light.png");
+    await page.evaluate(() => { document.documentElement.dataset.theme = "dark"; });
+    await captureMail(page, "calendar-390-dark.png");
+    await page.locator("#calendar-capture").click();
+    await page.locator("#calendar-editor-save").click();
+    assert.ok(await page.locator("#calendar-editor-sheet").isVisible(), "an empty reminder must stay in the editor");
+    await page.locator("#reminder-input").fill("Draft appointment");
+    await trapped(page, ".calendar-editor-panel");
+    await page.goBack();
+    await page.locator("#calendar-editor-sheet").waitFor({ state: "hidden" });
+    await page.locator("#calendar-capture").click();
+    assert.equal(await page.locator("#reminder-input").inputValue(), "Draft appointment");
+    await page.locator("#reminder-start-time").fill("13:30");
+    await page.locator("#reminder-end-time").fill("14:00");
+    await page.setViewportSize({ width: 390, height: 420 });
+    await page.waitForFunction(() => {
+      const rect = document.getElementById("calendar-editor-save").getBoundingClientRect();
+      return rect.y >= 0 && rect.bottom <= innerHeight;
+    });
+    const save = await page.locator("#calendar-editor-save").boundingBox();
+    assert.ok(save.y >= 0 && save.y + save.height <= 420);
+    await page.locator("#calendar-editor-save").click();
+    await page.waitForFunction(() => !history.state?.workspaceSheet);
+    const appointment = await page.evaluate(() => JSON.parse(localStorage.getItem("calendar-app-v1")).reminders.find(item => item.text === "Draft appointment"));
+    assert.equal(appointment.startTime, "13:30"); assert.equal(appointment.endTime, "14:00");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.locator("#calendar-capture").click();
+    await page.locator('[data-calendar-kind="task"]').click();
+    await page.locator("#day-task-input").fill("Task from Calendar");
+    await captureMail(page, "calendar-editor-390-dark.png");
+    await page.locator("#calendar-editor-save").click();
+    await page.waitForFunction(() => !history.state?.workspaceSheet);
+    assert.ok(await page.evaluate(() => JSON.parse(localStorage.getItem("todo-app-v2")).todos.some(item => item.text === "Task from Calendar")));
+    await page.locator("#calendar-search-options > summary").click();
+    await page.locator("#cal-search-input").fill("Draft appointment");
+    await page.reload({ waitUntil: "load" });
+    assert.equal(await page.locator("#cal-search-input").inputValue(), "Draft appointment");
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await captureMail(page, "calendar-desktop-dark.png");
+  });
+
+  await t.test("phone Tally saves editor drafts, exposes tools and preserves the selected month", async () => {
+    const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await seedWorkspace(page);
+    await page.goto(`${base}/tally.html`, { waitUntil: "load" });
+    assert.ok(!(await page.locator("#tally-export").isVisible()));
+    assert.ok(!(await page.locator("#tally-category").isVisible()));
+    const add = await page.locator("#tally-add-open").boundingBox();
+    const dock = await page.locator(".bento-rail").boundingBox();
+    assert.ok(add.y + add.height <= dock.y);
+    await page.evaluate(() => window.DailySpaceI18n.setLocale("zh"));
+    await captureMail(page, "tally-390-light.png");
+    await page.evaluate(() => { document.documentElement.dataset.theme = "dark"; });
+    await captureMail(page, "tally-390-dark.png");
+    await page.locator("#tally-add-open").click();
+    await page.locator("#tally-amount").fill("0");
+    await page.locator("#tally-submit").click();
+    assert.ok(await page.locator("#tally-add-sheet").isVisible(), "a zero amount must stay in the editor");
+    await page.locator("#tally-amount").fill("23");
+    await page.locator("#tally-category").fill("Dinner");
+    await page.locator("#tally-note").fill("A saved draft");
+    await page.goBack();
+    await page.locator("#tally-add-sheet").waitFor({ state: "hidden" });
+    await page.locator("#tally-add-open").click();
+    assert.equal(await page.locator("#tally-amount").inputValue(), "23");
+    assert.equal(await page.locator("#tally-note").inputValue(), "A saved draft");
+    await page.reload({ waitUntil: "load" });
+    assert.ok(await page.locator("#tally-add-sheet").isVisible());
+    assert.equal(await page.locator("#tally-note").inputValue(), "A saved draft");
+    await page.setViewportSize({ width: 390, height: 420 });
+    await page.waitForFunction(() => {
+      const rect = document.getElementById("tally-submit").getBoundingClientRect();
+      return rect.y >= 0 && rect.bottom <= innerHeight;
+    });
+    const save = await page.locator("#tally-submit").boundingBox();
+    assert.ok(save.y >= 0 && save.y + save.height <= 420);
+    await page.locator("#tally-submit").click();
+    await page.waitForFunction(() => !history.state?.workspaceSheet);
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem("tally-book-v1")).records.filter(item => item.note === "A saved draft").length), 1);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.locator("#tally-tools > summary").click();
+    await page.locator("#tally-settings-toggle").click();
+    assert.ok(await page.locator("#tally-settings").isVisible());
+    await page.locator("#tally-tools > summary").click();
+    const download = page.waitForEvent("download");
+    await page.locator("#tally-export").click();
+    assert.match((await download).suggestedFilename(), /\.csv$/);
+    await page.locator("#tally-prev").click();
+    const month = await page.locator("#tally-month-title").textContent();
+    await page.reload({ waitUntil: "load" });
+    assert.equal(await page.locator("#tally-month-title").textContent(), month);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await captureMail(page, "tally-desktop-dark.png");
+  });
+
+  await t.test("workspace search opens the exact completed task, old expense, reminder, card and trip", async () => {
+    const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await seedWorkspace(page);
+    await page.goto(`${base}/calendar.html`, { waitUntil: "load" });
+    let palette = await openWorkspaceSearch(page, "Search destination task");
+    assert.equal(await palette.locator(".command-palette-item").count(), 1);
+    await palette.locator("input[type=search]").press("Enter");
+    await page.waitForURL(/todo-m\.html.*focus=todo/);
+    await page.locator("#m-task-editor").waitFor({ state: "visible" });
+    assert.equal(await page.locator("#m-task-title").inputValue(), "Search destination task");
+    assert.equal(await page.locator("#m-task-date").inputValue(), "2025-02-15");
+    await page.reload({ waitUntil: "load" });
+    await page.locator("#m-task-editor").waitFor({ state: "visible" });
+    await page.goBack();
+    await page.locator("#m-task-editor").waitFor({ state: "hidden" });
+    await page.waitForFunction(() => !history.state?.mobileTaskSheet);
+    for (const [query, route, target, expected] of [
+      ["Search destination expense", /tally\.html.*focus=expense/, "#tally-category", "Search destination expense"],
+      ["Search destination reminder", /calendar\.html.*focus=reminder/, '[data-reminder-id="focus-reminder"]', "Search destination reminder"],
+      ["Search destination card", /planner\.html.*focus=card/, '[data-entry-id="focus-card"] .planner-card-title', "Search destination card"],
+      ["Search destination trip", /travel\.html.*focus=trip/, "#travel-side-title", "Search destination trip"],
+    ]) {
+      if (await page.locator("#tally-add-sheet:visible").count()) {
+        await page.keyboard.press("Escape"); await page.waitForFunction(() => !history.state?.workspaceSheet);
+      }
+      palette = await openWorkspaceSearch(page, query);
+      await palette.locator(".command-palette-item").click();
+      await page.waitForURL(route);
+      await page.locator(target).waitFor();
+      const value = await page.locator(target).evaluate(node => node instanceof HTMLInputElement ? node.value : node.textContent);
+      assert.ok(value.includes(expected), query);
+      if (query.includes("expense")) assert.equal(await page.locator("#tally-date").inputValue(), "2025-02-15");
+      if (query.includes("card")) assert.ok(await page.locator('[data-entry-id="focus-card"]').evaluate(node => !node.classList.contains("is-collapsed") && !!node.closest(".is-phone-active")));
+    }
+    await page.locator('[data-travel-view="map"]').click();
+    assert.ok(await page.locator("#travel-map").isVisible());
+    assert.ok(await page.locator("#travel-search-input").isVisible());
+    await page.locator('[data-travel-view="itinerary"]').click();
+    assert.ok(await page.locator("#travel-side-title").isVisible());
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem("travel-book-v1")).activeTripId), "focus-trip");
+    await page.goto(`${base}/tally.html?focus=expense&id=missing`, { waitUntil: "load" });
+    await page.locator("#workspace-target-status").waitFor();
+    assert.ok(!(await page.locator("#tally-add-sheet").isVisible()));
+    await page.setViewportSize({ width: 320, height: 568 });
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   });
 
   assert.deepEqual(errors, [], "no uncaught browser errors");

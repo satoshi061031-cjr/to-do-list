@@ -14,6 +14,21 @@
   ];
   const USER_SNAPSHOT_INTERVAL_MS = 30000;
 
+  window.DailySpaceView = {
+    owner() {
+      try { return JSON.parse(localStorage.getItem(STORAGE_AUTH) || "null")?.email || "guest"; }
+      catch (_) { return "guest"; }
+    },
+    read(page) {
+      try { return JSON.parse(sessionStorage.getItem(`daily-space-view:${this.owner()}:${page}`) || "null") || {}; }
+      catch (_) { return {}; }
+    },
+    write(page, value) {
+      try { sessionStorage.setItem(`daily-space-view:${this.owner()}:${page}`, JSON.stringify({ ...this.read(page), ...value })); }
+      catch (_) { /* Browsing remains available without storage. */ }
+    },
+  };
+
   /** Dialog text never passes through the DOM translator, so pick it here. */
   function t(en, zh) {
     const i18n = window.DailySpaceI18n;
@@ -1398,6 +1413,38 @@
     refreshUserSnapshotSession(false);
   }
 
+  function setupPageChrome() {
+    const header = document.querySelector("[data-page-header]");
+    const actions = header?.querySelector(".page-action-cluster");
+    if (!actions) return;
+    header.classList.add("workspace-page-header");
+    const search = document.createElement("button");
+    search.type = "button";
+    search.className = "workspace-icon-button";
+    search.dataset.workspaceSearch = "true";
+    search.setAttribute("aria-label", "Search Daily Space");
+    search.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg>';
+    search.addEventListener("click", () => window.DailySpaceSearchUi?.open());
+    actions.prepend(search);
+    document.addEventListener("click", event => {
+      for (const menu of document.querySelectorAll("[data-page-menu][open]")) {
+        if (!menu.contains(event.target)) menu.open = false;
+      }
+    });
+    document.addEventListener("keydown", event => {
+      if (event.key !== "Escape") return;
+      for (const menu of document.querySelectorAll("[data-page-menu][open]")) menu.open = false;
+    });
+    const page = location.pathname.split("/").pop().replace(/\.html$/, "");
+    if (!page.startsWith("todo")) {
+      const saved = window.DailySpaceView.read(page);
+      if (!new URLSearchParams(location.search).has("focus") && saved.scroll) {
+        requestAnimationFrame(() => requestAnimationFrame(() => scrollTo(0, saved.scroll)));
+      }
+      window.addEventListener("pagehide", () => window.DailySpaceView.write(page, { scroll: scrollY }));
+    }
+  }
+
   function setupNotifications() {
     if (document.getElementById("notif-bell")) return;
     if (document.body.classList.contains("welcome-active")) return;
@@ -1433,10 +1480,9 @@
     `;
 
     root.append(bell, panel);
-    const mailActions = document.querySelector("body.mail-page .mail-header-actions");
-    if (mailActions) {
-      // Keep Mail's header actions together instead of covering its More button.
-      mailActions.insertBefore(root, document.getElementById("mail-tools"));
+    const pageActions = document.querySelector(".page-action-cluster");
+    if (pageActions) {
+      pageActions.insertBefore(root, pageActions.querySelector("details"));
       bell.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><span class="notif-bell-dot" hidden></span>';
     } else {
       document.body.appendChild(root);
@@ -1575,7 +1621,7 @@
 
     bell.addEventListener("click", function (event) {
       event.stopPropagation();
-      if (mailActions) document.getElementById("mail-tools").open = false;
+      for (const menu of document.querySelectorAll("[data-page-menu], #mail-tools")) menu.open = false;
       if (open) closePanel();
       else openPanel();
     });
@@ -1761,7 +1807,7 @@
     const primary = [
       { href: "todo.html#today", label: "Todo", match: /^(todo|todo-m)\.html$/ },
       { href: "calendar.html", label: "Calendar", match: /^calendar\.html$/ },
-      { href: "planner.html", label: "Planner", match: /^planner\.html$/ },
+      { href: "planner.html", label: "Projects", match: /^planner\.html$/ },
       { href: "mail.html", label: "Mail", match: /^mail\.html$/ },
       { href: "tally.html", label: "Tally book", match: /^tally\.html$/ },
     ];
@@ -2090,14 +2136,16 @@
         '<div class="guest-save-copy">' +
         '<p class="guest-save-kicker">Guest</p>' +
         '<p class="guest-save-title">Sign in to keep this work</p>' +
-        '<p class="guest-save-hint">You have tasks on this device. Sign in with Google to sync them, or keep using Guest locally.</p>' +
+        '<p class="guest-save-hint">Saved on this device. Sign in to sync.</p>' +
         "</div>" +
         '<div class="guest-save-actions">' +
         '<button type="button" class="btn btn-primary" data-guest-signin="google">Continue with Google</button>' +
         '<button type="button" class="btn btn-ghost" data-guest-save-later>Later</button>' +
         "</div>";
       const host = bannerHost();
-      host.insertBefore(banner, host.firstChild);
+      const pageHeader = host.querySelector("[data-page-header]");
+      if (pageHeader) pageHeader.insertAdjacentElement("afterend", banner);
+      else host.insertBefore(banner, host.firstChild);
       if (window.DailySpaceI18n && typeof window.DailySpaceI18n.apply === "function") {
         window.DailySpaceI18n.apply();
       }
@@ -2163,6 +2211,7 @@
     setupUserSnapshotSync();
     setupGreeting();
     setupWelcomeExperience();
+    setupPageChrome();
     setupNotifications();
     setupGuestSavePrompt();
     setupNativeShell();

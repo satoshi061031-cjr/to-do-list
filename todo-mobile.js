@@ -206,7 +206,7 @@
     if (view?.filter === "completed") api.setFilter("completed");
     renderChrome();
     if (view?.scroll) requestAnimationFrame(() => requestAnimationFrame(() => scrollTo(0, view.scroll)));
-    window.DailySpaceMobileTodo = { openEdit: id => open(id), openNew: () => open(null), closeIfOpen: () => close() };
+    window.DailySpaceMobileTodo = { openEdit: (id, push = true) => open(id, push), openNew: () => open(null), closeIfOpen: () => close() };
     if (history.state?.mobileTaskSheet) open(history.state.taskId, false);
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
