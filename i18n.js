@@ -8,6 +8,19 @@
   let originalTitle = "";
 
   const ZH = {
+    "Selected messages": "已选邮件",
+    "Close message": "关闭邮件",
+    "Connect Gmail to read your inbox and turn messages into tasks.": "连接 Gmail，查看收件箱并将邮件转为待办。",
+    "Today's digest": "今日摘要",
+    "Full summary": "完整摘要",
+    "Summary unavailable. You can still read your mail.": "摘要暂不可用，邮件仍可正常查看。",
+    "Select": "选择",
+    "Message": "邮件",
+    "Summary": "摘要",
+    "Message preview": "邮件预览",
+    "Open original in Gmail": "在 Gmail 中打开原文",
+    "Add to Today": "添加到今天",
+
     "Delete task": "删除任务",
     "Time": "时间",
     "Task": "任务",

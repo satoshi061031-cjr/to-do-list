@@ -13,7 +13,7 @@ Live app: start at `/todo.html` (PWA start URL). Welcome screen: `/` or `/index.
 | **Planner** | Personal / team boards (flow); Board + This week by due date |
 | **Teamwork** | Private notes on-device + light invite so you can assign from Planner |
 | **Tally** | Expense log; spent today also shows in Evening review |
-| **Mail** | Sign in → connect mailbox → digest → add to Today (batch select supported) |
+| **Mail** | Open inbox rows → message reader → add to Today; collapsed digest, explicit batch selection, booking/PDF import |
 | **Agent** | Optional helper for Todo/today and other modules (needs LLM key) |
 
 **Sign-in flow:** Menu → Sign in with Google for cloud sync, Gmail, and calendar, or Continue as guest for device-local use. The welcome page and account dialog offer the same two choices. Outlook and WeChat cannot start a new sign-in; existing account data and linked mailboxes are retained.
@@ -24,9 +24,10 @@ Guest mode works locally with `localStorage`; mail, cloud sync, and workspace in
 
 - **Cloud sync:** offline edits stay on-device; when local and cloud diverge, Account shows **Keep local** / **Use cloud** (nothing overwrites until you choose).
 - **Account data:** signed-in users can **Download my data** or **Delete account** from Account (removes cloud snapshot + mail tokens, then signs out).
-- **Mail digest:** if AI summarization is unset or fails, inbox still loads with snippet fallback and a clear status line.
+- **Mail:** refresh keeps messages, digest and selection visible while loading or failed. Mailbox caches stay separate and clear when the user changes or signs out. The reader shows a preview with a Gmail original link; relevant messages offer booking import. PDF import and mailbox management live in More. Unavailable AI summaries use a quiet notice inside the collapsed digest.
 - **Alerts:** set `ALERT_WEBHOOK_URL` to receive a POST JSON ping on server 500s / unhandled errors.
 - **Smoke:** `npm test` covers today task → calendar-visible due date → mail-shaped `todo_add`, plus account delete/export helpers.
+- **Browser interactions:** `npm run test:ui` checks desktop and phone controls, modal focus, Mail selection/retry/account isolation and duplicate task prevention. Set `CHROMIUM_PATH` if Chromium is installed outside `/usr/bin/chromium`.
 
 ## Install as PWA
 

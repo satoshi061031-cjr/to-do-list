@@ -2809,6 +2809,7 @@ async function fetchRecentGmailMessages(account, limit) {
       from: getHeader("from") || "Unknown sender",
       receivedAt: detailPayload.internalDate ? new Date(Number(detailPayload.internalDate)).toISOString() : null,
       snippet: String(detailPayload.snippet || "").trim().slice(0, 280),
+      threadId: String(detailPayload.threadId || id),
     };
   });
   const results = await Promise.all(tasks);

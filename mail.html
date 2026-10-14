@@ -42,28 +42,62 @@
 
       <main class="main-area">
         <div class="mail-app">
-          <header class="mail-hero mail-card">
-            <div>
-              <p class="mail-eyebrow">Mail</p>
+          <header class="mail-hero">
+            <div class="mail-heading-row">
               <h1 class="mail-title" id="mail-title">Mail</h1>
-              <p class="mail-copy" id="mail-copy">Pull your inbox, get a short digest, and turn mail into today’s tasks.</p>
+              <div class="mail-header-actions">
+                <button type="button" class="mail-icon-button" id="mail-refresh" aria-label="Refresh inbox" hidden>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1"/></svg>
+                </button>
+                <details class="mail-tools" id="mail-tools" hidden>
+                  <summary class="mail-icon-button" aria-label="More options">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>
+                  </summary>
+                  <div class="mail-tools-panel">
+                    <button type="button" class="mail-tool-action" id="mail-import-pdf">Import booking PDF</button>
+                    <input type="file" id="mail-import-pdf-input" accept="application/pdf,.pdf" hidden />
+                    <section class="mail-manage-panel" id="mail-manage" hidden>
+                      <h2 class="mail-tools-heading">Manage mailboxes</h2>
+                      <div class="mail-oauth-quick mail-oauth-quick--compact" role="group" aria-label="Add another mailbox">
+                        <button class="mail-oauth-btn" type="button" data-quick-provider="gmail">
+                          <span class="mail-oauth-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false">
+                              <path
+                                fill="#EA4335"
+                                d="M12 10.2v3.9h5.4c-.24 1.26-.96 2.33-2.04 3.05l3.3 2.56c1.92-1.77 3.03-4.38 3.03-7.49 0-.72-.06-1.41-.19-2.01H12z"
+                              />
+                              <path
+                                fill="#34A853"
+                                d="M12 22c2.76 0 5.07-.91 6.76-2.48l-3.3-2.56c-.91.61-2.08.97-3.46.97-2.66 0-4.92-1.79-5.73-4.2l-3.41 2.63C4.57 19.72 8.02 22 12 22z"
+                              />
+                              <path
+                                fill="#4A90E2"
+                                d="M6.27 13.73A5.95 5.95 0 0 1 5.95 12c0-.6.11-1.18.32-1.73L2.86 7.64A9.97 9.97 0 0 0 2 12c0 1.61.39 3.14 1.08 4.47l3.19-2.74z"
+                              />
+                              <path
+                                fill="#FBBC05"
+                                d="M12 6.06c1.5 0 2.85.52 3.91 1.54l2.93-2.93C17.05 3.01 14.74 2 12 2 8.02 2 4.57 4.28 2.86 7.64l3.41 2.63c.81-2.41 3.07-4.21 5.73-4.21z"
+                              />
+                            </svg>
+                          </span>
+                          <span>Connect Gmail</span>
+                        </button>
+                      </div>
+                      <div class="mail-account-list" id="mail-account-list"></div>
+                    </section>
+                  </div>
+                </details>
+              </div>
             </div>
+            <select class="mail-account-picker" id="mail-account-switcher" aria-label="Mailboxes" hidden></select>
+            <p class="mail-refresh-meta" id="mail-refresh-meta" aria-live="polite" hidden></p>
             <p class="mail-inline-status" id="mail-page-status" aria-live="polite" hidden></p>
           </header>
 
-          <section class="mail-card mail-connect-panel" id="mail-empty-connect" hidden aria-labelledby="mail-connect-title">
-            <div class="mail-section-head">
-              <div>
-                <p class="mail-kicker" id="mail-connect-kicker">Connect</p>
-                <h2 id="mail-connect-title">Sign in to your mailbox</h2>
-                <p class="mail-connect-hint" id="mail-connect-hint">
-                  Google sign-in already opens your Gmail inbox. Connect another Google account only if you need a second inbox.
-                </p>
-              </div>
-            </div>
-            <button type="button" class="btn btn-primary mail-signin-space" id="mail-signin-space" hidden>
-              Sign in to Daily Space
-            </button>
+          <section class="mail-connect-panel" id="mail-empty-connect" hidden aria-labelledby="mail-connect-title">
+            <h2 id="mail-connect-title">Connect Gmail</h2>
+            <p class="mail-connect-hint" id="mail-connect-hint">Connect Gmail to read your inbox and turn messages into tasks.</p>
+            <button type="button" class="btn btn-primary mail-signin-space" id="mail-signin-space" hidden>Continue with Google</button>
             <div class="mail-oauth-quick" id="mail-oauth-quick" role="group" aria-label="Quick authorization">
               <button class="mail-oauth-btn" type="button" data-quick-provider="gmail">
                 <span class="mail-oauth-icon" aria-hidden="true">
@@ -91,82 +125,29 @@
             </div>
           </section>
 
-          <section class="mail-card mail-inbox-panel" id="mail-inbox" hidden aria-labelledby="mail-inbox-heading">
-            <div class="mail-section-head">
-              <div>
-                <p class="mail-kicker">Inbox</p>
-                <h2 id="mail-inbox-heading">Recent messages</h2>
-              </div>
-              <div class="mail-section-actions">
-                <button type="button" class="btn" id="mail-import-pdf">Import booking PDF</button>
-                <input type="file" id="mail-import-pdf-input" accept="application/pdf,.pdf" hidden />
-                <button type="button" class="btn mail-refresh-btn" id="mail-refresh" aria-label="Refresh inbox">
-                  Refresh
-                </button>
-              </div>
+          <section class="mail-inbox-panel" id="mail-inbox" hidden aria-label="Inbox">
+            <details class="mail-digest-section" id="mail-digest-section" hidden>
+              <summary><span>Today's digest</span><span class="mail-digest-chevron" aria-hidden="true">⌄</span></summary>
+              <div class="mail-digest" id="mail-digest" hidden></div>
+              <details class="mail-digest-rest" id="mail-digest-rest" hidden>
+                <summary>Full summary</summary>
+                <p id="mail-digest-full" data-i18n-ignore></p>
+              </details>
+              <p class="mail-ai-banner" id="mail-ai-banner" hidden><span id="mail-ai-banner-copy">Summary unavailable. You can still read your mail.</span></p>
+              <div class="mail-digest-actions" id="mail-digest-actions" hidden><button type="button" class="btn" id="mail-ask-agent">Ask agent</button></div>
+            </details>
+            <div class="mail-list-head">
+              <h2 id="mail-inbox-heading">Recent messages</h2>
+              <button type="button" class="mail-select-toggle" id="mail-select-toggle" aria-pressed="false" hidden>Select</button>
             </div>
-            <div class="mail-account-switcher" id="mail-account-switcher" role="tablist" aria-label="Mailboxes"></div>
-            <p class="mail-digest" id="mail-digest" hidden></p>
-            <div class="mail-digest-actions" id="mail-digest-actions" hidden>
-              <button type="button" class="btn btn-primary" id="mail-ask-agent">
-                Ask agent to finish from mail
-              </button>
-            </div>
-            <aside class="mail-ai-banner" id="mail-ai-banner" hidden>
-              <p class="mail-kicker">AI digest</p>
-              <p class="mail-ai-banner-copy" id="mail-ai-banner-copy">
-                Smart digest is off right now. Inbox still works with short snippets.
-              </p>
-            </aside>
-            <p class="mail-status" id="mail-status" aria-live="polite"></p>
-            <div class="mail-batch-bar" id="mail-batch-bar" hidden>
-              <label class="mail-batch-select-all">
-                <input type="checkbox" id="mail-select-all" />
-                Select all
-              </label>
-              <button type="button" class="btn btn-primary mail-batch-add" id="mail-add-selected" disabled>
-                Add selected to Today
-              </button>
-              <a class="mail-today-link" href="todo.html#today">Open Today</a>
-            </div>
+            <p class="mail-status" id="mail-status" role="status" aria-live="polite" hidden></p>
             <div class="mail-message-list" id="mail-message-list"></div>
-          </section>
-
-          <details class="mail-card mail-manage-panel" id="mail-manage" hidden>
-            <summary class="mail-manage-summary">
-              <span class="mail-kicker">Settings</span>
-              <span class="mail-manage-title">Manage mailboxes</span>
-            </summary>
-            <div class="mail-manage-body">
-              <div class="mail-oauth-quick mail-oauth-quick--compact" role="group" aria-label="Add another mailbox">
-                <button class="mail-oauth-btn" type="button" data-quick-provider="gmail">
-                  <span class="mail-oauth-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" focusable="false">
-                      <path
-                        fill="#EA4335"
-                        d="M12 10.2v3.9h5.4c-.24 1.26-.96 2.33-2.04 3.05l3.3 2.56c1.92-1.77 3.03-4.38 3.03-7.49 0-.72-.06-1.41-.19-2.01H12z"
-                      />
-                      <path
-                        fill="#34A853"
-                        d="M12 22c2.76 0 5.07-.91 6.76-2.48l-3.3-2.56c-.91.61-2.08.97-3.46.97-2.66 0-4.92-1.79-5.73-4.2l-3.41 2.63C4.57 19.72 8.02 22 12 22z"
-                      />
-                      <path
-                        fill="#4A90E2"
-                        d="M6.27 13.73A5.95 5.95 0 0 1 5.95 12c0-.6.11-1.18.32-1.73L2.86 7.64A9.97 9.97 0 0 0 2 12c0 1.61.39 3.14 1.08 4.47l3.19-2.74z"
-                      />
-                      <path
-                        fill="#FBBC05"
-                        d="M12 6.06c1.5 0 2.85.52 3.91 1.54l2.93-2.93C17.05 3.01 14.74 2 12 2 8.02 2 4.57 4.28 2.86 7.64l3.41 2.63c.81-2.41 3.07-4.21 5.73-4.21z"
-                      />
-                    </svg>
-                  </span>
-                  <span>Connect Gmail</span>
-                </button>
-              </div>
-              <div class="mail-account-list" id="mail-account-list"></div>
-              <p class="mail-note">Gmail uses Google OAuth to authorize this device.</p>
+            <div class="mail-batch-bar" id="mail-batch-bar" role="region" aria-label="Selected messages" hidden>
+              <label class="mail-batch-select-all"><input type="checkbox" id="mail-select-all" />Select all</label>
+              <span id="mail-selected-count" aria-live="polite"></span>
+              <button type="button" class="btn btn-primary mail-batch-add" id="mail-add-selected" disabled>Add selected to Today</button>
             </div>
-          </details>
+          </section>
 
           <div data-dialog-root class="mail-booking-sheet" id="mail-booking-sheet" hidden>
             <button
@@ -210,6 +191,32 @@
           </div>
         </div>
       </main>
+    </div>
+
+    <div class="mail-detail-sheet" id="mail-detail-sheet" data-dialog-root hidden>
+      <button type="button" class="mail-detail-backdrop" id="mail-detail-backdrop" aria-label="Close message"></button>
+      <section class="mail-detail-panel" role="dialog" aria-modal="true" aria-labelledby="mail-detail-title">
+        <div class="mail-detail-head">
+          <h2 id="mail-detail-title" data-i18n-ignore>Message</h2>
+          <button type="button" class="mail-icon-button" id="mail-detail-close" data-dialog-close aria-label="Close message">×</button>
+        </div>
+        <div class="mail-detail-body">
+          <p class="mail-detail-from" id="mail-detail-from" data-i18n-ignore></p>
+          <p class="mail-detail-time" id="mail-detail-time" data-i18n-ignore></p>
+          <section id="mail-detail-summary-section" hidden>
+            <h3>Summary</h3>
+            <p id="mail-detail-summary" data-i18n-ignore></p>
+          </section>
+          <section>
+            <h3>Message preview</h3>
+            <p id="mail-detail-preview" data-i18n-ignore></p>
+          </section>
+          <a class="mail-original-link" id="mail-detail-original" target="_blank" rel="noopener noreferrer" hidden>Open original in Gmail</a>
+          <button type="button" class="mail-tool-action" id="mail-detail-booking" hidden>Import booking</button>
+          <p class="mail-detail-status" id="mail-detail-status" role="status" aria-live="polite" hidden></p>
+        </div>
+        <div class="mail-detail-footer"><button type="button" class="btn btn-primary" id="mail-detail-add">Add as today’s task</button></div>
+      </section>
     </div>
 
     <button type="button" class="theme-toggle" id="theme-toggle" aria-pressed="false">

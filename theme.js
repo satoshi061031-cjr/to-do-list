@@ -1433,7 +1433,14 @@
     `;
 
     root.append(bell, panel);
-    document.body.appendChild(root);
+    const mailActions = document.querySelector("body.mail-page .mail-header-actions");
+    if (mailActions) {
+      // Keep Mail's header actions together instead of covering its More button.
+      mailActions.insertBefore(root, document.getElementById("mail-tools"));
+      bell.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><span class="notif-bell-dot" hidden></span>';
+    } else {
+      document.body.appendChild(root);
+    }
 
     const listEl = panel.querySelector("#notif-list");
     const emptyEl = panel.querySelector("#notif-empty");
@@ -1568,6 +1575,7 @@
 
     bell.addEventListener("click", function (event) {
       event.stopPropagation();
+      if (mailActions) document.getElementById("mail-tools").open = false;
       if (open) closePanel();
       else openPanel();
     });
@@ -2067,6 +2075,11 @@
     }
 
     function renderBanner() {
+      // Mail already has a single Google connection prompt for guests.
+      if (document.body.classList.contains("mail-page")) {
+        removeBanner();
+        return;
+      }
       removeBanner();
       if (signedIn() || dismissed() || !hasWork()) return;
       const banner = document.createElement("aside");

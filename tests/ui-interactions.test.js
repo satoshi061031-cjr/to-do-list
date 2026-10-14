@@ -95,6 +95,16 @@ test("browser interactions on desktop and touch screens", { timeout: 90_000 }, a
     await page.goto(`${base}/mail.html`, { waitUntil: "load" });
     assert.equal(await page.locator('[data-quick-provider="outlook"]').count(), 0);
     assert.equal(await page.locator('[data-quick-provider="gmail"]').count(), 2);
+    await page.locator("#mail-signin-space").waitFor({ state: "visible" });
+    assert.equal(await page.locator("#guest-save-banner").count(), 0, "Mail must have only its dedicated Google prompt");
+    assert.ok(!(await page.locator("#mail-tools").isVisible()));
+    assert.equal(await page.evaluate(() => localStorage.getItem("todo-app-v2")), saved);
+    await captureMail(page, "mail-guest-390-light.png");
+    await page.locator("#mail-signin-space").click();
+    await page.waitForURL(/oauth-test=1/);
+    assert.equal(signins.length, 2, "Mail guest action must start Google directly");
+    assert.ok(signins[1].returnTo.includes("mail.html"));
+    assert.equal(await page.evaluate(() => localStorage.getItem("todo-app-v2")), saved);
   });
 
   await t.test("completion and addition preserve unrelated rows and focus", async () => {
@@ -414,6 +424,216 @@ test("browser interactions on desktop and touch screens", { timeout: 90_000 }, a
     await page.keyboard.press("Escape");
     assert.equal(await page.evaluate(() => document.activeElement.id), "sample-open");
     assert.ok(await page.locator("#sample-inert").evaluate(node => node.inert));
+  });
+
+  const mailAccounts = [
+    { id: "personal", provider: "Gmail", email: "hello@gmail.com", hasCredentials: true, connectedAt: "2026-10-01T09:00:00Z" },
+    { id: "work", provider: "Gmail", email: "work@gmail.com", hasCredentials: true, connectedAt: "2026-10-01T09:00:00Z" },
+  ];
+  const mailMessages = [
+    { id: "project", threadId: "thread-project", from: '林夏 <lin@example.com>', subject: "下周的设计评审", receivedAt: new Date().toISOString(), snippet: "周三下午一起看一下新版界面，提前准备两三个你最想讨论的问题。", summary: "周三前准备设计评审的问题。" },
+    { id: "hotel", from: 'Mori Hotel <stay@example.com>', subject: "Hotel booking · 京都的周末", receivedAt: new Date().toISOString(), snippet: "你的预订已确认。10 月 24 日入住，10 月 26 日退房。", summary: "确认入住时间，并把酒店安排加入旅行。" },
+    { id: "invoice", from: "North Studio <team@example.com>", subject: "十月项目账单", receivedAt: "2026-10-12T09:00:00Z", snippet: "附件是本月项目账单，方便时请确认一下。", summary: "查看本月账单。" },
+    { id: "notes", from: "阿远 <yuan@example.com>", subject: "给你的阅读清单", receivedAt: "2026-10-11T09:00:00Z", snippet: "挑了几篇可能对你有帮助的文章，有空的时候慢慢看。" },
+    { id: "coffee", from: "小野 <ono@example.com>", subject: "周末见", receivedAt: "2026-10-10T09:00:00Z", snippet: "街角那家咖啡馆开了，周末一起去坐坐。" },
+    { id: "unsafe", from: '<img src=x onerror="window.mailInjected=true">', subject: '<script>window.mailInjected=true</script>', receivedAt: null, snippet: "Plain-text mail preview." },
+  ];
+  const mailDigest = "准备周三的设计评审。\n确认京都酒店的入住时间。\n查看十月项目账单。\n有空看看阿远的阅读清单。";
+  async function mockMail(page, respond = () => ({ messages: mailMessages, digest: mailDigest, summarized: true })) {
+    let user = { userId: "mail-reader", email: "hello@gmail.com", label: "Mail reader", provider: "Google" };
+    const requests = [];
+    await page.addInitScript(() => localStorage.setItem("daily-space-auth-v1", JSON.stringify({ provider: "Google", label: "Mail reader", email: "hello@gmail.com", mailProvider: "gmail" })));
+    const json = (route, value, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(value) });
+    await page.route("**/api/auth/me", route => json(route, { user }));
+    await page.route("**/api/user/snapshot", route => json(route, { payload: {}, revision: 0 }));
+    await page.route("**/api/agent/status", route => json(route, { configured: true }));
+    await page.route("**/api/mail/accounts", route => json(route, { accounts: mailAccounts }));
+    await page.route("**/api/mail/accounts/*/digest?*", async route => {
+      const accountId = new URL(route.request().url()).pathname.split("/")[4];
+      requests.push(accountId);
+      const value = await respond(accountId, requests.length);
+      await json(route, value.body || value, value.status || 200).catch(() => {}); // Switching accounts can abort the request.
+    });
+    return { requests, setUser: value => { user = value; } };
+  }
+  async function captureMail(page, filename) {
+    if (!process.env.UI_CAPTURE_DIR) return;
+    fs.mkdirSync(process.env.UI_CAPTURE_DIR, { recursive: true });
+    await page.mouse.move(1, 1);
+    await page.screenshot({ path: path.join(process.env.UI_CAPTURE_DIR, filename), animations: "disabled", style: "#sidebar-hint { visibility: hidden; }" });
+  }
+
+  await t.test("Mail reader is safe, keyboard accessible, and adds a task once", async () => {
+    const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await mockMail(page);
+    await page.goto(`${base}/mail.html`, { waitUntil: "load" });
+    await page.locator('[data-open-mail="project"]').waitFor();
+    assert.ok(!(await page.locator(".mail-message-check").first().isVisible()));
+    assert.equal(await page.locator(".mail-message-actions").count(), 0);
+    assert.ok(!(await page.locator("#mail-import-pdf").isVisible()));
+    assert.ok(!(await page.locator("#mail-digest-section").evaluate(node => node.open)));
+    await page.locator("#mail-digest-section > summary").click();
+    assert.equal(await page.locator("#mail-digest li").count(), 3);
+    await page.locator("#mail-digest-rest > summary").click();
+    assert.equal(await page.locator("#mail-digest-full").textContent(), mailDigest);
+    await page.locator("#mail-digest-section > summary").click();
+    await page.evaluate(() => { window.DailySpaceI18n.setLocale("zh"); document.documentElement.dataset.theme = "dark"; });
+    await captureMail(page, "mail-390-dark.png");
+    await page.evaluate(() => { document.documentElement.dataset.theme = "light"; });
+    await captureMail(page, "mail-390-light.png");
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await captureMail(page, "mail-desktop-light.png");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.locator('[data-open-mail="project"]').click();
+    await page.locator("#mail-detail-sheet").waitFor({ state: "visible" });
+    await trapped(page, ".mail-detail-panel");
+    assert.ok(await page.locator("#mail-inbox").evaluate(node => !!node.closest("[inert]")));
+    assert.ok(!(await page.locator("#mail-detail-booking").isVisible()));
+    assert.equal(await page.locator("#mail-detail-original").getAttribute("href"), "https://mail.google.com/mail/?authuser=hello%40gmail.com#all/thread-project");
+    await captureMail(page, "mail-detail-390-light.png");
+    const before = await page.evaluate(() => JSON.parse(localStorage.getItem("todo-app-v2") || '{"todos":[]}').todos.length);
+    await page.locator("#mail-detail-add").click();
+    assert.ok(await page.locator("#mail-detail-add").isDisabled());
+    const added = await page.evaluate(() => JSON.parse(localStorage.getItem("todo-app-v2")).todos);
+    assert.equal(added.length, before + 1);
+    assert.equal(added.filter(item => item.sourceMailId === "mail:personal:project").length, 1);
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(() => document.activeElement?.dataset.openMail === "project");
+    await page.locator('[data-open-mail="project"]').click();
+    assert.ok(await page.locator("#mail-detail-add").isDisabled());
+    await page.keyboard.press("Escape");
+    await page.locator('[data-open-mail="unsafe"]').click();
+    assert.equal(await page.locator("#mail-detail-title").textContent(), mailMessages.at(-1).subject);
+    assert.equal(await page.locator("#mail-detail-title script").count(), 0);
+    assert.equal(await page.evaluate(() => window.mailInjected), undefined);
+    assert.match(await page.locator("#mail-detail-time").textContent(), /Unknown time|时间未知/);
+    await page.keyboard.press("Escape");
+    await page.locator("#mail-tools > summary").click();
+    assert.ok(await page.locator("#mail-import-pdf").isVisible());
+    await page.locator("#notif-bell").click();
+    assert.ok(!(await page.locator("#mail-import-pdf").isVisible()));
+    assert.ok(await page.locator(".notif-panel").isVisible());
+    const notification = await page.locator(".notif-panel").boundingBox();
+    assert.ok(notification.x >= 0 && notification.x + notification.width <= 390);
+    const bell = await page.locator("#notif-bell").boundingBox();
+    assert.ok(bell.width >= 44 && bell.height >= 44);
+    await page.keyboard.press("Escape");
+    assert.ok(!(await page.locator("#mail-import-pdf").isVisible()));
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  });
+
+  await t.test("Mail selection survives refresh errors, retries and excludes added tasks", async () => {
+    const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    let releaseRefresh;
+    let response = null;
+    await mockMail(page, () => response || ({ messages: mailMessages, digest: mailDigest, summarized: true }));
+    await page.goto(`${base}/mail.html`, { waitUntil: "load" });
+    await page.locator('[data-open-mail="project"]').waitFor();
+    await page.locator("#mail-select-toggle").click();
+    await page.locator('[data-mail-check="project"]').check();
+    assert.ok(await page.locator("#mail-select-all").evaluate(node => node.indeterminate));
+    const bar = await page.locator("#mail-batch-bar").boundingBox();
+    const dock = await page.locator(".bento-rail").boundingBox();
+    assert.ok(bar.y + bar.height <= dock.y, "batch actions must sit above the dock");
+    response = new Promise(resolve => { releaseRefresh = resolve; });
+    await page.locator("#mail-refresh").click();
+    assert.ok(await page.locator('[data-mail-check="project"]').isChecked());
+    assert.equal(await page.locator("#mail-digest li").count(), 3);
+    releaseRefresh({ status: 502, body: { error: "Temporary mail service failure" } });
+    await page.locator("#mail-status .mail-retry-btn").waitFor();
+    assert.equal(await page.locator(".mail-message-item").count(), mailMessages.length);
+    assert.ok(await page.locator('[data-mail-check="project"]').isChecked());
+    assert.equal(await page.locator("#mail-digest-full").textContent(), mailDigest);
+    response = null;
+    await page.locator("#mail-status .mail-retry-btn").click();
+    await page.locator("#mail-status").waitFor({ state: "hidden" });
+    assert.ok(await page.locator('[data-mail-check="project"]').isChecked());
+    await page.locator("#mail-select-all").check();
+    assert.equal(await page.locator('[data-mail-check]:checked').count(), mailMessages.length);
+    await page.evaluate(() => { window.DailySpaceI18n.setLocale("zh"); document.documentElement.dataset.theme = "dark"; });
+    await captureMail(page, "mail-select-390-dark.png");
+    await page.locator("#mail-add-selected").click();
+    assert.ok(!(await page.locator("#mail-batch-bar").isVisible()));
+    await page.locator("#mail-select-toggle").click();
+    assert.ok(await page.locator("#mail-select-all").isDisabled());
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem("todo-app-v2")).todos.filter(task => task.sourceMailId?.startsWith("mail:personal:")).length), mailMessages.length);
+    await page.setViewportSize({ width: 320, height: 568 });
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    const narrowBar = await page.locator("#mail-batch-bar").boundingBox();
+    const narrowDock = await page.locator(".bento-rail").boundingBox();
+    assert.ok(narrowBar.y + narrowBar.height <= narrowDock.y);
+  });
+
+  await t.test("Mailbox changes and sign-out ignore old responses and clear private views", async () => {
+    const page = await pageFor();
+    let releasePersonal;
+    let personalPending = false;
+    const fixture = await mockMail(page, accountId => accountId === "work"
+      ? ({ status: 502, body: { error: "Work mailbox unavailable" } })
+      : personalPending ? new Promise(resolve => { releasePersonal = resolve; })
+        : ({ messages: mailMessages, digest: mailDigest, summarized: true }));
+    await page.goto(`${base}/mail.html`, { waitUntil: "load" });
+    await page.locator('[data-open-mail="project"]').waitFor();
+    await page.locator("#mail-select-toggle").click();
+    await page.locator('[data-mail-check="project"]').check();
+    personalPending = true;
+    await page.locator("#mail-refresh").click();
+    await page.waitForFunction(() => document.getElementById("mail-refresh").disabled);
+    await page.locator("#mail-account-switcher").selectOption("work");
+    await page.locator("#mail-status .mail-retry-btn").waitFor();
+    releasePersonal({ messages: [{ ...mailMessages[0], subject: "Stale personal response" }], digest: "Stale digest", summarized: true });
+    assert.equal(await page.locator(".mail-message-item").count(), 0);
+    assert.ok(!(await page.locator("#mail-digest-section").isVisible()));
+    assert.ok(!(await page.locator("#mail-batch-bar").isVisible()));
+    personalPending = false;
+    await page.locator("#mail-account-switcher").selectOption("personal");
+    await page.locator('[data-open-mail="project"]').waitFor();
+    assert.equal(await page.locator('[data-mail-check]:checked').count(), 0);
+    await page.locator('[data-open-mail="project"]').click();
+    fixture.setUser(null);
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent("daily-space-auth-updated")));
+    await page.locator("#mail-signin-space").waitFor({ state: "visible" });
+    assert.ok(!(await page.locator("#mail-detail-sheet").isVisible()));
+    assert.ok(!(await page.locator("#mail-inbox").isVisible()));
+    assert.ok(!(await page.locator("#mail-tools").isVisible()));
+    assert.ok(!(await page.locator("#mail-refresh").isVisible()));
+  });
+
+  await t.test("Mail booking details nest safely and reader actions remain visible on short screens", async () => {
+    const page = await pageFor({ viewport: { width: 390, height: 420 }, isMobile: true, hasTouch: true });
+    const messages = mailMessages.map(message => message.id === "hotel"
+      ? { ...message, subject: message.subject.repeat(12), snippet: message.snippet.repeat(30) } : message);
+    await mockMail(page, () => ({ messages, digest: "", summarized: false, fallbackReason: "agent_not_configured" }));
+    await page.route("**/api/mail/accounts/*/messages/*/booking-import", route => route.fulfill({ contentType: "application/json", body: JSON.stringify({ bookings: [], source: { subject: "Kyoto confirmation" }, parsedBy: "fallback" }) }));
+    await page.goto(`${base}/mail.html`, { waitUntil: "load" });
+    await page.locator('[data-open-mail="hotel"]').waitFor();
+    await page.locator("#mail-digest-section > summary").click();
+    assert.ok(await page.locator("#mail-ai-banner").isVisible());
+    assert.ok(!(await page.locator("#mail-ai-banner").textContent()).includes("GROQ_API_KEY"));
+    await page.locator('[data-open-mail="hotel"]').click();
+    const button = await page.locator("#mail-detail-add").boundingBox();
+    assert.ok(button.y >= 0 && button.y + button.height <= 420);
+    await page.locator("#mail-detail-booking").click();
+    await page.locator("#mail-booking-sheet").waitFor({ state: "visible" });
+    await trapped(page, ".mail-booking-panel");
+    await page.keyboard.press("Escape");
+    assert.ok(await page.locator("#mail-detail-sheet").isVisible());
+    assert.equal(await page.evaluate(() => document.activeElement.id), "mail-detail-booking");
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(() => document.activeElement?.dataset.openMail === "hotel");
+    let releaseBooking;
+    await page.route("**/api/mail/accounts/*/messages/*/booking-import", async route => {
+      const payload = await new Promise(resolve => { releaseBooking = resolve; });
+      await route.fulfill({ contentType: "application/json", body: JSON.stringify(payload) });
+    });
+    await page.locator('[data-open-mail="hotel"]').click();
+    await page.locator("#mail-detail-booking").click();
+    await page.keyboard.press("Escape");
+    const completed = page.waitForResponse(/booking-import$/);
+    releaseBooking({ bookings: [], source: { subject: "Late booking" } });
+    await completed;
+    await page.waitForFunction(() => !document.getElementById("mail-detail-booking").disabled);
+    assert.ok(!(await page.locator("#mail-booking-sheet").isVisible()), "closing the reader must discard pending booking results");
   });
 
   assert.deepEqual(errors, [], "no uncaught browser errors");

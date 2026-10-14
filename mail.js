@@ -6,7 +6,6 @@
   let messagesRequestId = 0;
 
   const titleEl = document.getElementById("mail-title");
-  const copyEl = document.getElementById("mail-copy");
   const pageStatus = document.getElementById("mail-page-status");
   const emptyConnect = document.getElementById("mail-empty-connect");
   const inboxPanel = document.getElementById("mail-inbox");
@@ -24,7 +23,22 @@
   const addSelectedBtn = document.getElementById("mail-add-selected");
   const connectTitle = document.getElementById("mail-connect-title");
   const connectHint = document.getElementById("mail-connect-hint");
-  const connectKicker = document.getElementById("mail-connect-kicker");
+  const selectToggle = document.getElementById("mail-select-toggle");
+  const selectedCount = document.getElementById("mail-selected-count");
+  const refreshMeta = document.getElementById("mail-refresh-meta");
+  const tools = document.getElementById("mail-tools");
+  const digestSection = document.getElementById("mail-digest-section");
+  const digestRest = document.getElementById("mail-digest-rest");
+  const digestFull = document.getElementById("mail-digest-full");
+  const detailSheet = document.getElementById("mail-detail-sheet");
+  const detailTitle = document.getElementById("mail-detail-title");
+  const detailFrom = document.getElementById("mail-detail-from");
+  const detailTime = document.getElementById("mail-detail-time");
+  const detailPreview = document.getElementById("mail-detail-preview");
+  const detailSummary = document.getElementById("mail-detail-summary");
+  const detailAdd = document.getElementById("mail-detail-add");
+  const detailBooking = document.getElementById("mail-detail-booking");
+  const detailStatus = document.getElementById("mail-detail-status");
   const signInSpaceBtn = document.getElementById("mail-signin-space");
   const oauthQuick = document.getElementById("mail-oauth-quick");
   const importPdfBtn = document.getElementById("mail-import-pdf");
@@ -43,8 +57,17 @@
   let latestMessages = [];
   let selectedMailIds = new Set();
   let signedIn = false;
-  let agentConfigured = null;
   let pendingBookingImport = null;
+  let selecting = false;
+  let detailId = "";
+  let latestDigest = "";
+  let displayedAccountId = "";
+  let lastUpdatedAt = null;
+  let authUserId = "";
+  let authRequestId = 0;
+  let activeController = null;
+  let bookingRequestId = 0;
+  const inboxCache = new Map();
 
   function todayIso() {
     if (window.DailySpaceAgentData && typeof window.DailySpaceAgentData.todayIso === "function") {
@@ -61,13 +84,15 @@
     return isZh() ? zh : en;
   }
 
-  function formatDate(value) {
-    return new Date(value).toLocaleString(window.DailySpaceI18n?.localeTag(), {
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    });
+  function formatDate(value, compact = false) {
+    if (!value) return t("Unknown time", "时间未知");
+    const date = new Date(value);
+    if (!Number.isFinite(date.getTime())) return t("Unknown time", "时间未知");
+    const today = new Date();
+    const sameDay = date.toDateString() === today.toDateString();
+    return date.toLocaleString(window.DailySpaceI18n?.localeTag(), compact
+      ? sameDay ? { hour: "2-digit", minute: "2-digit" } : { month: "short", day: "numeric" }
+      : { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
   }
 
   function escapeHtml(value) {
@@ -119,42 +144,51 @@
   }
 
   function setInboxStatus(message, isError) {
-    if (!statusEl) return;
-    statusEl.textContent = message || "";
-    statusEl.classList.toggle("is-error", Boolean(isError));
-    statusEl.hidden = !message;
+    if (statusEl) {
+      statusEl.textContent = message || "";
+      statusEl.classList.toggle("is-error", Boolean(isError));
+      statusEl.hidden = !message;
+    }
+    if (detailStatus && detailSheet && !detailSheet.hidden) {
+      detailStatus.textContent = message || "";
+      detailStatus.hidden = !message;
+      detailStatus.classList.toggle("is-error", Boolean(isError));
+    }
   }
 
   function updateHero() {
-    const ready = readyAccounts();
-    const account = selectedAccount();
-    const connected = ready.length > 0;
-    if (titleEl) titleEl.textContent = connected ? "Inbox digest" : "Mail";
-    if (copyEl) {
-      copyEl.textContent = connected
-        ? account
-          ? `${account.email} · auto-refreshes while this page is open`
-          : "Your inbox digest"
-        : "Pull your inbox, get a short digest, and turn mail into today’s tasks.";
+    const connected = readyAccounts().length > 0;
+    if (titleEl) titleEl.textContent = "Mail";
+    if (refreshBtn) refreshBtn.hidden = !connected;
+    if (tools) tools.hidden = !signedIn;
+    if (refreshMeta) {
+      refreshMeta.hidden = !lastUpdatedAt || !connected;
+      refreshMeta.textContent = lastUpdatedAt
+        ? `${t("Updated", "更新于")} ${formatDate(lastUpdatedAt, true)}` : "";
     }
   }
 
   function setDigest(text) {
+    latestDigest = String(text || "").trim();
     if (!digestEl) return;
-    const digestActions = document.getElementById("mail-digest-actions");
-    if (!text) {
-      digestEl.hidden = true;
-      digestEl.textContent = "";
-      if (digestActions) digestActions.hidden = true;
-      return;
-    }
-    digestEl.hidden = false;
-    digestEl.textContent = text;
-    if (digestActions) digestActions.hidden = false;
+    const points = latestDigest.split(/\n+|(?<=[。！？])|(?<=[.!?])\s+/)
+      .map(line => line.replace(/^\s*(?:[-•*]|\d+[.)、])\s*/, "").trim()).filter(Boolean);
+    digestEl.hidden = !points.length;
+    digestEl.innerHTML = points.length
+      ? `<ul data-i18n-ignore>${points.slice(0, 3).map(point => `<li>${escapeHtml(point)}</li>`).join("")}</ul>` : "";
+    if (digestFull) digestFull.textContent = latestDigest;
+    if (digestRest) digestRest.hidden = points.length <= 3;
+    const actions = document.getElementById("mail-digest-actions");
+    if (actions) actions.hidden = !latestDigest;
+    updateDigestVisibility();
+  }
+
+  function updateDigestVisibility() {
+    if (digestSection) digestSection.hidden = !latestDigest && (!aiBanner || aiBanner.hidden);
   }
 
   function askAgentAboutMail() {
-    const digest = String(digestEl?.textContent || "").trim();
+    const digest = latestDigest;
     const openCount = latestMessages.length;
     const preferZh =
       window.DailySpaceI18n && typeof window.DailySpaceI18n.locale === "function"
@@ -183,30 +217,11 @@
     setInboxStatus("Open the Daily Space Agent to continue.", true);
   }
 
-  function setAiBanner(show, reason) {
-    if (!aiBanner) return;
-    aiBanner.hidden = !show;
-    if (!show || !aiBannerCopy) return;
-    if (reason === "llm_failed") {
-      aiBannerCopy.textContent =
-        "Smart digest failed this time — showing message snippets. Refresh to retry.";
-    } else {
-      aiBannerCopy.textContent =
-        "Smart digest is off right now. Inbox still works with short snippets.";
-    }
-  }
-
-  async function refreshAgentStatus() {
-    try {
-      const response = await fetch("/api/agent/status");
-      const data = await response.json().catch(() => ({}));
-      agentConfigured = Boolean(data.configured);
-    } catch (_) {
-      agentConfigured = null;
-    }
-    if (agentConfigured === false && readyAccounts().length > 0) {
-      setAiBanner(true, "agent_not_configured");
-    }
+  function setAiBanner(show) {
+    if (aiBanner) aiBanner.hidden = !show;
+    if (show && aiBannerCopy) aiBannerCopy.textContent = t(
+      "Summary unavailable. You can still read your mail.", "摘要暂不可用，邮件仍可正常查看。");
+    updateDigestVisibility();
   }
 
   function readyAccounts() {
@@ -333,8 +348,10 @@
     const added = Array.isArray(applied) ? applied.filter((item) => item && item.ok !== false).length : 0;
     fresh.forEach(markMailAdded);
     selectedMailIds.clear();
+    selecting = false;
     syncBatchBar();
     renderMessages(latestMessages);
+    selectToggle?.focus({ preventScroll: true });
     if (!added) {
       showTodayStatus("Selected messages are already on Today.");
       return;
@@ -349,11 +366,16 @@
   }
 
   function closeBookingSheet() {
+    bookingRequestId++;
     if (!bookingSheet) return;
+    const wasOpen = !bookingSheet.hidden;
     bookingSheet.hidden = true;
     document.body.classList.remove("mail-booking-open");
     pendingBookingImport = null;
     setBookingStatus("");
+    if (wasOpen && detailSheet.hidden) requestAnimationFrame(() => {
+      if (!tools.hidden) tools.querySelector("summary")?.focus({ preventScroll: true });
+    });
   }
 
   function bookingMeta(booking) {
@@ -369,10 +391,10 @@
       .join("\n");
   }
 
-  async function openBookingSheet(payload, sourceKey) {
+  async function openBookingSheet(payload, sourceKey, isCurrent = () => true) {
     if (!bookingSheet || !bookingPreview || !bookingTripSelect || !bookingConfirm) return;
     const bookings = Array.isArray(payload?.bookings) ? payload.bookings : [];
-    pendingBookingImport = { bookings, sourceKey, trips: [] };
+    const pending = { bookings, sourceKey, trips: [] };
     bookingSource.textContent = payload?.source?.subject || t("Booking confirmation", "预订确认");
     bookingPreview.innerHTML = bookings.length
       ? bookings
@@ -393,7 +415,9 @@
     const trips = travelApi?.listTripsForImport
       ? await travelApi.listTripsForImport()
       : travelApi?.listTrips?.() || [];
-    pendingBookingImport.trips = trips;
+    if (!isCurrent()) return;
+    pending.trips = trips;
+    pendingBookingImport = pending;
     bookingTripSelect.innerHTML = trips
       .map((trip) => {
         const suffix = trip.shared ? t("Shared", "共享") : trip.startDate;
@@ -422,6 +446,9 @@
   async function parseMessageBooking(message, button) {
     const account = selectedAccount();
     if (!account || !message?.id) return;
+    const requestId = ++bookingRequestId;
+    const userId = authUserId;
+    const isCurrent = () => requestId === bookingRequestId && userId === authUserId && selectedAccount()?.id === account.id;
     if (button) button.disabled = true;
     setInboxStatus(t("Reading confirmation and PDF attachments…", "正在读取确认邮件与 PDF 附件…"));
     try {
@@ -436,10 +463,11 @@
           body: JSON.stringify({ today: todayIso(), lang }),
         }
       );
-      await openBookingSheet(payload, `mail-booking:${account.id}:${message.id}`);
-      setInboxStatus("");
+      if (!isCurrent()) return;
+      await openBookingSheet(payload, `mail-booking:${account.id}:${message.id}`, isCurrent);
+      if (isCurrent()) setInboxStatus("");
     } catch (error) {
-      setInboxStatus(error.message || t("Booking import failed.", "预订导入失败。"), true);
+      if (isCurrent()) setInboxStatus(error.message || t("Booking import failed.", "预订导入失败。"), true);
     } finally {
       if (button) button.disabled = false;
     }
@@ -456,6 +484,9 @@
       return;
     }
     if (importPdfBtn) importPdfBtn.disabled = true;
+    const requestId = ++bookingRequestId;
+    const userId = authUserId;
+    const isCurrent = () => requestId === bookingRequestId && userId === authUserId && signedIn;
     setInboxStatus(t("Reading booking PDF…", "正在读取预订 PDF…"));
     try {
       const pdfBase64 = await new Promise((resolve, reject) => {
@@ -470,13 +501,15 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ filename: file.name, pdfBase64, today: todayIso(), lang }),
       });
+      if (!isCurrent()) return;
       await openBookingSheet(
         payload,
-        `pdf-booking:${file.name}:${file.size}:${file.lastModified || 0}`
+        `pdf-booking:${file.name}:${file.size}:${file.lastModified || 0}`,
+        isCurrent
       );
-      setInboxStatus("");
+      if (isCurrent()) setInboxStatus("");
     } catch (error) {
-      setInboxStatus(error.message || t("PDF import failed.", "PDF 导入失败。"), true);
+      if (isCurrent()) setInboxStatus(error.message || t("PDF import failed.", "PDF 导入失败。"), true);
     } finally {
       if (importPdfBtn) importPdfBtn.disabled = false;
       if (importPdfInput) importPdfInput.value = "";
@@ -518,39 +551,40 @@
   }
 
   function syncBatchBar() {
-    if (!batchBar || !addSelectedBtn) return;
-    const hasRows = latestMessages.length > 0;
-    batchBar.hidden = !hasRows;
-    const count = selectedMailIds.size;
-    addSelectedBtn.disabled = count === 0;
-    addSelectedBtn.textContent =
-      count > 0 ? `Add ${count} selected to Today` : "Add selected to Today";
-    if (selectAllEl) {
-      selectAllEl.checked = hasRows && count === latestMessages.length;
-      selectAllEl.indeterminate = count > 0 && count < latestMessages.length;
+    const eligible = latestMessages.filter(message => !alreadyAddedMail(message));
+    selectedMailIds = new Set([...selectedMailIds].filter(id => eligible.some(message => message.id === id)));
+    if (batchBar) batchBar.hidden = !selecting || !latestMessages.length;
+    if (addSelectedBtn) {
+      addSelectedBtn.disabled = selectedMailIds.size === 0;
+      addSelectedBtn.textContent = t("Add to Today", "添加到今天");
     }
+    if (selectedCount) selectedCount.textContent = t(`${selectedMailIds.size} selected`, `已选 ${selectedMailIds.size} 封`);
+    if (selectAllEl) {
+      selectAllEl.checked = eligible.length > 0 && eligible.every(message => selectedMailIds.has(message.id));
+      selectAllEl.indeterminate = selectedMailIds.size > 0 && !selectAllEl.checked;
+      selectAllEl.disabled = !eligible.length;
+    }
+    if (selectToggle) {
+      selectToggle.hidden = !latestMessages.length;
+      selectToggle.textContent = selecting ? t("Done", "完成") : t("Select", "选择");
+      selectToggle.setAttribute("aria-pressed", String(selecting));
+    }
+    document.body.classList.toggle("mail-selecting", selecting);
+  }
+
+  function setSelectionMode(next) {
+    selecting = Boolean(next);
+    if (!selecting) selectedMailIds.clear();
+    renderMessages(latestMessages);
   }
 
   function renderSwitcher() {
     if (!switcher) return;
-    switcher.innerHTML = "";
     const ready = readyAccounts();
-    if (ready.length <= 1) {
-      switcher.hidden = true;
-      return;
-    }
-    switcher.hidden = false;
-    ready.forEach((account) => {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "mail-account-pill";
-      button.setAttribute("role", "tab");
-      button.setAttribute("data-select-account", account.id);
-      button.setAttribute("aria-selected", account.id === selectedAccountId ? "true" : "false");
-      if (account.id === selectedAccountId) button.classList.add("is-active");
-      button.innerHTML = `<span class="mail-account-pill-provider">${escapeHtml(account.provider)}</span><span class="mail-account-pill-email">${escapeHtml(account.email)}</span>`;
-      switcher.appendChild(button);
-    });
+    switcher.hidden = !ready.length;
+    switcher.innerHTML = ready.map(account => `<option value="${escapeHtml(account.id)}">${escapeHtml(account.email)}</option>`).join("");
+    switcher.value = selectedAccountId;
+    switcher.classList.toggle("is-single", ready.length === 1);
   }
 
   function renderManageAccounts() {
@@ -590,7 +624,7 @@
     const connected = ready.length > 0;
     if (emptyConnect) emptyConnect.hidden = connected;
     if (inboxPanel) inboxPanel.hidden = !connected;
-    if (managePanel) managePanel.hidden = !(signedIn && accounts.length > 0);
+    if (managePanel) managePanel.hidden = !signedIn;
     updateHero();
     renderSwitcher();
     renderManageAccounts();
@@ -598,45 +632,91 @@
 
   function renderMessages(rows) {
     if (!messageList) return;
+    const focused = messageList.contains(document.activeElement)
+      ? { id: document.activeElement.dataset.openMail || document.activeElement.dataset.mailCheck,
+        check: document.activeElement instanceof HTMLInputElement } : null;
     latestMessages = Array.isArray(rows) ? rows : [];
-    const validIds = new Set(latestMessages.map((item) => item.id).filter(Boolean));
-    selectedMailIds = new Set([...selectedMailIds].filter((id) => validIds.has(id)));
-    if (!latestMessages.length) {
-      messageList.innerHTML = `<p class="mail-message-empty">No recent inbox messages.</p>`;
-      syncBatchBar();
+    const validIds = new Set(latestMessages.map(message => message.id));
+    selectedMailIds = new Set([...selectedMailIds].filter(id => validIds.has(id)));
+    messageList.innerHTML = latestMessages.length ? latestMessages.map(message => {
+      const id = escapeHtml(message.id);
+      const subject = escapeHtml(message.subject || t("No subject", "无主题"));
+      const sender = String(message.from || t("Unknown sender", "未知发件人"));
+      const displayName = sender.replace(/\s*<[^>]+>\s*$/, "").replace(/^"|"$/g, "").trim() || sender;
+      const preview = escapeHtml(message.snippet || message.summary || "");
+      const added = alreadyAddedMail(message);
+      return `<article class="mail-message-item" data-mail-id="${id}">
+        <label class="mail-message-check" ${selecting ? "" : "hidden"}>
+          <input type="checkbox" data-mail-check="${id}" ${selectedMailIds.has(message.id) ? "checked" : ""} ${added ? "disabled" : ""}
+            aria-label="${escapeHtml(t("Select message", "选择邮件"))}: ${subject}" />
+        </label>
+        <button type="button" class="mail-message-main" data-open-mail="${id}" aria-label="${escapeHtml(t("Open message", "打开邮件"))}: ${subject}">
+          <span class="mail-row-meta"><span class="mail-message-from" data-i18n-ignore>${escapeHtml(displayName)}</span>
+            <span class="mail-message-time" data-i18n-ignore>${escapeHtml(formatDate(message.receivedAt, true))}</span></span>
+          <strong data-i18n-ignore>${subject}</strong>
+          ${preview ? `<span class="mail-message-summary" data-i18n-ignore>${preview}</span>` : ""}
+          ${added ? `<span class="mail-added-label">${t("On Today", "已在今天")}</span>` : ""}
+        </button>
+      </article>`;
+    }).join("") : `<p class="mail-message-empty">${t("No recent inbox messages.", "暂无最近收件。")}</p>`;
+    syncBatchBar();
+    syncDetail();
+    if (focused?.id) {
+      const attribute = focused.check ? "data-mail-check" : "data-open-mail";
+      messageList.querySelector(`[${attribute}="${CSS.escape(focused.id)}"]`)?.focus({ preventScroll: true });
+    }
+  }
+
+  function openDetail(id) {
+    if (selecting) {
+      const message = latestMessages.find(item => item.id === id);
+      if (!message || alreadyAddedMail(message)) return;
+      if (selectedMailIds.has(id)) selectedMailIds.delete(id);
+      else selectedMailIds.add(id);
+      renderMessages(latestMessages);
       return;
     }
-    messageList.innerHTML = latestMessages
-      .map((item) => {
-        const subject = escapeHtml(item.subject || "(No subject)");
-        const from = escapeHtml(item.from || "Unknown sender");
-        const time = item.receivedAt ? escapeHtml(formatDate(item.receivedAt)) : "Unknown time";
-        const summary = escapeHtml(item.summary || item.snippet || "");
-        const id = escapeHtml(item.id || "");
-        const checked = selectedMailIds.has(item.id) ? "checked" : "";
-        const added = alreadyAddedMail(item);
-        return `<article class="mail-message-item" data-mail-id="${id}">
-          <label class="mail-message-check">
-            <input type="checkbox" data-mail-check="${id}" ${checked} ${added ? "disabled" : ""} aria-label="Select ${subject}" />
-          </label>
-          <div class="mail-message-main">
-            <strong>${subject}</strong>
-            <span class="mail-message-from">${from}</span>
-            ${summary ? `<p class="mail-message-summary">${summary}</p>` : ""}
-            <span class="mail-message-time">${time}</span>
-          </div>
-          <div class="mail-message-actions">
-            <button type="button" class="btn mail-import-booking" data-import-booking="${id}">
-              Import booking
-            </button>
-            <button type="button" class="btn mail-add-task" data-add-task="${id}" ${added ? "disabled" : ""}>${
-              added ? "On Today" : "Add as today’s task"
-            }</button>
-          </div>
-        </article>`;
-      })
-      .join("");
-    syncBatchBar();
+    detailId = id;
+    syncDetail();
+    if (!latestMessages.some(message => message.id === id)) return;
+    detailStatus.hidden = true;
+    detailSheet.hidden = false;
+    document.body.classList.add("mail-detail-open");
+  }
+
+  function closeDetail(restore = true) {
+    closeBookingSheet();
+    const id = detailId;
+    detailSheet.hidden = true;
+    detailId = "";
+    document.body.classList.remove("mail-detail-open");
+    if (restore) requestAnimationFrame(() => {
+      if (!bookingSheet || bookingSheet.hidden) {
+        messageList.querySelector(`[data-open-mail="${CSS.escape(id)}"]`)?.focus({ preventScroll: true });
+      }
+    });
+  }
+
+  function syncDetail() {
+    if (!detailId) return;
+    const message = latestMessages.find(item => item.id === detailId);
+    if (!message) { closeDetail(); return; }
+    detailTitle.textContent = message.subject || t("No subject", "无主题");
+    detailFrom.textContent = message.from || t("Unknown sender", "未知发件人");
+    detailTime.textContent = formatDate(message.receivedAt);
+    detailPreview.textContent = message.snippet || message.summary || t("No preview available.", "暂无邮件预览。");
+    const summary = message.summary && message.summary !== message.snippet ? message.summary : "";
+    detailSummary.textContent = summary;
+    document.getElementById("mail-detail-summary-section").hidden = !summary;
+    detailAdd.disabled = alreadyAddedMail(message);
+    detailAdd.textContent = detailAdd.disabled ? t("On Today", "已在今天") : t("Add as today’s task", "添加为今日待办");
+    detailBooking.hidden = !/(booking|reservation|itinerary|boarding|flight|hotel|airbnb|ticket|预订|預訂|酒店|航班|机票|機票|行程|餐厅|餐廳)/i
+      .test(`${message.subject || ""} ${message.snippet || ""}`);
+    const original = document.getElementById("mail-detail-original");
+    const account = selectedAccount();
+    original.hidden = !/gmail|google/i.test(account?.provider || "");
+    if (!original.hidden) original.href = `https://mail.google.com/mail/?authuser=${encodeURIComponent(account.email)}#all/${encodeURIComponent(message.threadId || message.id)}`;
+    else original.removeAttribute("href");
   }
 
   async function request(path, init) {
@@ -657,108 +737,70 @@
 
   function showMailLoadError(failText, code) {
     const needsReauth = code === "mail_reauth_required" || /reconnect|token missing|not authorized|expired/i.test(failText);
-    setInboxStatus("");
-    if (statusEl) {
-      statusEl.hidden = false;
-      statusEl.classList.add("is-error");
-      statusEl.textContent = "";
-      statusEl.appendChild(document.createTextNode(`${failText} `));
-      if (needsReauth) {
-        const reauth = document.createElement("button");
-        reauth.type = "button";
-        reauth.className = "mail-retry-btn";
-        reauth.textContent = "Reconnect mailbox";
-        reauth.addEventListener("click", () => {
-          const account = selectedAccount() || accounts[0];
-          const provider = String(account?.provider || "gmail").toLowerCase();
-          const tip = provider.includes("outlook") ? "outlook" : "gmail";
-          const btn = document.querySelector(`.mail-oauth-btn[data-quick-provider="${tip}"]`);
-          startOauth(tip, btn);
-        });
-        statusEl.appendChild(reauth);
-      } else {
-        const retry = document.createElement("button");
-        retry.type = "button";
-        retry.className = "mail-retry-btn";
-        retry.textContent = "Retry";
-        retry.addEventListener("click", () => loadMessagesForSelected());
-        statusEl.appendChild(retry);
-      }
-    }
-    if (messageList) {
-      messageList.innerHTML = `<p class="mail-message-empty is-error">${escapeHtml(failText)}</p>
-          <button type="button" class="btn mail-retry-btn" data-mail-${needsReauth ? "reauth" : "retry"}>${
-            needsReauth ? "Reconnect mailbox" : "Retry"
-          }</button>`;
-    }
+    setInboxStatus(latestMessages.length
+      ? t("Could not refresh. Your previous mail and selection are still here.", "刷新失败，已保留原有邮件和选择。")
+      : t("Could not load your inbox. Try again.", "暂时无法加载收件箱，请重试。"), true);
+    if (!statusEl) return;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "mail-retry-btn";
+    button.textContent = needsReauth ? t("Reconnect mailbox", "重新连接邮箱") : t("Retry", "重试");
+    button.addEventListener("click", () => {
+      if (!needsReauth) return loadMessagesForSelected();
+      const account = selectedAccount();
+      startOauth(/outlook/i.test(account?.provider || "") ? "outlook" : "gmail", button, account?.email);
+    });
+    statusEl.appendChild(button);
   }
 
   async function loadMessagesForSelected(options) {
-    const silent = Boolean(options && options.silent);
     const account = selectedAccount();
-    if (!account || !messageList) return;
+    if (!account) return;
+    if (options?.silent && activeController && displayedAccountId === account.id) return;
     const requestId = ++messagesRequestId;
-    if (!silent) setInboxStatus("Pulling inbox and summarizing…");
+    activeController?.abort();
+    activeController = new AbortController();
+    const controller = activeController;
+    if (displayedAccountId !== account.id) {
+      closeDetail(false);
+      selecting = false;
+      selectedMailIds.clear();
+      displayedAccountId = account.id;
+      const cached = inboxCache.get(account.id);
+      lastUpdatedAt = cached?.updatedAt || null;
+      setAiBanner(Boolean(cached?.unavailable));
+      setDigest(cached?.digest || "");
+      window.DailySpaceLoop?.writeCachedMailDigest?.(cached?.digest || "", !cached?.unavailable);
+      renderMessages(cached?.messages || []);
+      updateHero();
+      setInboxStatus("");
+    }
+    if (refreshBtn) { refreshBtn.disabled = true; refreshBtn.classList.add("is-loading"); }
+    if (!options?.silent) setInboxStatus(t("Refreshing…", "正在刷新…"));
     try {
-      const lang =
-        window.DailySpaceI18n && typeof window.DailySpaceI18n.localeTag === "function"
-          ? window.DailySpaceI18n.localeTag()
-          : document.documentElement.lang || "en";
-      const payload = await request(
-        `/api/mail/accounts/${encodeURIComponent(account.id)}/digest?limit=12&today=${encodeURIComponent(
-          todayIso()
-        )}&lang=${encodeURIComponent(lang)}`
-      );
-      if (requestId !== messagesRequestId) return;
+      const lang = window.DailySpaceI18n?.localeTag?.() || document.documentElement.lang || "en";
+      const payload = await request(`/api/mail/accounts/${encodeURIComponent(account.id)}/digest?limit=12&today=${encodeURIComponent(todayIso())}&lang=${encodeURIComponent(lang)}`, { signal: controller.signal });
+      if (requestId !== messagesRequestId || selectedAccount()?.id !== account.id) return;
       const rows = Array.isArray(payload.messages) ? payload.messages : [];
-      setDigest(typeof payload.digest === "string" ? payload.digest : "");
-      if (window.DailySpaceLoop && typeof window.DailySpaceLoop.writeCachedMailDigest === "function") {
+      const unavailable = rows.length > 0 && !payload.summarized;
+      lastUpdatedAt = new Date().toISOString();
+      inboxCache.set(account.id, { messages: rows, digest: payload.digest || "", unavailable, updatedAt: lastUpdatedAt });
+      setAiBanner(unavailable);
+      setDigest(payload.digest || "");
+      if (window.DailySpaceLoop?.writeCachedMailDigest) {
         window.DailySpaceLoop.writeCachedMailDigest(payload.digest || "", Boolean(payload.summarized));
       }
-      if (!silent) {
-        if (payload.summarized) {
-          setAiBanner(false);
-          setInboxStatus("Inbox updated with AI digest.");
-        } else if (
-          payload.fallbackReason === "agent_not_configured" ||
-          payload.agentConfigured === false ||
-          agentConfigured === false
-        ) {
-          setAiBanner(true, "agent_not_configured");
-          setInboxStatus("Inbox updated with snippets.");
-        } else if (payload.fallbackReason === "llm_failed") {
-          setAiBanner(true, "llm_failed");
-          setInboxStatus("Inbox updated with snippets.");
-        } else if (payload.fallbackReason === "empty") {
-          setAiBanner(agentConfigured === false);
-          setInboxStatus("Inbox is quiet.");
-        } else {
-          setAiBanner(agentConfigured === false);
-          setInboxStatus("Inbox updated.");
-        }
-      } else {
-        setInboxStatus("");
-        if (
-          payload.fallbackReason === "agent_not_configured" ||
-          payload.agentConfigured === false ||
-          agentConfigured === false
-        ) {
-          setAiBanner(true, "agent_not_configured");
-        } else if (payload.fallbackReason === "llm_failed") {
-          setAiBanner(true, "llm_failed");
-        }
-      }
       renderMessages(rows);
+      updateHero();
+      setInboxStatus("");
     } catch (error) {
-      if (requestId !== messagesRequestId) return;
-      setDigest("");
-      selectedMailIds.clear();
-      syncBatchBar();
-      const failText = error.message || "Failed to load messages.";
-      if (!silent) {
-        showMailLoadError(failText, error.code);
-      } else {
-        setInboxStatus(failText, true);
+      if (requestId !== messagesRequestId || controller.signal.aborted) return;
+      // A failed refresh must not replace a usable inbox, summary or selection.
+      showMailLoadError(error.message || "", error.code);
+    } finally {
+      if (requestId === messagesRequestId) {
+        activeController = null;
+        if (refreshBtn) { refreshBtn.disabled = false; refreshBtn.classList.remove("is-loading"); }
       }
     }
   }
@@ -802,46 +844,59 @@
   function renderSignedOutConnect() {
     signedIn = false;
     accounts = [];
+    displayedAccountId = "";
+    messagesRequestId++;
+    activeController?.abort();
+    activeController = null;
+    inboxCache.clear();
+    lastUpdatedAt = null;
+    latestMessages = [];
     selectedMailIds.clear();
+    selecting = false;
+    closeDetail(false);
+    stopMailPolling();
+    renderMessages([]);
+    for (const element of [detailTitle, detailFrom, detailTime, detailPreview, detailSummary]) element.textContent = "";
+    document.getElementById("mail-detail-original")?.removeAttribute("href");
     setAiBanner(false);
-    if (batchBar) batchBar.hidden = true;
+    setDigest("");
+    window.DailySpaceLoop?.writeCachedMailDigest?.("", false);
+    syncBatchBar();
     if (emptyConnect) emptyConnect.hidden = false;
     if (inboxPanel) inboxPanel.hidden = true;
     if (managePanel) managePanel.hidden = true;
-    if (connectKicker) connectKicker.textContent = "Sign in";
-    if (connectTitle) connectTitle.textContent = "Sign in to Daily Space first";
-    if (connectHint) {
-      connectHint.textContent =
-        "Mail digest uses your Google account. Guest mode keeps your tasks on this device.";
-    }
+    if (connectTitle) connectTitle.textContent = "Connect Gmail";
+    if (connectHint) connectHint.textContent = "Connect Gmail to read your inbox and turn messages into tasks.";
     if (signInSpaceBtn) signInSpaceBtn.hidden = false;
     if (oauthQuick) oauthQuick.hidden = true;
+    if (switcher) switcher.hidden = true;
+    if (tools) tools.open = false;
     updateHero();
-    setDigest("");
-    setPageStatus("Sign in to Daily Space to pull your inbox.");
+    setPageStatus("");
   }
 
   function renderConnectMailbox() {
-    if (connectKicker) connectKicker.textContent = "Connect";
-    if (connectTitle) connectTitle.textContent = "Connect your mailbox";
-    if (connectHint) {
-      connectHint.textContent =
-        "Google sign-in already opens your Gmail inbox. Connect another Google account only if you need a second inbox.";
-    }
+    if (connectTitle) connectTitle.textContent = "Connect Gmail";
+    if (connectHint) connectHint.textContent = "Connect Gmail to read your inbox and turn messages into tasks.";
     if (signInSpaceBtn) signInSpaceBtn.hidden = true;
     if (oauthQuick) oauthQuick.hidden = false;
   }
 
   async function loadFromServer() {
+    const authId = ++authRequestId;
     const me = await request("/api/auth/me");
-    signedIn = Boolean(me && me.user);
-    if (!signedIn) {
+    if (authId !== authRequestId) return;
+    const nextUser = me?.user?.userId || me?.user?.email || "";
+    if (nextUser !== authUserId) {
       renderSignedOutConnect();
-      return;
+      authUserId = nextUser;
     }
-
+    signedIn = Boolean(me?.user);
+    if (!signedIn) { renderSignedOutConnect(); return; }
     const payload = await request("/api/mail/accounts");
+    if (authId !== authRequestId) return;
     accounts = Array.isArray(payload.accounts) ? payload.accounts : [];
+    for (const id of inboxCache.keys()) if (!accounts.some(account => account.id === id)) inboxCache.delete(id);
     ensureSelectedAccount();
     renderConnectMailbox();
     renderShell();
@@ -851,13 +906,18 @@
       startMailPolling();
     } else {
       stopMailPolling();
+      messagesRequestId++;
+      activeController?.abort();
+      closeDetail(false);
+      displayedAccountId = "";
+      lastUpdatedAt = null;
+      selecting = false;
+      selectedMailIds.clear();
+      renderMessages([]);
+      setAiBanner(false);
       setDigest("");
-      latestMessages = [];
-      if (accounts.some((account) => account.needsMailOAuth)) {
-        setPageStatus("Mailbox needs authorization — connect Gmail to read mail.");
-      } else {
-        setPageStatus("No mailbox yet — connect Gmail below.");
-      }
+      setInboxStatus("");
+      updateHero();
     }
   }
 
@@ -972,41 +1032,46 @@
     askAgentBtn.addEventListener("click", () => askAgentAboutMail());
   }
 
-  importPdfBtn?.addEventListener("click", () => importPdfInput?.click());
+  importPdfBtn?.addEventListener("click", () => { tools.open = false; importPdfInput?.click(); });
+  selectToggle?.addEventListener("click", () => setSelectionMode(!selecting));
+  switcher?.addEventListener("change", async () => {
+    writeSelectedId(switcher.value);
+    updateHero();
+    await loadMessagesForSelected();
+  });
+  detailAdd?.addEventListener("click", () => addMailAsTodayTask(latestMessages.find(message => message.id === detailId)));
+  detailBooking?.addEventListener("click", () => parseMessageBooking(latestMessages.find(message => message.id === detailId), detailBooking));
+  document.getElementById("mail-detail-close")?.addEventListener("click", () => closeDetail());
+  document.getElementById("mail-detail-backdrop")?.addEventListener("click", () => closeDetail());
   importPdfInput?.addEventListener("change", () => parseBookingPdf(importPdfInput.files?.[0]));
   bookingBackdrop?.addEventListener("click", closeBookingSheet);
   bookingClose?.addEventListener("click", closeBookingSheet);
   bookingConfirm?.addEventListener("click", confirmBookingImport);
 
   if (signInSpaceBtn) {
-    signInSpaceBtn.addEventListener("click", () => openDailySpaceSignIn());
+    signInSpaceBtn.addEventListener("click", async () => {
+      if (!window.DailySpaceAuth?.startGoogleSignIn) { openDailySpaceSignIn(); return; }
+      signInSpaceBtn.disabled = true;
+      try { await window.DailySpaceAuth.startGoogleSignIn(); }
+      catch (error) { setPageStatus(error.message || "Google sign-in failed.", true); }
+      finally { signInSpaceBtn.disabled = false; }
+    });
   }
 
   window.addEventListener("daily-space-auth-updated", () => {
-    loadFromServer().catch((error) => {
-      setPageStatus(error.message || "Failed to load mail accounts.", true);
-    });
+    messagesRequestId++;
+    activeController?.abort();
+    activeController = null;
+    closeDetail(false);
+    loadFromServer().catch(showAccountLoadError);
   });
 
   document.addEventListener("click", async (event) => {
     const target = event.target;
     if (!(target instanceof Element)) return;
-
-    const selectId = target.closest("[data-select-account]")?.getAttribute("data-select-account");
-    if (selectId) {
-      if (selectId === selectedAccountId) return;
-      writeSelectedId(selectId);
-      updateHero();
-      renderSwitcher();
-      await loadMessagesForSelected();
-      return;
-    }
-
-    const retry = target.closest("[data-mail-retry]");
-    if (retry) {
-      loadMessagesForSelected();
-      return;
-    }
+    if (tools?.open && !tools.contains(target)) tools.open = false;
+    const openId = target.closest("[data-open-mail]")?.getAttribute("data-open-mail");
+    if (openId) { openDetail(openId); return; }
 
     const reauthBtn = target.closest("[data-mail-reauth], [data-reauth-provider]");
     if (reauthBtn) {
@@ -1033,22 +1098,6 @@
       return;
     }
 
-    const addTaskId = target.closest("[data-add-task]")?.getAttribute("data-add-task");
-    if (addTaskId) {
-      const message = latestMessages.find((item) => item.id === addTaskId);
-      if (message) addMailAsTodayTask(message);
-      return;
-    }
-
-    const bookingId = target.closest("[data-import-booking]")?.getAttribute("data-import-booking");
-    if (bookingId) {
-      const message = latestMessages.find((item) => item.id === bookingId);
-      if (message) {
-        parseMessageBooking(message, target.closest("[data-import-booking]"));
-      }
-      return;
-    }
-
     const id = target.closest("[data-disconnect]")?.getAttribute("data-disconnect");
     if (!id) return;
     setPageStatus("");
@@ -1067,26 +1116,36 @@
   });
 
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && bookingSheet && !bookingSheet.hidden) closeBookingSheet();
+    if (event.key !== "Escape") return;
+    if (bookingSheet && !bookingSheet.hidden) closeBookingSheet();
+    else if (detailSheet && !detailSheet.hidden) closeDetail();
+    else if (tools?.open) tools.open = false;
+    else if (selecting) setSelectionMode(false);
   });
 
   window.addEventListener("daily-space-locale-changed", () => {
     renderShell();
-    if (accounts.length) loadMessagesForSelected();
+    updateHero();
+    setDigest(latestDigest);
+    renderMessages(latestMessages);
+    if (detailId) syncDetail();
   });
 
-  handleOauthResultFromUrl();
-  refreshAgentStatus().finally(() => {
-    loadFromServer().catch((error) => {
-      const message = error.message || "Failed to load mail accounts.";
-      if (/sign in first/i.test(message)) {
-        renderSignedOutConnect();
-        return;
-      }
-      setPageStatus(message, true);
-      if (emptyConnect) emptyConnect.hidden = false;
-      if (inboxPanel) inboxPanel.hidden = true;
-      if (managePanel) managePanel.hidden = true;
+  function showAccountLoadError(error) {
+    if (/sign in first/i.test(error.message || "")) { renderSignedOutConnect(); return; }
+    setPageStatus(t("Could not check your mailbox. Try again.", "暂时无法连接邮箱，请重试。"), true);
+    const retry = document.createElement("button");
+    retry.type = "button";
+    retry.className = "mail-retry-btn";
+    retry.textContent = t("Retry", "重试");
+    retry.addEventListener("click", () => {
+      retry.disabled = true;
+      loadFromServer().then(() => setPageStatus("")).catch(showAccountLoadError);
     });
-  });
+    pageStatus?.appendChild(retry);
+  }
+
+  renderSignedOutConnect();
+  handleOauthResultFromUrl();
+  loadFromServer().catch(showAccountLoadError);
 })();
