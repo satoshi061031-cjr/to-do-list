@@ -5,6 +5,7 @@
     const api = window.DailySpaceTodo;
     if (!api) return;
     const root = document.getElementById("m-task-editor");
+    const motion = window.DailySpaceDialogHistory.motion(root);
     const form = document.getElementById("m-task-form");
     const title = document.getElementById("m-task-title");
     const date = document.getElementById("m-task-date");
@@ -57,7 +58,7 @@
         categoryId: category.value || null, repeat: repeat.value || null };
     }
     function storeDraft() {
-      if (!root.hidden && draftKey) {
+      if (!root.hidden && !motion.closing && draftKey) {
         try { localStorage.setItem(draftKey, JSON.stringify(snapshot())); } catch (_) {}
       }
     }
@@ -106,7 +107,7 @@
       remove.hidden = !taskId;
       status.textContent = draft ? t("Draft restored", "已恢复草稿") : "";
       returnScroll = scrollY;
-      root.hidden = false;
+      motion.open();
       document.body.classList.add("m-task-editor-open");
       if (push) history.pushState({ ...history.state, mobileTaskSheet: true, taskId }, "", location.href);
       syncViewport();
@@ -114,24 +115,23 @@
       title.focus({ preventScroll: true });
       title.setSelectionRange(title.value.length, title.value.length);
     }
-    function close({ preserve = true, fromHistory = false } = {}) {
-      if (root.hidden) return false;
+    function close({ preserve = true, fromHistory = false, immediate = false } = {}) {
+      if (root.hidden || (motion.closing && !immediate)) return false;
       if (preserve) storeDraft();
       const editing = taskId;
       title.blur();
-      root.hidden = true;
-      document.body.classList.remove("m-task-editor-open");
+      motion.close(() => {
+        document.body.classList.remove("m-task-editor-open");
+        window.DailySpaceUndo?.reposition();
+        window.scrollTo({ top: returnScroll, behavior: "instant" });
+        const row = editing && [...document.querySelectorAll("#todo-list .todo-item")].find(node => node.dataset.id === editing);
+        (row?.querySelector(".todo-main") || document.getElementById("m-add-task")).focus({ preventScroll: true });
+      }, immediate);
       composing = false;
       if (!fromHistory && history.state?.mobileTaskSheet) {
         closingHistory = true;
         history.back();
       }
-      requestAnimationFrame(() => {
-        window.dispatchEvent(new Event("resize"));
-        window.scrollTo({ top: returnScroll, behavior: "instant" });
-        const row = editing && [...document.querySelectorAll("#todo-list .todo-item")].find(node => node.dataset.id === editing);
-        (row?.querySelector(".todo-main") || document.getElementById("m-add-task")).focus({ preventScroll: true });
-      });
       return true;
     }
     document.getElementById("m-add-task").addEventListener("click", () => open(null));
@@ -161,7 +161,7 @@
     });
     form.addEventListener("submit", event => {
       event.preventDefault();
-      if (composing || !title.value.trim() || !form.reportValidity()) return;
+      if (motion.closing || composing || !title.value.trim() || !form.reportValidity()) return;
       const saved = api.saveTask(snapshot(), taskId);
       if (!saved) { showStatus("This task is no longer available.", "这条任务已不存在。"); return; }
       clearDraft();
@@ -185,7 +185,7 @@
       storeDraft();
       write(`${VIEW_KEY}:${owner()}`, { filter: api.getView().filter, scroll: root.hidden ? scrollY : returnScroll });
     });
-    window.addEventListener("daily-space-auth-updated", () => close());
+    window.addEventListener("daily-space-auth-updated", () => close({ immediate: true }));
     function renderChrome() {
       document.getElementById("m-page-date").textContent = new Date().toLocaleDateString(locale(), { weekday: "long", month: "long", day: "numeric" });
       const view = api.getView();

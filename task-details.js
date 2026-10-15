@@ -58,15 +58,17 @@
             <p class="task-draft-status" role="status"></p></div><button class="btn btn-primary task-desktop-save" type="submit">${t('Save changes', '保存更改')}</button></form>
         </section>`;
       document.body.append(root);
+      const motion = window.DailySpaceDialogHistory.motion(root);
       const form = root.querySelector('form'); const controls = form.elements;
       const extras = mount(form, root.querySelector('.task-desktop-options'));
       let taskId = null, draftKey = '', composing = false;
       const read = () => ({ text: controls.text.value, dueDate: controls.dueDate.value, dueTime: controls.dueTime.value, categoryId: controls.categoryId.value || null, repeat: controls.repeat.value || null, ...extras.value() });
-      const stash = () => { if (!root.hidden && draftKey) localStorage.setItem(draftKey, JSON.stringify(read())); };
-      const historyController = window.DailySpaceDialogHistory.create('task-details', { isOpen: () => !root.hidden, restore: data => open(data.id, false), close: () => close(true) });
+      const stash = () => { if (!root.hidden && !motion.closing && draftKey) localStorage.setItem(draftKey, JSON.stringify(read())); };
+      const historyController = window.DailySpaceDialogHistory.create('task-details', { isOpen: () => !root.hidden&&!motion.closing, restore: data => open(data.id, false), close: () => close(true) });
       window.DailySpaceDialogHistory.fitViewport(root);
       function open(id, push = true) {
         const task = api.getTasks().find(item => item.id === id); if (!task) return;
+        if (push && !historyController.push({ id })) return;
         taskId = id; draftKey = `daily-space-task-draft:${window.DailySpaceView.owner()}:${id}`;
         let draft; try { draft = JSON.parse(localStorage.getItem(draftKey) || 'null'); } catch (_) {}
         const value = draft || task;
@@ -74,17 +76,17 @@
         controls.categoryId.replaceChildren(new Option(localized('No category', '无分类'), ''));
         controls.categoryId.dataset.i18nIgnore = ''; api.getCategories().forEach(category => controls.categoryId.add(new Option(category.name, category.id))); controls.categoryId.value = value.categoryId || '';
         extras.fill(value, task); root.querySelector('[role=status]').textContent = draft ? t('Draft restored', '已恢复草稿') : '';
-        root.hidden = false; if (push) historyController.push({ id }); controls.text.focus({ preventScroll: true });
+        motion.open(); controls.text.focus({ preventScroll: true });
       }
-      function close(fromHistory = false) { if (root.hidden) return; stash(); root.hidden = true; if (!fromHistory) historyController.back(); }
+      function close(fromHistory = false) { if (root.hidden || motion.closing) return; stash(); motion.close(); if (!fromHistory) historyController.back(); }
       root.querySelectorAll('[data-dialog-close]').forEach(node => node.addEventListener('click', () => close()));
       form.addEventListener('input', stash); form.addEventListener('change', stash); window.addEventListener('pagehide', stash);
       form.addEventListener('compositionstart', () => { composing = true; }); form.addEventListener('compositionend', () => { composing = false; stash(); });
-      form.addEventListener('submit', event => { event.preventDefault(); if (composing || !form.reportValidity()) return;
+      form.addEventListener('submit', event => { event.preventDefault(); if (motion.closing || composing || !form.reportValidity()) return;
         if (!api.saveTask(read(), taskId)) { root.querySelector('[role=status]').textContent = t('This task is no longer available.', '这条任务已不存在。'); return; }
-        localStorage.removeItem(draftKey); root.hidden = true; historyController.back();
+        localStorage.removeItem(draftKey); motion.close(); historyController.back();
       });
-      window.addEventListener('daily-space-auth-updated', () => { root.hidden = true; draftKey = ''; });
+      window.addEventListener('daily-space-auth-updated', () => { motion.close(null, true); draftKey = ''; });
       window.DailySpaceTaskDetails.open = open;
     }
     const list = document.getElementById('todo-list');
@@ -126,8 +128,11 @@
         check.checked = selected.has(row.dataset.id); row.classList.toggle('task-is-selected', check.checked);
       });
       count.textContent = `${selected.size} ${localized('selected', '项已选')}`; [complete, tomorrow, categorise, saveTemplate].forEach(node => { node.disabled = !selected.size; }); move.disabled = !selected.size || !day.value;
-      const current = category.value; category.replaceChildren(new Option(localized('No category', '无分类'), '')); api.getCategories().forEach(item => category.add(new Option(item.name, item.id))); category.value = current;
-      window.dispatchEvent(new Event('resize'));
+      const categories = api.getCategories(); const categoryKey = JSON.stringify([categories, localized('No category', '无分类')]);
+      if (category.dataset.optionsKey !== categoryKey) {
+        const current = category.value; category.replaceChildren(new Option(localized('No category', '无分类'), '')); categories.forEach(item => category.add(new Option(item.name, item.id))); category.value = current; category.dataset.optionsKey = categoryKey;
+      }
+      window.DailySpaceUndo?.reposition();
     }
     window.DailySpaceTaskDetails.clearSelection = () => { selecting = false; selected.clear(); refresh(); };
     all.addEventListener('change', () => { selected.clear(); if (all.checked) visibleRows().forEach(row => selected.add(row.dataset.id)); refresh(); });
@@ -135,8 +140,11 @@
       const main = event.target.closest('.todo-main'); if (!main) return; event.preventDefault(); event.stopImmediatePropagation(); const id = main.closest('.todo-item').dataset.id;
       if (selected.has(id)) selected.delete(id); else selected.add(id); refresh(); };
     list.addEventListener('click', selectRow, true); list.addEventListener('keydown', selectRow, true);
-    new MutationObserver(refresh).observe(list, { childList: true });
-    window.addEventListener('daily-space-locale-changed', refresh); window.addEventListener('daily-space-todo-view-updated', refresh); window.addEventListener('daily-space-auth-updated', () => { selected.clear(); selecting = false; refresh(); }); refresh();
+    let refreshFrame = 0;
+    function scheduleRefresh() { if (!refreshFrame) refreshFrame = requestAnimationFrame(() => { refreshFrame = 0; refresh(); }); }
+    secondary.addEventListener('toggle', () => window.DailySpaceUndo?.reposition());
+    new MutationObserver(scheduleRefresh).observe(list, { childList: true });
+    window.addEventListener('daily-space-locale-changed', scheduleRefresh); window.addEventListener('daily-space-todo-view-updated', scheduleRefresh); window.addEventListener('daily-space-auth-updated', () => { selected.clear(); selecting = false; refresh(); }); refresh();
   }
   window.DailySpaceTaskDetails = { mount };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();

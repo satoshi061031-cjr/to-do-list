@@ -26,6 +26,7 @@
   const categoryInput = $("tally-category");
   const noteInput = $("tally-note");
   const tripInput = $("tally-trip");
+  const extraOptions = $("tally-extra-options");
   let tripFilter = new URLSearchParams(location.search).get("tripFilter") || "";
   const scopeInput = $("tally-scope");
   const recordCurrencyInput = $("tally-record-currency");
@@ -131,7 +132,7 @@
 
   function saveState() {
     state = Core.writeState(state);
-    window.dispatchEvent(new CustomEvent("daily-space-agent-data-updated", { detail: { domains: ["tally"] } }));
+    window.dispatchEvent(new CustomEvent("daily-space-agent-data-updated", { detail: { domains: ["tally"], source: "tally-page" } }));
   }
 
   function viewAnchorDate() {
@@ -239,11 +240,16 @@
     return "¥";
   }
 
+  let recordsSignature = "";
   function renderRecords() {
     const monthRecords = recordsForMonth(activeRecords(), viewYear, viewMonth).sort((a, b) => {
       if (a.date !== b.date) return b.date.localeCompare(a.date);
       return state.records.indexOf(a) - state.records.indexOf(b);
     });
+    const tripNames = new Map(window.DailySpaceTripExpenses.trips().map(trip => [trip.ref, trip.name]));
+    const signature = JSON.stringify([viewMode, monthRecords, state.baseCurrency, state.people, uiLocale(), todayIso(), [...tripNames]]);
+    if (signature === recordsSignature) return;
+    recordsSignature = signature;
     const groups = new Map();
     monthRecords.forEach((record) => {
       if (!groups.has(record.date)) groups.set(record.date, []);
@@ -280,7 +286,7 @@
           <div class="tally-record-main">
             <div class="tally-record-category">${escapeHtml(record.category)}</div>
             <div class="tally-record-note">${escapeHtml(detail)}</div>
-            ${record.tripId ? `<div class="tally-record-trip" data-i18n-ignore>${escapeHtml(window.DailySpaceTripExpenses.trips().find(trip => trip.ref === record.tripId)?.name || record.tripName || (isZh() ? "关联行程" : "Linked trip"))}</div>` : ""}
+            ${record.tripId ? `<div class="tally-record-trip" data-i18n-ignore>${escapeHtml(tripNames.get(record.tripId) || record.tripName || (isZh() ? "关联行程" : "Linked trip"))}</div>` : ""}
           </div>
           <div class="tally-record-amount">${originalMoney(record)}${converted}</div>
           <button type="button" class="tally-record-delete" aria-label="Delete record">×</button>
@@ -320,7 +326,14 @@
     recordListEl.hidden = isEmpty;
   }
 
-  function renderPeople() {
+  let peopleSignature = "";
+  function renderPeople(reset = false) {
+    const signature = JSON.stringify([state.people, uiLocale()]);
+    if (!reset && signature === peopleSignature) return;
+    peopleSignature = signature;
+    const preserve = !reset && !addSheet.hidden;
+    const payer = paidByInput.value;
+    const checked = [...splitPeopleEl.querySelectorAll("input:checked")].map(input => input.value);
     peopleListEl.innerHTML = state.people
       .map(
         (person) =>
@@ -331,7 +344,7 @@
       .map((person) => `<option value="${escapeHtml(person.id)}">${escapeHtml(person.name)}</option>`)
       .join("");
     const selected = new Set(
-      editingId
+      preserve ? checked : editingId
         ? state.records.find((record) => record.id === editingId)?.splitAmongIds || []
         : state.people.map((person) => person.id)
     );
@@ -345,6 +358,7 @@
         `
       )
       .join("");
+    if (preserve && state.people.some(person => person.id === payer)) paidByInput.value = payer;
   }
 
   function renderSettlement() {
@@ -463,8 +477,9 @@
     submitBtn.textContent = editing ? "Save changes" : "Add transaction";
   }
 
+  const sheetMotion = window.DailySpaceDialogHistory.motion(addSheet);
   const sheetHistory = window.DailySpaceDialogHistory.create("tally", {
-    isOpen: () => !addSheet.hidden,
+    isOpen: () => !addSheet.hidden && !sheetMotion.closing,
     restore: data => {
       const record = data?.id ? state.records.find(item => item.id === data.id) : null;
       if (data?.id && !record) return;
@@ -474,20 +489,19 @@
   });
   const fitSheet = window.DailySpaceDialogHistory.fitViewport(addSheet);
   function saveDraft() {
-    if (addSheet.hidden) return;
+    if (addSheet.hidden || sheetMotion.closing) return;
     window.DailySpaceView.write("tally", { draft: { id: editingId, date: dateInput.value,
       amount: amountInput.value, category: categoryInput.value, note: noteInput.value,
       tripId: tripInput.value || null, tripName: tripInput.selectedOptions[0]?.dataset.tripName || "",
       scope: scopeInput.value, currency: recordCurrencyInput.value, fxRate: fxRateInput.value,
       paidById: paidByInput.value, splitAmongIds: Array.from(splitPeopleEl.querySelectorAll("input:checked")).map(input => input.value) } });
   }
-  function setSheetOpen(open, record, fromHistory = false, preserve = true) {
+  function setSheetOpen(open, record, fromHistory = false, preserve = true, immediate = false) {
     if (!open) {
-      if (addSheet.hidden) return;
+      if (addSheet.hidden || (sheetMotion.closing && !immediate)) return;
       if (preserve) saveDraft();
       editingId = null;
-      addSheet.hidden = true;
-      document.body.classList.remove("tally-sheet-open");
+      sheetMotion.close(() => document.body.classList.remove("tally-sheet-open"), immediate);
       if (!fromHistory) sheetHistory.back();
       return;
     }
@@ -504,21 +518,24 @@
     recordCurrencyInput.value = value?.currency || state.baseCurrency;
     fxRateInput.value = String(value?.fxRate || 1);
     syncSheetMode();
-    renderPeople();
+    renderPeople(true);
     paidByInput.value = value?.paidById || state.selfPersonId;
     syncSharedFields();
     if (value?.splitAmongIds) splitPeopleEl.querySelectorAll("input").forEach(input => { input.checked = value.splitAmongIds.includes(input.value); });
     syncCategorySuggestions(categoryInput.value);
-    addSheet.hidden = false;
+    extraOptions.open = Boolean(value?.note || tripInput.value || scopeInput.value === "shared" || recordCurrencyInput.value !== state.baseCurrency);
+    form.scrollTop = 0;
+    sheetMotion.open();
     document.body.classList.add("tally-sheet-open");
     fitSheet();
     amountInput.focus({ preventScroll: true });
   }
   form.addEventListener("input", saveDraft);
   form.addEventListener("change", saveDraft);
+  form.addEventListener("invalid", event => { if (extraOptions.contains(event.target)) extraOptions.open = true; }, true);
   window.addEventListener("pagehide", saveDraft);
   window.addEventListener("daily-space-auth-updated", () => {
-    setSheetOpen(false, null, false, false);
+    setSheetOpen(false, null, false, false, true);
     form.reset();
     state = Core.readState();
     render();
@@ -526,6 +543,7 @@
 
   form.addEventListener("submit", (event) => {
     event.preventDefault();
+    if (sheetMotion.closing) return;
     const amount = Number(amountInput.value);
     const category = categoryInput.value.trim();
     const shared = scopeInput.value === "shared";
@@ -711,6 +729,7 @@
   });
   window.addEventListener("daily-space-agent-data-updated", (event) => {
     if (!Array.isArray(event.detail?.domains) || !event.detail.domains.includes("tally")) return;
+    if (event.detail.source === "tally-page") return;
     state = Core.readState();
     render();
   });

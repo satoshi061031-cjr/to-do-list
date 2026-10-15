@@ -1061,8 +1061,9 @@
   reminderForm.before(reminderHome);
   dayTaskForm.before(taskHome);
   let editorKind = "reminder";
+  const editorMotion = window.DailySpaceDialogHistory.motion(editor);
   const editorHistory = window.DailySpaceDialogHistory.create("calendar", {
-    isOpen: () => !editor.hidden,
+    isOpen: () => !editor.hidden && !editorMotion.closing,
     restore: data => openEditor(data?.kind || "reminder", true),
     close: () => closeEditor(true),
   });
@@ -1081,7 +1082,7 @@
     document.querySelectorAll("[data-calendar-kind]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.calendarKind === editorKind)));
   }
   function saveEditorDraft() {
-    if (editor.hidden) return;
+    if (editor.hidden || editorMotion.closing) return;
     window.DailySpaceView.write("calendar", { draft: { kind: editorKind, task: dayTaskInput.value,
       reminder: reminderInput.value, start: reminderStartInput.value, end: reminderEndInput.value,
       priority: reminderPriorityInput.value } });
@@ -1098,17 +1099,15 @@
     }
     chooseEditorKind(kind);
     editorDate.textContent = formatDueDate(selectedDate);
-    editor.hidden = false;
+    editorMotion.open();
     document.body.classList.add("calendar-editor-open");
     fitEditor();
     (editorKind === "task" ? dayTaskInput : reminderInput).focus({ preventScroll: true });
   }
-  function closeEditor(fromHistory = false, preserve = true) {
-    if (editor.hidden) return;
+  function closeEditor(fromHistory = false, preserve = true, immediate = false) {
+    if (editor.hidden || (editorMotion.closing && !immediate)) return;
     if (preserve) saveEditorDraft();
-    editor.hidden = true;
-    restoreForms();
-    document.body.classList.remove("calendar-editor-open");
+    editorMotion.close(() => { restoreForms(); document.body.classList.remove("calendar-editor-open"); }, immediate);
     if (!fromHistory) editorHistory.back();
   }
   document.getElementById("calendar-capture").addEventListener("click", () => openEditor());
@@ -1125,7 +1124,7 @@
     if (event.key === "Escape" && !editor.hidden) closeEditor();
   });
   window.addEventListener("daily-space-auth-updated", () => {
-    closeEditor(false, false);
+    closeEditor(false, false, true);
     dayTaskInput.value = reminderInput.value = reminderStartInput.value = reminderEndInput.value = "";
   });
 
@@ -1208,6 +1207,7 @@
   if (reminderForm) {
     reminderForm.addEventListener("submit", (e) => {
       e.preventDefault();
+      if (editorMotion.closing) return;
       const before = reminders.length;
       addReminder(
         reminderInput.value,
@@ -1225,6 +1225,7 @@
   if (dayTaskForm && dayTaskInput) {
     dayTaskForm.addEventListener("submit", (e) => {
       e.preventDefault();
+      if (editorMotion.closing) return;
       addTaskForSelectedDay(dayTaskInput.value);
       dayTaskInput.value = "";
       if (!editor.hidden) {

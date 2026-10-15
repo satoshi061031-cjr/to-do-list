@@ -94,11 +94,14 @@
     hide();
   });
 
-  window.addEventListener("resize", () => {
-    if (bar && !bar.hidden) clearBottomChrome();
-  });
+  let positionFrame = 0;
+  function reposition() {
+    if (!bar || bar.hidden || positionFrame) return;
+    positionFrame = requestAnimationFrame(() => { positionFrame = 0; if (bar && !bar.hidden) clearBottomChrome(); });
+  }
+  window.addEventListener("resize", reposition);
 
   window.addEventListener("daily-space-auth-updated", hide);
 
-  window.DailySpaceUndo = { offer, hide };
+  window.DailySpaceUndo = { offer, hide, reposition };
 })();

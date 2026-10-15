@@ -120,6 +120,24 @@
 
   // Use one history entry per editor so the phone Back gesture closes it first.
   window.DailySpaceDialogHistory = {
+    // Keep isolation and focus trapping active until the exit finishes.
+    motion(root) {
+      let timer = null;
+      root.classList.add("workspace-sheet-motion");
+      root.querySelector('[role="dialog"]').dataset.sheetPanel = "";
+      root.firstElementChild.dataset.sheetBackdrop = "";
+      const cancel = () => { clearTimeout(timer); timer = null; root.classList.remove("is-closing"); };
+      return {
+        get closing() { return root.classList.contains("is-closing"); },
+        open() { cancel(); root.hidden = false; },
+        close(done, immediate = false) {
+          cancel();
+          const finish = () => { root.hidden = true; cancel(); done?.(); window.DailySpaceUndo?.reposition(); };
+          if (root.hidden || immediate || matchMedia("(prefers-reduced-motion: reduce)").matches) finish();
+          else { root.classList.add("is-closing"); timer = setTimeout(finish, 160); }
+        },
+      };
+    },
     create(key, { isOpen, restore, close }) {
       let closing = false;
       window.addEventListener("popstate", () => {
@@ -131,8 +149,9 @@
       return {
         push(data) {
           if (closing) return false;
-          if (history.state?.workspaceSheet?.key !== key) history.pushState({ ...history.state,
-            workspaceSheet: { key, data, owner: window.DailySpaceView?.owner() } }, "", location.href);
+          const next = { ...history.state, workspaceSheet: { key, data, owner: window.DailySpaceView?.owner() } };
+          if (history.state?.workspaceSheet?.key !== key) history.pushState(next, "", location.href);
+          else history.replaceState(next, "", location.href);
           return true;
         },
         back() {

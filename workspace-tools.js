@@ -34,10 +34,11 @@
     const header=node('header');const title=node('h2');title.id='workspace-tool-title';const dismiss=action('×',()=>close());dismiss.dataset.dialogClose='';dismiss.setAttribute('aria-label',t('Close','关闭'));header.append(title,dismiss);
     const body=node('div','','workspace-tool-body');const footer=node('footer','','workspace-tool-footer');const status=node('p','','workspace-tool-status');status.setAttribute('role','status');status.setAttribute('aria-live','polite');
     panel.append(header,body,status,footer);root.append(backdrop,panel);document.body.append(root);window.DailySpaceDialogHistory.fitViewport(root);
-    const history=window.DailySpaceDialogHistory.create('workspace-tools',{isOpen:()=>!root.hidden,restore:data=>open(data.mode,false),close:()=>close(true)});
-    function close(fromHistory=false){root.hidden=true;document.body.classList.remove('workspace-tool-open');fileGeneration++;pending=null;if(!fromHistory)history.back();}
-    function show(next,push=true){if(!root.hidden)close(true);mode=next;pendingOwner=window.DailySpaceView.owner();status.textContent='';body.replaceChildren();footer.replaceChildren();root.hidden=false;document.body.classList.add('workspace-tool-open');if(push)history.push({mode:next});}
-    function open(next,push=true){show(next,push);if(next==='templates')templates();else transfer();}
+    const motion=window.DailySpaceDialogHistory.motion(root);
+    const history=window.DailySpaceDialogHistory.create('workspace-tools',{isOpen:()=>!root.hidden&&!motion.closing,restore:data=>open(data.mode,false),close:()=>close(true)});
+    function close(fromHistory=false,immediate=false){if(motion.closing&&!immediate)return;fileGeneration++;pending=null;motion.close(()=>document.body.classList.remove('workspace-tool-open'),immediate);if(!fromHistory)history.back();}
+    function show(next,push=true){if(push&&!history.push({mode:next}))return false;fileGeneration++;pending=null;mode=next;pendingOwner=window.DailySpaceView.owner();status.textContent='';body.replaceChildren();footer.replaceChildren();motion.open();document.body.classList.add('workspace-tool-open');return true;}
+    function open(next,push=true){if(!show(next,push))return;if(next==='templates')templates();else transfer();body.scrollTop=0;}
     function builtins(){return [
       {id:'builtin-focus',name:t('A focused day','专注的一天'),items:[{text:t('Choose today’s most important task','确定今天最重要的一件事')},{text:t('Make time for focused work','安排一段专注时间')},{text:t('Reflect on today','做一次简短复盘')}]},
       {id:'builtin-review',name:t('Weekly review','每周复盘'),items:[{text:t('Review the week','回顾这一周'),subtasks:[{text:t('Review unfinished tasks','检查未完成的任务')},{text:t('Note what worked','记录有效的做法')},{text:t('Choose next week’s priorities','确定下周的重点')}]}]},
@@ -46,14 +47,15 @@
     function writeTemplates(items){localStorage.setItem(Core.TEMPLATE_KEY,JSON.stringify({version:1,templates:items}));emit(['templates']);}
     function templates(){
       title.textContent=t('Task templates','任务模板');const list=node('div','','workspace-template-list');let chosen=null;const apply=action(t('Add these tasks','添加这些任务'),()=>{
-        try{if(!chosen||!Core.date(day.value)||pendingOwner!==window.DailySpaceView.owner())return;window.DailySpaceTaskDetails?.clearSelection?.();const tasks=window.DailySpaceTodo.createTasks(Core.instantiate(chosen,day.value));window.DailySpaceTodo.selectDueDay(day.value);window.DailySpaceTodo.setFilter('active');close();}catch(error){status.textContent=errorText(error);}
+        try{if(motion.closing||!chosen||!Core.date(day.value)||pendingOwner!==window.DailySpaceView.owner())return;window.DailySpaceTaskDetails?.clearSelection?.();const tasks=window.DailySpaceTodo.createTasks(Core.instantiate(chosen,day.value));window.DailySpaceTodo.selectDueDay(day.value);window.DailySpaceTodo.setFilter('active');close();}catch(error){status.textContent=errorText(error);}
       });apply.className='btn btn-primary';apply.disabled=true;
       const dateLabel=node('label',t('Start date','开始日期'));const day=node('input');day.type='date';day.value=window.DailySpaceTodo?.getView().day||window.DailySpaceLoop.todayIso();day.required=true;dateLabel.append(day);
       const preview=node('ul','','workspace-template-preview');
       [...builtins(),...readTemplates()].forEach(template=>{const row=node('div','','workspace-template-row');const pick=action(template.name,()=>{chosen=template;list.querySelectorAll('button[data-template-id]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.templateId===template.id)));preview.replaceChildren(...template.items.map(item=>node('li',`${item.text}${item.offsetDays?` · +${item.offsetDays} ${t('days','天')}`:''}`)));apply.disabled=false;});pick.dataset.templateId=template.id;pick.setAttribute('aria-pressed','false');row.append(pick);
         if(!template.id.startsWith('builtin-')){const edit=action(t('Edit','编辑'),()=>editTemplate(template));const remove=action('×',()=>{const previous=readTemplates();writeTemplates(previous.filter(item=>item.id!==template.id));close();window.DailySpaceUndo?.offer(t('Template deleted','已删除模板'),()=>{const current=readTemplates();if(!current.some(item=>item.id===template.id)){writeTemplates([...current,template]);if(!root.hidden&&mode==='templates')templates();}});});remove.setAttribute('aria-label',t('Delete template','删除模板'));row.append(edit,remove);}list.append(row);});
-      body.replaceChildren(node('p',t('Reuse a checklist or start with a simple routine.','复用常用清单，或从一个简单的日常安排开始。')),list,dateLabel,preview);
-      footer.replaceChildren(action(t('New template','新建模板'),()=>editTemplate(null)),apply);footer.append(action(t('Import & backup','导入与备份'),()=>open('transfer')));
+      const create=action(t('New template','新建模板'),()=>editTemplate(null));create.className='workspace-template-create';
+      body.replaceChildren(node('p',t('Reuse a checklist or start with a simple routine.','复用常用清单，或从一个简单的日常安排开始。')),list,create,dateLabel,preview);
+      footer.replaceChildren(apply);
     }
     function editTemplate(existing,selectedTasks){
       editingTemplateId=existing?.id||null;title.textContent=t('Save a task template','保存任务模板');body.replaceChildren();footer.replaceChildren();status.textContent='';
@@ -72,7 +74,7 @@
       title.textContent=t('Import & backup','导入与备份');const label=node('label',t('File format','文件格式'));const format=node('select');format.id='workspace-import-format';for(const [key,en,zh]of[['json','Daily Space JSON backup','Daily Space JSON 备份'],['todo','Task CSV','待办 CSV'],['tally','Expense CSV','记账 CSV']])format.add(new Option(t(en,zh),key));label.append(format);
       const fileLabel=node('label',t('Choose a file','选择文件'));const file=node('input');file.type='file';file.accept='.json,.csv,application/json,text/csv';file.id='workspace-import-file';fileLabel.append(file);
       const preview=node('div','','workspace-import-preview');preview.id='workspace-import-preview';const commit=action(t('Merge import','合并导入'),()=>{
-        try{if(!pending||pendingOwner!==window.DailySpaceView.owner())return;Core.apply(pending,localStorage);const domains=Object.keys(pending.payload).map(key=>({'todo-app-v2':'todo','calendar-app-v1':'calendar','planner-app-v1':'planner','tally-book-v1':'tally','travel-book-v1':'travel','task-templates-v1':'templates'}[key]));
+        try{if(motion.closing||!pending||pendingOwner!==window.DailySpaceView.owner())return;Core.apply(pending,localStorage);const domains=Object.keys(pending.payload).map(key=>({'todo-app-v2':'todo','calendar-app-v1':'calendar','planner-app-v1':'planner','tally-book-v1':'tally','travel-book-v1':'travel','task-templates-v1':'templates'}[key]));
           const linked=window.DailySpaceTasks?.syncLinkedWork({silent:true});emit(linked?.changed?[...new Set([...domains,'todo','calendar','planner'])]:domains);status.textContent=t('Imported. Existing records were kept.','导入完成，已保留现有记录。');pending=null;commit.disabled=true;
         }catch(error){status.textContent=errorText(error);pending=null;commit.disabled=true;}
       });commit.id='workspace-import-apply';commit.className='btn btn-primary';commit.disabled=true;
@@ -89,11 +91,11 @@
     }
     const chromeLabels=[];const chromeAction=(en,zh,run)=>{const control=action(t(en,zh),run);control.dataset.i18nIgnore='';chromeLabels.push({control,en,zh});return control;};
     const api=window.DailySpaceTodo;
-    if(api){const head=document.querySelector('.task-selection-head');if(head){const shortcuts=node('div','','workspace-task-shortcuts');shortcuts.append(chromeAction('Templates','模板',()=>open('templates')),chromeAction('Import & backup','导入与备份',()=>open('transfer')));head.prepend(shortcuts);}}
+    if(api){const anchor=document.querySelector('.m-add-bar')||document.getElementById('add-form');if(anchor){const shortcuts=node('div','','workspace-task-shortcuts');shortcuts.append(chromeAction('Templates','模板',()=>open('templates')));if(anchor.matches('.m-add-bar'))anchor.prepend(shortcuts);else anchor.after(shortcuts);}}
     const menu=document.querySelector('#tally-tools .workspace-menu-panel');if(menu)menu.append(chromeAction('Import & backup','导入与备份',()=>{document.getElementById('tally-tools').open=false;open('transfer');}));
     const account=document.querySelector('.auth-modal .auth-provider-list');if(account){const control=chromeAction('Import & backup','导入与备份',()=>open('transfer'));control.className='auth-data-tools';account.after(control);}
-    window.DailySpaceWorkspaceTools={open:()=>open('transfer'),openTemplates:()=>open('templates'),saveTemplate(ids){selection=window.DailySpaceTodo.getTasks().filter(task=>ids.includes(task.id));show('templates');try{editTemplate(null,selection);}catch(error){status.textContent=errorText(error);}}};
-    window.addEventListener('daily-space-auth-updated',()=>{close(true);pendingOwner='';selection=[];});
+    window.DailySpaceWorkspaceTools={open:()=>open('transfer'),openTemplates:()=>open('templates'),saveTemplate(ids){selection=window.DailySpaceTodo.getTasks().filter(task=>ids.includes(task.id));if(!show('templates'))return;try{editTemplate(null,selection);}catch(error){status.textContent=errorText(error);}}};
+    window.addEventListener('daily-space-auth-updated',()=>{close(true,true);pendingOwner='';selection=[];});
     window.addEventListener('daily-space-locale-changed',()=>{chromeLabels.forEach(({control,en,zh})=>control.textContent=t(en,zh));if(!root.hidden)close();});
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();

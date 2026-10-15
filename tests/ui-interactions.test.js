@@ -198,6 +198,7 @@ test("browser interactions on desktop and touch screens", { timeout: 120_000 }, 
     await row.click();
     await page.locator("#tally-add-sheet").waitFor({ state: "visible" });
     await page.keyboard.press("Escape");
+    await page.locator("#tally-add-sheet").waitFor({ state: "hidden" });
     assert.ok(await row.evaluate(node => document.activeElement === node));
   });
 
@@ -787,6 +788,8 @@ test("browser interactions on desktop and touch screens", { timeout: 120_000 }, 
     assert.ok(await page.locator("#tally-add-sheet").isVisible(), "a zero amount must stay in the editor");
     await page.locator("#tally-amount").fill("23");
     await page.locator("#tally-category").fill("Dinner");
+    assert.equal(await page.locator("#tally-note").isVisible(), false);
+    await page.locator("#tally-extra-options > summary").click();
     await page.locator("#tally-note").fill("A saved draft");
     await page.goBack();
     await page.locator("#tally-add-sheet").waitFor({ state: "hidden" });
@@ -805,6 +808,7 @@ test("browser interactions on desktop and touch screens", { timeout: 120_000 }, 
     assert.ok(save.y >= 0 && save.y + save.height <= 420);
     await page.locator("#tally-submit").click();
     await page.waitForFunction(() => !history.state?.workspaceSheet);
+    await page.locator("#tally-add-sheet").waitFor({ state: "hidden" });
     assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem("tally-book-v1")).records.filter(item => item.note === "A saved draft").length), 1);
     await page.setViewportSize({ width: 390, height: 844 });
     await page.locator("#tally-tools > summary").click();
@@ -820,6 +824,58 @@ test("browser interactions on desktop and touch screens", { timeout: 120_000 }, 
     assert.equal(await page.locator("#tally-month-title").textContent(), month);
     await page.setViewportSize({ width: 1280, height: 900 });
     await captureMail(page, "tally-desktop-dark.png");
+  });
+
+  await t.test("expense capture preserves optional fields through refresh and saves without rebuilding twice", async () => {
+    const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await seedWorkspace(page);
+    await page.goto(`${base}/tally.html`, { waitUntil: "load" });
+    await page.evaluate(() => {
+      const state = JSON.parse(localStorage.getItem("tally-book-v1"));
+      state.people.push({ id: "friend", name: "Friend", isSelf: false });
+      localStorage.setItem("tally-book-v1", JSON.stringify(state));
+      window.dispatchEvent(new CustomEvent("daily-space-agent-data-updated", { detail: { domains: ["tally"] } }));
+      window.keptExpenseRow = document.querySelector(".tally-record");
+    });
+    await page.locator("#tally-add-open").click();
+    assert.equal(await page.locator("#tally-extra-options").getAttribute("open"), null);
+    await page.locator("#tally-amount").fill("25");
+    await page.locator("#tally-category").fill("Lunch together");
+    await page.locator("#tally-extra-options > summary").click();
+    await page.locator("#tally-note").fill("Keep this draft");
+    await page.locator("#tally-scope").selectOption("shared");
+    await page.locator("#tally-paid-by").selectOption("friend");
+    await page.locator('#tally-split-people input:not([value="friend"])').uncheck();
+    await page.locator("#tally-note").focus();
+    await page.evaluate(() => {
+      const state = JSON.parse(localStorage.getItem("tally-book-v1"));
+      state.budget += 50;
+      localStorage.setItem("tally-book-v1", JSON.stringify(state));
+      window.dispatchEvent(new CustomEvent("daily-space-agent-data-updated", { detail: { domains: ["tally"] } }));
+    });
+    assert.equal(await page.evaluate(() => window.keptExpenseRow === document.querySelector(".tally-record")), true, "budget refresh must keep the unchanged record row");
+    assert.equal(await page.locator("#tally-paid-by").inputValue(), "friend");
+    assert.equal(await page.locator("#tally-split-people input:checked").count(), 1);
+    assert.equal(await page.evaluate(() => document.activeElement.id), "tally-note");
+    await page.keyboard.press("Escape");
+    await page.locator("#tally-add-sheet").waitFor({ state: "hidden" });
+    await page.locator("#tally-add-open").click();
+    assert.equal(await page.locator("#tally-note").isVisible(), true);
+    assert.equal(await page.locator("#tally-paid-by").inputValue(), "friend");
+    await page.evaluate(() => {
+      window.recordGroupsAdded = 0;
+      new MutationObserver(changes => { for (const change of changes) for (const node of change.addedNodes) if (node.classList?.contains("tally-record-group")) window.recordGroupsAdded++; }).observe(document.getElementById("tally-record-list"), { childList: true });
+    });
+    await page.locator("#tally-submit").click();
+    await page.locator("#tally-add-sheet").waitFor({ state: "hidden" });
+    const result = await page.evaluate(() => ({ added: window.recordGroupsAdded, record: JSON.parse(localStorage.getItem("tally-book-v1")).records.find(record => record.note === "Keep this draft"), draft: window.DailySpaceView.read("tally").draft }));
+    assert.equal(result.added, 1, "saving should insert the shared date group once");
+    assert.equal(result.record.paidById, "friend");
+    assert.deepEqual(result.record.splitAmongIds, ["friend"]);
+    assert.equal(result.draft, null);
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.locator("#tally-add-open").click();
+    assert.equal(await page.evaluate(() => { document.getElementById("tally-add-close").click(); return document.getElementById("tally-add-sheet").hidden; }), true);
   });
 
   await t.test("workspace search opens the exact completed task, old expense, reminder, card and trip", async () => {
@@ -992,8 +1048,13 @@ test("browser interactions on desktop and touch screens", { timeout: 120_000 }, 
   await t.test("templates apply fresh checklists on a chosen date, save selections and undo creation", async () => {
     const page=await pageFor({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
     await page.goto(`${base}/todo-m.html`,{waitUntil:'load'});
+    assert.equal(await page.locator('.task-selection-head .workspace-task-shortcuts').count(),0);
+    assert.equal(await page.locator('.m-add-bar .workspace-task-shortcuts button').count(),1);
     await page.locator('.workspace-task-shortcuts button').first().click();
     await page.locator('[data-template-id=builtin-review]').click();
+    assert.equal(await page.locator('[data-template-id=builtin-review]').getAttribute('aria-pressed'),'true');
+    assert.equal(await page.locator('[data-template-id=builtin-focus]').getAttribute('aria-pressed'),'false');
+    assert.equal(await page.locator('.workspace-tool-footer button').count(),1);
     await page.locator('.workspace-tool-body input[type=date]').fill('2026-12-31');
     await trapped(page,'.workspace-tool-panel');
     await captureMail(page,'templates-390-light.png');
@@ -1021,7 +1082,8 @@ test("browser interactions on desktop and touch screens", { timeout: 120_000 }, 
 
   await t.test("file preview merges CSV safely, re-imports once and rejects stale or malformed data", async () => {
     const page=await pageFor({viewport:{width:390,height:844},isMobile:true,hasTouch:true});const remote=[];page.on('request',request=>{if(request.url().includes('/api/user/snapshot')&&request.method()==='PUT')remote.push(request.url());});
-    await page.goto(`${base}/todo-m.html`,{waitUntil:'load'});await page.locator('.workspace-task-shortcuts button').nth(1).click();
+    await page.goto(`${base}/todo-m.html`,{waitUntil:'load'});
+    await page.locator('#bento-menu-toggle').click();await page.locator('.sidebar-auth-entry').click();await page.locator('.auth-data-tools').click();
     await page.locator('#workspace-import-format').selectOption('todo');
     const file={name:'tasks.csv',mimeType:'text/csv',buffer:Buffer.from('text,dueDate,dueTime,category,notes\n"A new, useful task",2026-10-14,14:00,Work,"Two lines\nwith detail"')};
     await page.locator('#workspace-import-file').setInputFiles(file);await page.locator('#workspace-import-apply:not([disabled])').waitFor();
