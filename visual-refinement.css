@@ -813,6 +813,7 @@ body.todo-mobile .task-batch-bar { bottom: calc(86px + env(safe-area-inset-botto
 body .page-action-cluster.has-workspace-agent { min-height: 44px; padding-inline-end: calc(44px + var(--space-sm)); box-sizing: border-box; flex-direction: row; align-items: flex-start; }
 body .page-action-cluster .workspace-agent-button { position: absolute; inset: 0 0 auto auto; display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; min-width: 44px; flex-shrink: 0; margin: 0; padding: 0; border: 0; border-radius: var(--radius-pill); color: var(--text); background: var(--surface); box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; transform: none; }
 body .page-action-cluster .workspace-agent-button:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
+body .page-action-cluster .workspace-agent-button .todo-agent-fab-ghost { width: var(--space-lg); height: var(--space-lg); object-fit: contain; pointer-events: none; }
 body .todo-agent.todo-agent-header-host { position: static; inset: auto; width: 0; height: 0; z-index: auto; }
 .reminder-settings { margin: var(--space-md) 0; color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
 .reminder-settings summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; }

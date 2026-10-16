@@ -97,7 +97,7 @@
   panel.className = "todo-agent";
   panel.innerHTML = `
     <button type="button" class="todo-agent-fab" aria-expanded="false" aria-controls="todo-agent-overlay" aria-label="Open Daily Space Agent">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5Z"/></svg>
+      <img class="todo-agent-fab-ghost" src="welcome-sticker.png" width="28" height="28" alt="" aria-hidden="true" draggable="false" />
     </button>
     <div data-dialog-root class="todo-agent-overlay" id="todo-agent-overlay" hidden>
       <button type="button" class="todo-agent-backdrop" aria-label="Close agent"></button>
