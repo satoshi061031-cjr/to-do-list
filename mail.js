@@ -158,6 +158,7 @@
 
   function updateHero() {
     const connected = readyAccounts().length > 0;
+    document.body.classList.toggle("mail-connect-view", !connected);
     if (titleEl) titleEl.textContent = "Mail";
     if (refreshBtn) refreshBtn.hidden = !connected;
     if (tools) tools.hidden = !signedIn;

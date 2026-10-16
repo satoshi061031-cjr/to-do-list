@@ -450,6 +450,22 @@ body.mail-page .mail-connect-panel { padding: var(--space-lg) 0; box-shadow: non
 body.mail-page .mail-connect-panel h2 { margin: 0; font-size: var(--type-title-size); font-weight: var(--phone-title-weight); }
 body.mail-page .mail-connect-hint { font-size: var(--phone-body-size); line-height: var(--phone-body-lh); letter-spacing: 0; margin: var(--space-sm) 0 var(--space-md); }
 body.mail-page .mail-signin-space { width: auto; min-height: 48px; padding-inline: var(--space-lg); margin: 0; }
+body.mail-page.mail-connect-view .mail-app { min-height: calc(100dvh - var(--space-xl) * 2); grid-template-rows: auto 1fr; align-content: stretch; padding-bottom: 0; }
+body.mail-page.mail-connect-view .mail-connect-panel:not([hidden]) { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; min-width: 0; padding: var(--space-md) 0 var(--space-xl); }
+body.mail-page .mail-connect-mark { display: grid; place-items: center; flex-shrink: 0; width: calc(var(--space-lg) * 2); height: calc(var(--space-lg) * 2); margin-bottom: var(--space-md); border-radius: var(--radius-pill); background: var(--surface); color: var(--text-muted); }
+body.mail-page .mail-connect-mark svg { width: var(--space-lg); height: var(--space-lg); }
+body.mail-page .mail-connect-panel .mail-connect-hint { max-width: 34ch; margin: var(--space-sm) 0 var(--space-lg); }
+body.mail-page .mail-connect-panel .mail-oauth-quick { width: auto; max-width: 100%; margin: 0; }
+body.mail-page .mail-connect-panel .mail-oauth-btn { justify-content: center; min-height: 48px; padding-inline: var(--space-lg); }
+@media (max-width: 819px) {
+  body.mail-page.mail-connect-view .mail-app { min-height: calc(100dvh - 7rem - env(safe-area-inset-bottom, 0px) - var(--space-md) * 2); }
+}
+@media (max-width: 819px) and (max-height: 520px) {
+  body.mail-page.mail-connect-view .mail-app { gap: var(--space-md); }
+  body.mail-page.mail-connect-view .mail-connect-panel:not([hidden]) { padding: var(--space-sm) 0 var(--space-md); }
+  body.mail-page .mail-connect-mark { width: var(--space-xl); height: var(--space-xl); margin-bottom: var(--space-sm); }
+  body.mail-page .mail-connect-panel .mail-connect-hint { margin-bottom: var(--space-md); }
+}
 body.mail-page .mail-inbox-panel { padding: 0; }
 body.mail-page .mail-digest-section { padding: 0 0 var(--space-md); margin: 0 0 var(--space-md); border-bottom: 1px solid var(--quiet-line); }
 body.mail-page .mail-digest-section > summary { display: flex; align-items: center; justify-content: space-between; min-height: 44px; list-style: none; cursor: pointer; font-size: var(--phone-body-size); font-weight: var(--phone-task-weight); }
