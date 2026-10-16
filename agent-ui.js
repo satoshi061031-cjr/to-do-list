@@ -164,6 +164,11 @@
   let busy = false;
   let configured = null;
   let statusMessageShown = false;
+  const agentHistory = window.DailySpaceDialogHistory.create("agent", {
+    isOpen: () => !overlay.hidden,
+    restore: () => setOpen(true, true),
+    close: () => setOpen(false, true),
+  });
 
   function publishStatus() {
     document.body.dataset.agentConfigured = configured === true ? "1" : "0";
@@ -205,7 +210,9 @@
     publishStatus();
   }
 
-  function setOpen(open) {
+  function setOpen(open, fromHistory = false) {
+    const wasOpen = !overlay.hidden;
+    if (open && !wasOpen && !fromHistory && !agentHistory.push({})) return false;
     if (host instanceof HTMLElement) {
       host.hidden = !open;
     }
@@ -216,6 +223,7 @@
     document.body.classList.toggle("todo-agent-open", open);
     document.body.classList.toggle("m-agent-sheet-open", mobileTodo && open);
     document.dispatchEvent(new CustomEvent("daily-space-agent-open", { detail: { open } }));
+    if (!open && wasOpen && !fromHistory) agentHistory.back();
     if (open) {
       if (messagesEl.childElementCount === 0) {
         appendMessage(
@@ -302,7 +310,7 @@
       } finally {
         busy = false;
         applyConfiguredUi();
-        input.focus();
+        if (!overlay.hidden) input.focus();
       }
       return;
     }
@@ -380,7 +388,7 @@
       window.clearTimeout(timeoutId);
       busy = false;
       applyConfiguredUi();
-      input.focus();
+      if (!overlay.hidden) input.focus();
     }
   }
 
@@ -417,10 +425,11 @@
   document.addEventListener("dailyspace:bento-rail-ready", mountInHeader);
 
   function focusComposer(seed) {
-    setOpen(true);
+    if (setOpen(true) === false) return;
     const text = typeof seed === "string" ? seed.trim() : "";
     if (text) input.value = text;
     queueMicrotask(function () {
+      if (overlay.hidden) return;
       input.focus();
       if (text) {
         const len = input.value.length;
@@ -439,4 +448,5 @@
     focusComposer,
     isPageMode: pageMode,
   };
+  if (history.state?.workspaceSheet?.key === "agent" && history.state.workspaceSheet.owner === window.DailySpaceView.owner()) setOpen(true, true);
 })();

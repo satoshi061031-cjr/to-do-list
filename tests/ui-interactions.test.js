@@ -60,6 +60,134 @@ test("browser interactions on desktop and touch screens", { timeout: 120_000 }, 
     }
   }
 
+  async function holdFxRequests(page) {
+    const queued = [], waiting = [];
+    await page.route("**/api/fx/rate?*", route => new Promise(release => {
+      const params = new URL(route.request().url()).searchParams;
+      const request = { from: params.get("from"), date: params.get("date"), async reply(rate, status = 200) {
+        // Older requests may already have been aborted by the editor.
+        await route.fulfill({ status, contentType: "application/json", body: JSON.stringify({ rate }) }).catch(() => {});
+        release();
+      } };
+      if (waiting.length) waiting.shift()(request); else queued.push(request);
+    }));
+    return () => queued.length ? Promise.resolve(queued.shift()) : new Promise(resolve => waiting.push(resolve));
+  }
+
+  await t.test("foreign expense rates ignore old currency/date responses and protect manual input", async () => {
+    const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await seedWorkspace(page);
+    const nextFx = await holdFxRequests(page);
+    await page.goto(`${base}/tally.html`, { waitUntil: "load" });
+    await page.locator("#tally-add-open").click();
+    await page.locator("#tally-extra-options > summary").click();
+    await page.locator("#tally-amount").fill("25");
+    await page.locator("#tally-category").fill("Manual foreign rate");
+    const originalCount = await page.evaluate(() => JSON.parse(localStorage.getItem("tally-book-v1")).records.length);
+    await page.locator("#tally-record-currency").selectOption("USD");
+    const usd = await nextFx();
+    assert.equal(await page.locator("#tally-fx-rate").inputValue(), "");
+    assert.equal(await page.locator("#tally-submit").isDisabled(), true);
+    await page.locator("#tally-form").evaluate(form => form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem("tally-book-v1")).records.length), originalCount);
+    await page.locator("#tally-record-currency").selectOption("EUR");
+    const eur = await nextFx();
+    await eur.reply(7.8);
+    await page.waitForFunction(() => document.getElementById("tally-fx-rate").value === "7.8");
+    await usd.reply(7.1);
+    assert.equal(await page.locator("#tally-fx-rate").inputValue(), "7.8");
+    assert.match(await page.locator("#tally-fx-help").textContent(), /EUR.*CNY/);
+    await page.locator("#tally-date").evaluate(input => { input.value = "2026-12-01"; input.dispatchEvent(new Event("change", { bubbles: true })); });
+    const oldDate = await nextFx();
+    await page.locator("#tally-date").evaluate(input => { input.value = "2026-12-02"; input.dispatchEvent(new Event("change", { bubbles: true })); });
+    const newDate = await nextFx();
+    assert.equal(newDate.date, "2026-12-02");
+    await newDate.reply(7.9);
+    await page.waitForFunction(() => document.getElementById("tally-fx-rate").value === "7.9");
+    await oldDate.reply(7.4);
+    assert.equal(await page.locator("#tally-fx-rate").inputValue(), "7.9");
+    await page.locator("#tally-date").evaluate(input => { input.value = "2026-12-03"; input.dispatchEvent(new Event("change", { bubbles: true })); });
+    const manual = await nextFx();
+    await page.locator("#tally-fx-rate").fill("6.95");
+    await manual.reply(8.1);
+    assert.equal(await page.locator("#tally-fx-rate").inputValue(), "6.95");
+    assert.equal(await page.locator("#tally-submit").isDisabled(), false);
+    await page.locator("#tally-submit").click();
+    await page.locator("#tally-add-sheet").waitFor({ state: "hidden" });
+    const record = await page.evaluate(() => JSON.parse(localStorage.getItem("tally-book-v1")).records.find(record => record.category === "Manual foreign rate"));
+    assert.equal(record.currency, "EUR"); assert.equal(record.fxRate, 6.95); assert.equal(record.date, "2026-12-03");
+  });
+
+  await t.test("FX requests cannot cross editor sessions or allow missing foreign rates to be saved", async () => {
+    const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await seedWorkspace(page);
+    const nextFx = await holdFxRequests(page);
+    await page.goto(`${base}/tally.html`, { waitUntil: "load" });
+    await page.locator("#tally-add-open").click();
+    await page.locator("#tally-extra-options > summary").click();
+    await page.locator("#tally-record-currency").selectOption("USD");
+    const closed = await nextFx();
+    await page.keyboard.press("Escape"); await page.locator("#tally-add-sheet").waitFor({ state: "hidden" });
+    await page.locator("#tally-add-open").click();
+    const restored = await nextFx();
+    await restored.reply(7.2); await page.waitForFunction(() => document.getElementById("tally-fx-rate").value === "7.2");
+    await closed.reply(9.9); assert.equal(await page.locator("#tally-fx-rate").inputValue(), "7.2");
+    await page.locator("#tally-record-currency").selectOption("EUR"); const oldForeign = await nextFx();
+    await page.locator("#tally-record-currency").selectOption("CNY"); await oldForeign.reply(8.4);
+    assert.equal(await page.locator("#tally-fx-rate").inputValue(), "1");
+    assert.equal(await page.locator("#tally-fx-field").isVisible(), false);
+    await page.locator("#tally-record-currency").selectOption("EUR"); const failed = await nextFx();
+    await failed.reply(null, 503); await page.waitForFunction(() => document.getElementById("tally-fx-field").getAttribute("aria-busy") === "false");
+    assert.equal(await page.locator("#tally-fx-rate").inputValue(), "");
+    await page.locator("#tally-amount").fill("30"); await page.locator("#tally-category").fill("After rate failure");
+    await page.locator("#tally-submit").click(); assert.equal(await page.locator("#tally-add-sheet").isVisible(), true);
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem("tally-book-v1")).records.some(record => record.category === "After rate failure")), false);
+    await page.locator("#tally-fx-rate").fill("7.7"); await page.locator("#tally-submit").click();
+    await page.locator("#tally-add-sheet").waitFor({ state: "hidden" });
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem("tally-book-v1")).records.find(record => record.category === "After rate failure").fxRate), 7.7);
+  });
+
+  await t.test("Agent Back and Forward preserve the page, unsent text and the opening control", async () => {
+    const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await page.goto(`${base}/tally.html`, { waitUntil: "load" });
+    await page.goto(`${base}/calendar.html`, { waitUntil: "load" });
+    const day = await page.locator("#selected-day-title").textContent();
+    const agent = page.locator("[data-workspace-agent]");
+    await agent.click(); await page.locator(".todo-agent-input").fill("Unsent question");
+    const length = await page.evaluate(() => history.length);
+    await page.evaluate(() => window.DailySpaceAgentUi.setOpen(true));
+    assert.equal(await page.evaluate(() => history.length), length);
+    await page.goBack(); await page.locator("#todo-agent-overlay").waitFor({ state: "hidden" });
+    assert.match(page.url(), /calendar\.html$/);
+    assert.equal(await page.locator("#selected-day-title").textContent(), day);
+    assert.equal(await agent.evaluate(node => node === document.activeElement), true);
+    await page.goForward(); await page.locator("#todo-agent-overlay").waitFor({ state: "visible" });
+    assert.equal(await page.locator(".todo-agent-input").inputValue(), "Unsent question");
+    await page.keyboard.press("Escape"); await page.waitForFunction(() => history.state?.workspaceSheet?.key !== "agent");
+    await agent.click(); await page.locator(".todo-agent-close").click();
+    await page.waitForFunction(() => history.state?.workspaceSheet?.key !== "agent");
+    await page.goBack({ waitUntil: "load" }); assert.match(page.url(), /tally\.html$/);
+  });
+
+  await t.test("late Agent replies do not steal focus after Back closes the dialog", async () => {
+    const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await page.route("**/api/agent/status", route => route.fulfill({ contentType: "application/json", body: JSON.stringify({ configured: true }) }));
+    let answer, markRequested;
+    const requested = new Promise(resolve => { markRequested = resolve; });
+    await page.route("**/api/agent", route => new Promise(release => {
+      answer = async () => { await route.fulfill({ contentType: "application/json", body: JSON.stringify({ reply: "Finished later", actions: [] }) }); release(); };
+      markRequested();
+    }));
+    await page.goto(`${base}/calendar.html`, { waitUntil: "load" });
+    await page.locator("[data-workspace-agent]").click();
+    await page.waitForFunction(() => document.body.dataset.agentConfigured === "1");
+    await page.locator(".todo-agent-input").fill("A question"); await page.locator(".todo-agent-send").click(); await requested;
+    await page.goBack(); await page.locator("#todo-agent-overlay").waitFor({ state: "hidden" });
+    await answer(); await page.waitForFunction(() => document.querySelector("#todo-agent-messages").textContent.includes("Finished later"));
+    assert.equal(await page.locator("[data-workspace-agent]").evaluate(node => node === document.activeElement), true);
+    assert.equal(await page.locator("#todo-agent-overlay").isVisible(), false);
+  });
+
   await t.test("Google sign-in and local Guest are consistent and preserve device data", async () => {
     const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
     const signins = [];
@@ -1120,7 +1248,19 @@ test("browser interactions on desktop and touch screens", { timeout: 120_000 }, 
     await page.addInitScript(()=>{if(sessionStorage.getItem('trip-expense-fixture'))return;sessionStorage.setItem('trip-expense-fixture','1');const state=JSON.parse(localStorage.getItem('tally-book-v1'));const lunch=state.records.find(record=>record.id==='lunch');lunch.tripId='focus-trip';lunch.tripName='Search destination trip';lunch.date='2026-11-04';state.records.push({id:'hotel-cost',date:'2026-11-04',amount:20,currency:'USD',fxRate:7.1,category:'Hotel',scope:'personal',tripId:'focus-trip',tripName:'Search destination trip'});localStorage.setItem('tally-book-v1',JSON.stringify(state));});
     await page.goto(`${base}/travel.html?focus=trip&id=focus-trip`,{waitUntil:'load'});
     await page.locator('#travel-expenses > summary').click();assert.ok((await page.locator('#travel-expenses > summary').textContent()).includes('190.00'));
-    await page.locator('.trip-expense-budget input').fill('200');await page.locator('.trip-expense-budget input').dispatchEvent('change');assert.ok((await page.locator('#travel-expenses').textContent()).includes('10.00'));
+    await page.locator('.trip-expense-history > summary').click();
+    await page.locator('.trip-expense-budget input').fill('200');
+    await page.evaluate(() => { window.keptTripBudget = document.querySelector('.trip-expense-budget input'); window.keptTripRecord = document.querySelector('.trip-expense-records a'); window.tripBudgetY = window.keptTripBudget.getBoundingClientRect().y; });
+    await page.locator('.trip-expense-budget input').dispatchEvent('change');
+    assert.ok((await page.locator('#travel-expenses').textContent()).includes('10.00'));
+    assert.equal(await page.locator('.trip-expense-history').evaluate(node => node.open), true);
+    assert.equal(await page.evaluate(() => window.keptTripBudget === document.querySelector('.trip-expense-budget input') && document.activeElement === window.keptTripBudget), true);
+    assert.equal(await page.evaluate(() => window.keptTripRecord === document.querySelector('.trip-expense-records a')), true);
+    assert.ok(await page.evaluate(() => Math.abs(window.keptTripBudget.getBoundingClientRect().y - window.tripBudgetY) < 2));
+    await page.locator('.trip-expense-budget input').fill('245');
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('daily-space-agent-data-updated', { detail: { domains: ['tally'] } })));
+    assert.equal(await page.locator('.trip-expense-budget input').inputValue(), '245', 'ledger refresh must not replace an unfinished budget');
+    await page.locator('.trip-expense-budget input').fill('200');await page.locator('.trip-expense-budget input').dispatchEvent('change');
     await page.evaluate(()=>document.documentElement.dataset.theme='dark');await captureMail(page,'travel-expenses-390-dark.png');
     await page.locator('#travel-days .travel-day-chip').nth(1).click();
     const capture=await page.locator('.trip-expense-add').boundingBox(),rail=await page.locator('.bento-rail').boundingBox();assert.ok(capture.y+capture.height<=rail.y,'trip capture must clear the dock');

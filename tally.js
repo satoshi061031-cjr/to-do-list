@@ -7,6 +7,9 @@
   let viewMonth = new Date().getMonth() + 1;
   let viewMode = "personal";
   let editingId = null;
+  let fxSerial = 0;
+  let fxController = null;
+  let fxPending = false;
 
   const $ = (id) => document.getElementById(id);
   const monthTitleEl = $("tally-month-title");
@@ -444,29 +447,66 @@
     sharedFields.hidden = !shared;
     const foreignCurrency = recordCurrencyInput.value !== state.baseCurrency;
     fxField.hidden = !foreignCurrency;
+    fxRateInput.required = foreignCurrency;
     fxHelp.textContent = foreignCurrency
-      ? `1 ${recordCurrencyInput.value} = ${fxRateInput.value || "?"} ${state.baseCurrency}`
+      ? fxPending ? "Fetching rate…" : `1 ${recordCurrencyInput.value} = ${fxRateInput.value || "?"} ${state.baseCurrency}`
       : "";
   }
 
+  function cancelFxRequest() {
+    fxSerial++;
+    fxController?.abort();
+    fxController = null;
+    fxPending = false;
+    submitBtn.disabled = false;
+    fxField.setAttribute("aria-busy", "false");
+  }
+
+  function fxContext() {
+    return JSON.stringify([window.DailySpaceView.owner(), editingId, dateInput.value || todayIso(), recordCurrencyInput.value, state.baseCurrency]);
+  }
+
   async function refreshFxRate() {
-    syncSharedFields();
+    cancelFxRequest();
     const from = recordCurrencyInput.value;
+    syncSharedFields();
     if (!from || from === state.baseCurrency) {
       fxRateInput.value = "1";
+      saveDraft();
       return;
     }
+    const ticket = fxSerial;
+    const context = fxContext();
+    const controller = new AbortController();
+    fxController = controller;
+    const timeout = setTimeout(() => controller.abort(), 12000);
+    const current = () => ticket === fxSerial && context === fxContext() && !addSheet.hidden && !sheetMotion.closing;
+    fxRateInput.value = "";
+    fxPending = true;
+    submitBtn.disabled = true;
+    fxField.setAttribute("aria-busy", "true");
     fxHelp.textContent = "Fetching rate…";
+    saveDraft();
     try {
       const params = new URLSearchParams({ from, to: state.baseCurrency, date: dateInput.value || todayIso() });
-      const response = await fetch(`/api/fx/rate?${params}`);
+      const response = await fetch(`/api/fx/rate?${params}`, { signal: controller.signal });
       if (!response.ok) throw new Error("rate unavailable");
       const payload = await response.json();
-      if (!(Number(payload.rate) > 0)) throw new Error("invalid rate");
+      if (!current()) return;
+      if (!Number.isFinite(Number(payload.rate)) || !(Number(payload.rate) > 0)) throw new Error("invalid rate");
       fxRateInput.value = String(payload.rate);
       fxHelp.textContent = `1 ${from} = ${Number(payload.rate).toFixed(6)} ${state.baseCurrency}`;
+      saveDraft();
     } catch (_) {
-      fxHelp.textContent = "Rate unavailable — enter it manually.";
+      if (current()) fxHelp.textContent = "Rate unavailable — enter it manually.";
+    } finally {
+      clearTimeout(timeout);
+      if (ticket === fxSerial) {
+        fxController = null;
+        fxPending = false;
+        submitBtn.disabled = false;
+        fxField.setAttribute("aria-busy", "false");
+      }
     }
   }
 
@@ -500,12 +540,14 @@
     if (!open) {
       if (addSheet.hidden || (sheetMotion.closing && !immediate)) return;
       if (preserve) saveDraft();
+      cancelFxRequest();
       editingId = null;
       sheetMotion.close(() => document.body.classList.remove("tally-sheet-open"), immediate);
       if (!fromHistory) sheetHistory.back();
       return;
     }
     if (!fromHistory && !sheetHistory.push({ id: record?.id || null })) return;
+    cancelFxRequest();
     editingId = record?.id || null;
     const draft = window.DailySpaceView.read("tally").draft;
     const value = draft && draft.id === editingId ? draft : record;
@@ -516,7 +558,7 @@
     window.DailySpaceTripExpenses.populate(tripInput, value?.tripId || "", value?.tripName);
     scopeInput.value = value?.scope || (viewMode === "shared" ? "shared" : "personal");
     recordCurrencyInput.value = value?.currency || state.baseCurrency;
-    fxRateInput.value = String(value?.fxRate || 1);
+    fxRateInput.value = String(value?.fxRate ?? 1);
     syncSheetMode();
     renderPeople(true);
     paidByInput.value = value?.paidById || state.selfPersonId;
@@ -529,11 +571,12 @@
     document.body.classList.add("tally-sheet-open");
     fitSheet();
     amountInput.focus({ preventScroll: true });
+    if (recordCurrencyInput.value !== state.baseCurrency && !fxRateInput.value) refreshFxRate();
   }
   form.addEventListener("input", saveDraft);
   form.addEventListener("change", saveDraft);
   form.addEventListener("invalid", event => { if (extraOptions.contains(event.target)) extraOptions.open = true; }, true);
-  window.addEventListener("pagehide", saveDraft);
+  window.addEventListener("pagehide", () => { saveDraft(); cancelFxRequest(); });
   window.addEventListener("daily-space-auth-updated", () => {
     setSheetOpen(false, null, false, false, true);
     form.reset();
@@ -543,7 +586,7 @@
 
   form.addEventListener("submit", (event) => {
     event.preventDefault();
-    if (sheetMotion.closing) return;
+    if (sheetMotion.closing || fxPending || !form.reportValidity()) return;
     const amount = Number(amountInput.value);
     const category = categoryInput.value.trim();
     const shared = scopeInput.value === "shared";
@@ -551,13 +594,16 @@
       (input) => input.value
     );
     if (!(amount > 0) || !category || (shared && !splitAmongIds.length)) return;
+    const foreignCurrency = recordCurrencyInput.value !== state.baseCurrency;
+    const fxRate = foreignCurrency ? Number(fxRateInput.value) : 1;
+    if (!Number.isFinite(fxRate) || !(fxRate > 0)) return;
     const nextRecord = Core.normalizeRecord(
       {
         id: editingId || Core.uid("expense"),
         date: dateInput.value || todayIso(),
         amount,
         currency: recordCurrencyInput.value,
-        fxRate: Number(fxRateInput.value) || 1,
+        fxRate,
         category,
         note: noteInput.value,
         tripId: tripInput.value || null,
@@ -722,7 +768,7 @@
   dateInput.addEventListener("change", () => {
     if (recordCurrencyInput.value !== state.baseCurrency) refreshFxRate();
   });
-  fxRateInput.addEventListener("input", syncSharedFields);
+  fxRateInput.addEventListener("input", () => { cancelFxRequest(); syncSharedFields(); });
   categoryInput.addEventListener("input", () => syncCategorySuggestions(categoryInput.value));
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && !addSheet.hidden) setSheetOpen(false);
@@ -730,8 +776,10 @@
   window.addEventListener("daily-space-agent-data-updated", (event) => {
     if (!Array.isArray(event.detail?.domains) || !event.detail.domains.includes("tally")) return;
     if (event.detail.source === "tally-page") return;
+    const previousCurrency = state.baseCurrency;
     state = Core.readState();
     render();
+    if (previousCurrency !== state.baseCurrency && !addSheet.hidden && !sheetMotion.closing) refreshFxRate();
   });
   window.addEventListener("daily-space-locale-changed", render);
 
