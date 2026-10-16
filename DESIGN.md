@@ -1,7 +1,7 @@
 ---
 version: alpha
 name: Daily Space
-description: Minimal productivity workspace inspired by Luma — monochrome surfaces, open lists, system typography, restrained frosted navigation, and a small yellow brand accent.
+description: Restrained productivity workspace combining Luma open lists with Apple-inspired translucent surfaces, native system typography, and a small yellow brand accent.
 colors:
   primary: "#171717"
   on-primary: "#ffffff"
@@ -180,19 +180,21 @@ components:
 
 ## Visual direction
 
-The user supplied Luma as the visual reference: simple, restrained, monochrome. This supersedes the previous photographic mist and liquid-glass direction. Use plain black or white page backgrounds, text hierarchy, open lists, and generous section spacing. Keep the yellow brand token for a small identity mark; primary actions use contrasting monochrome fills. No photographic backgrounds, decorative gradients, glowing edges, hover-following decoration, or card around every item. Preserve the existing productivity workflows and Daily Space identity.
+The user approved the Apple-inspired Obsidian material preview while retaining the current Daily Space framework and workflows. Keep the Luma-derived open lists, generous spacing, monochrome controls and original ghost identity. App pages use one continuous translucent workspace over the existing softly colored background asset; the welcome page keeps its plain entry layout. Use subtle borders and one quiet window shadow, without glowing edges, hover-following decoration, or a glass card around every item. Yellow remains a small identity accent; primary actions stay monochrome.
 
 ## Colors and depth
 
-Map the light palette and the explicit dark color tokens through the same CSS roles. Light pages use neutral white with ink text and secondary gray; dark pages use neutral-dark black, text-dark, and muted-dark. Cards requiring containment use surface or surface-dark. Editors use panel or panel-dark. Thin separators derive from text at 8% opacity. The phone dock uses a Luma-inspired frosted surface: 72% surface opacity, 28px backdrop blur with 1.15 saturation, a subtle monochrome 6% top tint, a 14% text-derived border, and one quiet shadow. Its active capsule uses neutral at 56% opacity; inactive dark labels mix muted-dark 70% with text-dark 30% for readability over the blurred content. Content lists have no backdrop blur or drop shadow. Modal sheets retain one quiet elevation shadow. Success and danger are semantic, accompanied by checked state, strikethrough, or explicit labels.
+Map the existing light and dark tokens through the same CSS roles. Keep solid panel and surface colors as the fallbacks. On desktop, the workspace paint layer uses panel at 72% opacity in light mode and panel-dark at 60% in dark mode, with 28px backdrop blur and 1.05 saturation. The phone shell uses 82% panel opacity and 20px blur for readability. Its paint layer stays fixed to the viewport so a long list does not create a full-document blur surface. Put blur on a separate noninteractive pseudo-element, never on a container of fixed dialogs or navigation; do not isolate the workspace into a stacking context that traps its drawer beneath the shared backdrop. The background uses the existing light-background.png with 0.75 saturation, a neutral veil at 24% in light mode or 22% in dark mode, and 0.68 brightness in dark mode. Thin window borders derive from text at 12% in light mode and 13% in dark mode. Compact secondary controls use surface at 48% opacity. Dark metadata mixes muted-dark 76% with text-dark 24% to stay readable on the material. Content rows remain open, without individual backdrop blur or shadows. Editors stay opaque panel or panel-dark; modal backdrops remain black and unblurred.
+
+The phone dock retains its Luma-inspired frosted surface: 72% surface opacity, 28px backdrop blur with 1.15 saturation, a subtle monochrome 6% top tint, a 14% text-derived border, and one quiet shadow. Its active capsule uses neutral at 56% opacity; inactive dark labels mix the metadata role 70% with text-dark 30%. Success and danger remain semantic, accompanied by checked state, strikethrough, or explicit labels.
 
 ## Typography
 
-Use the system font stack on both phone and desktop. Display is 32px/600, section and sheet title 24px/600, task title 16px/500, body and input 16px/400, metadata 14px/400, actions 15px/600. Zero extra tracking. Use sentence case, readable CJK fallbacks, and tabular time and amount numerals. Phone inputs remain 16px to avoid focus zoom. Do not download platform fonts.
+Use the system font stack on both phone and desktop. Display is 32px/600, section and sheet title 24px/600, task title 16px/500, body and input 16px/400, metadata 14px/400, actions 15px/600. Zero extra tracking. Use sentence case, readable CJK fallbacks, and tabular time and amount numerals. Phone inputs remain 16px to avoid focus zoom. On Apple devices, use the system San Francisco and PingFang fonts through the native font stack; Android follows its installed Roboto and Noto fonts. Keep task titles at medium weight, metadata at regular weight, and reserve semibold for headings and actions. Do not download platform fonts.
 
 ## Layout and shapes
 
-Desktop rail and workspace share a centered `min(1120px, 92vw)` boundary with spacing.lg gaps. Reading columns cap at 48rem; Calendar, Planner, and Teamwork use the remaining width. Phone uses spacing.md horizontal padding, spacing.lg between sections, open rows with a 72px minimum and spacing.sm vertical padding. Long titles wrap and grow naturally. Metadata starts underneath the title. Empty space is intentional.
+Desktop rail and workspace share one centered `min(1120px, 92vw)` material window with spacing.lg gaps and outer vertical spacing.lg. The rail joins its leading edge, and the workspace scrolls inside the window. Fixed dialogs retain viewport coordinates and page-wide overlays. Reading and editing controls remain reachable on short windows. Reading columns cap at 48rem; Calendar, Planner, and Teamwork use the remaining width. Phone uses spacing.md horizontal padding, spacing.lg between sections, open rows with a 72px minimum and spacing.sm vertical padding. Long titles wrap and grow naturally. Metadata starts underneath the title. Empty space is intentional.
 
 Use rounded.sm for input controls and contained board cards, rounded.md for module panels, rounded.lg for sheets, and rounded.pill for compact actions and navigation. Task and reminder lists use open rows, with only a subtle separator where it helps. Avoid nested rounded boxes. Selectors use quiet text or monochrome selection; no yellow filled navigation.
 
@@ -222,7 +224,7 @@ Travel expenses use one disclosure in the itinerary, with a total, selected-day 
 
 ## Motion and accessibility
 
-Use brief opacity or small translation transitions, without scaling content cards or glowing hover states. Keep keyboard focus clearly visible with the text token and an outline; never remove focus feedback. Honor reduced motion (dock blur reduces to 16px) and reduced transparency (solid surface with no blur). Browsers without backdrop-filter receive a solid dock. Apply the same dock to the explicit phone shell on wide preview windows; desktop rails retain solid surfaces. Preserve modal focus traps, scroll locking, account-scoped drafts, and Undo. No new blocking confirmations for reversible deletions.
+Use brief opacity or small translation transitions, without scaling content cards or glowing hover states. Keep keyboard focus clearly visible with the text token and an outline; never remove focus feedback. Honor reduced motion (workspace and dock blur reduce to 16px) and reduced transparency (hide the backdrop image and use opaque surfaces with no blur). Browsers without backdrop-filter receive a solid workspace, controls and dock. Apply the same phone material and dock to the explicit phone shell on wide preview windows; desktop rails join the material window with a quiet separator. Preserve modal focus traps, scroll locking, account-scoped drafts, and Undo. No new blocking confirmations for reversible deletions.
 
 ## Implementation
 

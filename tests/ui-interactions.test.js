@@ -74,6 +74,40 @@ test("browser interactions on desktop and touch screens", { timeout: 120_000 }, 
     return () => queued.length ? Promise.resolve(queued.shift()) : new Promise(resolve => waiting.push(resolve));
   }
 
+  await t.test("material keeps dialogs in the viewport and respects transparency and motion preferences", async () => {
+    const page = await pageFor();
+    await page.goto(`${base}/tally.html`, { waitUntil: "load" });
+    await page.evaluate(() => { document.documentElement.dataset.theme = "dark"; });
+    const paint = () => page.locator(".layout").evaluate(node => ({
+      containerBlur: getComputedStyle(node).backdropFilter,
+      paintBlur: getComputedStyle(node, "::before").backdropFilter,
+      background: getComputedStyle(node, "::before").backgroundColor,
+      wallpaper: getComputedStyle(document.body, "::before").display,
+    }));
+    assert.equal((await paint()).containerBlur, "none", "The material must not contain fixed dialogs");
+    assert.match((await paint()).paintBlur, /blur\(28px\)/);
+    await page.locator("#tally-add-open").click();
+    await page.locator("#tally-add-sheet").waitFor({ state: "visible" });
+    const bounds = await page.locator("#tally-add-sheet").boundingBox();
+    assert.equal(bounds.x, 0); assert.equal(bounds.y, 0);
+    assert.equal(bounds.width, 1280); assert.equal(bounds.height, 900);
+    await trapped(page, ".tally-sheet-panel");
+    await page.keyboard.press("Escape");
+    await page.locator("#tally-add-sheet").waitFor({ state: "hidden" });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    assert.match((await paint()).paintBlur, /blur\(16px\)/);
+    const session = await page.context().newCDPSession(page);
+    await session.send("Emulation.setEmulatedMedia", { features: [
+      { name: "prefers-reduced-transparency", value: "reduce" },
+      { name: "prefers-reduced-motion", value: "reduce" },
+    ] });
+    assert.ok(await page.evaluate(() => matchMedia("(prefers-reduced-transparency: reduce)").matches));
+    const solid = await paint();
+    assert.equal(solid.paintBlur, "none"); assert.equal(solid.wallpaper, "none");
+    assert.equal(solid.background, "rgb(29, 29, 29)");
+    await session.detach();
+  });
+
   await t.test("foreign expense rates ignore old currency/date responses and protect manual input", async () => {
     const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
     await seedWorkspace(page);

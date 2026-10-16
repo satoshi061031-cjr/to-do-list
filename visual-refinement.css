@@ -50,7 +50,7 @@
   --type-label-tracking: 0;
 }
 
-/* Legacy page styles share these roles; only the dock uses frosted glass. */
+/* Legacy content stays solid; workspace material uses its own paint layer. */
 :root, :root[data-theme="dark"] {
   --tertiary: #e5c235;
   --tertiary-deep: #c9a91c;
@@ -1107,4 +1107,188 @@ body.travel-page :is(.travel-trip-meta, .travel-side-subtitle, .travel-stops-emp
   body.travel-page .travel-stop-list { max-height: none; overflow: visible; }
   body.calendar-page .cal-shell .cal-week-head { overflow-x: auto; }
   body.calendar-page .cal-week-day { min-width: 44px; }
+}
+
+/* Approved Apple-inspired material; preserve the existing page and control layout. */
+:root {
+  --type-label-weight: var(--phone-meta-weight);
+  --material-fill: var(--panel-surface);
+  --material-control: var(--surface);
+  --material-edge: color-mix(in srgb, var(--text) 12%, transparent);
+  --material-shadow: 0 var(--space-md) var(--space-xl) color-mix(in srgb, var(--overlay-ink) 18%, transparent);
+  --material-veil: color-mix(in srgb, var(--neutral) 24%, transparent);
+  --material-blur: none;
+  --workspace-viewport-height: 100dvh;
+}
+:root[data-theme="dark"] {
+  --material-edge: color-mix(in srgb, var(--text) 13%, transparent);
+  --material-shadow: 0 var(--space-md) var(--space-xl) color-mix(in srgb, var(--overlay-ink) 40%, transparent);
+  --material-veil: color-mix(in srgb, var(--neutral) 22%, transparent);
+  --text-muted: color-mix(in srgb, var(--secondary) 76%, var(--text));
+}
+body { isolation: isolate; }
+body.has-bento-rail .layout {
+  position: relative;
+  background: transparent;
+}
+/* Only this paint layer blurs. Fixed dialogs and the drawer stay in the viewport. */
+body.has-bento-rail .layout::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--material-fill);
+  backdrop-filter: var(--material-blur);
+  -webkit-backdrop-filter: var(--material-blur);
+  pointer-events: none;
+}
+body.has-mobile-dock .layout::before {
+  position: fixed;
+  border-radius: 0;
+}
+body :is(.workspace-icon-button, .page-action-cluster .workspace-agent-button,
+  .filter-btn.is-active, .workspace-task-shortcuts button) {
+  background: var(--material-control);
+  border: 1px solid var(--material-edge);
+}
+body .page-action-cluster .notif-bell {
+  background: var(--material-control);
+  border: 1px solid var(--material-edge);
+}
+body .add-form-notion .add-form-row,
+body .deadline-trigger {
+  background: var(--material-control);
+  border-color: var(--material-edge);
+}
+body .m-top { background: transparent; }
+body .m-task-tabs button[aria-selected=true] {
+  background: transparent;
+  border-inline: 0;
+  border-top: 0;
+}
+body :is(.todo-label, .planner-card-face-title, .travel-stop-title) {
+  font-size: var(--phone-task-size);
+  font-weight: var(--phone-task-weight);
+  line-height: var(--phone-task-lh);
+}
+body :is(.todo-due, .task-detail-meta, .daily-loop-pill-label,
+  .daily-loop-progress, .tally-record-note, .planner-meta, .travel-trip-meta) {
+  font-size: var(--phone-meta-size);
+  font-weight: var(--phone-meta-weight);
+  line-height: var(--phone-meta-lh);
+}
+body :is(.daily-loop-pill-count, .cal-week-day-wd, .tally-bar-value, .tally-bar-day) {
+  font-weight: var(--phone-meta-weight);
+}
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  :root {
+    --material-fill: color-mix(in srgb, var(--panel-surface) 72%, transparent);
+    --material-control: color-mix(in srgb, var(--surface) 48%, transparent);
+    --material-blur: blur(28px) saturate(1.05);
+  }
+  :root[data-theme="dark"] {
+    --material-fill: color-mix(in srgb, var(--panel-surface) 60%, transparent);
+  }
+  body.has-mobile-dock {
+    --material-fill: color-mix(in srgb, var(--panel-surface) 82%, transparent);
+    --material-blur: blur(20px) saturate(1.05);
+  }
+  body.has-bento-rail::before,
+  :root[data-theme="dark"] body.has-bento-rail::before {
+    display: block;
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -2;
+    background: linear-gradient(var(--material-veil), var(--material-veil)),
+      url('light-background.png') center 45% / cover;
+    filter: saturate(.75);
+    transform: none;
+    opacity: 1;
+    pointer-events: none;
+  }
+  :root[data-theme="dark"] body.has-bento-rail::before {
+    filter: saturate(.75) brightness(.68);
+  }
+}
+@media (min-width: 820px) {
+  body.has-bento-rail:not(.has-mobile-dock) {
+    display: flow-root;
+    --workspace-viewport-height: calc(100dvh - var(--space-lg) * 2);
+  }
+  body.has-bento-rail:not(.has-mobile-dock) .layout {
+    height: var(--workspace-viewport-height);
+    min-height: 0;
+    margin-block: var(--space-lg);
+    border: 1px solid var(--material-edge);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--material-shadow);
+  }
+  body.has-bento-rail:not(.has-mobile-dock) .main-area {
+    height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    box-sizing: border-box;
+    padding-inline-end: var(--space-lg);
+    border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+  }
+  body.has-bento-rail:not(.has-mobile-dock) .bento-rail {
+    position: sticky;
+    top: 0;
+    align-self: stretch;
+    height: 100%;
+    margin: 0;
+    border: 0;
+    border-right: 1px solid var(--material-edge);
+    border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+    background: color-mix(in srgb, var(--surface) 16%, transparent);
+  }
+  body.todo-bento .app.bento-shell.today-shell { margin-inline: auto; }
+  body.mail-page.mail-connect-view .mail-app {
+    min-height: calc(var(--workspace-viewport-height) - var(--space-xl) * 2);
+  }
+  body.teamwork-page .teamwork-app,
+  body.calendar-page .calendar-app {
+    min-height: auto;
+  }
+  body.planner-page .planner-card:not(.is-collapsed) .planner-card-top {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--space-sm);
+  }
+  body.planner-page .planner-card-title-wrap {
+    flex: 1 1 calc(100% - 44px - var(--space-sm));
+  }
+}
+body.travel-page .travel-search-day {
+  background: var(--surface-muted);
+  color: var(--text);
+}
+body.travel-page .travel-search-btn {
+  background: var(--primary);
+  color: var(--on-primary);
+  border-color: transparent;
+}
+body.travel-page .travel-desktop-day.is-active {
+  background: var(--surface-muted);
+  border-color: var(--text-muted);
+  box-shadow: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  body.has-bento-rail { --material-blur: blur(16px); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root, :root[data-theme="dark"], body.has-bento-rail {
+    --material-fill: var(--panel-surface);
+    --material-control: var(--surface);
+    --material-blur: none;
+  }
+  body.has-bento-rail::before,
+  :root[data-theme="dark"] body.has-bento-rail::before { display: none; }
+  body.has-bento-rail:not(.has-mobile-dock) .bento-rail {
+    background: var(--surface);
+  }
 }
