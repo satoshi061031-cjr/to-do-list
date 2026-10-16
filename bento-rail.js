@@ -310,8 +310,8 @@
     syncSidebarForDock();
 
     markCurrent(rail);
-    if (window.DailySpaceAgentUi && typeof window.DailySpaceAgentUi.mountFabUnderBrand === "function") {
-      window.DailySpaceAgentUi.mountFabUnderBrand();
+    if (window.DailySpaceAgentUi && typeof window.DailySpaceAgentUi.mountInHeader === "function") {
+      window.DailySpaceAgentUi.mountInHeader();
     } else {
       document.dispatchEvent(new CustomEvent("dailyspace:bento-rail-ready"));
     }

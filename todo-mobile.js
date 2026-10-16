@@ -199,7 +199,6 @@
     }
     document.getElementById("m-filter-active").addEventListener("click", () => api.setFilter("active"));
     document.getElementById("m-filter-completed").addEventListener("click", () => api.setFilter("completed"));
-    document.getElementById("m-agent-toggle").addEventListener("click", () => window.DailySpaceAgentUi?.setOpen(true));
     window.addEventListener("daily-space-todo-view-updated", renderChrome);
     window.addEventListener("daily-space-locale-changed", renderChrome);
     // The shared greeting is for desktop; the phone keeps its stable Today title.

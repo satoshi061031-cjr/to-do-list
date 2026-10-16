@@ -690,18 +690,36 @@ test("browser interactions on desktop and touch screens", { timeout: 120_000 }, 
   await t.test("page headers group search and notifications without overlapping phone controls", async () => {
     const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
     await seedWorkspace(page, true);
-    for (const route of ["todo-m.html", "calendar.html", "tally.html", "planner.html", "teamwork.html", "travel.html"]) {
+    await mockMail(page);
+    for (const route of ["todo-m.html", "todo.html", "calendar.html", "tally.html", "mail.html", "planner.html", "teamwork.html", "travel.html"]) {
+      await page.setViewportSize({ width: 390, height: 844 });
       await page.goto(`${base}/${route}`, { waitUntil: "load" });
       const header = page.locator("[data-page-header]").first();
       await header.locator("[data-workspace-search]").waitFor();
-      const controls = await header.locator(".page-action-cluster > button, .page-action-cluster > details > summary, #notif-bell").evaluateAll(nodes => nodes.filter(node => node.getClientRects().length).map(node => {
-        const box = node.getBoundingClientRect(); return { x: box.x, y: box.y, width: box.width, height: box.height };
-      }));
-      for (const rect of controls) assert.ok(rect.width >= 44 && rect.height >= 44 && rect.x >= 0 && rect.x + rect.width <= 390, route);
-      for (let a = 0; a < controls.length; a++) for (let b = a + 1; b < controls.length; b++) {
-        const first = controls[a], second = controls[b];
-        assert.ok(first.x + first.width <= second.x || second.x + second.width <= first.x || first.y + first.height <= second.y || second.y + second.height <= first.y, route);
+      assert.equal(await page.locator("[data-workspace-agent]").count(), 1, route);
+      assert.equal(await page.locator(".bento-rail .todo-agent-fab").count(), 0, route);
+      const agent = header.locator("[data-workspace-agent]");
+      await agent.click();
+      await page.locator("#todo-agent-overlay").waitFor({ state: "visible" });
+      assert.equal(await agent.getAttribute("aria-expanded"), "true", route);
+      await page.keyboard.press("Escape");
+      await page.locator("#todo-agent-overlay").waitFor({ state: "hidden" });
+      assert.equal(await agent.getAttribute("aria-expanded"), "false", route);
+      assert.equal(await agent.evaluate(node => node === document.activeElement), true, route);
+      for (const width of [320, 390, 1280]) {
+        await page.setViewportSize({ width, height: 844 });
+        const controls = await header.locator(".page-action-cluster > button, .page-action-cluster > details > summary, #notif-bell").evaluateAll(nodes => nodes.filter(node => node.getClientRects().length).map(node => {
+          const box = node.getBoundingClientRect(); return { x: box.x, y: box.y, width: box.width, height: box.height };
+        }));
+        for (const rect of controls) assert.ok(rect.width >= 44 && rect.height >= 44 && rect.x >= 0 && rect.x + rect.width <= width, `${route} ${width}px`);
+        for (let a = 0; a < controls.length; a++) for (let b = a + 1; b < controls.length; b++) {
+          const first = controls[a], second = controls[b];
+          assert.ok(first.x + first.width <= second.x || second.x + second.width <= first.x || first.y + first.height <= second.y || second.y + second.height <= first.y, route);
+        }
+        assert.ok(await agent.evaluate(node => { const box = node.getBoundingClientRect(), cluster = node.parentElement.getBoundingClientRect(); return Math.abs(box.right - cluster.right) <= 1 && Math.abs(box.top - cluster.top) <= 1; }), `${route} header corner`);
+        assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${route} ${width}px overflow`);
       }
+      await page.setViewportSize({ width: 390, height: 844 });
       await header.locator("[data-workspace-search]").click();
       await trapped(page, ".command-palette:visible");
       await page.keyboard.press("Escape");

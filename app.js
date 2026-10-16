@@ -123,7 +123,6 @@
   const dailyLoopEl = document.getElementById("daily-loop");
   const dailyLoopProgress = document.getElementById("daily-loop-progress");
   const dailyLoopProgressFill = document.getElementById("daily-loop-progress-fill");
-  const dailyLoopFocusBtn = document.getElementById("daily-loop-focus");
   const dailyLoopPillDue = document.getElementById("daily-loop-pill-due");
   const dailyLoopPillOverdue = document.getElementById("daily-loop-pill-overdue");
   const dailyLoopPillAssigned = document.getElementById("daily-loop-pill-assigned");
@@ -2495,9 +2494,6 @@
     );
   });
 
-  if (dailyLoopFocusBtn) {
-    dailyLoopFocusBtn.addEventListener("click", () => focusTodayList());
-  }
   if (eveningReviewFocusBtn) {
     eveningReviewFocusBtn.addEventListener("click", () => {
       const label = String(eveningReviewFocusBtn.textContent || "");

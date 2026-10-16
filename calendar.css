@@ -1249,11 +1249,6 @@ body.calendar-page .calendar-app > .app-greeting {
     -webkit-backdrop-filter: none;
   }
 
-  body.calendar-page .todo-agent-fab,
-  body.calendar-page .todo-agent-fab-rail {
-    display: none !important;
-  }
-
   body.calendar-page .cal-week-head {
     display: flex;
     min-width: 0 !important;

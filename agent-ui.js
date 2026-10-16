@@ -127,7 +127,16 @@
 
   document.body.appendChild(panel);
 
-  const fab = panel.querySelector(".todo-agent-fab");
+  const generatedFab = panel.querySelector(".todo-agent-fab");
+  const fab = document.querySelector(".page-action-cluster #m-agent-toggle, .page-action-cluster #daily-loop-focus") || generatedFab;
+  if (fab !== generatedFab) {
+    fab.replaceChildren(...generatedFab.childNodes);
+    generatedFab.remove();
+  }
+  fab.classList.remove("btn", "btn-primary", "daily-loop-focus", "m-agent-toggle");
+  fab.classList.add("todo-agent-fab", "workspace-icon-button", "workspace-agent-button");
+  fab.setAttribute("data-workspace-agent", "");
+  fab.setAttribute("aria-controls", "todo-agent-overlay");
   const overlay = panel.querySelector(".todo-agent-overlay");
   const sheet = panel.querySelector(".todo-agent-panel");
   const backdrop = panel.querySelector(".todo-agent-backdrop");
@@ -197,7 +206,6 @@
   }
 
   function setOpen(open) {
-    const wasOpen = !overlay.hidden;
     if (host instanceof HTMLElement) {
       host.hidden = !open;
     }
@@ -219,8 +227,6 @@
       }
       refreshStatus({ force: true });
       input.focus();
-    } else if (wasOpen && !fab.hidden) {
-      fab.focus({ preventScroll: true });
     }
   }
 
@@ -378,13 +384,9 @@
     }
   }
 
-  if (pageMode) {
-    fab.hidden = true;
-  } else {
-    fab.addEventListener("click", function () {
-      setOpen(overlay.hidden);
-    });
-  }
+  fab.addEventListener("click", function () {
+    setOpen(overlay.hidden);
+  });
 
   function closeAgent() {
     setOpen(false);
@@ -402,49 +404,17 @@
     sendMessage(input.value);
   });
 
-  function isMobileDock() {
-    return (
-      document.body.classList.contains("has-mobile-dock") ||
-      (typeof window.matchMedia === "function" && window.matchMedia("(max-width: 819px)").matches)
-    );
-  }
-
-  function mountFabInPageSlot() {
-    const slot = document.getElementById("page-agent-slot");
-    if (!(slot instanceof HTMLElement)) return false;
-    fab.classList.remove("todo-agent-fab-rail");
-    fab.classList.add("todo-agent-fab-page");
-    panel.classList.remove("todo-agent-rail-docked");
-    if (fab.parentElement !== slot) slot.appendChild(fab);
+  function mountInHeader() {
+    const actions = document.querySelector("[data-page-header] .page-action-cluster");
+    if (!(actions instanceof HTMLElement)) return false;
+    actions.classList.add("has-workspace-agent");
+    panel.classList.add("todo-agent-header-host");
+    if (actions.lastElementChild !== fab) actions.appendChild(fab);
     return true;
   }
-
-  function mountFabUnderBrand() {
-    if (pageMode) return false;
-    if (isMobileDock() && mountFabInPageSlot()) return true;
-    const brand = document.querySelector(".bento-rail-brand");
-    if (!(brand instanceof HTMLElement)) return false;
-    fab.classList.remove("todo-agent-fab-page");
-    fab.classList.add("todo-agent-fab-rail");
-    panel.classList.add("todo-agent-rail-docked");
-    if (fab.previousElementSibling !== brand) {
-      brand.insertAdjacentElement("afterend", fab);
-    }
-    return true;
-  }
-
-  if (!pageMode) {
-    mountFabUnderBrand();
-    document.addEventListener("DOMContentLoaded", mountFabUnderBrand);
-    document.addEventListener("dailyspace:bento-rail-ready", mountFabUnderBrand);
-    if (typeof window.matchMedia === "function") {
-      const dockQuery = window.matchMedia("(max-width: 819px)");
-      if (typeof dockQuery.addEventListener === "function") {
-        dockQuery.addEventListener("change", mountFabUnderBrand);
-      }
-    }
-    window.addEventListener("resize", mountFabUnderBrand);
-  }
+  mountInHeader();
+  document.addEventListener("DOMContentLoaded", mountInHeader);
+  document.addEventListener("dailyspace:bento-rail-ready", mountInHeader);
 
   function focusComposer(seed) {
     setOpen(true);
@@ -464,7 +434,7 @@
   }
 
   window.DailySpaceAgentUi = {
-    mountFabUnderBrand,
+    mountInHeader,
     setOpen,
     focusComposer,
     isPageMode: pageMode,
