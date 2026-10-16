@@ -102,8 +102,6 @@ body.planner-page.has-bento-rail .main-area {
   background: var(--pl-panel);
   border: 1px solid var(--pl-line);
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(14px) saturate(1.08);
-  -webkit-backdrop-filter: blur(14px) saturate(1.08);
 }
 
 .planner-shell > .app-greeting {
@@ -261,7 +259,7 @@ body.planner-page.has-bento-rail .main-area {
   font: inherit;
   font-size: var(--type-label-size);
   font-weight: 400;
-  letter-spacing: 0.01em;
+  letter-spacing: var(--type-body-tracking);
   padding: 0.52rem 0.95rem;
   box-shadow: 0 8px 18px color-mix(in srgb, var(--pl-accent) 32%, transparent);
   cursor: pointer;
@@ -292,7 +290,7 @@ body.planner-page.has-bento-rail .main-area {
   font: inherit;
   font-size: 0.72rem;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: var(--type-body-tracking);
   text-decoration: none;
   cursor: pointer;
   white-space: nowrap;
@@ -508,7 +506,7 @@ body.planner-page.has-bento-rail .main-area {
   font: inherit;
   font-size: var(--type-body-size);
   font-weight: 400;
-  letter-spacing: 0.01em;
+  letter-spacing: var(--type-body-tracking);
   padding: 0.15rem 0.2rem;
 }
 
@@ -553,8 +551,6 @@ body.planner-page.has-bento-rail .main-area {
   border-radius: var(--radius-md);
   padding: var(--space-sm) var(--space-sm) 0.8rem;
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(10px) saturate(1.05);
-  -webkit-backdrop-filter: blur(10px) saturate(1.05);
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -950,7 +946,7 @@ body.planner-page.has-bento-rail .main-area {
   color: var(--text-muted);
   font-size: 0.68rem;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--type-body-tracking);
   text-transform: uppercase;
 }
 
@@ -1035,8 +1031,6 @@ body.planner-page.has-bento-rail .main-area {
     background: transparent;
     border: 0;
     box-shadow: none;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
     border-radius: 0;
   }
 
@@ -1066,8 +1060,6 @@ body.planner-page.has-bento-rail .main-area {
     border-radius: var(--radius-sm);
     border: 1px solid var(--liquid-edge, var(--glass-border));
     background: var(--liquid-sheen, var(--glass-strong)), var(--liquid-fill, var(--glass));
-    backdrop-filter: var(--liquid-blur, blur(22px) saturate(1.55));
-    -webkit-backdrop-filter: var(--liquid-blur, blur(22px) saturate(1.55));
     box-shadow: var(--liquid-shadow, var(--shadow-soft));
   }
 
@@ -1179,8 +1171,6 @@ body.planner-page.has-bento-rail .main-area {
 
   .planner-card {
     background: var(--liquid-sheen, var(--pl-card)), var(--liquid-fill, var(--pl-card));
-    backdrop-filter: var(--liquid-blur, blur(14px) saturate(1.08));
-    -webkit-backdrop-filter: var(--liquid-blur, blur(14px) saturate(1.08));
     box-shadow: var(--liquid-shadow, var(--shadow-soft));
     border-color: var(--liquid-edge, var(--pl-line));
   }

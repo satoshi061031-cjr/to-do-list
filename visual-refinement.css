@@ -33,6 +33,7 @@
   --glow: none;
   --radius: 18px;
   --radius-sm: 12px;
+  --radius-md: var(--radius);
   --radius-lg: 28px;
   --font-display: var(--phone-font);
   --font-ui: var(--phone-font);
@@ -47,6 +48,23 @@
   --type-title-tracking: 0;
   --type-body-tracking: 0;
   --type-label-tracking: 0;
+}
+
+/* Legacy page styles share these roles; only the dock uses frosted glass. */
+:root, :root[data-theme="dark"] {
+  --tertiary: #e5c235;
+  --tertiary-deep: #c9a91c;
+  --tertiary-hover: var(--tertiary-deep);
+  --on-tertiary: #171717;
+  --highlight: var(--tertiary);
+  --danger: #a64b45;
+  --success: #5a6b58;
+  --liquid-sheen: none;
+  --liquid-fill: var(--surface);
+  --liquid-fill-strong: var(--surface-muted);
+  --liquid-edge: var(--quiet-line);
+  --liquid-shadow: none;
+  --liquid-blur: none;
 }
 :root[data-theme="dark"] {
   --modal-scrim: color-mix(in srgb, var(--overlay-ink) 64%, transparent);
@@ -503,7 +521,7 @@ body.mail-page .mail-batch-select-all { min-height: 44px; gap: var(--space-sm); 
 body.mail-page #mail-selected-count { color: var(--text-muted); font-size: var(--phone-meta-size); text-align: center; }
 body.mail-page .mail-batch-add { min-height: 44px; font-size: var(--phone-action-size); padding-inline: var(--space-md); }
 body.mail-page .mail-detail-sheet { position: fixed; inset: 0; z-index: 320; display: grid; place-items: center; padding: var(--space-md); }
-body.mail-page .mail-detail-backdrop { position: absolute; inset: 0; border: 0; background: color-mix(in srgb, var(--on-tertiary) 48%, transparent); }
+body.mail-page .mail-detail-backdrop { position: absolute; inset: 0; border: 0; background: var(--modal-scrim); }
 body.mail-page .mail-detail-panel { position: relative; width: min(40rem, 100%); max-height: calc(100dvh - var(--space-xl)); display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--quiet-line); border-radius: var(--radius-lg); background: var(--panel-fill); box-shadow: 0 8px 28px color-mix(in srgb, var(--on-tertiary) 14%, transparent); animation: mail-reader-in 160ms ease-out; }
 body.mail-page .mail-detail-head { flex-shrink: 0; display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-sm); padding: var(--space-md) var(--space-md) var(--space-sm); }
 body.mail-page .mail-detail-head h2 { margin: 0; max-height: 28dvh; overflow: auto; overflow-wrap: anywhere; font-size: var(--type-title-size); font-weight: var(--phone-title-weight); line-height: var(--phone-title-lh); }
@@ -610,7 +628,7 @@ body.calendar-page .calendar-item-delete,
 body.calendar-page .todo-delete { min-width: 44px; min-height: 44px; }
 body.calendar-page .calendar-editor-sheet { position: fixed; inset: 0; top: var(--workspace-sheet-top, 0); height: var(--workspace-sheet-height, 100dvh); z-index: 320; display: grid; place-items: center; padding: var(--space-md); box-sizing: border-box; }
 body.calendar-page .calendar-editor-sheet[hidden] { display: none !important; }
-.calendar-editor-backdrop { position: absolute; inset: 0; border: 0; background: color-mix(in srgb, var(--on-tertiary) 48%, transparent); }
+.calendar-editor-backdrop { position: absolute; inset: 0; border: 0; background: var(--modal-scrim); }
 .calendar-editor-panel { position: relative; display: flex; flex-direction: column; width: min(40rem, 100%); max-height: 100%; background: var(--panel-fill); border: 1px solid var(--quiet-line); border-radius: var(--radius-lg); overflow: hidden; animation: mail-reader-in 160ms ease-out; }
 .calendar-editor-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); padding: var(--space-md); flex-shrink: 0; }
 .calendar-editor-head h2 { margin: 0; font-size: var(--phone-title-size); font-weight: var(--phone-title-weight); line-height: var(--phone-title-lh); }
@@ -930,4 +948,163 @@ body.tally-page .tally-form input, body.tally-page .tally-form select { font-wei
   .workspace-sheet-motion.is-closing [data-sheet-panel] { animation: workspace-sheet-exit 160ms ease-in both; }
   .workspace-sheet-motion.is-closing [data-sheet-backdrop] { animation: workspace-scrim-exit 160ms ease-in both; }
   :is(.workspace-tool-body details, .task-detail-fields, .task-batch-options, .trip-expenses, .trip-expense-history, .tally-extra-options) > summary::after { transition: transform 160ms ease-out; }
+}
+
+/* Shared roles take precedence over the older individual page treatments. */
+body { font-size: var(--phone-body-size); line-height: var(--phone-body-lh); }
+body :is(input:not([type=checkbox]):not([type=radio]):not([type=hidden]), select, textarea) {
+  min-height: 44px;
+  font-family: var(--font-ui);
+  font-size: var(--phone-body-size);
+  font-weight: var(--phone-body-weight);
+  line-height: var(--phone-body-lh);
+  letter-spacing: 0;
+}
+body :is(.btn, .filter-btn, .category-btn, .todo-delete, .todo-edit, .todo-deadline, .todo-source-btn,
+  .todo-agent-close, .auth-close, .shortcuts-sheet-close) { min-height: 44px; min-width: 44px; }
+body :is(.filter-btn, .todo-source-btn) { border-radius: var(--radius-pill); font: var(--phone-action-weight) var(--phone-action-size)/var(--phone-action-lh) var(--font-ui); }
+body .filter-btn.is-active { background: var(--surface-muted); color: var(--text); border-color: transparent; }
+body .add-form-notion .add-form-row { border-color: var(--quiet-line); border-radius: var(--radius-sm); background: var(--surface); }
+body .add-form-notion .add-form-row:focus-within { border-color: var(--text-muted); box-shadow: none; }
+body .composer-hint { text-transform: none; }
+body .todo-agent-input:focus { border-color: var(--text-muted); box-shadow: none; }
+body .todo-check-target { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; min-width: 44px; min-height: 44px; }
+body .todo-check-target .todo-check { margin: 0; }
+body :is(.todo-repeat, .daily-loop-pill, #daily-loop-focus) { min-height: 44px; }
+body #daily-loop-focus:not(.workspace-agent-button) { padding: var(--space-sm); border: 0; border-radius: var(--radius-pill); background: var(--surface); color: var(--text); font: var(--phone-action-weight) var(--phone-action-size)/var(--phone-action-lh) var(--font-ui); }
+body.calendar-page :is(.cal-range-nav, .cal-search-input, .cal-search-chip) { min-height: 44px; min-width: 44px; }
+body.calendar-page .calendar-todo-link { display: inline-flex; align-items: center; min-height: 44px; }
+body.tally-page :is(.tally-nav-btn, .tally-period-btn, .tally-view-switch button, .tally-quick input) { min-height: 44px; min-width: 44px; }
+body.tally-page .tally-bar-fill { background: var(--text-muted); box-shadow: none; border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
+body.planner-page :is(.planner-search input, .planner-column-title-input) { min-height: 44px; }
+body.travel-page .travel-search input { min-height: 44px; }
+body.travel-page .travel-map .leaflet-control-zoom a { width: 44px; height: 44px; line-height: 44px; }
+body.travel-page :is(.travel-search-day, .travel-stop-index) { color: var(--text-muted); }
+body.travel-page .travel-share a { display: inline-flex; align-items: center; min-height: 44px; color: var(--text); }
+body.calendar-page .cal-shell :is(.cal-range-pill, .cal-view-btn, .cal-search-chip),
+body.tally-page :is(.tally-period-btn, .tally-nav-btn, .tally-view-switch button),
+body :is(.deadline-trigger, .deadline-clear-btn, .todo-source-btn) { font: var(--phone-action-weight) var(--phone-action-size)/var(--phone-action-lh) var(--font-ui); letter-spacing: 0; text-transform: none; }
+body.calendar-page .cal-shell .selected-day-title { font: var(--phone-title-weight) var(--phone-title-size)/var(--phone-title-lh) var(--font-ui); letter-spacing: 0; }
+body.tally-page .tally-record-group-title { font: var(--phone-task-weight) var(--phone-task-size)/var(--phone-task-lh) var(--font-ui); }
+body.tally-page :is(.tally-meta, .tally-bar-value, .tally-bar-day) { font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+body.travel-page .travel-kicker { font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); color: var(--text-muted); }
+body.has-bento-rail :is(.bento-rail-brand, .bento-rail-link, .bento-rail-theme, .bento-rail-lang) { font: var(--phone-action-weight) var(--phone-action-size)/var(--phone-action-lh) var(--font-ui); letter-spacing: 0; }
+body :is(.cal-range-nav, .todo-delete), body.travel-page .travel-map .leaflet-control-zoom a { font: var(--phone-title-weight) var(--phone-title-size)/var(--phone-title-lh) var(--font-ui); }
+body :is(.todo-agent-close, .auth-close, .tally-sheet-close, .planner-card-delete) { font: var(--phone-title-weight) var(--phone-title-size)/var(--phone-title-lh) var(--font-ui); }
+body .sidebar { background: var(--panel-fill); }
+body :is(.category-btn.is-active, .sidebar-page-link.is-current, .sidebar-page-link.is-active, .sidebar-page-link[aria-current=page]) { background: var(--surface-muted); color: var(--text); border-color: var(--quiet-line); box-shadow: none; }
+body :is(.sidebar-heading, .sidebar-auth-hint, .sidebar-auth-sync) { font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); letter-spacing: 0; text-transform: none; }
+body :is(.sidebar-auth-label, .sidebar-page-link) { font: var(--phone-action-weight) var(--phone-action-size)/var(--phone-action-lh) var(--font-ui); }
+body .sidebar-auth-entry:hover { transform: none; box-shadow: none; }
+body.tally-page .tally-sheet-head h2 { font: var(--phone-title-weight) var(--phone-title-size)/var(--phone-title-lh) var(--font-ui); }
+body.tally-page #tally-sheet-eyebrow { font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+body.tally-page .tally-category-suggestions button { min-height: 44px; border-radius: var(--radius-pill); padding: var(--space-sm); }
+body.tally-page :is(.tally-record-category, .tally-record-amount) { font: var(--phone-task-weight) var(--phone-task-size)/var(--phone-task-lh) var(--font-ui); }
+body.tally-page :is(.tally-record-note, .tally-record-amount small) { font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+body.planner-page :is(.planner-card-title, .planner-card-tags, .planner-card-toggle, .planner-card-delete) { min-height: 44px; }
+body.planner-page :is(.planner-card-toggle, .planner-card-delete) { min-width: 44px; }
+body.planner-page .planner-card-face-title { font: var(--phone-task-weight) var(--phone-task-size)/var(--phone-task-lh) var(--font-ui); }
+body.planner-page .planner-card-check-target { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; flex-shrink: 0; cursor: pointer; }
+body.planner-page .planner-card-check { margin: 0; }
+body.travel-page .travel-preview-banner a { display: inline-flex; align-items: center; min-height: 44px; color: var(--text); }
+body.travel-page .travel-stop-title { font: var(--phone-task-weight) var(--phone-task-size)/var(--phone-task-lh) var(--font-ui); }
+body.travel-page .travel-stop-delete { min-width: 44px; min-height: 44px; }
+body.calendar-page .cal-shell .cal-range-nav { font: var(--phone-title-weight) var(--phone-title-size)/var(--phone-title-lh) var(--font-ui); }
+body.calendar-page .calendar-todo-link { font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+body.has-bento-rail .bento-rail :is(.bento-rail-theme, .bento-rail-lang) { font: var(--phone-action-weight) var(--phone-action-size)/var(--phone-action-lh) var(--font-ui); }
+body.has-mobile-dock.has-bento-rail .bento-rail-link { min-width: 44px; min-height: 44px; }
+body.travel-page .travel-map .leaflet-control-attribution { background: var(--surface); color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+body.travel-page .travel-map .leaflet-control-attribution a { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; color: var(--text); }
+
+body :is(.auth-modal-backdrop, .shortcuts-sheet-backdrop, .command-palette-backdrop, .todo-agent-backdrop,
+  .mail-detail-backdrop, .mail-booking-backdrop, .travel-sheet-backdrop) { background: var(--modal-scrim); }
+body :is(.auth-card, .shortcuts-sheet-panel, .todo-agent-panel, .mail-booking-panel, .travel-sheet-panel) {
+  background: var(--panel-fill); border-radius: var(--radius-lg); box-shadow: var(--shadow-pop);
+}
+body :is(.auth-title, .shortcuts-sheet-title, .todo-agent-title, .mail-booking-title, .travel-sheet-title) {
+  font: var(--phone-title-weight) var(--phone-title-size)/var(--phone-title-lh) var(--font-ui); letter-spacing: 0;
+}
+body :is(.auth-kicker, .shortcuts-sheet-kicker, .shortcuts-group-title, .todo-agent-kicker) {
+  color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); letter-spacing: 0; text-transform: none;
+}
+body :is(.todo-agent-msg, .auth-copy, .auth-provider, .auth-guest) {
+  font: var(--phone-body-weight) var(--phone-body-size)/var(--phone-body-lh) var(--font-ui); letter-spacing: 0;
+}
+
+/* Status selection is monochrome on every page. */
+body.planner-page .planner-status-chip,
+body.planner-page .planner-add-card { min-height: 44px; padding: var(--space-sm) var(--space-md); border: 0; border-radius: var(--radius-pill); background: var(--surface); color: var(--text-muted); font: var(--phone-action-weight) var(--phone-action-size)/var(--phone-action-lh) var(--font-ui); box-shadow: none; }
+body.planner-page .planner-status-chip.is-selected { background: var(--primary); color: var(--on-primary); }
+body.planner-page .planner-status-chip.is-selected .planner-status-chip-count { color: inherit; font-weight: var(--phone-action-weight); }
+body.planner-page .planner-status-strip { gap: var(--space-sm); padding: var(--space-xs) 0; }
+body.planner-page .planner-add-card:hover { background: var(--surface-hover); color: var(--text); }
+body.planner-page .planner-card { background: var(--surface); border-radius: var(--radius-sm); padding: var(--space-sm); box-shadow: none; }
+body.planner-page .planner-card:hover { transform: none; filter: none; box-shadow: none; }
+body.planner-page .planner-column { border-radius: var(--radius-md); }
+body.planner-page .planner-column-status[data-status="progress"] { background: var(--surface); border-color: var(--text); border-style: dashed; }
+body.planner-page :is(.planner-tool-btn, .planner-card-open-cal, .planner-card-to-todo, .planner-card-due-chip,
+  .planner-column-add, .planner-column-delete, .planner-move-select) { min-height: 44px; min-width: 44px; }
+body.planner-page :is(.planner-column-title-input, .planner-card-title) { font: var(--phone-task-weight) var(--phone-task-size)/var(--phone-task-lh) var(--font-ui); letter-spacing: 0; }
+
+body.teamwork-page .teamwork-planner-link { color: var(--text); background: var(--surface); }
+body.teamwork-page :is(.teamwork-workspace-panel, .teamwork-personal-body) { padding: var(--space-md) 0; }
+body.teamwork-page .teamwork-personal-draft { border: 0; border-top: 1px dashed var(--text-muted); background: transparent; }
+body.teamwork-page .teamwork-personal-summary { position: relative; min-height: 44px; padding: var(--space-md) var(--space-lg) var(--space-md) 0; gap: var(--space-xs); }
+body.teamwork-page .teamwork-personal-summary::after { position: absolute; right: 0; top: 50%; translate: 0 -50%; }
+body.teamwork-page .teamwork-personal-summary-title { font: var(--phone-title-weight) var(--phone-title-size)/var(--phone-title-lh) var(--font-ui); }
+body.teamwork-page :is(.teamwork-kicker, .teamwork-personal-summary-note, .teamwork-workspace-status,
+  .teamwork-workspace-hint, .teamwork-invite-link, .teamwork-draft-banner) { color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); letter-spacing: 0; text-transform: none; }
+body.teamwork-page .teamwork-section-title { font: var(--phone-title-weight) var(--phone-title-size)/var(--phone-title-lh) var(--font-ui); }
+body.teamwork-page :is(.teamwork-form-input, .teamwork-inline-input, .teamwork-member-input, .teamwork-task-input, .teamwork-delete-btn) { min-height: 44px; box-sizing: border-box; }
+body.teamwork-page :is(.teamwork-add-form, .teamwork-add-task-form):focus-within .teamwork-form-input { border-color: var(--text-muted); }
+
+body.travel-page :is(.travel-day-chip, .travel-route-btn, .travel-search-btn, .travel-icon-btn, .travel-sheet-close,
+  .travel-stop-remove, .travel-share button) { min-height: 44px; min-width: 44px; font: var(--phone-action-weight) var(--phone-action-size)/var(--phone-action-lh) var(--font-ui); letter-spacing: 0; }
+body.travel-page .travel-day-chip { padding: var(--space-sm); }
+body.travel-page .travel-days { gap: var(--space-sm); margin-bottom: var(--space-md); }
+body.travel-page .travel-day-chip.is-active,
+body.travel-page .travel-route-btn { background: var(--primary); color: var(--on-primary); }
+body.travel-page .travel-route-btn:hover { background: var(--primary-hover); }
+body.travel-page :is(.travel-stop, .travel-desktop-stop) { background: transparent; border-radius: 0; border: 0; border-bottom: 1px solid var(--quiet-line); box-shadow: none; }
+body.travel-page :is(.travel-stop, .travel-desktop-stop).is-active { background: var(--surface); box-shadow: none; }
+body.travel-page .travel-share { background: transparent; border: 0; border-radius: 0; padding: var(--space-md) 0; margin-inline: 0; }
+body.travel-page :is(.travel-trip-title, .travel-stop-name) { font: var(--phone-task-weight) var(--phone-task-size)/var(--phone-task-lh) var(--font-ui); letter-spacing: 0; }
+body.travel-page :is(.travel-trip-meta, .travel-side-subtitle, .travel-stops-empty, .travel-share-hint) { font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); letter-spacing: 0; }
+
+/* Every disclosure keeps its direction visible, including the secondary tools. */
+:is(.tally-quick-options, .tally-insights, .cal-search-disclosure, .travel-info, .reminder-settings, .teamwork-personal-draft, .m-task-details, .mail-digest-rest) > summary { min-height: 44px; list-style: none; cursor: pointer; gap: var(--space-sm); }
+:is(.tally-quick-options, .tally-insights, .cal-search-disclosure, .travel-info, .reminder-settings, .teamwork-personal-draft, .m-task-details, .mail-digest-rest) > summary::-webkit-details-marker { display: none; }
+:is(.tally-quick-options, .tally-insights, .cal-search-disclosure, .travel-info, .reminder-settings, .teamwork-personal-draft, .m-task-details, .mail-digest-rest) > summary::after { content: '›'; display: inline-block; margin-left: auto; color: var(--text-muted); transform: rotate(0deg); }
+:is(.tally-quick-options, .tally-insights, .cal-search-disclosure, .travel-info, .reminder-settings, .teamwork-personal-draft, .m-task-details, .mail-digest-rest)[open] > summary::after { transform: rotate(90deg); }
+
+/* Welcome exposes the two entry choices directly and keeps the original mark. */
+.welcome-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-lg); min-height: 100dvh; box-sizing: border-box; padding: max(var(--space-lg), env(safe-area-inset-top, 0px)) var(--space-md) max(var(--space-lg), env(safe-area-inset-bottom, 0px)); overflow: visible; touch-action: auto; }
+.welcome-ghost-field { position: static; width: calc(var(--space-xl) * 2); height: auto; }
+.welcome-floating-ghost { position: static; display: block; width: 100%; height: auto; opacity: 1; filter: none; transform: none; transition: none; will-change: auto; }
+.welcome-screen :is(.welcome-intro, .welcome-reveal, .welcome-actions) { position: static; width: min(100%, 25rem); opacity: 1; transform: none; transition: none; }
+.welcome-screen .welcome-kicker { color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); letter-spacing: 0; text-transform: none; }
+.welcome-screen .welcome-title { margin-top: var(--space-sm); font: var(--phone-display-weight) var(--phone-display-size)/var(--phone-display-lh) var(--font-ui); letter-spacing: 0; }
+.welcome-screen .welcome-reveal-copy { color: var(--text-muted); font: var(--phone-body-weight) var(--phone-body-size)/var(--phone-body-lh) var(--font-ui); letter-spacing: 0; }
+.welcome-screen .welcome-actions { display: grid; gap: var(--space-sm); pointer-events: auto; }
+.welcome-screen :is(.welcome-provider, .welcome-enter) { min-height: 48px; padding: var(--space-sm) var(--space-md); border: 0; border-radius: var(--radius-pill); font: var(--phone-action-weight) var(--phone-action-size)/var(--phone-action-lh) var(--font-ui); letter-spacing: 0; box-shadow: none; }
+.welcome-screen .welcome-provider-google { background: var(--primary); color: var(--on-primary); }
+.welcome-screen .welcome-enter { background: var(--surface); color: var(--text); }
+.welcome-screen :is(.welcome-provider, .welcome-enter):hover { background: var(--surface-hover); color: var(--text); transform: none; box-shadow: none; }
+
+@media (min-width: 820px) {
+  body.has-bento-rail .layout,
+  body.planner-page.has-bento-rail .layout,
+  body.travel-page.has-bento-rail .layout { width: min(1120px, 92vw); max-width: min(1120px, 92vw); padding: 0; gap: var(--space-lg); margin-inline: auto; }
+  body.travel-page.has-bento-rail .bento-rail { position: sticky; top: var(--space-md); left: auto; bottom: auto; height: calc(100dvh - var(--space-md) * 2); }
+  body.has-bento-rail:not(.has-mobile-dock) :is(.bento-rail-brand, .bento-rail-link, .bento-rail-theme, .bento-rail-lang) { min-width: 44px; min-height: 44px; }
+  body.planner-page .planner-shell { padding: var(--space-lg) 0 var(--space-xl); }
+  body.teamwork-page .main-area { padding: var(--space-lg) 0; }
+}
+@media (max-width: 819px) {
+  body.planner-page.has-bento-rail .layout { padding: 0; }
+  body.planner-page .planner-cards { gap: var(--space-sm); }
+  body.travel-page :is(.travel-stop, .travel-desktop-stop) { min-height: 72px; padding: var(--space-sm) 0; }
+  body.travel-page .travel-stop-list { max-height: none; overflow: visible; }
+  body.calendar-page .cal-shell .cal-week-head { overflow-x: auto; }
+  body.calendar-page .cal-week-day { min-width: 44px; }
 }

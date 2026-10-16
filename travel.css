@@ -32,8 +32,6 @@
   border-radius: var(--radius);
   background: var(--glass-strong);
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(12px) saturate(1.08);
-  -webkit-backdrop-filter: blur(12px) saturate(1.08);
   color: var(--text);
   font-size: var(--type-label-size);
   line-height: 1.45;
@@ -108,7 +106,7 @@
   color: var(--text-muted);
   font-size: var(--type-body-size);
   line-height: var(--type-body-lh);
-  letter-spacing: 0.02em;
+  letter-spacing: var(--type-body-tracking);
 }
 
 .travel-empty .travel-add-btn {
@@ -124,8 +122,6 @@
   border-radius: var(--radius-lg);
   background: var(--glass-strong);
   box-shadow: var(--shadow-pop);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
   color: var(--text);
   text-align: center;
 }
@@ -199,8 +195,6 @@
   border-color: var(--glass-border) !important;
   background: var(--glass-strong) !important;
   color: var(--text) !important;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
 }
 
 .travel-map .leaflet-control-zoom a:hover {
@@ -309,8 +303,6 @@ body.travel-page.has-bento-rail > .theme-toggle:not(.bento-rail-theme) {
   border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--surface) 22%, transparent);
   box-shadow: none;
-  backdrop-filter: blur(16px) saturate(1.08);
-  -webkit-backdrop-filter: blur(16px) saturate(1.08);
 }
 
 .travel-search input {
@@ -349,10 +341,8 @@ body.travel-page.has-bento-rail > .theme-toggle:not(.bento-rail-theme) {
   font: inherit;
   font-size: var(--type-label-size);
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--type-body-tracking);
   cursor: pointer;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
@@ -373,8 +363,6 @@ body.travel-page.has-bento-rail > .theme-toggle:not(.bento-rail-theme) {
   font-size: var(--type-label-size);
   line-height: 1.35;
   text-align: center;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
 }
 
 .travel-place-results {
@@ -389,8 +377,6 @@ body.travel-page.has-bento-rail > .theme-toggle:not(.bento-rail-theme) {
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--glass-strong) 55%, transparent);
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
 }
 
 .travel-place-result {
@@ -441,8 +427,6 @@ body.travel-page.has-bento-rail > .theme-toggle:not(.bento-rail-theme) {
   border-radius: var(--radius-md);
   background: var(--glass-strong);
   box-shadow: var(--shadow-pop);
-  backdrop-filter: blur(18px) saturate(1.05);
-  -webkit-backdrop-filter: blur(18px) saturate(1.05);
   z-index: 5;
   overflow: hidden;
 }
@@ -723,7 +707,7 @@ body.travel-page.has-bento-rail > .theme-toggle:not(.bento-rail-theme) {
   color: var(--on-tertiary);
   font: inherit;
   font-size: var(--type-label-size);
-  letter-spacing: 0.02em;
+  letter-spacing: var(--type-body-tracking);
   cursor: pointer;
   text-align: center;
   line-height: 1.3;
@@ -854,8 +838,6 @@ body.travel-page.has-bento-rail > .theme-toggle:not(.bento-rail-theme) {
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   background: var(--glass-strong);
   box-shadow: var(--shadow-pop);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
 }
 
 .travel-sheet-head {
@@ -905,7 +887,7 @@ body.travel-page.has-bento-rail > .theme-toggle:not(.bento-rail-theme) {
   color: var(--text);
   font: inherit;
   text-transform: none;
-  letter-spacing: normal;
+  letter-spacing: var(--type-body-tracking);
   font-weight: 400;
 }
 
@@ -915,7 +897,7 @@ body.travel-page.has-bento-rail > .theme-toggle:not(.bento-rail-theme) {
   color: var(--text-muted);
   font-size: var(--type-label-size);
   text-transform: none;
-  letter-spacing: normal;
+  letter-spacing: var(--type-body-tracking);
   font-weight: 400;
 }
 
@@ -958,8 +940,6 @@ body.travel-page.has-bento-rail > .theme-toggle:not(.bento-rail-theme) {
 .travel-page.travel-has-trip .sidebar {
   z-index: 240;
   background: var(--glass-strong);
-  backdrop-filter: blur(18px) saturate(1.05);
-  -webkit-backdrop-filter: blur(18px) saturate(1.05);
 }
 
 .travel-page.travel-has-trip .backdrop {
@@ -1276,8 +1256,6 @@ body.travel-page.has-bento-rail > .theme-toggle:not(.bento-rail-theme) {
     border-radius: var(--radius-lg);
     background: color-mix(in srgb, var(--glass-strong) 88%, transparent);
     box-shadow: var(--shadow-pop);
-    backdrop-filter: blur(18px) saturate(1.05);
-    -webkit-backdrop-filter: blur(18px) saturate(1.05);
   }
 
   .travel-search-panel-head {

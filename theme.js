@@ -843,64 +843,7 @@
 
   function initWelcomeExperience() {
     const stage = document.querySelector(".welcome-screen");
-    const field = stage?.querySelector(".welcome-ghost-field");
-    const ghost = field?.querySelector(".welcome-floating-ghost");
-    const lens = stage?.querySelector(".welcome-lens");
-    if (
-      !(stage instanceof HTMLElement) ||
-      !(field instanceof HTMLElement) ||
-      !(ghost instanceof HTMLImageElement) ||
-      !(lens instanceof HTMLButtonElement)
-    ) {
-      return;
-    }
-
-    let progress = 0;
-    let dragStartY = 0;
-    let dragStartProgress = 0;
-    let dragging = false;
-    let moved = false;
-    let ghostTimer = 0;
-
-    function randomBetween(min, max) {
-      return min + Math.random() * (max - min);
-    }
-
-    function moveGhost() {
-      window.clearTimeout(ghostTimer);
-      const maxX = Math.max(0, field.clientWidth - ghost.offsetWidth);
-      const maxY = Math.max(0, field.clientHeight - ghost.offsetHeight);
-      const x = randomBetween(maxX * 0.04, maxX * 0.96);
-      const y = randomBetween(0, maxY);
-      const rotation = randomBetween(-14, 14);
-      ghost.style.transitionDuration = `${randomBetween(2.4, 4).toFixed(2)}s`;
-      ghost.style.transform =
-        `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) ` +
-        `rotate(${rotation.toFixed(1)}deg) scale(var(--welcome-ghost-scale))`;
-      ghostTimer = window.setTimeout(moveGhost, randomBetween(2800, 4400));
-    }
-
-    function setProgress(nextProgress, settle) {
-      progress = Math.max(0, Math.min(1, nextProgress));
-      if (settle) {
-        const expanded = progress >= 0.5;
-        progress = expanded ? 1 : 0;
-        stage.classList.toggle("is-expanded", expanded);
-        lens.setAttribute("aria-expanded", String(expanded));
-        lens.setAttribute("aria-label", expanded ? "Collapse welcome screen" : "Drag up to enter");
-      }
-      stage.style.setProperty("--welcome-progress", progress.toFixed(3));
-      stage.style.setProperty("--welcome-ghost-scale", (0.82 + progress * 0.18).toFixed(3));
-      stage.style.setProperty("--welcome-intro-opacity", Math.max(0, 1 - progress * 1.6).toFixed(3));
-      stage.style.setProperty("--welcome-intro-y", `${(-progress * 3.5).toFixed(3)}rem`);
-      stage.style.setProperty("--welcome-reveal-opacity", Math.max(0, Math.min(1, (progress - 0.42) * 2.8)).toFixed(3));
-      stage.style.setProperty("--welcome-reveal-y", `${((1 - progress) * 2).toFixed(3)}rem`);
-      stage.style.setProperty("--welcome-actions-opacity", Math.max(0, Math.min(1, (progress - 0.55) * 3)).toFixed(3));
-      stage.style.setProperty("--welcome-actions-y", `${((1 - progress) * 2.5).toFixed(3)}rem`);
-      stage.style.setProperty("--welcome-lens-y", `${(-progress * 60).toFixed(3)}vh`);
-      stage.style.setProperty("--welcome-lens-scale", (1 - progress * 0.7).toFixed(3));
-      stage.style.setProperty("--welcome-hint-opacity", Math.max(0, 1 - progress * 2).toFixed(3));
-    }
+    if (!(stage instanceof HTMLElement)) return;
 
     async function startWelcomeSignIn(provider) {
       const response = await fetch(`/api/auth/${provider}/start`, {
@@ -920,40 +863,6 @@
       window.location.href = payload.authUrl;
     }
 
-    lens.addEventListener("pointerdown", function (event) {
-      dragging = true;
-      moved = false;
-      dragStartY = event.clientY;
-      dragStartProgress = progress;
-      lens.setPointerCapture(event.pointerId);
-      stage.classList.add("is-dragging");
-    });
-
-    lens.addEventListener("pointermove", function (event) {
-      if (!dragging) return;
-      const delta = dragStartY - event.clientY;
-      if (Math.abs(delta) > 6) moved = true;
-      setProgress(dragStartProgress + delta / Math.max(220, stage.clientHeight * 0.48), false);
-    });
-
-    function finishDrag(event) {
-      if (!dragging) return;
-      dragging = false;
-      stage.classList.remove("is-dragging");
-      if (lens.hasPointerCapture(event.pointerId)) lens.releasePointerCapture(event.pointerId);
-      setProgress(progress, true);
-    }
-
-    lens.addEventListener("pointerup", finishDrag);
-    lens.addEventListener("pointercancel", finishDrag);
-    lens.addEventListener("click", function () {
-      if (moved) {
-        moved = false;
-        return;
-      }
-      setProgress(progress < 0.5 ? 1 : 0, true);
-    });
-
     stage.addEventListener("click", function (event) {
       const target = event.target;
       if (!(target instanceof Element)) return;
@@ -968,11 +877,6 @@
       });
     });
 
-    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      if (ghost.complete) moveGhost();
-      else ghost.addEventListener("load", moveGhost, { once: true });
-      window.addEventListener("resize", moveGhost);
-    }
   }
 
   function handleSnapshotFailure(error) {

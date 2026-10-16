@@ -196,7 +196,8 @@ test("browser interactions on desktop and touch screens", { timeout: 120_000 }, 
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ authUrl: `${base}/todo-m.html?oauth-test=1#today` }) });
     });
     await page.goto(`${base}/index.html`, { waitUntil: "load" });
-    await page.locator(".welcome-lens").click();
+    assert.equal(await page.locator("[data-welcome-provider=google]").isVisible(), true);
+    assert.equal(await page.locator(".welcome-enter").isVisible(), true);
     assert.equal(await page.locator("[data-welcome-provider]").count(), 1);
     assert.equal(await page.locator("[data-welcome-provider]").getAttribute("data-welcome-provider"), "google");
     await page.locator(".welcome-enter").click();
@@ -238,6 +239,8 @@ test("browser interactions on desktop and touch screens", { timeout: 120_000 }, 
   await t.test("completion and addition preserve unrelated rows and focus", async () => {
     const page = await pageFor();
     await page.goto(`${base}/todo.html`, { waitUntil: "load" });
+    assert.equal(await page.evaluate(() => scrollY), 0, "Opening Today keeps the page title in view");
+    assert.equal(await page.locator("#todo-input").evaluate(node => node === document.activeElement), false, "The composer only takes focus after user action");
     await page.locator('.filter-btn[data-filter="active"]').click();
     await page.locator('#todo-list [data-id="c"]').evaluate(node => { window.unchanged = node; });
     await page.locator('#todo-list [data-id="a"] .todo-check').click();

@@ -1330,6 +1330,7 @@
     } else {
       setFilter("today");
     }
+    if (opts && opts.focus === false) return;
     queueMicrotask(() => {
       const mobile = isMobileTodoPage();
       const agentPage = document.body.classList.contains("todo-agent-page") && !mobile;
@@ -2144,7 +2145,7 @@
   if (window.location.hash === "#assigned") {
     setTodoSource("assigned");
   } else if (window.location.hash === "#today" || !window.location.hash) {
-    focusTodayList();
+    focusTodayList({ focus: false });
   }
 
   window.addEventListener("daily-space-open-assigned", () => {

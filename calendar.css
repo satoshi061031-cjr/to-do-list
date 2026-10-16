@@ -97,8 +97,6 @@ body.calendar-page .calendar-app > .app-greeting {
   border: 1px solid color-mix(in srgb, var(--glass-border) 75%, transparent);
   border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--surface) 22%, transparent);
-  backdrop-filter: blur(12px) saturate(1.05);
-  -webkit-backdrop-filter: blur(12px) saturate(1.05);
 }
 
 .cal-shell .cal-search-input {
@@ -136,7 +134,7 @@ body.calendar-page .calendar-app > .app-greeting {
   color: var(--cal-muted);
   font: inherit;
   font-size: var(--type-label-size, 0.72rem);
-  letter-spacing: 0.04em;
+  letter-spacing: var(--type-body-tracking);
   text-transform: uppercase;
   cursor: pointer;
 }
@@ -163,7 +161,7 @@ body.calendar-page .calendar-app > .app-greeting {
   font-size: clamp(1.85rem, 3.4vw, 2.45rem);
   line-height: 1.05;
   font-weight: 400;
-  letter-spacing: 0.01em;
+  letter-spacing: var(--type-body-tracking);
   color: var(--cal-ink);
 }
 
@@ -171,7 +169,7 @@ body.calendar-page .calendar-app > .app-greeting {
   margin: 0.35rem 0 0;
   color: var(--cal-muted);
   font-size: var(--type-label-size, 0.72rem);
-  letter-spacing: 0.04em;
+  letter-spacing: var(--type-body-tracking);
   text-transform: uppercase;
 }
 
@@ -219,7 +217,7 @@ body.calendar-page .calendar-app > .app-greeting {
   color: inherit;
   font: inherit;
   font-size: var(--type-label-size, 0.72rem);
-  letter-spacing: 0.03em;
+  letter-spacing: var(--type-body-tracking);
   cursor: default;
 }
 
@@ -254,7 +252,7 @@ body.calendar-page .calendar-app > .app-greeting {
   color: var(--cal-ink);
   font: inherit;
   font-size: var(--type-label-size, 0.72rem);
-  letter-spacing: 0.04em;
+  letter-spacing: var(--type-body-tracking);
   text-transform: uppercase;
   cursor: pointer;
 }
@@ -276,8 +274,6 @@ body.calendar-page .calendar-app > .app-greeting {
   border-radius: var(--radius-lg);
   background: color-mix(in srgb, var(--glass) 55%, transparent);
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(12px) saturate(1.05);
-  -webkit-backdrop-filter: blur(12px) saturate(1.05);
 }
 
 .cal-shell .cal-composer {
@@ -299,13 +295,13 @@ body.calendar-page .calendar-app > .app-greeting {
 .cal-shell .selected-day-title {
   font-size: clamp(1.15rem, 2vw, 1.4rem);
   font-weight: 400;
-  letter-spacing: 0.02em;
+  letter-spacing: var(--type-body-tracking);
 }
 
 .cal-shell .selected-day-meta {
   margin-top: 0.2rem;
   font-size: var(--type-label-size, 0.72rem);
-  letter-spacing: 0.04em;
+  letter-spacing: var(--type-body-tracking);
   text-transform: uppercase;
 }
 
@@ -396,8 +392,6 @@ body.calendar-page .calendar-app > .app-greeting {
   background: color-mix(in srgb, var(--surface) 18%, transparent);
   color: var(--cal-ink);
   box-shadow: none;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
 }
 
 .cal-shell .cal-upcoming-kicker {
@@ -428,7 +422,7 @@ body.calendar-page .calendar-app > .app-greeting {
   margin: 0;
   font-size: 1.35rem;
   font-weight: 400;
-  letter-spacing: 0.02em;
+  letter-spacing: var(--type-body-tracking);
   color: var(--cal-sidebar-fg);
 }
 
@@ -497,7 +491,7 @@ body.calendar-page .calendar-app > .app-greeting {
   color: color-mix(in srgb, var(--cal-sidebar-fg) 72%, transparent);
   font: inherit;
   font-size: 0.72rem;
-  letter-spacing: 0.06em;
+  letter-spacing: var(--type-body-tracking);
   text-transform: uppercase;
   cursor: pointer;
 }
@@ -603,7 +597,7 @@ body.calendar-page .calendar-app > .app-greeting {
   color: var(--cal-ink);
   font-size: clamp(1.35rem, 2.4vw, 1.75rem);
   font-weight: 400;
-  letter-spacing: 0.01em;
+  letter-spacing: var(--type-body-tracking);
   line-height: 1.15;
   text-shadow: none;
 }
@@ -624,7 +618,6 @@ body.calendar-page .calendar-app > .app-greeting {
   border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--neutral) 70%, transparent);
   box-shadow: none;
-  backdrop-filter: none;
 }
 
 .calendar-page .calendar-nav-btn,
@@ -636,7 +629,6 @@ body.calendar-page .calendar-app > .app-greeting {
   font: inherit;
   font-weight: 600;
   box-shadow: none;
-  backdrop-filter: none;
 }
 
 .calendar-nav-btn {
@@ -720,7 +712,7 @@ body.calendar-page .calendar-app > .app-greeting {
 .cal-week-day-wd {
   display: block;
   font-size: 0.78rem;
-  letter-spacing: 0.01em;
+  letter-spacing: var(--type-body-tracking);
   text-transform: none;
   color: var(--cal-muted);
   font-weight: 400;
@@ -845,7 +837,7 @@ body.calendar-page .calendar-app > .app-greeting {
 .cal-event-title {
   display: block;
   font-weight: 600;
-  letter-spacing: 0.01em;
+  letter-spacing: var(--type-body-tracking);
 }
 
 .cal-event-time {
@@ -936,7 +928,7 @@ body.calendar-page .calendar-app > .app-greeting {
 
 .day-task-label {
   font-size: 0.68rem;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--type-body-tracking);
   text-transform: uppercase;
   color: var(--cal-muted);
 }
@@ -1019,7 +1011,7 @@ body.calendar-page .calendar-app > .app-greeting {
   flex-direction: column;
   gap: 0.2rem;
   font-size: 0.68rem;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--type-body-tracking);
   text-transform: uppercase;
   color: var(--cal-muted);
 }
@@ -1058,7 +1050,7 @@ body.calendar-page .calendar-app > .app-greeting {
 
 .cal-upcoming-kicker {
   font-size: 0.65rem;
-  letter-spacing: 0.06em;
+  letter-spacing: var(--type-body-tracking);
   text-transform: uppercase;
   color: var(--cal-accent);
 }
@@ -1245,8 +1237,6 @@ body.calendar-page .calendar-app > .app-greeting {
     border: 0;
     background: transparent;
     box-shadow: none;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
   }
 
   body.calendar-page .cal-week-head {
@@ -1276,8 +1266,6 @@ body.calendar-page .calendar-app > .app-greeting {
 
   body.calendar-page .cal-week-day.is-selected {
     background: var(--liquid-sheen), color-mix(in srgb, var(--cal-accent) 22%, var(--liquid-fill));
-    backdrop-filter: var(--liquid-blur);
-    -webkit-backdrop-filter: var(--liquid-blur);
     border: 1px solid var(--liquid-edge);
     box-shadow: var(--liquid-shadow);
   }
@@ -1358,8 +1346,6 @@ body.calendar-page .calendar-app > .app-greeting {
     border-radius: var(--radius-pill);
     isolation: isolate;
     background: var(--liquid-sheen), var(--liquid-fill);
-    backdrop-filter: var(--liquid-blur);
-    -webkit-backdrop-filter: var(--liquid-blur);
     box-shadow: var(--liquid-shadow);
     border: 1px solid var(--liquid-edge);
   }
@@ -1406,8 +1392,6 @@ body.calendar-page .calendar-app > .app-greeting {
     border: 1px solid var(--liquid-edge);
     border-radius: var(--radius-lg);
     background: var(--liquid-sheen), var(--liquid-fill);
-    backdrop-filter: var(--liquid-blur);
-    -webkit-backdrop-filter: var(--liquid-blur);
     box-shadow: var(--liquid-shadow);
   }
 

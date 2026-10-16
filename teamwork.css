@@ -51,8 +51,6 @@
   border-radius: var(--radius-lg);
   background: var(--glass);
   box-shadow: var(--shadow-pop);
-  backdrop-filter: blur(14px) saturate(1.08);
-  -webkit-backdrop-filter: blur(14px) saturate(1.08);
   transform-origin: center;
   transition:
     transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1),
@@ -304,7 +302,7 @@
 .teamwork-member-row strong {
   color: var(--highlight);
   font-size: 0.78rem;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--type-body-tracking);
   text-transform: uppercase;
 }
 
@@ -316,7 +314,7 @@
   color: var(--highlight);
   font-size: 0.78rem;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--type-body-tracking);
   text-transform: uppercase;
 }
 
@@ -586,7 +584,7 @@
   color: var(--text-muted);
   font-size: 0.82rem;
   line-height: 1.45;
-  letter-spacing: 0.02em;
+  letter-spacing: var(--type-body-tracking);
 }
 
 .teamwork-personal-fields {
@@ -675,7 +673,7 @@
   margin: 0 0 var(--space-sm);
   color: var(--text-muted);
   font-size: 0.78rem;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--type-body-tracking);
 }
 
 .teamwork-cloud-member-list li.teamwork-cloud-member-row {
@@ -721,7 +719,7 @@
   font: inherit;
   font-size: 0.72rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--type-body-tracking);
 }
 
 .teamwork-member-remove,
@@ -781,7 +779,7 @@
   color: var(--highlight);
   font-size: 0.68rem;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--type-body-tracking);
   text-transform: uppercase;
 }
 

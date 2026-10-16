@@ -1139,7 +1139,10 @@
       removePlannerEntry(entry.id);
     });
 
-    top.append(check, titleWrap, toggle, del);
+    const checkTarget = document.createElement("label");
+    checkTarget.className = "planner-card-check-target";
+    checkTarget.appendChild(check);
+    top.append(checkTarget, titleWrap, toggle, del);
 
     const face = document.createElement("div");
     face.className = "planner-card-face";

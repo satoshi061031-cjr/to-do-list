@@ -116,8 +116,6 @@
   border-radius: 999px;
   background: var(--glass-strong);
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
 }
 
 .tally-nav-btn,
@@ -174,8 +172,6 @@
   border-radius: var(--radius);
   background: var(--glass-strong);
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
 }
 
 .tally-settings[hidden],
@@ -287,8 +283,6 @@
   border-radius: var(--radius-lg);
   background: var(--glass-strong);
   box-shadow: var(--shadow-pop);
-  backdrop-filter: blur(18px) saturate(1.04);
-  -webkit-backdrop-filter: blur(18px) saturate(1.04);
 }
 
 .tally-settlement {
@@ -398,7 +392,7 @@
   color: var(--text);
   font-size: clamp(2.25rem, 8vw, 3.35rem);
   line-height: 1;
-  letter-spacing: -0.055em;
+  letter-spacing: var(--type-body-tracking);
 }
 
 .tally-meta {
@@ -551,8 +545,6 @@
   border-radius: 1.35rem;
   background: var(--glass-strong);
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
 }
 
 .tally-record {
@@ -670,8 +662,6 @@
   background: var(--glass-strong);
   box-shadow: var(--shadow-soft);
   text-align: center;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
 }
 
 .tally-empty-panel[hidden] {
@@ -728,8 +718,6 @@
   inset: 0;
   border: 0;
   background: color-mix(in srgb, var(--primary) 42%, transparent);
-  backdrop-filter: blur(5px);
-  -webkit-backdrop-filter: blur(5px);
 }
 
 .tally-sheet-panel {
@@ -744,8 +732,6 @@
   border-radius: var(--radius-lg);
   background: var(--glass-strong);
   box-shadow: var(--shadow-pop);
-  backdrop-filter: blur(16px) saturate(1.04);
-  -webkit-backdrop-filter: blur(16px) saturate(1.04);
 }
 
 .tally-sheet-head {
@@ -898,7 +884,7 @@
   font: inherit;
   font-size: var(--type-label-size);
   font-weight: 400;
-  letter-spacing: 0.02em;
+  letter-spacing: var(--type-body-tracking);
   padding: 0.35rem 0.7rem;
 }
 
@@ -968,8 +954,6 @@ body.tally-sheet-open {
     border-radius: var(--radius-sm);
     border: 1px solid var(--liquid-edge, var(--glass-border));
     background: var(--liquid-sheen, var(--glass-strong)), var(--liquid-fill, var(--glass));
-    backdrop-filter: var(--liquid-blur, blur(22px) saturate(1.55));
-    -webkit-backdrop-filter: var(--liquid-blur, blur(22px) saturate(1.55));
     box-shadow: var(--liquid-shadow, var(--shadow-soft));
   }
 

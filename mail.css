@@ -30,8 +30,6 @@
   border-radius: var(--radius-lg);
   background: var(--glass);
   box-shadow: var(--shadow-pop);
-  backdrop-filter: blur(14px) saturate(1.08);
-  -webkit-backdrop-filter: blur(14px) saturate(1.08);
   transform-origin: center;
   transition:
     transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1),
@@ -135,7 +133,7 @@
   flex-shrink: 0;
   padding: 0.45rem 0.85rem;
   font-size: 0.74rem;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--type-body-tracking);
 }
 
 .mail-section-actions,
@@ -150,7 +148,7 @@
 .mail-message-actions .btn {
   padding: 0.42rem 0.7rem;
   font-size: 0.7rem;
-  letter-spacing: 0.03em;
+  letter-spacing: var(--type-body-tracking);
   white-space: nowrap;
 }
 
@@ -163,7 +161,7 @@
   color: var(--text);
   font-size: 0.9rem;
   line-height: 1.45;
-  letter-spacing: 0.02em;
+  letter-spacing: var(--type-body-tracking);
 }
 
 .mail-digest-actions {
@@ -175,7 +173,7 @@
 
 .mail-digest-actions .btn {
   font-size: 0.78rem;
-  letter-spacing: 0.03em;
+  letter-spacing: var(--type-body-tracking);
   padding: 0.5rem 0.9rem;
 }
 
@@ -184,7 +182,7 @@
   color: var(--text-muted);
   font-size: 0.88rem;
   line-height: 1.45;
-  letter-spacing: 0.02em;
+  letter-spacing: var(--type-body-tracking);
   max-width: 34rem;
 }
 
@@ -378,7 +376,7 @@
   font: inherit;
   font-size: var(--type-label-size);
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--type-body-tracking);
   cursor: pointer;
 }
 
@@ -431,14 +429,14 @@
   color: var(--text);
   font-size: 0.84rem;
   line-height: 1.4;
-  letter-spacing: 0.02em;
+  letter-spacing: var(--type-body-tracking);
 }
 
 .mail-add-task {
   flex-shrink: 0;
   padding: 0.42rem 0.7rem;
   font-size: 0.7rem;
-  letter-spacing: 0.03em;
+  letter-spacing: var(--type-body-tracking);
   white-space: nowrap;
 }
 
@@ -571,8 +569,6 @@
   inset: 0;
   border: 0;
   background: color-mix(in srgb, var(--primary) 48%, transparent);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
 }
 
 .mail-booking-panel {
@@ -586,8 +582,6 @@
   border-radius: var(--radius-lg);
   background: var(--glass-strong);
   box-shadow: var(--shadow-pop);
-  backdrop-filter: blur(20px) saturate(1.08);
-  -webkit-backdrop-filter: blur(20px) saturate(1.08);
 }
 
 .mail-booking-head {
@@ -688,7 +682,7 @@
   color: var(--text);
   font: inherit;
   text-transform: none;
-  letter-spacing: normal;
+  letter-spacing: var(--type-body-tracking);
 }
 
 .mail-booking-actions {

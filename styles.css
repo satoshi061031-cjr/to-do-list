@@ -478,8 +478,6 @@ body::after {
     ),
     var(--glass);
   box-shadow: var(--shadow-pop);
-  backdrop-filter: blur(7px) saturate(1.35);
-  -webkit-backdrop-filter: blur(7px) saturate(1.35);
   transform: translate(-50%, var(--welcome-lens-y)) scale(var(--welcome-lens-scale));
   transition: transform 0.8s cubic-bezier(0.16, 0.9, 0.25, 1), opacity 0.35s ease;
   will-change: transform;
@@ -594,7 +592,7 @@ body::after {
   font: inherit;
   font-size: 0.74rem;
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: var(--type-body-tracking);
   text-transform: uppercase;
   border: 1px solid var(--border);
   border-radius: 999px;
@@ -634,11 +632,9 @@ body::after {
   font: inherit;
   font-size: 0.74rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--type-body-tracking);
   cursor: pointer;
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(12px) saturate(1.08);
-  -webkit-backdrop-filter: blur(12px) saturate(1.08);
   transition: background 0.15s, border-color 0.15s, right 0.2s ease;
 }
 
@@ -706,8 +702,6 @@ body.has-notif-bell .language-toggle {
   border-radius: var(--radius-pill);
   background: var(--glass-strong);
   box-shadow: var(--shadow-pop);
-  backdrop-filter: blur(14px) saturate(1.08);
-  -webkit-backdrop-filter: blur(14px) saturate(1.08);
   color: var(--text);
   /* Slide only. A throttled tab that never advances the animation still shows
      an opaque bar, which matters when the message is the only path to undo. */
@@ -758,8 +752,6 @@ body.has-notif-bell .language-toggle {
   font: inherit;
   cursor: pointer;
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(12px) saturate(1.08);
-  -webkit-backdrop-filter: blur(12px) saturate(1.08);
   transition: background 0.15s, border-color 0.15s, transform 0.15s;
 }
 
@@ -773,7 +765,7 @@ body.has-notif-bell .language-toggle {
 .notif-bell-glyph {
   font-size: 0.78rem;
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: var(--type-body-tracking);
 }
 
 .notif-bell-dot {
@@ -800,8 +792,6 @@ body.has-notif-bell .language-toggle {
   background: var(--glass-strong);
   color: var(--text);
   box-shadow: var(--shadow-pop);
-  backdrop-filter: blur(16px) saturate(1.1);
-  -webkit-backdrop-filter: blur(16px) saturate(1.1);
 }
 
 .notif-panel-header {
@@ -816,14 +806,14 @@ body.has-notif-bell .language-toggle {
   margin: 0;
   font-size: 0.95rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--type-body-tracking);
 }
 
 .notif-mark-all {
   font: inherit;
   font-size: 0.72rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--type-body-tracking);
   color: var(--accent);
   background: transparent;
   border: none;
@@ -883,7 +873,7 @@ body.has-notif-bell .language-toggle {
 .notif-item-time {
   color: var(--text-muted);
   font-size: 0.68rem;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--type-body-tracking);
 }
 
 .notif-empty {
@@ -977,7 +967,7 @@ body.has-notif-bell .language-toggle {
   font: inherit;
   font-weight: 600;
   font-size: 0.62rem;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--type-body-tracking);
   text-transform: uppercase;
   padding: 0.32rem 0.55rem;
   border: 1px solid var(--border);
@@ -1010,11 +1000,9 @@ body.has-notif-bell .language-toggle {
   background: var(--glass-strong);
   color: var(--text);
   box-shadow: var(--shadow-pop);
-  backdrop-filter: blur(12px) saturate(1.08);
-  -webkit-backdrop-filter: blur(12px) saturate(1.08);
   font-size: 0.78rem;
   font-weight: 600;
-  letter-spacing: 0.03em;
+  letter-spacing: var(--type-body-tracking);
   line-height: 1.35;
   transform: translateY(-50%);
   animation: sidebar-hint-in 0.35s ease;
@@ -1111,7 +1099,7 @@ body.has-notif-bell .language-toggle {
   font: inherit;
   font-size: inherit;
   font-weight: 600;
-  letter-spacing: inherit;
+  letter-spacing: var(--type-body-tracking);
   cursor: pointer;
   text-decoration: underline;
 }
@@ -1220,7 +1208,7 @@ body.has-notif-bell .language-toggle {
   font: inherit;
   font-weight: 600;
   font-size: 0.74rem;
-  letter-spacing: 0.06em;
+  letter-spacing: var(--type-body-tracking);
   text-transform: uppercase;
   border: 1px dashed var(--border);
   border-radius: var(--radius);
@@ -1271,7 +1259,7 @@ body.has-notif-bell .language-toggle {
   font: inherit;
   font-weight: 600;
   font-size: 0.74rem;
-  letter-spacing: 0.06em;
+  letter-spacing: var(--type-body-tracking);
   border: none;
   border-radius: var(--radius);
   background: var(--primary);
@@ -1395,8 +1383,6 @@ body.has-notif-bell .language-toggle {
   border-radius: var(--radius);
   background: var(--glass);
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(10px) saturate(1.06);
-  -webkit-backdrop-filter: blur(10px) saturate(1.06);
   color: inherit;
   text-decoration: none;
   transition: background 0.15s, border-color 0.15s;
@@ -1441,8 +1427,6 @@ body.has-notif-bell .language-toggle {
   background: var(--glass);
   color: var(--text);
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(10px) saturate(1.06);
-  -webkit-backdrop-filter: blur(10px) saturate(1.06);
   cursor: pointer;
   font: inherit;
   text-align: left;
@@ -1503,8 +1487,6 @@ body.has-notif-bell .language-toggle {
   position: absolute;
   inset: 0;
   background: rgba(10, 11, 16, 0.32);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
 }
 
 .shortcuts-sheet-panel {
@@ -1518,8 +1500,6 @@ body.has-notif-bell .language-toggle {
   border-radius: var(--radius-lg);
   background: var(--glass);
   box-shadow: var(--shadow-pop);
-  backdrop-filter: blur(16px) saturate(1.08);
-  -webkit-backdrop-filter: blur(16px) saturate(1.08);
 }
 
 .shortcuts-sheet-close {
@@ -1611,7 +1591,7 @@ body.has-notif-bell .language-toggle {
   font: inherit;
   font-size: 0.72rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--type-body-tracking);
   text-transform: uppercase;
 }
 
@@ -1628,7 +1608,7 @@ body.shortcut-go-armed::after {
   color: var(--text);
   font-size: var(--type-label-size);
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--type-body-tracking);
   box-shadow: var(--shadow-soft);
   pointer-events: none;
 }
@@ -1637,8 +1617,6 @@ body.shortcut-go-armed::after {
   position: absolute;
   inset: 0;
   background: rgba(10, 11, 16, 0.28);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
 }
 
 .auth-card {
@@ -1650,8 +1628,6 @@ body.shortcut-go-armed::after {
   border-radius: var(--radius-lg);
   background: var(--glass);
   box-shadow: var(--shadow-pop);
-  backdrop-filter: blur(16px) saturate(1.08);
-  -webkit-backdrop-filter: blur(16px) saturate(1.08);
 }
 
 .auth-close {
@@ -1767,7 +1743,7 @@ body.shortcut-go-armed::after {
   color: var(--text-muted);
   font-size: 0.68rem;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--type-body-tracking);
 }
 
 .auth-alt-trigger {
@@ -1952,8 +1928,6 @@ body.shortcut-go-armed::after {
   border-radius: var(--radius-lg);
   background: var(--glass);
   box-shadow: var(--shadow-pop);
-  backdrop-filter: blur(14px) saturate(1.08);
-  -webkit-backdrop-filter: blur(14px) saturate(1.08);
 }
 
 /* Todo left clock: atmosphere beside Today */
@@ -2059,7 +2033,7 @@ body.shortcut-go-armed::after {
   color: var(--text);
   font-size: clamp(1.35rem, 3.2vw, 1.85rem);
   font-weight: 400;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--type-body-tracking);
   line-height: 1;
   text-align: center;
   text-shadow: none;
@@ -2088,7 +2062,7 @@ body.shortcut-go-armed::after {
   display: block;
   font-size: 0.68rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--type-body-tracking);
   color: var(--text-muted);
   margin-bottom: 0.35rem;
   text-align: center;
@@ -2105,7 +2079,7 @@ body.shortcut-go-armed::after {
 .app-calendar-title {
   font-size: 0.82rem;
   font-weight: 600;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--type-body-tracking);
   text-align: center;
 }
 
@@ -2134,7 +2108,7 @@ body.shortcut-go-armed::after {
   font: inherit;
   font-size: 0.68rem;
   font-weight: 600;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--type-body-tracking);
   text-transform: uppercase;
   padding: 0.18rem 0.38rem;
   border: none;
@@ -2158,7 +2132,7 @@ body.shortcut-go-armed::after {
   font-weight: 600;
   color: var(--text-muted);
   text-align: center;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--type-body-tracking);
   text-transform: uppercase;
 }
 
@@ -2228,7 +2202,7 @@ body.shortcut-go-armed::after {
 .due-day-filter-label {
   font-size: 0.78rem;
   font-weight: 600;
-  letter-spacing: 0.03em;
+  letter-spacing: var(--type-body-tracking);
   color: var(--text);
 }
 
@@ -2237,7 +2211,7 @@ body.shortcut-go-armed::after {
   padding: 0.35rem 0.55rem;
   font-size: 0.72rem;
   font-weight: 600;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--type-body-tracking);
   text-transform: uppercase;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -2262,8 +2236,6 @@ body.shortcut-go-armed::after {
   border-radius: var(--radius);
   background: var(--glass);
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(12px) saturate(1.08);
-  -webkit-backdrop-filter: blur(12px) saturate(1.08);
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
@@ -2480,8 +2452,6 @@ body.todo-source-assigned .daily-loop {
   border-radius: var(--radius);
   background: var(--glass-strong);
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(12px) saturate(1.08);
-  -webkit-backdrop-filter: blur(12px) saturate(1.08);
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
@@ -2627,7 +2597,7 @@ body.todo-source-assigned .evening-review {
   font-size: 0.82rem;
   color: rgba(255, 255, 255, 0.64);
   font-weight: 400;
-  letter-spacing: 0.02em;
+  letter-spacing: var(--type-body-tracking);
   line-height: 1.45;
   text-shadow: 0 1px 8px rgba(0, 0, 0, 0.14);
 }
@@ -2715,8 +2685,6 @@ body.todo-source-assigned .evening-review {
   border-radius: var(--radius);
   background: var(--glass-strong);
   box-shadow: var(--shadow-pop);
-  backdrop-filter: blur(14px) saturate(1.08);
-  -webkit-backdrop-filter: blur(14px) saturate(1.08);
 }
 
 .slash-menu[hidden] {
@@ -2774,8 +2742,6 @@ body.todo-source-assigned .evening-review {
   position: absolute;
   inset: 0;
   background: color-mix(in srgb, var(--text) 28%, transparent);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
 }
 
 .command-palette-panel {
@@ -2787,8 +2753,6 @@ body.todo-source-assigned .evening-review {
   border-radius: var(--radius);
   background: var(--glass-strong);
   box-shadow: var(--shadow-pop);
-  backdrop-filter: blur(16px) saturate(1.08);
-  -webkit-backdrop-filter: blur(16px) saturate(1.08);
 }
 
 .command-palette-input {
@@ -2980,7 +2944,7 @@ body.todo-source-assigned .evening-review {
 .calendar-title {
   font-weight: 400;
   font-size: 0.95rem;
-  letter-spacing: 0.06em;
+  letter-spacing: var(--type-body-tracking);
   text-align: center;
   min-width: 0;
 }
@@ -3015,7 +2979,7 @@ body.todo-source-assigned .evening-review {
   font-weight: 600;
   color: var(--text-muted);
   text-align: center;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--type-body-tracking);
   text-transform: uppercase;
   justify-items: center;
 }
@@ -3133,7 +3097,7 @@ body.todo-source-assigned .evening-review {
   border-radius: var(--radius);
   cursor: pointer;
   transition: background 0.15s, color 0.15s, opacity 0.15s;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--type-body-tracking);
   text-transform: uppercase;
 }
 
@@ -3155,7 +3119,7 @@ body.todo-source-assigned .evening-review {
   color: var(--text-muted);
   padding: 0.4rem 0.65rem;
   text-transform: none;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--type-body-tracking);
   font-weight: 600;
 }
 
@@ -3180,8 +3144,6 @@ body.todo-source-assigned .evening-review {
   border-radius: var(--radius-pill);
   border: 1px solid var(--glass-border);
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(10px) saturate(1.04);
-  -webkit-backdrop-filter: blur(10px) saturate(1.04);
   flex: 1 1 100%;
 }
 
@@ -3196,7 +3158,7 @@ body.todo-source-assigned .evening-review {
   color: var(--text-muted);
   cursor: pointer;
   transition: background 0.15s, color 0.15s, box-shadow 0.15s;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--type-body-tracking);
   flex: 1;
 }
 
@@ -3215,7 +3177,7 @@ body.todo-source-assigned .evening-review {
   margin: 0 0 var(--space-md);
   color: var(--text-muted);
   font-size: 0.78rem;
-  letter-spacing: 0.03em;
+  letter-spacing: var(--type-body-tracking);
   line-height: 1.45;
 }
 
@@ -3224,7 +3186,7 @@ body.todo-source-assigned .evening-review {
   margin-top: 0.28rem;
   color: var(--text-muted);
   font-size: 0.72rem;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--type-body-tracking);
 }
 
 body.todo-source-assigned .app-atmosphere {
@@ -3239,8 +3201,6 @@ body.todo-source-assigned .app-atmosphere {
   border-radius: var(--radius-pill);
   border: 1px solid var(--glass-border);
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(10px) saturate(1.04);
-  -webkit-backdrop-filter: blur(10px) saturate(1.04);
 }
 
 .filter-btn {
@@ -3254,7 +3214,7 @@ body.todo-source-assigned .app-atmosphere {
   color: var(--text-muted);
   cursor: pointer;
   transition: background 0.15s, color 0.15s, box-shadow 0.15s;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--type-body-tracking);
 }
 
 .filter-btn:hover {
@@ -3287,8 +3247,6 @@ body.todo-source-assigned .app-atmosphere {
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   box-shadow: none;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
   /* Entry motion belongs only to a newly inserted task. */
   transition: background 0.12s, border-color 0.12s;
 }
@@ -3323,7 +3281,7 @@ body.todo-source-assigned .app-atmosphere {
   cursor: grab;
   font: inherit;
   font-size: 0.72rem;
-  letter-spacing: -0.08em;
+  letter-spacing: var(--type-body-tracking);
   line-height: 1;
   transition: opacity 0.12s, background 0.12s, color 0.12s;
 }
@@ -3484,7 +3442,7 @@ body.todo-source-assigned .app-atmosphere {
   margin-top: 1.65rem;
   font-size: 0.82rem;
   color: var(--text-muted);
-  letter-spacing: 0.04em;
+  letter-spacing: var(--type-body-tracking);
 }
 
 body.due-day-page-open {
@@ -3542,7 +3500,7 @@ body.due-day-page-open {
   margin: 0;
   font-size: 1.35rem;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: var(--type-body-tracking);
   line-height: 1.25;
   color: var(--text);
 }
@@ -3551,7 +3509,7 @@ body.due-day-page-open {
   margin: 0.45rem 0 0;
   font-size: 0.82rem;
   color: var(--text-muted);
-  letter-spacing: 0.03em;
+  letter-spacing: var(--type-body-tracking);
 }
 
 .due-day-page-list {
@@ -3563,7 +3521,7 @@ body.due-day-page-open {
   text-align: center;
   color: var(--text-muted);
   font-size: 0.92rem;
-  letter-spacing: 0.03em;
+  letter-spacing: var(--type-body-tracking);
   line-height: 1.7;
 }
 
@@ -3610,8 +3568,6 @@ body.due-day-page-open {
   background: var(--glass);
   border-color: var(--glass-border);
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(12px) saturate(1.08);
-  -webkit-backdrop-filter: blur(12px) saturate(1.08);
 }
 
 .sidebar-trigger,
@@ -3633,8 +3589,6 @@ body.due-day-page-open {
   border: 1px solid var(--glass-border);
   border-color: var(--glass-border);
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(10px) saturate(1.06);
-  -webkit-backdrop-filter: blur(10px) saturate(1.06);
   transition:
     transform 0.16s ease,
     box-shadow 0.16s ease,
@@ -3699,8 +3653,6 @@ body.due-day-page-open {
   background: var(--glass);
   border-color: var(--glass-border);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.34), var(--shadow-soft);
-  backdrop-filter: blur(10px) saturate(1.04);
-  -webkit-backdrop-filter: blur(10px) saturate(1.04);
 }
 
 .deadline-trigger {
@@ -3872,8 +3824,6 @@ body.due-day-page-open {
   .backdrop {
     z-index: 210;
     background: rgba(28, 31, 30, 0.36);
-    backdrop-filter: blur(3px);
-    -webkit-backdrop-filter: blur(3px);
   }
 
   .sidebar {
@@ -3962,8 +3912,6 @@ body.due-day-page-open {
   background: var(--glass-strong);
   color: var(--text);
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(14px) saturate(1.05);
-  -webkit-backdrop-filter: blur(14px) saturate(1.05);
   padding: 0.38rem;
   cursor: pointer;
   transition: transform 0.18s ease, box-shadow 0.18s ease;
@@ -4009,8 +3957,6 @@ body.has-bento-rail .todo-agent-fab-rail {
   border: 1px solid color-mix(in srgb, var(--bento-rail-fg) 18%, transparent);
   background: color-mix(in srgb, var(--bento-rail-fg) 10%, transparent);
   box-shadow: none;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
   z-index: 1;
 }
 
@@ -4052,8 +3998,6 @@ body.todo-agent-open {
   inset: 0;
   border: 0;
   background: color-mix(in srgb, var(--primary) 42%, transparent);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
   cursor: pointer;
 }
 
@@ -4072,8 +4016,6 @@ body.todo-agent-open {
   border-radius: var(--radius-lg);
   background: var(--glass-strong);
   box-shadow: var(--shadow-pop);
-  backdrop-filter: blur(16px) saturate(1.08);
-  -webkit-backdrop-filter: blur(16px) saturate(1.08);
 }
 
 .todo-agent-header {
@@ -4141,8 +4083,6 @@ body.todo-agent-open {
   border: 1px solid var(--glass-border);
   background: var(--glass);
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(12px) saturate(1.06);
-  -webkit-backdrop-filter: blur(12px) saturate(1.06);
   color: var(--text);
   font-size: 0.88rem;
   line-height: 1.45;
@@ -4265,13 +4205,9 @@ body.todo-agent-open {
   .filter-btn,
   .todo-source-btn,
   .sidebar-page-link {
-    backdrop-filter: blur(10px) saturate(1.06);
-    -webkit-backdrop-filter: blur(10px) saturate(1.06);
   }
 
   .todo-agent-panel {
-    backdrop-filter: blur(14px) saturate(1.06);
-    -webkit-backdrop-filter: blur(14px) saturate(1.06);
   }
 }
 
@@ -4362,7 +4298,7 @@ body.has-bento-rail .bento-rail-brand {
   background: var(--tertiary);
   color: var(--on-tertiary);
   font-size: 1.15rem;
-  letter-spacing: 0.02em;
+  letter-spacing: var(--type-body-tracking);
   text-decoration: none;
   box-shadow: var(--shadow-soft);
 }
@@ -4442,8 +4378,6 @@ body.has-bento-rail .bento-rail-more-panel {
   border-radius: var(--radius-sm);
   background: var(--glass-strong);
   box-shadow: var(--shadow-pop);
-  backdrop-filter: blur(12px) saturate(1.08);
-  -webkit-backdrop-filter: blur(12px) saturate(1.08);
   display: grid;
   gap: 0.25rem;
 }
@@ -4478,10 +4412,8 @@ body.has-bento-rail .language-toggle.bento-rail-lang {
   display: grid;
   place-items: center;
   gap: 0;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
   font-size: 0.72rem;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--type-body-tracking);
 }
 
 body.has-bento-rail .bento-rail-theme .theme-toggle-label {
@@ -4494,7 +4426,7 @@ body.has-bento-rail .bento-rail-theme .theme-toggle-label {
 
 body.has-bento-rail .bento-rail-theme .theme-toggle-icon {
   font-size: 0.78rem;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--type-body-tracking);
 }
 
 body.has-bento-rail .language-toggle.bento-rail-lang:hover,
@@ -4523,8 +4455,6 @@ body.todo-bento .app.bento-shell.today-shell {
   border-radius: 0;
   background: transparent;
   box-shadow: none;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
   grid-template-columns: none;
   align-items: stretch;
 }
@@ -4544,7 +4474,7 @@ body.todo-bento .today-hero-copy {
 body.todo-bento .today-title {
   margin: 0;
   font-size: clamp(2rem, 4vw, 2.6rem);
-  letter-spacing: 0.02em;
+  letter-spacing: var(--type-body-tracking);
   font-weight: 400;
   line-height: 1.05;
   color: var(--text);
@@ -4575,7 +4505,7 @@ body.todo-bento .today-hero-hint {
   margin: 0;
   color: var(--text-muted);
   font-size: 0.68rem;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--type-body-tracking);
   text-transform: uppercase;
 }
 
@@ -4599,8 +4529,6 @@ body.todo-bento .today-status-pill {
   color: var(--text);
   font: inherit;
   cursor: pointer;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
   box-shadow: none;
 }
 
@@ -4621,7 +4549,7 @@ body.todo-bento .today-status-pill .daily-loop-pill-label {
 body.todo-bento .today-status-pill .daily-loop-pill-count {
   font-size: 1rem;
   line-height: 1;
-  letter-spacing: 0.01em;
+  letter-spacing: var(--type-body-tracking);
   color: var(--text);
 }
 
@@ -4680,8 +4608,6 @@ body.todo-bento .today-evening:not([hidden]) {
   border-radius: var(--radius-lg);
   background: color-mix(in srgb, var(--glass) 70%, transparent);
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(12px) saturate(1.06);
-  -webkit-backdrop-filter: blur(12px) saturate(1.06);
 }
 
 body.todo-bento .today-tasks {
@@ -4694,8 +4620,6 @@ body.todo-bento .today-tasks {
   border-radius: var(--radius-lg);
   background: var(--glass);
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(14px) saturate(1.08);
-  -webkit-backdrop-filter: blur(14px) saturate(1.08);
   transform: none;
   filter: none;
 }
@@ -4714,8 +4638,6 @@ body.todo-bento .daily-loop {
   border: 0;
   background: transparent;
   box-shadow: none;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
   gap: var(--space-sm);
 }
 
@@ -4755,8 +4677,6 @@ body.has-bento-rail .sidebar {
   border-radius: var(--radius-lg);
   background: var(--glass-strong);
   box-shadow: var(--shadow-pop);
-  backdrop-filter: blur(16px) saturate(1.08);
-  -webkit-backdrop-filter: blur(16px) saturate(1.08);
   opacity: 0;
   pointer-events: none;
   transform: translateX(-0.75rem) scale(0.98);
