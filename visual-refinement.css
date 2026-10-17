@@ -363,6 +363,8 @@ body.has-mobile-dock {
 }
 /* Keep the tint and blur on the same fixed surface. */
 body.has-mobile-dock.has-bento-rail .bento-rail {
+  pointer-events: auto;
+  touch-action: pan-y pinch-zoom;
   background: linear-gradient(180deg, var(--dock-tint), transparent), var(--dock-fill);
   border: 1px solid var(--dock-edge);
   border-radius: var(--radius-pill);
@@ -384,6 +386,8 @@ body.has-mobile-dock.has-bento-rail .bento-rail-nav {
   -webkit-user-select: none;
 }
 body.has-mobile-dock.has-bento-rail .bento-rail-link {
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
   color: var(--dock-muted);
 }
 body.has-mobile-dock.has-bento-rail .bento-rail-link.is-current,

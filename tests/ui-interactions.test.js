@@ -453,6 +453,69 @@ test("browser interactions on desktop and touch screens", { timeout: 120_000 }, 
     return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
   }
 
+  await t.test("native touch alone drags from the whole dock and ignores duplicate pointer cancellation", async () => {
+    const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await page.goto(`${base}/todo-m.html`, { waitUntil: "load" });
+    await page.locator(".bento-rail-nav.dock-ready").waitFor();
+    const before = await page.evaluate(() => history.length);
+    const rail = await page.locator(".bento-rail").boundingBox();
+    const to = await dockCenter(page, '[data-rail-page="calendar"]');
+    async function send(type, point) {
+      await page.evaluate(({ type, point }) => {
+        const target = document.querySelector(".bento-rail");
+        const touch = new Touch({ identifier: 71, target, clientX: point.x, clientY: point.y });
+        target.dispatchEvent(new TouchEvent(type, { bubbles: true, cancelable: true,
+          touches: type === "touchend" ? [] : [touch],
+          changedTouches: [touch], targetTouches: type === "touchend" ? [] : [touch] }));
+      }, { type, point });
+    }
+    await send("touchstart", { x: rail.x + 2, y: rail.y + rail.height / 2 });
+    await send("touchmove", to);
+    await page.waitForFunction(x => {
+      const capsule = document.querySelector(".bento-rail-lens").getBoundingClientRect();
+      return Math.abs(capsule.x + capsule.width / 2 - x) < 2;
+    }, to.x);
+    assert.ok(page.url().includes("todo-m.html"), "moving only previews the destination");
+    await page.locator(".bento-rail").dispatchEvent("pointercancel", { pointerType: "touch", pointerId: 71 });
+    assert.ok(await page.locator(".bento-rail-nav").evaluate(node => node.classList.contains("is-dragging")));
+    await send("touchend", to);
+    await page.waitForURL(`${base}/calendar.html`);
+    assert.equal(await page.evaluate(() => history.length), before + 1, "one release creates one navigation");
+  });
+
+  await t.test("dock padding accepts precise dragging and horizontal outside release cancels", async () => {
+    const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await page.goto(`${base}/todo-m.html`, { waitUntil: "load" });
+    await page.locator(".bento-rail-nav.dock-ready").waitFor();
+    const rail = await page.locator(".bento-rail").boundingBox();
+    const to = await dockCenter(page, '[data-rail-page="calendar"]');
+    await page.mouse.move(rail.x + rail.width / 2, rail.y + 1);
+    await page.mouse.down();
+    await page.mouse.move(to.x, to.y, { steps: 6 });
+    assert.ok(await page.locator(".bento-rail-nav").evaluate(node => node.classList.contains("is-dragging")));
+    await page.mouse.up();
+    await page.waitForURL(`${base}/calendar.html`);
+    const from = await dockCenter(page, '[data-rail-page="calendar"]');
+    await touchDock(page, from, { x: 450, y: from.y });
+    assert.ok(page.url().endsWith("/calendar.html"));
+    await page.waitForFunction(() => document.querySelector('[data-rail-page="calendar"]').hasAttribute("data-dock-active"));
+  });
+
+  await t.test("vertical touch starting on the dock keeps page scrolling available", async () => {
+    const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await page.goto(`${base}/todo-m.html`, { waitUntil: "load" });
+    await page.locator(".bento-rail-nav.dock-ready").waitFor();
+    await page.evaluate(() => {
+      const spacer = document.createElement("div"); spacer.style.height = "1800px";
+      document.querySelector(".m-shell").appendChild(spacer);
+    });
+    const from = await dockCenter(page, '[data-rail-page="todo"]');
+    await touchDock(page, from, { x: from.x, y: from.y - 120 });
+    await page.waitForFunction(() => scrollY > 0);
+    assert.ok(page.url().includes("todo-m.html"));
+    assert.ok(await page.locator('[data-rail-page="todo"]').evaluate(node => node.hasAttribute("data-dock-active")));
+  });
+
   await t.test("phone dock follows touch and navigates once on release", async () => {
     const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
     await page.goto(`${base}/todo-m.html`, { waitUntil: "load" });

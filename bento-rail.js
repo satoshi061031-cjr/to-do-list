@@ -321,6 +321,8 @@
   function wireDockGesture(nav) {
     if (!(nav instanceof HTMLElement) || nav.dataset.gestureWired === "1") return;
     nav.dataset.gestureWired = "1";
+    const surface = nav.closest(".bento-rail") || nav;
+    const nativeTouch = typeof window.TouchEvent === "function" || "ontouchstart" in window;
     const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
     const transitionKey = "daily-space-dock-transition-v1";
     let gesture = null;
@@ -418,7 +420,9 @@
       const ending = gesture;
       gesture = null;
       nav.classList.remove("is-dragging");
-      if (nav.hasPointerCapture(ending.id)) nav.releasePointerCapture(ending.id);
+      if (ending.input === "pointer" && surface.hasPointerCapture(ending.id)) {
+        surface.releasePointerCapture(ending.id);
+      }
       if (ending.dragging || cancelled) suppressClick = true;
       if (ending.dragging) {
         if (!cancelled) activate(ending.target);
@@ -426,44 +430,79 @@
       } else sync();
     }
 
-    nav.addEventListener("pointerdown", (event) => {
-      if (!isNarrow() || event.button !== 0) return;
-      if (!event.isPrimary) { finish(true); return; }
+    function begin(id, x, y, input) {
       suppressClick = false;
-      if (!event.target.closest(".bento-rail-link")) return;
-      gesture = { id: event.pointerId, x: event.clientX, y: event.clientY,
-        dragging: false, target: null };
-    });
-    nav.addEventListener("pointermove", (event) => {
-      if (!gesture || gesture.id !== event.pointerId) return;
-      const dx = event.clientX - gesture.x;
-      const dy = event.clientY - gesture.y;
+      gesture = { id, x, y, input, dragging: false, target: null };
+    }
+    function move(x, y) {
+      if (!gesture) return false;
+      const dx = x - gesture.x;
+      const dy = y - gesture.y;
       if (!gesture.dragging) {
-        if (Math.abs(dy) > 8 && Math.abs(dy) >= Math.abs(dx)) { finish(true); return; }
-        if (Math.abs(dx) < 8 || Math.abs(dx) <= Math.abs(dy)) return;
+        if (Math.abs(dy) > 8 && Math.abs(dy) >= Math.abs(dx)) { finish(true); return false; }
+        if (Math.abs(dx) < 8 || Math.abs(dx) <= Math.abs(dy)) return false;
         gesture.dragging = true;
-        nav.setPointerCapture(event.pointerId);
+        if (gesture.input === "pointer") surface.setPointerCapture(gesture.id);
         nav.classList.add("is-dragging");
       }
       const box = nav.getBoundingClientRect();
       const items = controls();
-      const x = Math.max(geometry(items[0]).center,
-        Math.min(geometry(items.at(-1)).center, event.clientX - box.left));
+      const position = Math.max(geometry(items[0]).center,
+        Math.min(geometry(items.at(-1)).center, x - box.left));
       const target = items.reduce((closest, item) =>
-        Math.abs(geometry(item).center - x) < Math.abs(geometry(closest).center - x) ? item : closest);
+        Math.abs(geometry(item).center - position) < Math.abs(geometry(closest).center - position) ? item : closest);
       gesture.target = target;
-      place(target, x);
+      place(target, position);
+      return true;
+    }
+    function end(x, y) {
+      const box = surface.getBoundingClientRect();
+      finish(x < box.left - 24 || x > box.right + 24 || y < box.top - 24 || y > box.bottom + 24);
+    }
+
+    // A native touch stream keeps its original surface while crossing icons,
+    // labels and padding. Ignore its duplicate PointerEvents to activate once.
+    surface.addEventListener("touchstart", (event) => {
+      if (!isNarrow()) return;
+      if (event.touches.length !== 1) { finish(true); return; }
+      const touch = event.touches[0];
+      begin(touch.identifier, touch.clientX, touch.clientY, "touch");
+    }, { passive: true });
+    surface.addEventListener("touchmove", (event) => {
+      if (gesture?.input !== "touch") return;
+      if (event.touches.length !== 1) { finish(true); return; }
+      const touch = Array.from(event.touches).find(item => item.identifier === gesture.id);
+      if (touch && move(touch.clientX, touch.clientY) && event.cancelable) event.preventDefault();
+    }, { passive: false });
+    surface.addEventListener("touchend", (event) => {
+      if (gesture?.input !== "touch") return;
+      const touch = Array.from(event.changedTouches).find(item => item.identifier === gesture.id);
+      if (!touch) return;
+      if (gesture.dragging && event.cancelable) event.preventDefault();
+      end(touch.clientX, touch.clientY);
+    }, { passive: false });
+    surface.addEventListener("touchcancel", () => {
+      if (gesture?.input === "touch") finish(true);
+    }, { passive: true });
+
+    surface.addEventListener("pointerdown", (event) => {
+      if (!isNarrow() || event.button !== 0 || (nativeTouch && event.pointerType === "touch")) return;
+      if (!event.isPrimary) { finish(true); return; }
+      begin(event.pointerId, event.clientX, event.clientY, "pointer");
     });
-    nav.addEventListener("pointerup", (event) => {
-      if (!gesture || gesture.id !== event.pointerId) return;
-      const box = nav.getBoundingClientRect();
-      finish(event.clientY < box.top - 24 || event.clientY > box.bottom + 24);
+    surface.addEventListener("pointermove", (event) => {
+      if (gesture?.input === "pointer" && gesture.id === event.pointerId) move(event.clientX, event.clientY);
     });
-    nav.addEventListener("pointercancel", () => finish(true));
-    nav.addEventListener("lostpointercapture", (event) => {
+    surface.addEventListener("pointerup", (event) => {
+      if (gesture?.input === "pointer" && gesture.id === event.pointerId) end(event.clientX, event.clientY);
+    });
+    surface.addEventListener("pointercancel", () => {
+      if (gesture?.input === "pointer") finish(true);
+    });
+    surface.addEventListener("lostpointercapture", (event) => {
       // Touch starts with implicit capture on the icon/label. Its transfer to
       // the dock bubbles a loss event from that child; the gesture is still live.
-      if (event.target === nav && gesture?.id === event.pointerId) finish(true);
+      if (event.target === surface && gesture?.input === "pointer" && gesture.id === event.pointerId) finish(true);
     });
     window.addEventListener("blur", () => finish(true));
     window.addEventListener("pagehide", () => finish(true));
@@ -471,7 +510,7 @@
     window.addEventListener("pageshow", schedule);
     motion.addEventListener("change", schedule);
 
-    nav.addEventListener("click", (event) => {
+    surface.addEventListener("click", (event) => {
       if (suppressClick && event.isTrusted && event.detail > 0) {
         suppressClick = false;
         event.preventDefault();
