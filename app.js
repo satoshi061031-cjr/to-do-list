@@ -1115,7 +1115,7 @@
       }
     }
 
-    if (todoSource === "personal" && !todo.completed) {
+    if (todoSource === "personal" && !todo.completed && !document.body.classList.contains("todo-bento")) {
       const repeat = document.createElement("select");
       repeat.className = "todo-repeat";
       repeat.setAttribute("aria-label", "Repeat");
@@ -1140,7 +1140,9 @@
     } else if (todo.repeat) {
       const badge = document.createElement("span");
       badge.className = "todo-repeat-badge";
-      badge.textContent = todo.repeat;
+      const repeatLabels = { daily: ["Daily", "每天"], weekly: ["Weekly", "每周"], monthly: ["Monthly", "每月"] };
+      const label = repeatLabels[todo.repeat] || [todo.repeat, todo.repeat];
+      badge.textContent = window.DailySpaceI18n?.t(...label) || label[0];
       main.appendChild(badge);
     }
 

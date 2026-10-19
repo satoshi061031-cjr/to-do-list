@@ -1318,6 +1318,45 @@
     refreshUserSnapshotSession(false);
   }
 
+  function setupPageScroll(page) {
+    const main = document.querySelector(".main-area");
+    const owner = window.DailySpaceView.owner();
+    const scrollContainer = () => main && /^(auto|scroll)$/.test(getComputedStyle(main).overflowY) ? main : document.scrollingElement;
+    window.addEventListener("pagehide", () => {
+      if (window.DailySpaceView.owner() === owner) {
+        window.DailySpaceView.write(page, { scroll: scrollContainer().scrollTop });
+      }
+    });
+    const saved = window.DailySpaceView.read(page);
+    if (new URLSearchParams(location.search).has("focus") || !(saved.scroll > 0)) return;
+
+    let observer, timeout, stopped = false;
+    const inputEvents = ["pointerdown", "touchstart", "wheel", "keydown"];
+    function stop() {
+      stopped = true;
+      observer?.disconnect();
+      clearTimeout(timeout);
+      inputEvents.forEach(type => window.removeEventListener(type, stop, true));
+      window.removeEventListener("pagehide", stop);
+    }
+    function restore() {
+      if (stopped) return;
+      if (window.DailySpaceView.owner() !== owner) { stop(); return; }
+      const container = scrollContainer();
+      container.scrollTop = saved.scroll;
+      if (Math.abs(container.scrollTop - saved.scroll) <= 1) stop();
+    }
+    inputEvents.forEach(type => window.addEventListener(type, stop, { capture: true, passive: true }));
+    window.addEventListener("pagehide", stop);
+    timeout = setTimeout(stop, 4000);
+    if (main && typeof ResizeObserver === "function") {
+      observer = new ResizeObserver(restore);
+      observer.observe(main);
+      [...main.children].forEach(child => observer.observe(child));
+    }
+    requestAnimationFrame(() => requestAnimationFrame(restore));
+  }
+
   function setupPageChrome() {
     const header = document.querySelector("[data-page-header]");
     const actions = header?.querySelector(".page-action-cluster");
@@ -1338,16 +1377,17 @@
     });
     document.addEventListener("keydown", event => {
       if (event.key !== "Escape") return;
-      for (const menu of document.querySelectorAll("[data-page-menu][open]")) menu.open = false;
+      for (const menu of document.querySelectorAll("[data-page-menu][open]")) {
+        const returnFocus = menu.contains(document.activeElement);
+        menu.open = false;
+        if (returnFocus) {
+          event.preventDefault();
+          menu.querySelector("summary")?.focus({ preventScroll: true });
+        }
+      }
     });
     const page = location.pathname.split("/").pop().replace(/\.html$/, "");
-    if (!page.startsWith("todo")) {
-      const saved = window.DailySpaceView.read(page);
-      if (!new URLSearchParams(location.search).has("focus") && saved.scroll) {
-        requestAnimationFrame(() => requestAnimationFrame(() => scrollTo(0, saved.scroll)));
-      }
-      window.addEventListener("pagehide", () => window.DailySpaceView.write(page, { scroll: scrollY }));
-    }
+    if (!page.startsWith("todo")) setupPageScroll(page);
   }
 
   function setupNotifications() {

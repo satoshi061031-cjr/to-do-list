@@ -1178,6 +1178,7 @@
   }
 
   function renderMapLayers({ fit = false } = {}) {
+    if (!mapIsVisible()) return;
     const trip = activeTrip();
     if (!map || !markerLayer || !trip || !window.L) return;
     markerLayer.clearLayers();
@@ -1248,7 +1249,7 @@
   }
 
   function ensureMap(trip, { resetView = false } = {}) {
-    if (!mapEl) return;
+    if (!mapEl || !mapIsVisible()) return;
     if (!window.L) {
       if (mapHint) mapHint.textContent = "Map library failed to load. Refresh the page.";
       return;
@@ -1278,7 +1279,7 @@
       map.setView([trip.lat, trip.lng], trip.zoom || 12);
     }
     const refreshSize = () => {
-      if (!map) return;
+      if (!map || !mapIsVisible()) return;
       map.invalidateSize();
       renderMapLayers({ fit: switched || resetView });
     };
@@ -1715,6 +1716,10 @@
   }
 
   let phoneTripView = window.DailySpaceView.read("travel").view === "map" ? "map" : "itinerary";
+  const phoneMapQuery = window.matchMedia("(max-width: 819px)");
+  function mapIsVisible() {
+    return !phoneMapQuery.matches || phoneTripView === "map";
+  }
   function syncTripView() {
     document.body.classList.toggle("travel-map-view", phoneTripView === "map");
     document.querySelectorAll("[data-travel-view]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.travelView === phoneTripView)));
@@ -1723,7 +1728,8 @@
     phoneTripView = button.dataset.travelView === "map" ? "map" : "itinerary";
     window.DailySpaceView.write("travel", { view: phoneTripView });
     syncTripView();
-    requestAnimationFrame(() => map?.invalidateSize());
+    const trip = activeTrip();
+    if (trip) ensureMap(trip);
   }));
   syncTripView();
 
@@ -1949,7 +1955,11 @@
     loadState();
     renderWorkspace({ preserveMap: true });
   });
-  window.addEventListener("resize", () => map?.invalidateSize());
+  phoneMapQuery.addEventListener("change", () => {
+    const trip = activeTrip();
+    if (trip) ensureMap(trip);
+  });
+  window.addEventListener("resize", () => { if (mapIsVisible()) map?.invalidateSize(); });
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
       stopSharedPoll();
@@ -1967,7 +1977,7 @@
   });
 
   const themeObserver = new MutationObserver(() => {
-    if (!map) return;
+    if (!map || !mapIsVisible()) return;
     syncMapBasemap();
     renderMapLayers();
   });

@@ -915,6 +915,157 @@ test("browser interactions on desktop and touch screens", { timeout: 120_000 }, 
     return palette;
   }
 
+  await t.test("phone Today dock keeps its height and working controls after rotation and wide resize", async () => {
+    const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await page.goto(`${base}/todo-m.html`, { waitUntil: "load" });
+    for (const viewport of [{ width: 844, height: 390 }, { width: 1280, height: 768 }, { width: 390, height: 844 }]) {
+      await page.setViewportSize(viewport);
+      const dock = await page.locator(".bento-rail").boundingBox();
+      assert.ok(dock.height >= 44 && dock.height <= 72, JSON.stringify(dock));
+      assert.ok(dock.y > viewport.height - 110 && dock.y + dock.height <= viewport.height);
+      const controls = await page.locator(".bento-rail-nav .bento-rail-link").evaluateAll(nodes => nodes.map(el => { const r = el.getBoundingClientRect(); return { x: r.x, right: r.right, width: r.width }; }));
+      assert.ok(controls.every(control => control.width > 70), JSON.stringify(controls));
+      assert.ok(controls.at(-1).right > dock.x + dock.width - 12, JSON.stringify(controls));
+      await page.locator("[data-workspace-agent]").click();
+      await page.locator("#todo-agent-overlay").waitFor({ state: "visible" });
+      await page.keyboard.press("Escape");
+      await page.locator("#todo-agent-overlay").waitFor({ state: "hidden" });
+      await page.locator("#bento-menu-toggle").click();
+      await page.waitForFunction(() => document.body.classList.contains("sidebar-drawer-open"));
+      await page.keyboard.press("Escape");
+      await page.waitForFunction(() => !document.body.classList.contains("sidebar-drawer-open"));
+    }
+  });
+
+  await t.test("page switching restores the desktop content pane and phone document scroll", async () => {
+    const page = await pageFor();
+    await seedWorkspace(page);
+    await page.goto(`${base}/tally.html`, { waitUntil: "load" });
+    await page.evaluate(() => {
+      const state = JSON.parse(localStorage.getItem("tally-book-v1"));
+      state.records = Array.from({ length: 60 }, (_, i) => ({ ...state.records[1], id: `scroll-${i}`, note: `Expense ${i}` }));
+      localStorage.setItem("tally-book-v1", JSON.stringify(state));
+    });
+    for (const width of [1280, 390]) {
+      await page.setViewportSize({ width, height: 844 });
+      await page.goto(`${base}/tally.html`, { waitUntil: "load" });
+      await page.evaluate(() => {
+        const main = document.querySelector(".main-area");
+        const container = getComputedStyle(main).overflowY === "auto" ? main : document.scrollingElement;
+        container.scrollTop = 700;
+      });
+      await page.locator('[data-rail-page="calendar"]').click();
+      await page.waitForURL("**/calendar.html");
+      await page.locator('[data-rail-page="tally"]').click();
+      await page.waitForURL("**/tally.html");
+      await page.waitForFunction(() => {
+        const main = document.querySelector(".main-area");
+        return Math.abs((getComputedStyle(main).overflowY === "auto" ? main : document.scrollingElement).scrollTop - 700) <= 1;
+      });
+    }
+  });
+
+  await t.test("desktop Today shows tasks once and keeps capture and the list in the first screen", async () => {
+    const page = await pageFor({ viewport: { width: 1280, height: 768 } });
+    await seedWorkspace(page);
+    await page.goto(`${base}/todo.html`, { waitUntil: "load" });
+    assert.equal(await page.locator('.today-tasks [data-id="design"]').count(), 1);
+    assert.equal(await page.locator('.today-tasks [data-id="walk"]').count(), 1);
+    assert.equal(await page.locator("#due-day-filter-bar").isVisible(), false);
+    const input = await page.locator("#todo-input").boundingBox();
+    const first = await page.locator("#todo-list .todo-item").first().boundingBox();
+    assert.ok(input.y < 320 && first.y + first.height < 740, JSON.stringify({ input, first }));
+    assert.equal(await page.locator(".today-list-actions .workspace-task-shortcuts button").isVisible(), true);
+    assert.equal(await page.locator(".today-list-actions #task-select-mode").isVisible(), true);
+    await page.locator("#todo-input").fill("Capture stays available");
+    await page.locator("#add-form").evaluate(form => form.requestSubmit());
+    await page.waitForFunction(() => [...document.querySelectorAll("#todo-list .todo-label")].some(el => el.textContent === "Capture stays available"));
+    assert.equal(await page.locator("#daily-loop-travel").getAttribute("href"), "travel.html");
+    assert.ok(await page.locator("#daily-loop-reminders").evaluate(el => el.getBoundingClientRect().top > document.querySelector("#todo-list").getBoundingClientRect().bottom));
+    const row = page.locator('#todo-list [data-id="design"]');
+    assert.equal(await row.locator(".todo-repeat").isVisible(), false);
+    assert.equal(await row.locator(".todo-delete").isVisible(), false);
+    await row.locator(".task-details-open").click();
+    await page.locator('.task-desktop-options [name="repeat"]').selectOption("weekly");
+    await page.locator(".task-desktop-save").click();
+    await page.locator(".task-desktop-editor").waitFor({ state: "hidden" });
+    assert.equal(await row.locator(".todo-repeat-badge").textContent(), "Weekly");
+    await row.locator(".task-details-open").click();
+    await page.locator(".task-desktop-delete").click();
+    await page.locator(".task-desktop-editor").waitFor({ state: "hidden" });
+    await page.waitForFunction(() => document.activeElement.id === "todo-input");
+    assert.equal(await row.count(), 0);
+    await page.locator("#undo-bar button").click();
+    assert.equal(await row.count(), 1);
+    assert.equal(await row.locator(".todo-repeat-badge").textContent(), "Weekly");
+  });
+
+  await t.test("phone project tools filter the board, preserve search on resize, clear done and manage boards", async () => {
+    const page = await pageFor({ viewport: { width: 320, height: 844 }, isMobile: true, hasTouch: true });
+    await seedWorkspace(page);
+    await page.goto(`${base}/planner.html`, { waitUntil: "load" });
+    await page.evaluate(() => {
+      const state = JSON.parse(localStorage.getItem("planner-app-v1"));
+      state.boards["board-a"].entries = [
+        { id: "needle", columnId: "planned", title: "Needle card", note: "", tags: [], completed: false, expanded: false },
+        { id: "finished", columnId: "planned", title: "Finished card", note: "", tags: [], completed: true, expanded: false },
+      ];
+      localStorage.setItem("planner-app-v1", JSON.stringify(state));
+    });
+    await page.reload();
+    await page.locator("#planner-tools > summary").click();
+    const bounds = await page.locator("#planner-tools .workspace-menu-panel").boundingBox();
+    assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= 320, JSON.stringify(bounds));
+    await page.locator("#planner-search").fill("Needle");
+    assert.equal(await page.locator('[data-entry-id="needle"]').isVisible(), true);
+    assert.equal(await page.locator('[data-entry-id="finished"]').isVisible(), false);
+    await page.keyboard.press("Escape");
+    assert.equal(await page.locator("#planner-tools > summary").evaluate(el => el === document.activeElement), true);
+    await page.setViewportSize({ width: 1280, height: 844 });
+    assert.equal(await page.locator(".planner-toolbar #planner-search").inputValue(), "Needle");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.locator("#planner-tools > summary").click();
+    assert.equal(await page.locator("#planner-tools #planner-search").inputValue(), "Needle");
+    await page.locator("#planner-search").fill("");
+    await page.locator("#planner-clear-done").click();
+    assert.equal(await page.locator('[data-entry-id="needle"]').count(), 1);
+    assert.equal(await page.locator('[data-entry-id="finished"]').count(), 0);
+    await page.locator("#planner-tools > summary").click();
+    assert.equal(await page.locator("#planner-clear-done").isVisible(), false);
+    await page.locator("#planner-manage").click();
+    await page.waitForFunction(() => document.body.classList.contains("sidebar-drawer-open"));
+    assert.equal(await page.locator("#planner-workspace-list").isVisible(), true);
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(() => !document.body.classList.contains("sidebar-drawer-open"));
+  });
+
+  await t.test("travel initializes the phone map on demand and reuses it, including after a desktop transition", async () => {
+    const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await seedWorkspace(page);
+    const tiles = [];
+    await page.route("https://**/*", route => {
+      if (/basemaps|tile\./.test(route.request().url())) tiles.push(route.request().url());
+      return route.abort();
+    });
+    await page.goto(`${base}/travel.html`, { waitUntil: "load" });
+    assert.equal(await page.locator("#travel-map.leaflet-container").count(), 0);
+    assert.equal(tiles.length, 0);
+    await page.locator('[data-travel-view="map"]').click();
+    await page.locator("#travel-map.leaflet-container").waitFor();
+    await page.waitForFunction(() => document.querySelectorAll("#travel-map .leaflet-tile").length > 0);
+    assert.ok(tiles.length > 0);
+    const mapId = await page.locator("#travel-map").evaluate(el => el._leaflet_id);
+    await page.locator('[data-travel-view="itinerary"]').click();
+    await page.locator('[data-travel-view="map"]').click();
+    assert.equal(await page.locator("#travel-map").evaluate(el => el._leaflet_id), mapId);
+    await page.locator('[data-travel-view="itinerary"]').click();
+    await page.reload();
+    assert.equal(await page.locator("#travel-map.leaflet-container").count(), 0);
+    await page.setViewportSize({ width: 1280, height: 844 });
+    await page.locator("#travel-map.leaflet-container").waitFor();
+    assert.equal(await page.locator("#travel-map").isVisible(), true);
+  });
+
   await t.test("page headers group search and notifications without overlapping phone controls", async () => {
     const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
     await seedWorkspace(page, true);
@@ -1287,7 +1438,10 @@ test("browser interactions on desktop and touch screens", { timeout: 120_000 }, 
     await page.evaluate(() => window.dispatchEvent(new CustomEvent('daily-space-user-sync-updated', { detail: { status: 'ok' } })));
     await page.waitForTimeout(100);
     assert.ok(!schedules.at(-1).some(job => job.source === 'todo:design'), 'completed task must leave the schedule');
+    const disabled = page.waitForResponse(response => response.url().includes('/api/reminders/subscription') && response.request().method() === 'DELETE');
     await page.locator('.reminder-settings button').click();
+    await disabled;
+    await page.waitForFunction(() => document.querySelector('.reminder-settings [role=status]').textContent.includes('Background reminders off'));
     assert.ok(requests.some(request => request.startsWith('DELETE:')));
   });
 

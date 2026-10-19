@@ -283,12 +283,12 @@
             ? isZh()
               ? `${personName(record.paidById)} 付款 · ${record.splitAmongIds.length} 人分摊`
               : `${personName(record.paidById)} paid · split ${record.splitAmongIds.length}`
-            : record.note || "No note";
+            : record.note || "";
         row.innerHTML = `
           <span class="tally-record-icon" aria-hidden="true">${categoryIcon(record.category)}</span>
           <div class="tally-record-main">
             <div class="tally-record-category">${escapeHtml(record.category)}</div>
-            <div class="tally-record-note">${escapeHtml(detail)}</div>
+            ${detail ? `<div class="tally-record-note">${escapeHtml(detail)}</div>` : ""}
             ${record.tripId ? `<div class="tally-record-trip" data-i18n-ignore>${escapeHtml(tripNames.get(record.tripId) || record.tripName || (isZh() ? "关联行程" : "Linked trip"))}</div>` : ""}
           </div>
           <div class="tally-record-amount">${originalMoney(record)}${converted}</div>

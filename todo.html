@@ -111,25 +111,6 @@
           <section class="todo-agent-host" id="todo-agent-host" aria-label="Daily Space Agent"></section>
 
           <section class="task-module app-module today-tasks" data-module-id="tasks" aria-label="To-do tasks">
-              <section class="daily-loop" id="daily-loop" aria-label="Daily loop">
-                <ul class="todo-list daily-loop-list" id="daily-loop-list" aria-label="Due today"></ul>
-                <p class="daily-loop-empty" id="daily-loop-empty" hidden>Nothing due today — type a task below.</p>
-                <a class="daily-loop-reminders" id="daily-loop-reminders" href="calendar.html" hidden>
-                  <div class="daily-loop-reminders-head">
-                    <span class="daily-loop-reminders-label">Reminders</span>
-                    <span class="daily-loop-reminders-link">Open calendar</span>
-                  </div>
-                  <ul class="daily-loop-reminders-list" id="daily-loop-reminders-list"></ul>
-                </a>
-                <a class="daily-loop-reminders daily-loop-travel" id="daily-loop-travel" href="travel.html" hidden>
-                  <div class="daily-loop-reminders-head">
-                    <span class="daily-loop-reminders-label">Travel</span>
-                    <span class="daily-loop-reminders-link">Open Travel</span>
-                  </div>
-                  <ul class="daily-loop-reminders-list" id="daily-loop-travel-list"></ul>
-                </a>
-              </section>
-
               <form class="add-form add-form-notion" id="add-form" autocomplete="off">
                 <div class="add-form-row">
                   <span class="composer-glyph" aria-hidden="true">□</span>
@@ -233,6 +214,7 @@
                 <button type="button" class="btn due-day-filter-clear" id="due-day-filter-clear">Clear day</button>
               </div>
 
+              <div class="today-list-actions"></div>
               <ul class="todo-list" id="todo-list" aria-live="polite"></ul>
 
               <p class="empty-state" id="empty-state">Type a task below, or ask the agent — works even offline.</p>
@@ -240,6 +222,23 @@
               <footer class="footer">
                 <span id="count-text">0 tasks left</span>
               </footer>
+
+              <section class="daily-loop" id="daily-loop" aria-label="Daily loop">
+                <a class="daily-loop-reminders" id="daily-loop-reminders" href="calendar.html" hidden>
+                  <div class="daily-loop-reminders-head">
+                    <span class="daily-loop-reminders-label">Reminders</span>
+                    <span class="daily-loop-reminders-link">Open calendar</span>
+                  </div>
+                  <ul class="daily-loop-reminders-list" id="daily-loop-reminders-list"></ul>
+                </a>
+                <a class="daily-loop-reminders daily-loop-travel" id="daily-loop-travel" href="travel.html" hidden>
+                  <div class="daily-loop-reminders-head">
+                    <span class="daily-loop-reminders-label">Travel</span>
+                    <span class="daily-loop-reminders-link">Open Travel</span>
+                  </div>
+                  <ul class="daily-loop-reminders-list" id="daily-loop-travel-list"></ul>
+                </a>
+              </section>
             </section>
 
           <section class="evening-review today-evening" id="evening-review" aria-label="Evening review" hidden>

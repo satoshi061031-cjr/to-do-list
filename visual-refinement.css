@@ -363,6 +363,8 @@ body.has-mobile-dock {
 }
 /* Keep the tint and blur on the same fixed surface. */
 body.has-mobile-dock.has-bento-rail .bento-rail {
+  height: auto;
+  max-height: none;
   pointer-events: auto;
   touch-action: pan-y pinch-zoom;
   background: linear-gradient(180deg, var(--dock-tint), transparent), var(--dock-fill);
@@ -386,6 +388,8 @@ body.has-mobile-dock.has-bento-rail .bento-rail-nav {
   -webkit-user-select: none;
 }
 body.has-mobile-dock.has-bento-rail .bento-rail-link {
+  flex: 1 1 0;
+  width: auto;
   -webkit-touch-callout: none;
   -webkit-user-drag: none;
   color: var(--dock-muted);
@@ -586,6 +590,7 @@ body .page-action-cluster .notif-panel { z-index: 41; top: calc(100% + var(--spa
 .workspace-page-menu { position: relative; }
 .workspace-menu-panel { position: absolute; right: 0; top: calc(100% + var(--space-sm)); z-index: 40; width: min(18rem, calc(100vw - var(--space-md) * 2)); box-sizing: border-box; padding: var(--space-sm); background: var(--panel-fill); border: 1px solid var(--quiet-line); border-radius: var(--radius-md); box-shadow: 0 8px 28px color-mix(in srgb, var(--on-tertiary) 12%, transparent); }
 .workspace-menu-panel button { display: block; width: 100%; min-height: 44px; padding: var(--space-sm) var(--space-md); background: transparent; border: 0; border-radius: var(--radius-sm); color: var(--text); text-align: left; font: inherit; font-size: var(--phone-action-size); cursor: pointer; }
+.workspace-menu-panel [hidden], body .due-day-filter-bar[hidden] { display: none !important; }
 body .app-greeting { display: none; }
 body .guest-save-banner { display: flex; justify-content: space-between; align-items: center; gap: var(--space-md); margin: var(--space-md) 0; padding: var(--space-md); border-radius: var(--radius-md); background: var(--surface); }
 body .guest-save-kicker { display: none; }
@@ -598,6 +603,9 @@ body .m-top-actions .m-agent-toggle { width: 44px; height: 44px; border-radius: 
 body .planner-header { margin-bottom: var(--space-lg); }
 body .planner-heading-row { align-items: flex-start; }
 body .planner-toolbar { margin-top: var(--space-md); }
+body #planner-tools .workspace-menu-panel { right: calc(-44px - var(--space-sm)); max-height: calc(100dvh - var(--space-xl) * 3); overflow-y: auto; }
+body #planner-tools .planner-search { display: flex; width: 100%; min-width: 0; box-sizing: border-box; margin-bottom: var(--space-sm); }
+body #planner-tools .planner-search input { width: 100%; min-width: 0; }
 body .teamwork-hero { grid-template-columns: minmax(0, 1fr) auto; }
 body .teamwork-title-static { max-width: none; }
 body .teamwork-app { gap: var(--space-lg); }
@@ -675,6 +683,19 @@ body.tally-page .tally-form select { font-size: var(--phone-body-size); min-heig
 body.tally-page .tally-sheet-footer { padding: var(--space-md); padding-bottom: max(var(--space-md), env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--quiet-line); flex-shrink: 0; }
 body.tally-page .tally-sheet-footer button { width: 100%; min-height: 52px; }
 @media (min-width: 820px) {
+  body.todo-bento .today-tasks { gap: var(--space-sm); }
+  body.todo-bento .today-tasks .add-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; margin: 0; }
+  body.todo-bento .today-tasks .add-form-row { min-width: 0; }
+  body.todo-bento .today-tasks .add-form-deadline { max-width: calc(var(--space-xl) * 5); }
+  body.todo-bento .today-tasks .deadline-trigger { min-height: 44px; padding-block: var(--space-sm); }
+  body.todo-bento .today-tasks .toolbar { margin: 0; padding-block: var(--space-sm); border: 0; gap: var(--space-sm); }
+  body.todo-bento .today-tasks .todo-source-switch { flex: 0 1 auto; border: 0; padding: 0; box-shadow: none; background: transparent; }
+  body.todo-bento .today-tasks .todo-source-btn { flex: none; }
+  body.todo-bento .today-tasks .filters { margin-left: auto; border: 0; box-shadow: none; background: transparent; }
+  body.todo-bento .today-list-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-sm); }
+  body.todo-bento .today-list-actions .task-selection-head { flex: 1; margin: 0; }
+  body.todo-bento .today-tasks > .daily-loop { margin-top: var(--space-lg); }
+  body.todo-bento .today-tasks > .daily-loop:not(:has(.daily-loop-reminders:not([hidden]))) { display: none; }
   body.tally-page .tally-quick { display: flex; }
   body.tally-page .tally-add-fab { width: auto; padding-inline: var(--space-md); font-size: var(--phone-action-size); }
 }
@@ -835,6 +856,8 @@ body.task-selecting .m-add-bar { display: none !important; }
 .task-desktop-body { overflow-y: auto; padding: 0 var(--space-md) var(--space-md); }
 .task-desktop-dates, .task-desktop-options { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: var(--space-sm); margin-top: var(--space-md); }
 .task-desktop-save { min-height: 44px; margin: var(--space-md); flex-shrink: 0; }
+.task-desktop-delete { min-height: 44px; min-width: 44px; margin-top: var(--space-md); padding: var(--space-sm); border: 0; border-radius: var(--radius-sm); color: var(--danger); background: transparent; font: var(--phone-action-weight) var(--phone-action-size)/var(--phone-action-lh) var(--font-ui); cursor: pointer; }
+body.todo-bento .today-tasks .todo-delete { display: none; }
 .task-draft-status { color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
 .task-desktop-editor[hidden], .task-source-link[hidden], .task-snooze-actions[hidden], .task-selection-head[hidden], .task-select-all[hidden], .task-batch-bar[hidden] { display: none !important; }
 @media (max-width: 640px) {
@@ -974,6 +997,8 @@ body .composer-hint { text-transform: none; }
 body .todo-agent-input:focus { border-color: var(--text-muted); box-shadow: none; }
 body .todo-check-target { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; min-width: 44px; min-height: 44px; }
 body .todo-check-target .todo-check { margin: 0; }
+body .todo-block-handle { min-width: 44px; min-height: 44px; }
+body .todo-block-handle:focus-visible { outline: 2px solid var(--text); outline-offset: var(--space-xs); }
 body :is(.todo-repeat, .daily-loop-pill, #daily-loop-focus) { min-height: 44px; }
 body #daily-loop-focus:not(.workspace-agent-button) { padding: var(--space-sm); border: 0; border-radius: var(--radius-pill); background: var(--surface); color: var(--text); font: var(--phone-action-weight) var(--phone-action-size)/var(--phone-action-lh) var(--font-ui); }
 body.calendar-page :is(.cal-range-nav, .cal-search-input, .cal-search-chip) { min-height: 44px; min-width: 44px; }
@@ -1166,6 +1191,7 @@ body .deadline-trigger {
   border-color: var(--material-edge);
 }
 body .m-top { background: transparent; }
+body.todo-mobile .m-shell { align-items: stretch; }
 body .m-task-tabs button[aria-selected=true] {
   background: transparent;
   border-inline: 0;

@@ -62,6 +62,14 @@
       const form = root.querySelector('form'); const controls = form.elements;
       const extras = mount(form, root.querySelector('.task-desktop-options'));
       let taskId = null, draftKey = '', composing = false;
+      const remove = button(t('Delete task', '删除任务'), () => {
+        if (root.hidden || motion.closing || !taskId) return;
+        localStorage.removeItem(draftKey);
+        motion.close(() => requestAnimationFrame(() => document.getElementById('todo-input')?.focus({ preventScroll: true })));
+        historyController.back();
+        api.removeTask(taskId);
+      }, 'task-desktop-delete');
+      root.querySelector('.task-desktop-body').append(remove);
       const read = () => ({ text: controls.text.value, dueDate: controls.dueDate.value, dueTime: controls.dueTime.value, categoryId: controls.categoryId.value || null, repeat: controls.repeat.value || null, ...extras.value() });
       const stash = () => { if (!root.hidden && !motion.closing && draftKey) localStorage.setItem(draftKey, JSON.stringify(read())); };
       const historyController = window.DailySpaceDialogHistory.create('task-details', { isOpen: () => !root.hidden&&!motion.closing, restore: data => open(data.id, false), close: () => close(true) });
@@ -94,7 +102,9 @@
     const selected = new Set(); let selecting = false;
     const toggle = button(t('Select', '选择'), () => { selecting = !selecting; selected.clear(); refresh(); }); toggle.id = 'task-select-mode';
     const allLabel = element('label', '', 'task-select-all'); const all = element('input'); all.type = 'checkbox'; all.id = 'task-select-all'; allLabel.append(all, element('span', t('Select visible', '选择当前列表')));
-    head.append(allLabel, toggle); list.before(head);
+    head.append(allLabel, toggle);
+    const listActions = document.querySelector('.today-list-actions');
+    if (listActions) listActions.append(head); else list.before(head);
     const bar = element('div', '', 'task-batch-bar'); bar.hidden = true; bar.setAttribute('aria-label', t('Batch task actions', '批量任务操作'));
     const count = element('span', '', 'task-batch-count'); count.setAttribute('role', 'status'); count.dataset.i18nIgnore = '';
     const complete = button(t('Complete', '完成'), () => apply('complete'));

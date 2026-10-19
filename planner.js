@@ -68,6 +68,9 @@
   const plannerClearDoneBtn = document.getElementById("planner-clear-done");
   const plannerSearchInput = document.getElementById("planner-search");
   const plannerStatusStripEl = document.getElementById("planner-status-strip");
+  const plannerTools = document.getElementById("planner-tools");
+  const plannerSearchField = plannerSearchInput.closest("label");
+  const plannerToolbarActions = document.querySelector(".planner-toolbar-actions");
   let plannerSearchQuery = "";
   let selectedColumnId = "";
 
@@ -1664,7 +1667,22 @@
 
   sidebarTrigger.addEventListener("click", () => toggleSidebar());
   sidebarBackdrop.addEventListener("click", () => closeSidebar());
-  plannerClearDoneBtn.addEventListener("click", () => clearPlannerCompleted());
+  function syncPlannerTools() {
+    const target = isMobileSidebar() ? plannerTools.querySelector(".workspace-menu-panel") : plannerToolbarActions;
+    target.prepend(plannerSearchField, plannerClearDoneBtn);
+    plannerSearchInput.placeholder = t("Search this board…", "搜索此看板…");
+    plannerTools.open = false;
+  }
+  syncPlannerTools();
+  document.getElementById("planner-manage").addEventListener("click", () => {
+    plannerTools.open = false;
+    if (window.DailySpaceBentoRail) window.DailySpaceBentoRail.setSidebarOpen(true);
+    else openSidebar();
+  });
+  plannerClearDoneBtn.addEventListener("click", () => {
+    plannerTools.open = false;
+    clearPlannerCompleted();
+  });
   if (plannerSearchInput) {
     plannerSearchInput.addEventListener("input", () => {
       plannerSearchQuery = plannerSearchInput.value || "";
@@ -1707,6 +1725,7 @@
   });
 
   window.addEventListener("daily-space-locale-changed", () => {
+    plannerSearchInput.placeholder = t("Search this board…", "搜索此看板…");
     if (!isTeamMode() && ensureFixedKanbanColumns()) savePlannerState();
     renderPlannerSidebar();
     renderPlanner();
@@ -1714,6 +1733,7 @@
 
   if (typeof window.matchMedia === "function") {
     window.matchMedia("(max-width: 819px)").addEventListener("change", () => {
+      syncPlannerTools();
       renderPlanner();
     });
   }

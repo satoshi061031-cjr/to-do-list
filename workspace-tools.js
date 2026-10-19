@@ -91,7 +91,7 @@
     }
     const chromeLabels=[];const chromeAction=(en,zh,run)=>{const control=action(t(en,zh),run);control.dataset.i18nIgnore='';chromeLabels.push({control,en,zh});return control;};
     const api=window.DailySpaceTodo;
-    if(api){const anchor=document.querySelector('.m-add-bar')||document.getElementById('add-form');if(anchor){const shortcuts=node('div','','workspace-task-shortcuts');shortcuts.append(chromeAction('Templates','模板',()=>open('templates')));if(anchor.matches('.m-add-bar'))anchor.prepend(shortcuts);else anchor.after(shortcuts);}}
+    if(api){const anchor=document.querySelector('.m-add-bar')||document.querySelector('.today-list-actions')||document.getElementById('add-form');if(anchor){const shortcuts=node('div','','workspace-task-shortcuts');shortcuts.append(chromeAction('Templates','模板',()=>open('templates')));if(anchor.matches('.m-add-bar,.today-list-actions'))anchor.prepend(shortcuts);else anchor.after(shortcuts);}}
     const menu=document.querySelector('#tally-tools .workspace-menu-panel');if(menu)menu.append(chromeAction('Import & backup','导入与备份',()=>{document.getElementById('tally-tools').open=false;open('transfer');}));
     const account=document.querySelector('.auth-modal .auth-provider-list');if(account){const control=chromeAction('Import & backup','导入与备份',()=>open('transfer'));control.className='auth-data-tools';account.after(control);}
     window.DailySpaceWorkspaceTools={open:()=>open('transfer'),openTemplates:()=>open('templates'),saveTemplate(ids){selection=window.DailySpaceTodo.getTasks().filter(task=>ids.includes(task.id));if(!show('templates'))return;try{editTemplate(null,selection);}catch(error){status.textContent=errorText(error);}}};
