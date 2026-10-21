@@ -1,0 +1,28 @@
+name: iOS app and widget build
+
+# Manual because this uses a macOS runner. No signing, publishing or provisioning changes.
+on:
+  workflow_dispatch:
+
+jobs:
+  simulator-build:
+    runs-on: macos-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run test:widget
+      - run: npm run cap:prepare
+      - run: npx cap sync ios
+      - name: Compile the app and embedded widget without signing
+        run: >-
+          xcodebuild -project ios/App/App.xcodeproj -scheme App
+          -configuration Debug -sdk iphonesimulator
+          -destination 'generic/platform=iOS Simulator'
+          -derivedDataPath /tmp/daily-space-derived
+          CODE_SIGNING_ALLOWED=NO build

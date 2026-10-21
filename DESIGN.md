@@ -226,6 +226,12 @@ Travel expenses use one disclosure in the itinerary, with a total, selected-day 
 
 Use brief opacity or small translation transitions, without scaling content cards or glowing hover states. Keep keyboard focus clearly visible with the text token and an outline; never remove focus feedback. Honor reduced motion (workspace and dock blur reduce to 16px) and reduced transparency (hide the backdrop image and use opaque surfaces with no blur). Browsers without backdrop-filter receive a solid workspace, controls and dock. Apply the same phone material and dock to the explicit phone shell on wide preview windows; desktop rails join the material window with a quiet separator. Preserve modal focus traps, scroll locking, account-scoped drafts, and Undo. No new blocking confirmations for reversible deletions.
 
+## Native iOS widget
+
+The installed Capacitor app may expose a read-only WidgetKit Today widget in small and medium Home Screen families. Keep the original ghost, native system typography and monochrome progress. Small emphasizes remaining count and completed/total; medium adds up to three one-line task titles and quiet times. Native color assets map panel/panel-dark, text/text-dark and text-muted/muted-dark from this file. Font sizes use display 32/600, task 16/500 and metadata 14/400; gaps use spacing.xs/sm, the ghost uses spacing.lg, and pre-iOS-17 container padding uses spacing.md. Let the OS own the widget shape and modern background treatment.
+
+Show an open-app prompt for missing/unverified data, retain the last app update time, and avoid promising instant or background cloud refresh. Account changes clear the shared preview until the new account is ready; only task title/time previews and day counts enter the App Group. Tapping opens Today in the app; no inline completion control is presented. Website/PWA users do not gain a native widget simply by adding a home-screen shortcut.
+
 ## Implementation
 
 Use tokens from this file for colors, typography, spacing, and radii. Shared presentation lives in visual-refinement.css, loaded after page styles. Keep page behavior in the existing vanilla JS modules. Changes apply equally to light and dark modes and do not force a theme on existing users.

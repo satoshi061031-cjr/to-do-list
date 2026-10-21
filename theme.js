@@ -1694,6 +1694,21 @@
     document.documentElement.classList.add("is-native-shell");
     document.body?.classList.add("is-native-shell");
 
+    if (cap.getPlatform?.() === "ios") {
+      import("./native-widget.js").then(() => {
+        const widgetReady = window.DailySpaceNativeWidget.session();
+        window.DailySpaceNativeWidget?.connect(cap, () => {
+          const userId = currentUserId();
+          const ready = widgetReady({ userId, snapshotUserId: userSnapshotUserId, status: userSnapshotStatus });
+          let todos = [];
+          if (ready) {
+            try { todos = JSON.parse(localStorage.getItem("todo-app-v2") || "{}").todos || []; } catch (_) {}
+          }
+          return { ready, todos, locale: window.DailySpaceI18n?.locale?.() };
+        });
+      }).catch(() => { /* The website and older iOS builds remain usable. */ });
+    }
+
     const plugins = cap.Plugins || {};
 
     try {

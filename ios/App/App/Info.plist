@@ -8,6 +8,10 @@
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
         <string>Daily Space</string>
+    <key>DailySpaceAppGroup</key>
+    <string>$(DAILY_SPACE_APP_GROUP)</string>
+    <key>CFBundleURLTypes</key>
+    <array><dict><key>CFBundleURLName</key><string>app.dailyspace.mobile.widget</string><key>CFBundleURLSchemes</key><array><string>dailyspace</string></array></dict></array>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>

@@ -23,6 +23,7 @@ module.exports = [
   "teamwork.css",
   "mail.css",
   "theme.js",
+  "native-widget.js",
   "dialog-focus.js",
   "task-list.js",
   "device-route.js",

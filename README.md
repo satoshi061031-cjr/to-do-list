@@ -108,6 +108,10 @@ npm run cap:sync
 npm run cap:android   # or cap:ios
 ```
 
+## iOS Home Screen widget
+
+The native Capacitor app includes a small/medium Today widget. It shares a read-only task snapshot through an App Group, shows the last update time, and opens Today when tapped. Safari alone cannot install this WidgetKit extension. See [iOS widget setup and device checks](ios/WIDGET.md) for App Group signing, refresh limits, simulator build commands and the manual macOS build workflow. Native compilation and device behavior require Xcode and an iPhone; they are not validated by the Linux web tests.
+
 ## Task details and batch actions
 
 Open a task on phone or use its **Task details** button on desktop to save notes and a checklist. Drafts survive Back/reload and are scoped to the current account or Guest. Checklist progress appears quietly in the task row; completing the main task does not automatically check its subtasks. Repeating tasks copy the note and create a fresh, unchecked checklist. Mail tasks link to the original Gmail thread when added with this version; older mail tasks return to Mail. Linked calendar and project tasks return to their source.

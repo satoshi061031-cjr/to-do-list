@@ -60,6 +60,38 @@ test("browser interactions on desktop and touch screens", { timeout: 120_000 }, 
     }
   }
 
+  await t.test("iOS web bridge publishes Guest task changes and consumes cold and warm Today links", async () => {
+    const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await page.addInitScript(() => {
+      if (!sessionStorage.getItem("widget-test-initialized")) {
+        sessionStorage.setItem("widget-test-initialized", "1");
+        sessionStorage.setItem("widget-test-route", "today");
+      }
+      window.widgetSnapshots = [];
+      const plugin = {
+        async updateSnapshot({ snapshot }) { window.widgetSnapshots.push(snapshot); },
+        async consumeRoute() { const route = sessionStorage.getItem("widget-test-route") || ""; sessionStorage.removeItem("widget-test-route"); return { route }; },
+        async addListener(_, callback) { window.widgetRouteListener = callback; return { remove() {} }; },
+      };
+      window.Capacitor = { Plugins: {}, isNativePlatform: () => true, getPlatform: () => "ios",
+        isPluginAvailable: name => name === "DailySpaceWidget", registerPlugin: () => plugin };
+    });
+    await page.goto(`${base}/planner.html`, { waitUntil: "commit" });
+    await page.waitForURL("**/todo-m.html#today");
+    await page.waitForFunction(() => window.widgetSnapshots?.some(snapshot => snapshot.ready && snapshot.days[0].total === 3));
+    await page.evaluate(() => {
+      window.DailySpaceTodo.createTasks([{ text: "Widget task", dueDate: window.DailySpaceTodo.getTasks()[0].dueDate, notes: "Private note excluded" }]);
+    });
+    await page.waitForFunction(() => window.widgetSnapshots.at(-1).days[0].total === 4);
+    assert.doesNotMatch(await page.evaluate(() => JSON.stringify(window.widgetSnapshots.at(-1))), /Private note excluded/);
+    await page.locator('[data-rail-page="calendar"]').click();
+    await page.waitForURL("**/calendar.html");
+    await page.waitForFunction(() => typeof window.widgetRouteListener === "function");
+    await page.evaluate(() => { sessionStorage.setItem("widget-test-route", "today"); window.widgetRouteListener(); });
+    await page.waitForURL("**/todo-m.html#today");
+    await page.waitForFunction(() => window.widgetSnapshots?.at(-1)?.days[0]?.total === 4);
+  });
+
   async function holdFxRequests(page) {
     const queued = [], waiting = [];
     await page.route("**/api/fx/rate?*", route => new Promise(release => {

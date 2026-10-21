@@ -15,6 +15,13 @@
 		504EC30F1FED79650016851F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
+		8677F0E2F1E54CB6A05225EA /* DailySpaceViewController.swift in App Sources */ = {isa = PBXBuildFile; fileRef = 1AF69FBF89B04B1990F4DC73 /* DailySpaceViewController.swift */; };
+		1EC50F04A41549F48970602B /* DailySpaceWidgetPlugin.swift in App Sources */ = {isa = PBXBuildFile; fileRef = D5A825CC7A3A4A5992AAC360 /* DailySpaceWidgetPlugin.swift */; };
+		4F482688A551461D9190D914 /* WidgetSnapshot.swift in App Sources */ = {isa = PBXBuildFile; fileRef = 21F42BC900E64A9C9321F83F /* WidgetSnapshot.swift */; };
+		C141BA90A3DF455180C4240A /* TodayWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = B466FB1A848F46BD9DDEC1CE /* TodayWidget.swift */; };
+		D41729AC447747909E36B4D3 /* WidgetSnapshot.swift in Widget Sources */ = {isa = PBXBuildFile; fileRef = 21F42BC900E64A9C9321F83F /* WidgetSnapshot.swift */; };
+		B905E0D15A974F1D9B9B2F6D /* Widget Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 538DAF7DD34647108ED3E971 /* Assets.xcassets */; };
+		7A103F56218A4FA8A63D2D46 /* DailySpaceWidget.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = EADED1D05A414CF7A08BF09C /* DailySpaceWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -28,6 +35,15 @@
 		504EC3131FED79650016851F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
+		1AF69FBF89B04B1990F4DC73 /* DailySpaceViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailySpaceViewController.swift; sourceTree = "<group>"; };
+		D5A825CC7A3A4A5992AAC360 /* DailySpaceWidgetPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailySpaceWidgetPlugin.swift; sourceTree = "<group>"; };
+		21F42BC900E64A9C9321F83F /* WidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSnapshot.swift; sourceTree = "<group>"; };
+		BE2E0CD26EA24C7DA13D9E02 /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
+		B466FB1A848F46BD9DDEC1CE /* Widget TodayWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayWidget.swift; sourceTree = "<group>"; };
+		AA678D240F4A4C3F94367F12 /* Widget Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		D51BD50CD1924E2DA2FBAA19 /* Widget DailySpaceWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DailySpaceWidget.entitlements; sourceTree = "<group>"; };
+		538DAF7DD34647108ED3E971 /* Widget Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		EADED1D05A414CF7A08BF09C /* DailySpaceWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DailySpaceWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -36,6 +52,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		63B2C79A53AE4E1DB9DEC390 /* Widget Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -48,6 +71,8 @@
 				958DCC722DB07C7200EA8C5F /* debug.xcconfig */,
 				504EC3061FED79650016851F /* App */,
 				504EC3051FED79650016851F /* Products */,
+				73082DE0D7344A3CA201F6E7 /* Shared */,
+				EAFBCD0B8BF9444B9138BEFF /* DailySpaceWidget */,
 			);
 			sourceTree = "<group>";
 		};
@@ -55,6 +80,7 @@
 			isa = PBXGroup;
 			children = (
 				504EC3041FED79650016851F /* App.app */,
+				EADED1D05A414CF7A08BF09C /* DailySpaceWidget.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -70,8 +96,30 @@
 				504EC3131FED79650016851F /* Info.plist */,
 				2FAD9762203C412B000D30F8 /* config.xml */,
 				50B271D01FEDC1A000F3C39B /* public */,
+				1AF69FBF89B04B1990F4DC73 /* DailySpaceViewController.swift */,
+				D5A825CC7A3A4A5992AAC360 /* DailySpaceWidgetPlugin.swift */,
+				BE2E0CD26EA24C7DA13D9E02 /* App.entitlements */,
 			);
 			path = App;
+			sourceTree = "<group>";
+		};
+		73082DE0D7344A3CA201F6E7 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				21F42BC900E64A9C9321F83F /* WidgetSnapshot.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		EAFBCD0B8BF9444B9138BEFF /* DailySpaceWidget */ = {
+			isa = PBXGroup;
+			children = (
+				B466FB1A848F46BD9DDEC1CE /* TodayWidget.swift */,
+				AA678D240F4A4C3F94367F12 /* Info.plist */,
+				D51BD50CD1924E2DA2FBAA19 /* DailySpaceWidget.entitlements */,
+				538DAF7DD34647108ED3E971 /* Assets.xcassets */,
+			);
+			path = DailySpaceWidget;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -84,10 +132,12 @@
 				504EC3001FED79650016851F /* Sources */,
 				504EC3011FED79650016851F /* Frameworks */,
 				504EC3021FED79650016851F /* Resources */,
+				97ECBA983E56435CA9638E76 /* Embed App Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				BD4D7E9A49C64132B8FE9732 /* PBXTargetDependency */,
 			);
 			name = App;
 			packageProductDependencies = (
@@ -97,19 +147,50 @@
 			productReference = 504EC3041FED79650016851F /* App.app */;
 			productType = "com.apple.product-type.application";
 		};
+		041112E06973470BA50AB5AC /* DailySpaceWidget Target */ = {
+			isa = PBXNativeTarget;
+			name = DailySpaceWidget;
+			productName = DailySpaceWidget;
+			productType = "com.apple.product-type.app-extension";
+			productReference = EADED1D05A414CF7A08BF09C /* DailySpaceWidget.appex */;
+			buildConfigurationList = BF8F7D58EC094B5C886E8CC8 /* Widget configuration list */;
+			buildPhases = (
+				83D0EBF1AE844E398A3EEDFC /* Sources */,
+				63B2C79A53AE4E1DB9DEC390 /* Frameworks */,
+				2CA7DF67A1B446FAA3963561 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
 		504EC2FC1FED79650016851F /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastSwiftUpdateCheck = 0920;
-				LastUpgradeCheck = 0920;
+				LastSwiftUpdateCheck = 920;
+				LastUpgradeCheck = 920;
 				TargetAttributes = {
 					504EC3031FED79650016851F = {
 						CreatedOnToolsVersion = 9.2;
 						LastSwiftMigration = 1100;
 						ProvisioningStyle = Automatic;
+						SystemCapabilities = {
+							com.apple.ApplicationGroups.iOS = {
+								enabled = 1;
+							};
+						};
+					};
+					041112E06973470BA50AB5AC = {
+						CreatedOnToolsVersion = 16.0;
+						ProvisioningStyle = Automatic;
+						SystemCapabilities = {
+							com.apple.ApplicationGroups.iOS = {
+								enabled = 1;
+							};
+						};
 					};
 				};
 			};
@@ -130,6 +211,7 @@
 			projectRoot = "";
 			targets = (
 				504EC3031FED79650016851F /* App */,
+				041112E06973470BA50AB5AC /* DailySpaceWidget */,
 			);
 		};
 /* End PBXProject section */
@@ -148,6 +230,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		2CA7DF67A1B446FAA3963561 /* Widget Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B905E0D15A974F1D9B9B2F6D /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -156,6 +246,18 @@
 			buildActionMask = 2147483647;
 			files = (
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
+				8677F0E2F1E54CB6A05225EA /* DailySpaceViewController.swift in App Sources */,
+				1EC50F04A41549F48970602B /* DailySpaceWidgetPlugin.swift in App Sources */,
+				4F482688A551461D9190D914 /* WidgetSnapshot.swift in App Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		83D0EBF1AE844E398A3EEDFC /* Widget Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C141BA90A3DF455180C4240A /* TodayWidget.swift in Sources */,
+				D41729AC447747909E36B4D3 /* WidgetSnapshot.swift in Widget Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -311,6 +413,8 @@
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
+				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
+				DAILY_SPACE_APP_GROUP = group.app.dailyspace.mobile;
 			};
 			name = Debug;
 		};
@@ -333,8 +437,64 @@
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
+				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
+				DAILY_SPACE_APP_GROUP = group.app.dailyspace.mobile;
 			};
 			name = Release;
+		};
+		93C520436EEF4C1EBEB1B93C /* Widget Debug */ = {
+			isa = XCBuildConfiguration;
+			name = Debug;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGN_ENTITLEMENTS = DailySpaceWidget/DailySpaceWidget.entitlements;
+				CURRENT_PROJECT_VERSION = 1;
+				DAILY_SPACE_APP_GROUP = group.app.dailyspace.mobile;
+				DEVELOPMENT_TEAM = 3HJ7572ND8;
+				INFOPLIST_FILE = DailySpaceWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.dailyspace.mobile.Today;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+		};
+		B64CDD9DD89B4BE697CD3EF6 /* Widget Release */ = {
+			isa = XCBuildConfiguration;
+			name = Release;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGN_ENTITLEMENTS = DailySpaceWidget/DailySpaceWidget.entitlements;
+				CURRENT_PROJECT_VERSION = 1;
+				DAILY_SPACE_APP_GROUP = group.app.dailyspace.mobile;
+				DEVELOPMENT_TEAM = 3HJ7572ND8;
+				INFOPLIST_FILE = DailySpaceWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.dailyspace.mobile.Today;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
 		};
 /* End XCBuildConfiguration section */
 
@@ -357,6 +517,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		BF8F7D58EC094B5C886E8CC8 /* Widget configuration list */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				93C520436EEF4C1EBEB1B93C /* Debug */,
+				B64CDD9DD89B4BE697CD3EF6 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
@@ -373,6 +542,38 @@
 			productName = "CapApp-SPM";
 		};
 /* End XCSwiftPackageProductDependency section */
+
+/* Begin PBXContainerItemProxy section */
+		1028946C30F34DCB84075DA4 /* Widget proxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 504EC2FC1FED79650016851F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 041112E06973470BA50AB5AC;
+			remoteInfo = DailySpaceWidget;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXTargetDependency section */
+		BD4D7E9A49C64132B8FE9732 /* DailySpaceWidget dependency */ = {
+			isa = PBXTargetDependency;
+			target = 041112E06973470BA50AB5AC /* DailySpaceWidget */;
+			targetProxy = 1028946C30F34DCB84075DA4 /* Widget proxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		97ECBA983E56435CA9638E76 /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				7A103F56218A4FA8A63D2D46 /* DailySpaceWidget.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 	};
 	rootObject = 504EC2FC1FED79650016851F /* Project object */;
 }
