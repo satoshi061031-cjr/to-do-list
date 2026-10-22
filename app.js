@@ -1066,6 +1066,13 @@
     }
 
     main.appendChild(label);
+    if (todo.sourceTripId) {
+      const tag = document.createElement("span");
+      tag.className = "todo-travel-tag";
+      tag.dataset.i18nIgnore = "";
+      tag.textContent = "Travel";
+      main.appendChild(tag);
+    }
     if (todo.notes || todo.subtasks?.length) {
       const detail = document.createElement("span"); detail.className = "task-detail-meta";
       detail.textContent = [todo.notes ? (window.DailySpaceI18n?.t("Note", "备注") || "Note") : "",
@@ -1106,7 +1113,7 @@
     }
 
     if (isMobileTodoPage()) {
-      const metadata = [...main.querySelectorAll(".todo-category-pill, .todo-due")];
+      const metadata = [...main.querySelectorAll(".todo-category-pill, .todo-due, .todo-travel-tag")];
       if (metadata.length) {
         const meta = document.createElement("span");
         meta.className = "m-task-meta";

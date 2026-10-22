@@ -70,12 +70,15 @@
     const todo = read(KEYS.todo);
     const calendar = read(KEYS.calendar);
     const planner = read(KEYS.planner);
+    const travel = read(KEYS.travel);
+    const trips = Array.isArray(travel.trips) ? travel.trips : [];
     const reminders = Array.isArray(calendar.reminders) ? calendar.reminders : [];
     const cards = Object.values(planner.boards || {}).flatMap(board => Array.isArray(board?.entries) ? board.entries : []);
     (Array.isArray(todo.todos) ? todo.todos : []).forEach((item) => {
       if (!item || typeof item.text !== "string") return;
       if (item.sourceReminderId && reminders.some(reminder => reminder.id === item.sourceReminderId)) return;
       if (item.sourcePlannerId && cards.some(entry => entry.id === item.sourcePlannerId)) return;
+      if (item.sourceTripId && trips.some(trip => trip.id === item.sourceTripId)) return;
       entries.push({
         id: `todo:${item.id}`,
         label: item.text,
@@ -127,8 +130,7 @@
       });
     });
 
-    const travel = read(KEYS.travel);
-    (Array.isArray(travel.trips) ? travel.trips : []).forEach((trip) => {
+    trips.forEach((trip) => {
       if (!trip || typeof trip.name !== "string") return;
       entries.push({
         id: `travel:${trip.id}`,

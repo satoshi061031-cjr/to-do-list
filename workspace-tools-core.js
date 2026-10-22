@@ -25,6 +25,7 @@
       notes: text(item.notes, 10000), subtasks: checklist(item.subtasks), repeat: ['daily','weekly','monthly'].includes(item.repeat) ? item.repeat : null,
       sourceMailId: text(item.sourceMailId, 120) || null, sourceMailUrl: /^https:\/\/mail\.google\.com\//.test(item.sourceMailUrl || '') ? text(item.sourceMailUrl, 2000) : null,
       sourcePlannerId: text(item.sourcePlannerId, 120) || null, sourceReminderId: text(item.sourceReminderId, 120) || null, externalEventId: text(item.externalEventId, 120) || null,
+      sourceTripId: text(item.sourceTripId, 120) || null, sourceTripName: text(item.sourceTripName, 60) || null, sourceTripDate: date(item.sourceTripDate),
       // Imported notifications are not scheduled using stale device timestamps.
       remindAt: null };
   }
@@ -107,7 +108,7 @@
     if (key === 'travel-book-v1') return { version:5,activeTripId:text(raw.activeTripId,120)||null,trips: unique(array(raw.trips,100).map(item => {
       if (!text(item?.name,60) || !date(item.startDate) || !date(item.endDate) || item.endDate<item.startDate) fail('Invalid trip dates.');
       const coordinates = value => Number.isFinite(value.lat) && Math.abs(value.lat)<=90 && Number.isFinite(value.lng) && Math.abs(value.lng)<=180;
-      return { id:identity(item.id),name:text(item.name,60),destination:text(item.destination,80),startDate:item.startDate,endDate:item.endDate,lat:coordinates(item)?item.lat:48.8566,lng:coordinates(item)?item.lng:2.3522,zoom:Math.max(1,Math.min(18,Number(item.zoom)||12)),
+      return { id:identity(item.id),linkedTodoId:text(item.linkedTodoId,120)||null,name:text(item.name,60),destination:text(item.destination,80),startDate:item.startDate,endDate:item.endDate,lat:coordinates(item)?item.lat:48.8566,lng:coordinates(item)?item.lng:2.3522,zoom:Math.max(1,Math.min(18,Number(item.zoom)||12)),
         stops:unique(array(item.stops,500).map(stop=>{if(!text(stop?.title,80)||!coordinates(stop))fail('Invalid trip stop.');return{id:identity(stop.id),title:text(stop.title,80),note:text(stop.note,160),day:Math.max(1,Math.min(366,Number(stop.day)||1)),lat:stop.lat,lng:stop.lng};})),
         reservations: unique(array(item.reservations,80).map(reservation=>{if(!text(reservation?.title,100)||!['flight','hotel','restaurant'].includes(reservation.kind))fail('Invalid reservation.');const result={id:identity(reservation.id),title:text(reservation.title,100),kind:reservation.kind,day:Math.max(1,Math.min(366,Number(reservation.day)||1))}; for(const key of ['sourceId','provider','startDate','endDate','startTime','endTime','location','origin','destination','confirmationCode','details','importedAt'])result[key]=text(reservation[key],key==='details'?500:260)||null;return result;})) };
     })) };

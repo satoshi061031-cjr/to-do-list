@@ -218,6 +218,18 @@ body.todo-bento .today-tasks .todo-item:hover,
 body.todo-bento .today-tasks .todo-item.is-editing,
 body.todo-mobile .todo-item:hover { background: var(--surface); }
 .todo-category-pill { padding: 0; background: transparent; border: 0; color: var(--text-muted); font-weight: 400; }
+.todo-travel-tag {
+  display: inline-flex;
+  align-self: flex-start;
+  width: fit-content;
+  padding: 0 var(--space-sm);
+  border-radius: var(--radius-pill);
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  font-size: var(--phone-meta-size);
+  font-weight: var(--phone-meta-weight);
+  line-height: var(--phone-meta-lh);
+}
 .todo-main { gap: var(--space-xs); }
 body.todo-mobile .todo-item { padding: var(--space-sm) 0; min-height: 4.5rem; gap: var(--space-sm); }
 body.todo-mobile .todo-main.is-task-action { padding-block: var(--space-xs); border-radius: var(--radius-sm); }
@@ -769,7 +781,8 @@ body.travel-page .travel-info > summary { min-height: 44px; display: flex; align
 body.travel-page .travel-app > .workspace-page-header { position: relative; z-index: 40; }
 body.tally-page .tally-sheet-panel { margin: 0; }
 body.travel-page .travel-preview-banner { transform: none; width: auto; text-align: left; }
-body.travel-page .travel-app { display: block; padding: 0; min-height: auto; height: auto; overflow: visible; }
+body.travel-page .travel-app,
+body.travel-page.travel-has-trip .travel-app { display: block; padding: 0; min-height: auto; height: auto; overflow: visible; }
 body.travel-page .travel-workspace { position: relative; inset: auto; min-height: 28rem; height: max(28rem, calc(100dvh - 12rem)); width: 100%; border-radius: var(--radius-lg); overflow: hidden; z-index: 0; }
 body.travel-page .travel-view-switch { display: none; }
 @media (min-width: 820px) {
@@ -781,7 +794,10 @@ body.travel-page .travel-view-switch { display: none; }
 @media (max-width: 819px) {
   body.calendar-page .cal-shell .cal-toolbar .cal-range { flex: 1 1 auto; width: auto; max-width: none; min-width: 0; }
   body.calendar-page .cal-shell .cal-toolbar .cal-range-pill { white-space: nowrap; flex: 1; min-width: 0; width: auto; }
-  body.travel-page .main-area { padding-top: max(var(--space-md), env(safe-area-inset-top, 0px)); }
+  body.travel-page .main-area {
+    padding-top: max(var(--space-md), env(safe-area-inset-top, 0px));
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-xl) * 3);
+  }
   body.travel-page .travel-workspace { position: relative; height: auto; min-height: 0; border-radius: 0; overflow: visible; }
   body.travel-page .travel-overlay { position: static; height: auto; pointer-events: auto; display: block; }
   body.travel-page .travel-map { display: none; position: relative; inset: auto; height: 22rem; border-radius: var(--radius-md); overflow: hidden; }

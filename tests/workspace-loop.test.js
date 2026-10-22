@@ -131,6 +131,99 @@ test("workspace search finds todos, trips, and expenses", () => {
   assert.ok(spend.some((item) => /Tally/.test(item.hint)));
 });
 
+test("each trip creates one departure task and later trip changes preserve completion and personal details", () => {
+  const trips = [{ id: "tokyo", name: "Tokyo trip", startDate: "2026-11-01", endDate: "2026-11-05", stops: [{ id: "park", day: 2, title: "Park" }] },
+    { id: "invalid", name: "Invalid date", startDate: "2026-02-30" }];
+  const values = new Map([["travel-book-v1", JSON.stringify({ trips })]]);
+  const { window } = loadScript("workspace-tasks.js", { values });
+  const sync = () => window.DailySpaceTasks.syncLinkedWork({ silent: true });
+  sync();
+  let state = JSON.parse(values.get("todo-app-v2"));
+  assert.equal(state.todos.length, 1);
+  assert.equal(state.todos[0].text, "Tokyo trip");
+  assert.equal(state.todos[0].dueDate, "2026-11-01");
+  assert.equal(state.todos[0].sourceTripId, "tokyo");
+  const taskId = state.todos[0].id;
+  assert.equal(JSON.parse(values.get("travel-book-v1")).trips[0].linkedTodoId, taskId);
+  assert.equal(sync().changed, false);
+
+  Object.assign(state.todos[0], { completed: true, text: "My travel preparation", dueDate: "2026-10-31", notes: "Bring passport", categoryId: "personal", subtasks: [{ id: "pack", text: "Pack", completed: true }] });
+  values.set("todo-app-v2", JSON.stringify(state));
+  sync();
+  state = JSON.parse(values.get("todo-app-v2"));
+  assert.equal(state.todos[0].text, "My travel preparation");
+  assert.equal(state.todos[0].dueDate, "2026-10-31");
+  const travel = JSON.parse(values.get("travel-book-v1"));
+  Object.assign(travel.trips[0], { name: "Tokyo autumn", startDate: "2026-11-02" });
+  values.set("travel-book-v1", JSON.stringify(travel));
+  sync();
+  state = JSON.parse(values.get("todo-app-v2"));
+  assert.equal(state.todos.length, 1);
+  assert.equal(state.todos[0].id, taskId);
+  assert.equal(state.todos[0].text, "Tokyo autumn");
+  assert.equal(state.todos[0].dueDate, "2026-11-02");
+  assert.equal(state.todos[0].completed, true);
+  assert.equal(state.todos[0].notes, "Bring passport");
+  assert.equal(state.todos[0].categoryId, "personal");
+  assert.equal(state.todos[0].subtasks[0].completed, true);
+});
+
+test("deleting a trip task does not recreate it; restoring it keeps the same link", () => {
+  const values = new Map([["travel-book-v1", JSON.stringify({ trips: [{ id: "trip", name: "Trip", startDate: "2026-11-01" }] })]]);
+  const { window } = loadScript("workspace-tasks.js", { values });
+  window.DailySpaceTasks.syncLinkedWork({ silent: true });
+  const saved = values.get("todo-app-v2");
+  values.set("todo-app-v2", JSON.stringify({ todos: [] }));
+  window.DailySpaceTasks.syncLinkedWork({ from: "todo", silent: true });
+  window.DailySpaceTasks.syncLinkedWork({ silent: true });
+  assert.equal(JSON.parse(values.get("todo-app-v2")).todos.length, 0);
+  values.set("todo-app-v2", saved);
+  assert.equal(window.DailySpaceTasks.syncLinkedWork({ silent: true }).changed, false);
+  assert.equal(JSON.parse(values.get("todo-app-v2")).todos.length, 1);
+});
+
+test("a stored trip task ID repairs missing source fields without duplicating the task", () => {
+  const values = new Map([
+    ["travel-book-v1", JSON.stringify({ trips: [{ id: "trip", name: "Tokyo", startDate: "2026-11-01", linkedTodoId: "existing" }] })],
+    ["todo-app-v2", JSON.stringify({ todos: [{ id: "existing", text: "Tokyo", completed: true, notes: "Keep my note" }] })],
+  ]);
+  const { window } = loadScript("workspace-tasks.js", { values });
+  window.DailySpaceTasks.syncLinkedWork({ silent: true });
+  const tasks = JSON.parse(values.get("todo-app-v2")).todos;
+  assert.equal(tasks.length, 1);
+  assert.equal(tasks[0].id, "existing");
+  assert.equal(tasks[0].sourceTripId, "trip");
+  assert.equal(tasks[0].completed, true);
+  assert.equal(tasks[0].notes, "Keep my note");
+});
+
+test("explicit trip deletion removes only its linked task; missing Travel data keeps orphan tasks", () => {
+  const original = { id: "linked", text: "Trip", completed: true, sourceTripId: "trip" };
+  const values = new Map([["todo-app-v2", JSON.stringify({ todos: [original, { id: "other", text: "Keep", completed: false }] })]]);
+  const { window } = loadScript("workspace-tasks.js", { values });
+  window.DailySpaceTasks.syncLinkedWork({ silent: true });
+  assert.equal(JSON.parse(values.get("todo-app-v2")).todos.length, 2);
+  window.DailySpaceTasks.syncLinkedWork({ from: "travel", removedTripIds: ["trip"], silent: true });
+  assert.deepEqual(JSON.parse(values.get("todo-app-v2")).todos.map(item => item.id), ["other"]);
+});
+
+test("trip task sources survive normalization, use encoded links and appear only once in search", () => {
+  const trip = { id: "trip & /中文", name: "Tokyo journey", startDate: "2026-11-01" };
+  const values = new Map([["travel-book-v1", JSON.stringify({ trips: [trip] })]]);
+  const { window } = loadScript("workspace-tasks.js", { values });
+  window.DailySpaceTasks.syncLinkedWork({ silent: true });
+  loadScript("task-fields.js", { values, window });
+  loadScript("workspace-search.js", { values, window });
+  const task = JSON.parse(values.get("todo-app-v2")).todos[0];
+  const fields = window.DailySpaceTaskFields.fields(task);
+  assert.equal(fields.sourceTripId, trip.id);
+  assert.equal(fields.sourceTripDate, trip.startDate);
+  assert.equal(window.DailySpaceTaskFields.source(fields).href, `travel.html?focus=trip&id=${encodeURIComponent(trip.id)}`);
+  assert.equal(window.DailySpaceSearch.search("Tokyo journey").length, 1);
+  values.set("travel-book-v1", JSON.stringify({ trips: [] }));
+  assert.match(window.DailySpaceSearch.search("Tokyo journey")[0].href, /todo\.html/);
+});
+
 
 test("search exposes source records once and keeps tasks whose source was removed", () => {
   const values = new Map([

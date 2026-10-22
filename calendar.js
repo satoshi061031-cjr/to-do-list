@@ -949,6 +949,13 @@
     label.textContent = todo.text;
     label.addEventListener("click", () => toggleTask(todo.id));
     main.appendChild(label);
+    if (todo.sourceTripId) {
+      const tag = document.createElement("span");
+      tag.className = "todo-travel-tag";
+      tag.dataset.i18nIgnore = "";
+      tag.textContent = "Travel";
+      main.appendChild(tag);
+    }
     if (todo.dueTime) {
       const time = document.createElement("span");
       time.className = "calendar-item-sub";

@@ -108,12 +108,68 @@
       const todoState = readJson(STORAGE_TODO, { todos: [], categories: [], selectedCategoryKey: "__all__" });
       const calendarState = readJson(STORAGE_CALENDAR, { version: 1, reminders: [] });
       const plannerState = readJson(STORAGE_PLANNER, { version: 2, planners: [], boards: {} });
+      const travelState = readJson(STORAGE_TRAVEL, {});
       if (!Array.isArray(todoState.todos)) todoState.todos = [];
       if (!Array.isArray(calendarState.reminders)) calendarState.reminders = [];
       if (!plannerState.boards || typeof plannerState.boards !== "object") plannerState.boards = {};
 
       let changed = false;
+      let travelChanged = false;
       const todos = todoState.todos;
+
+      // A trip is one personal task on its departure date. Remember its task ID
+      // so deleting the task does not recreate it on the next page load.
+      const travelTrips = Array.isArray(travelState.trips) ? travelState.trips : [];
+      travelTrips.forEach((trip) => {
+        if (!trip || typeof trip.id !== "string" || !trip.id || !hasText(trip.name)) return;
+        const date = validDate(trip.startDate);
+        const parsed = date && new Date(`${date}T12:00:00Z`);
+        if (!date || !Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== date) return;
+        const name = trip.name.trim().slice(0, 60);
+        let todo = todos.find((item) => item && (item.sourceTripId === trip.id ||
+          (trip.linkedTodoId && item.id === trip.linkedTodoId)));
+        if (!todo && trip.linkedTodoId) return;
+        if (!todo) {
+          todo = {
+            id: uid(), text: name, completed: false, dueDate: date,
+            dueTime: null, categoryId: null, repeat: null,
+            sourceTripId: trip.id,
+          };
+          todos.unshift(todo);
+          changed = true;
+        }
+        if (todo.sourceTripId !== trip.id) {
+          todo.sourceTripId = trip.id;
+          changed = true;
+        }
+        // Source changes propagate; edits to task notes, categories, dates and
+        // titles remain personal until the corresponding trip field changes.
+        if (todo.sourceTripName !== name) {
+          todo.text = name;
+          todo.sourceTripName = name;
+          changed = true;
+        }
+        if (todo.sourceTripDate !== date) {
+          todo.dueDate = date;
+          todo.sourceTripDate = date;
+          todo.remindAt = null;
+          changed = true;
+        }
+        if (trip.linkedTodoId !== todo.id) {
+          trip.linkedTodoId = todo.id;
+          travelChanged = true;
+        }
+      });
+
+      // Only an explicit Travel deletion removes its linked task. Missing or
+      // incomplete cloud/offline snapshots must not erase personal tasks.
+      const removedTrips = new Set(Array.isArray(settings.removedTripIds) ? settings.removedTripIds : []);
+      for (let index = todos.length - 1; index >= 0; index--) {
+        if (removedTrips.has(todos[index]?.sourceTripId)) {
+          todos.splice(index, 1);
+          changed = true;
+        }
+      }
 
       calendarState.reminders.forEach((reminder) => {
         if (!reminder || typeof reminder !== "object" || !hasText(reminder.text)) return;
@@ -222,19 +278,22 @@
         });
       });
 
-      if (changed) {
-        writeJson(STORAGE_TODO, todoState);
-        writeJson(STORAGE_CALENDAR, calendarState);
-        writeJson(STORAGE_PLANNER, plannerState);
+      if (changed || travelChanged) {
+        if (changed) {
+          writeJson(STORAGE_TODO, todoState);
+          writeJson(STORAGE_CALENDAR, calendarState);
+          writeJson(STORAGE_PLANNER, plannerState);
+        }
+        if (travelChanged) writeJson(STORAGE_TRAVEL, travelState);
         if (!settings.silent) {
           window.dispatchEvent(
             new CustomEvent("daily-space-agent-data-updated", {
-              detail: { domains: ["todo", "calendar", "planner"] },
+              detail: { domains: ["todo", "calendar", "planner", ...(travelChanged ? ["travel"] : [])] },
             })
           );
         }
       }
-      return { changed };
+      return { changed: changed || travelChanged };
     } finally {
       syncing = false;
     }

@@ -307,6 +307,7 @@
   function normalizeTrip(trip) {
     const normalized = {
       id: trip.id,
+      linkedTodoId: typeof trip.linkedTodoId === "string" ? trip.linkedTodoId : null,
       name: String(trip.name || trip.title || "Trip").slice(0, 60),
       destination: String(trip.destination || "").slice(0, 80),
       startDate: trip.startDate || todayIso(),
@@ -1734,6 +1735,11 @@
   syncTripView();
 
   function renderWorkspace({ preserveMap = false } = {}) {
+    const linked = window.DailySpaceTasks?.syncLinkedWork({ from: "travel", silent: true });
+    if (linked?.changed) {
+      loadState();
+      window.dispatchEvent(new CustomEvent("daily-space-agent-data-updated", { detail: { domains: ["todo"] } }));
+    }
     renderTripSelect();
     const trip = activeTrip();
     window.DailySpaceTripExpenses?.render(trip ? { ...trip, ref: isSharedTrip(trip) ? sharedSelectionId(trip.id) : trip.id } : null, activeDay);
@@ -1791,6 +1797,7 @@
   deleteTripBtn?.addEventListener("click", async () => {
     const trip = activeTrip();
     if (!trip) return;
+    const wasShared = isSharedTrip(trip);
     if (!window.confirm(t(`Delete trip “${trip.name}”?`, `删除行程“${trip.name}”？`))) return;
     if (isSharedTrip(trip)) {
       if (trip.role !== "owner") return;
@@ -1819,6 +1826,9 @@
     activeStopId = null;
     routeStopIds = [];
     saveState();
+    if (!wasShared) {
+      window.DailySpaceTasks?.syncLinkedWork({ from: "travel", removedTripIds: [trip.id] });
+    }
     renderWorkspace();
   });
 

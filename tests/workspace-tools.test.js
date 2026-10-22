@@ -45,6 +45,15 @@ test('project and trip child records merge within an existing board or trip',()=
  Core.apply(Core.prepare(file,'json',store),store);const project=JSON.parse(store.getItem('planner-app-v1'));assert.equal(project.boards.b.entries.length,2);assert.equal(project.boards.b.entries[0].title,'Local card');assert.equal(JSON.parse(store.getItem('travel-book-v1')).trips[0].stops.length,1);
  const fresh=storage();Core.apply(Core.prepare(file,'json',fresh),fresh);const imported=JSON.parse(fresh.getItem('travel-book-v1')).trips[0];assert.equal(imported.role,undefined);assert.equal(imported.members,undefined);
 });
+test('travel task links and source snapshots survive a JSON backup round trip',()=>{
+ const trip={id:'trip',name:'Tokyo',startDate:'2026-11-01',endDate:'2026-11-03',linkedTodoId:'trip-task',stops:[],reservations:[]};
+ const linked={...task('trip-task','Tokyo'),sourceTripId:'trip',sourceTripName:'Tokyo',sourceTripDate:'2026-11-01'};
+ const source=storage({'todo-app-v2':{todos:[linked],categories:[]},'travel-book-v1':{trips:[trip]}}),target=storage();
+ Core.apply(Core.prepare(JSON.stringify(Core.backup(source)),'json',target),target);
+ const imported=JSON.parse(target.getItem('todo-app-v2')).todos[0];
+ assert.equal(imported.sourceTripId,'trip');assert.equal(imported.sourceTripName,'Tokyo');assert.equal(imported.sourceTripDate,'2026-11-01');
+ assert.equal(JSON.parse(target.getItem('travel-book-v1')).trips[0].linkedTodoId,imported.id);
+});
 test('the merged size limit includes non-imported cloud sections and device backups omit credentials',()=>{
  const store=storage({'teamwork-page-v1':'x'.repeat(1024*1024),'daily-space-auth-v1':'secret','daily-space-mail-accounts-v1':'private accounts'});
  assert.throws(()=>Core.prepare('text\nA','todo',store),/sync limit/);const exported=Core.backup(store);assert.equal(exported.payload['daily-space-auth-v1'],undefined);assert.equal(exported.payload['daily-space-mail-accounts-v1'],undefined);
