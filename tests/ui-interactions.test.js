@@ -60,6 +60,55 @@ test("browser interactions on desktop and touch screens", { timeout: 120_000 }, 
     }
   }
 
+  await t.test("phone More theme control responds to touch and keyboard and persists across pages and reloads", async () => {
+    const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await page.route("https://**/*", route => route.abort());
+    await page.goto(`${base}/todo-m.html`, { waitUntil: "load" });
+    const initialBackground = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+    await page.locator("#bento-menu-toggle").tap();
+    const toggle = page.locator("#sidebar-chrome #theme-toggle");
+    await toggle.tap();
+    await page.waitForFunction(() => document.documentElement.dataset.theme === "dark");
+    assert.equal(await page.evaluate(() => localStorage.getItem("todo-theme")), "dark");
+    assert.equal(await toggle.getAttribute("aria-pressed"), "true");
+    assert.equal(await toggle.locator(".theme-toggle-label").textContent(), "Light");
+    assert.notEqual(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), initialBackground);
+    await toggle.tap();
+    assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), "light");
+    await toggle.press("Enter");
+    assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), "dark");
+
+    for (const file of ["calendar.html", "tally.html", "planner.html", "mail.html", "teamwork.html", "travel.html", "todo-m.html"]) {
+      await page.goto(`${base}/${file}`, { waitUntil: "load" });
+      assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), "dark", file);
+      assert.equal(await page.locator("#theme-toggle").count(), 1, file);
+      await page.locator("#bento-menu-toggle").tap();
+      assert.equal(await toggle.getAttribute("aria-pressed"), "true", file);
+      assert.equal(await toggle.locator(".theme-toggle-label").textContent(), "Light", file);
+      await toggle.tap();
+      assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), "light", file);
+      await toggle.tap();
+      assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), "dark", file);
+    }
+    await page.reload();
+    assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), "dark");
+    await page.locator("#bento-menu-toggle").tap();
+    assert.equal(await toggle.getAttribute("aria-pressed"), "true");
+    assert.equal(await toggle.locator(".theme-toggle-label").textContent(), "Light");
+    await page.keyboard.press("Escape");
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto(`${base}/todo.html?device=desktop`, { waitUntil: "load" });
+    const desktopToggle = page.locator(".bento-rail #theme-toggle");
+    assert.equal(await desktopToggle.getAttribute("aria-pressed"), "true");
+    await desktopToggle.click();
+    assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), "light");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await toggle.waitFor({ state: "attached" });
+    await page.locator("#bento-menu-toggle").tap();
+    await toggle.tap();
+    assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), "dark");
+  });
+
   await t.test("iOS web bridge publishes Guest task changes and consumes cold and warm Today links", async () => {
     const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
     await page.addInitScript(() => {
