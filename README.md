@@ -158,6 +158,16 @@ Pending reminders/device subscriptions use SQLite even when personal snapshots u
 
 ## Phone task interaction
 
+Today also has **Selected day / Next 7 days** on desktop and phone. Next 7 days includes today through six days ahead, sorted by date and time. Explicit date/search navigation returns to the selected-day scope. Phone task rows can swipe left for Tomorrow/Delete/Close and right to complete with Undo; checkboxes, details and batch actions remain available. Vertical movement and cancellation do not change tasks.
+
+Task capture suggests local Chinese/English dates and times (for example `明天下午三点取快递` or `tomorrow 3pm Collect parcel`). Click **Apply** to extract them, then edit the resulting date/time or save normally. Text is never silently rewritten on submission. No AI key or network is needed for these suggestions.
+
+A status row below each page header distinguishes device saves, pending/offline changes, syncing and cloud failures. Failed cloud saves keep local edits and offer Retry; conflicts still use the account dialog's existing version choices. Guest does not upload data.
+
+Travel's itinerary now has **Edit trip** and **Add a place**, with search available without switching to Map. Stop actions edit names, notes and days or move a stop up/down. Date shortening cannot discard later stops/bookings. Shared stop ordering uses one revision-checked transaction. Existing/new personal trips create one departure task with a Travel label, and the save message links to that task.
+
+**Travel day** brings together the selected date, next-stop Google Maps navigation, bookings/confirmation numbers, private ledger spend and optional budget. Marking a stop visited has Undo and is a personal session preference, not a shared member update. The selected view/day is scoped to the current identity. Place search still needs a network connection; cached itinerary text remains available offline. This feature does not add offline map tiles or guarantee notification delivery.
+
 The bottom dock supports tapping or dragging horizontally to select a page; release switches once, and dragging to More opens the drawer. The selection capsule follows the finger and slides to its resting position. Vertical scrolling and cancelled gestures leave the current page intact; reduced motion keeps gestures but removes the transition.
 
 The phone Today page has one New task action above the tab bar. Tap a task's text to edit details, or its checkbox to complete it. New and edit share a bottom sheet with date shortcuts and folded time/category/repeat settings. After adding, the sheet stays open for the next entry; editing saves and closes it. Closing or returning preserves a device-local draft, scoped to the signed-in account (or guest); drafts are not cloud snapshots. Delete is in task details and offers Undo. The completed tab and scroll position are remembered for the tab session. The editor follows `visualViewport`, hides navigation while open, and blocks submissions during IME composition.

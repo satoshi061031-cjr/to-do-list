@@ -1,4 +1,48 @@
 /* DESIGN.md — monochrome surfaces, open lists, restrained chrome. */
+.task-range, .travel-tools, .workspace-save-status { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-sm); }
+.task-range { margin-block: var(--space-sm); }
+.task-range button, .travel-tools button, .travel-stop-controls button, .travel-companion button, .quick-task-suggestion,
+.workspace-save-status button { min-height: 44px; padding: var(--space-sm) var(--space-md); border: 0; border-radius: var(--radius-pill); background: var(--surface); color: var(--text-muted); font: var(--phone-action-weight) var(--phone-action-size)/var(--phone-body-lh) var(--font-ui); cursor: pointer; }
+.task-range button[aria-pressed=true] { background: var(--primary); color: var(--on-primary); }
+.workspace-save-status { margin-block: var(--space-xs) var(--space-md); color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+.workspace-save-status[hidden], .workspace-save-status button[hidden], .task-range[hidden], .quick-task-suggestion[hidden], .travel-companion[hidden], .travel-task-status[hidden] { display: none; }
+body.has-bento-rail .guest-save-banner { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); margin: 0; padding: var(--space-sm) 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+body.has-bento-rail .guest-save-title, body.has-bento-rail .guest-save-kicker { display: none; }
+body.has-bento-rail .guest-save-hint { margin: 0; font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+body.has-bento-rail .guest-save-actions { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
+body.has-bento-rail .guest-save-actions .btn { min-height: 44px; width: auto; min-width: 0; margin: 0; font-size: var(--phone-meta-size); padding: var(--space-sm) var(--space-sm); }
+.quick-task-suggestion { text-align: left; margin-block: var(--space-sm); }
+.quick-task-time { min-height: 44px; font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--quiet-line); border-radius: var(--radius-sm); padding: var(--space-sm); }
+.travel-tools { margin-block: var(--space-sm); }
+.travel-stop-controls { display: flex; flex-wrap: wrap; gap: var(--space-xs); grid-column: 1 / -1; }
+.travel-stop-controls button { padding-inline: var(--space-sm); }
+.travel-task-status { color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+.travel-task-status a { display: inline-flex; min-height: 44px; align-items: center; color: var(--text); }
+body.travel-page.travel-has-trip .travel-view-switch { display: flex; gap: var(--space-sm); flex-wrap: wrap; margin-block: var(--space-md); }
+body.travel-page .travel-view-switch button { min-height: 44px; border: 0; border-radius: var(--radius-pill); padding: var(--space-sm) var(--space-md); background: var(--surface); color: var(--text-muted); font: inherit; cursor: pointer; }
+body.travel-page .travel-view-switch button[aria-pressed=true] { background: var(--primary); color: var(--on-primary); }
+body.travel-day-view .travel-workspace { display: none; }
+.travel-companion { max-width: 48rem; margin-inline: auto; padding-bottom: var(--space-xl); }
+.travel-companion header { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
+.travel-companion h2 { width: 100%; font: var(--phone-title-weight) var(--phone-title-size)/var(--phone-title-lh) var(--font-ui); margin: var(--space-md) 0; overflow-wrap: anywhere; }
+.travel-companion h3 { margin: var(--space-lg) 0 var(--space-sm); font: var(--phone-task-weight) var(--phone-task-size)/var(--phone-task-lh) var(--font-ui); }
+.travel-companion select, .travel-tools-body select { max-width: 100%; min-height: 44px; font: var(--phone-body-weight) var(--phone-body-size)/var(--phone-body-lh) var(--font-ui); padding: var(--space-sm); color: var(--text); background: var(--surface); border: 1px solid var(--quiet-line); border-radius: var(--radius-sm); }
+.travel-companion a { display: inline-flex; align-items: center; min-height: 44px; color: var(--text); font: inherit; overflow-wrap: anywhere; }
+.travel-day-stops { padding: 0; list-style: none; }
+.travel-day-stops li { display: flex; gap: var(--space-sm); justify-content: space-between; align-items: center; padding-block: var(--space-md); border-bottom: 1px solid var(--quiet-line); }
+.travel-day-stops li > div { min-width: 0; overflow-wrap: anywhere; }
+.travel-day-stops p, .travel-day-booking p { margin-block: var(--space-xs); color: var(--text-muted); }
+.travel-day-stops button { flex-shrink: 0; }
+.travel-day-booking { padding-block: var(--space-sm); }
+.travel-tools-sheet .travel-sheet-panel { max-height: 100%; overflow-y: auto; }
+body.travel-page .travel-tools-sheet .travel-search-bar { display: grid; position: static; width: 100%; max-width: 100%; margin-top: var(--space-md); padding: 0; border: 0; background: transparent; box-shadow: none; }
+.travel-tools-sheet .travel-tools-body { min-width: 0; }
+.travel-tools-sheet textarea { width: 100%; box-sizing: border-box; min-height: 72px; font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--quiet-line); border-radius: var(--radius-sm); padding: var(--space-sm); }
+body.todo-mobile #todo-list .todo-item { flex-wrap: wrap; touch-action: pan-y pinch-zoom; }
+.task-swipe-actions { flex-basis: 100%; display: flex; justify-content: flex-end; gap: var(--space-sm); padding-block: var(--space-sm); }
+.task-swipe-actions button { min-height: 44px; padding: var(--space-sm); color: var(--text); background: var(--surface); border: 0; border-radius: var(--radius-pill); font: inherit; }
+body.todo-mobile .todo-item[data-swipe] { background: var(--surface); }
+body.todo-mobile .todo-item[data-swipe=complete]::after { content: '✓'; color: var(--success); }
 :root {
   --bg: #ffffff;
   --neutral: #ffffff;

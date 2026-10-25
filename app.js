@@ -150,6 +150,7 @@
 
   /** @type {"all" | "active" | "completed" | "today"} */
   let filter = document.body.classList.contains("todo-mobile") ? "active" : "today";
+  let taskRange = "day";
 
   /** @type {"personal" | "assigned"} */
   let todoSource = "personal";
@@ -834,6 +835,7 @@
   }
 
   function dueDayFilterApplies() {
+    if (taskRange === "week") return false;
     if (!viewDueDateFilter) return false;
     if (isMobileTodoPage()) return true;
     return selectedCategoryKey !== "__all__";
@@ -841,6 +843,12 @@
 
   function visibleTodosPipeline() {
     let list = todos.filter(todoMatchesCategory);
+    if (taskRange === "week") {
+      const end = new Date(`${todayIso()}T12:00:00`); end.setDate(end.getDate() + 6);
+      const last = `${end.getFullYear()}-${String(end.getMonth()+1).padStart(2,"0")}-${String(end.getDate()).padStart(2,"0")}`;
+      list = list.filter(todo => todo.dueDate >= todayIso() && todo.dueDate <= last);
+      list.sort((a,b) => `${a.dueDate} ${a.dueTime || "99:99"}`.localeCompare(`${b.dueDate} ${b.dueTime || "99:99"}`));
+    }
     if (dueDayFilterApplies()) list = list.filter(todoMatchesSelectedDay);
     if (filter === "today") {
       const today = todayIso();
@@ -855,6 +863,7 @@
   }
 
   function todosInCategoryAndDayScope() {
+    if (taskRange === "week") return visibleTodosPipeline();
     let list = todos.filter(todoMatchesCategory);
     if (dueDayFilterApplies()) list = list.filter(todoMatchesSelectedDay);
     return list;
@@ -1326,6 +1335,7 @@
   }
 
   function focusTodayList(opts) {
+    taskRange = "day";
     const seed = opts && typeof opts.seed === "string" ? opts.seed.trim() : "";
     if (todoSource !== "personal") setTodoSource("personal");
     if (isMobileTodoPage()) {
@@ -1795,7 +1805,7 @@
     window.dispatchEvent(new CustomEvent("daily-space-todo-view-updated"));
   }
 
-  function add(text, dueDate, categoryIdOverride) {
+  function add(text, dueDate, categoryIdOverride, dueTime = null) {
     const trimmed = text.trim();
     if (!trimmed) return null;
     let categoryId = null;
@@ -1812,7 +1822,7 @@
       text: trimmed,
       completed: false,
       dueDate: dueDate && ISO_DATE.test(dueDate) ? dueDate : null,
-      dueTime: null,
+      dueTime: normalizeTime(dueTime),
       categoryId,
       repeat: null,
     };
@@ -2184,7 +2194,8 @@
       return;
     }
     const due = deadlineInput.value.trim() || todayIso();
-    add(input.value, due);
+    add(input.value, due, undefined, document.getElementById("quick-task-time")?.value);
+    if (document.getElementById("quick-task-time")) document.getElementById("quick-task-time").value = "";
     input.value = "";
     resetDeadlineToToday();
     closeCalendar();
@@ -2568,6 +2579,7 @@
   }
 
   function selectDueDay(iso) {
+    taskRange = "day";
     const day = iso && ISO_DATE.test(iso) ? iso : todayIso();
     if (isMobileTodoPage()) {
       viewDueDateFilter = day;
@@ -2594,6 +2606,7 @@
   }
 
   function focusTask(id) {
+    taskRange = "day";
     const task = todos.find(item => item.id === id);
     if (!task) return false;
     setTodoSource("personal");
@@ -2622,7 +2635,9 @@
   window.DailySpaceTodo = {
     getTasks: () => structuredClone(todos),
     getCategories: () => categories.map(category => ({ ...category })),
-    getView: () => ({ filter, day: viewDueDateFilter || todayIso(), source: todoSource }),
+    getView: () => ({ filter, day: viewDueDateFilter || todayIso(), source: todoSource, range: taskRange }),
+    getVisibleTasks: () => structuredClone(visibleTodosPipeline()),
+    setRange(value) { taskRange = value === "week" ? "week" : "day"; if (taskRange === "day") resetViewDayFilter(); if (filter === "today") setFilter("active"); else render(); },
     saveTask: saveMobileTask,
     removeTask: remove,
     createTasks(drafts) {

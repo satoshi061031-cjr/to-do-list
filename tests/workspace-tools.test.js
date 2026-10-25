@@ -73,4 +73,5 @@ test('promoted trip totals include old personal links once and exclude unrelated
  vm.runInContext(fs.readFileSync(path.resolve(__dirname,'../trip-expenses.js'),'utf8'),context);
  const result=window.DailySpaceTripExpenses.stats({records:[{id:'old',tripId:'local-trip',amount:10,fxRate:7,category:'Hotel',date:'2026-10-14'},{id:'new',tripId:'shared:server-trip',amount:30,fxRate:1,category:'Food',date:'2026-10-15'},{id:'other',tripId:'other-trip',amount:200,fxRate:1,category:'Other',date:'2026-10-14'}]},'shared:server-trip');
  assert.equal(result.total,100);assert.equal(result.records.length,2);assert.equal(result.categories.length,2);assert.equal(result.days.length,2);
+ const budget={amount:200,currency:'CNY'};assert.deepEqual(window.DailySpaceTripExpenses.budget({tripBudgets:{'local-trip':budget}},'shared:server-trip'),budget);
 });

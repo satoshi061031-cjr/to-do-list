@@ -2144,6 +2144,33 @@
     renderBanner();
   }
 
+  function setupSaveFeedback() {
+    const header = document.querySelector('[data-page-header]'); if (!header) return;
+    const row = document.createElement('div'); row.className = 'workspace-save-status'; row.dataset.i18nIgnore = '';
+    const label = document.createElement('span'); label.setAttribute('role','status'); label.setAttribute('aria-live','polite');
+    const retry = document.createElement('button'); retry.type = 'button'; retry.hidden = true; row.append(label,retry); header.after(row);
+    let localSave = false, timer = 0;
+    function schedule() { clearTimeout(timer); if (currentUserId() && isBrowserOnline() && userSnapshotStatus !== 'conflict') timer = setTimeout(() => userSnapshotTick().then(render), 1000); }
+    function render() {
+      const user = currentUserId(); const dirty = user && userSnapshotSignature(collectUserSnapshotPayload()) !== userSnapshotBaseline;
+      retry.hidden = true; row.hidden = !user && !localSave;
+      if (!user) label.textContent = t('Saved on this device','已保存到本机');
+      else if (userSnapshotStatus === 'conflict') { label.textContent=t('Saved locally · choose which version to keep','已保存到本机 · 请选择保留的版本');retry.hidden=false;retry.textContent=t('Review','查看'); }
+      else if (!isBrowserOnline() || userSnapshotStatus === 'offline') label.textContent=t('Saved locally · waiting for connection','已保存到本机 · 等待联网');
+      else if (userSnapshotStatus === 'error') { label.textContent=t('Saved locally · cloud sync failed','已保存到本机 · 云端同步失败');retry.hidden=false;retry.textContent=t('Retry','重试'); }
+      else if (userSnapshotStatus === 'syncing') label.textContent=t('Saved locally · syncing…','已保存到本机 · 正在同步…');
+      else if (dirty) { label.textContent=t('Saved locally · waiting to sync','已保存到本机 · 等待同步'); if(userSnapshotStatus==='ok')schedule(); }
+      else label.textContent=t('Synced to cloud','已同步到云端');
+    }
+    retry.addEventListener('click',()=>{if(userSnapshotStatus==='conflict')document.querySelector('.sidebar-auth-entry')?.click();else { userSnapshotTick().then(render); }});
+    window.addEventListener('daily-space-agent-data-updated',()=>{localSave=true;render();schedule();});
+    window.addEventListener('daily-space-travel-saved',()=>{localSave=true;render();schedule();});
+    window.addEventListener('daily-space-user-sync-updated',render);
+    window.addEventListener('daily-space-auth-updated',()=>{localSave=false;clearTimeout(timer);render();});
+    window.addEventListener('daily-space-locale-changed',render);
+    window.addEventListener('offline',render);window.addEventListener('online',()=>{render();schedule();});render();
+  }
+
   function setupSharedUi() {
     ensurePwaShell();
     registerServiceWorker();
@@ -2172,6 +2199,7 @@
     setupGreeting();
     setupWelcomeExperience();
     setupPageChrome();
+    setupSaveFeedback();
     setupNotifications();
     setupGuestSavePrompt();
     setupNativeShell();

@@ -329,6 +329,20 @@ function createTravelCollabStore(options = {}) {
     });
   }
 
+  function reorderStops(tripId, userId, input = {}) {
+    assertMember(tripId, userId);
+    return transaction(() => {
+      assertRevision(tripRow(tripId), input.baseRevision);
+      const current = listStops(tripId, userId).map(stop => stop.id);
+      const ids = input.ids;
+      if (!Array.isArray(ids) || ids.length !== current.length || new Set(ids).size !== ids.length || ids.some(id => !current.includes(id))) throw collabError("Provide every stop exactly once.", 400);
+      const update = database.prepare("UPDATE travel_stops SET position = ?, updated_at = ? WHERE id = ? AND trip_id = ?");
+      ids.forEach((id,index) => update.run(index,currentIso(),id,tripId));
+      bumpRevision(tripId);
+      return { trip: getTrip(tripId,userId) };
+    });
+  }
+
   function deleteStop(tripId, stopId, userId, baseRevision) {
     assertMember(tripId, userId);
     return transaction(() => {
@@ -639,6 +653,7 @@ function createTravelCollabStore(options = {}) {
     revokeInvite,
     updateReservation,
     updateStop,
+    reorderStops,
     updateTrip,
   };
 }

@@ -193,9 +193,9 @@
       document.body.classList.toggle("m-show-completed", done);
       document.getElementById("m-filter-active").setAttribute("aria-selected", String(!done));
       document.getElementById("m-filter-completed").setAttribute("aria-selected", String(done));
-      const tasks = api.getTasks().filter(item => item.dueDate === view.day && Boolean(item.completed) === done);
+      const tasks = api.getVisibleTasks();
       empty.hidden = tasks.length > 0 || view.source !== "personal";
-      empty.textContent = done ? t("No completed tasks yet.", "还没有已完成的任务。") : t("A clear day. Add your first task.", "今天很清爽，添加第一条任务吧。");
+      empty.textContent = view.range === "week" ? t("No tasks in the next 7 days.", "近期 7 天没有任务。") : done ? t("No completed tasks yet.", "还没有已完成的任务。") : t("A clear day. Add your first task.", "今天很清爽，添加第一条任务吧。");
     }
     document.getElementById("m-filter-active").addEventListener("click", () => api.setFilter("active"));
     document.getElementById("m-filter-completed").addEventListener("click", () => api.setFilter("completed"));

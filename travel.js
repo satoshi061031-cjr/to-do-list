@@ -149,7 +149,7 @@
   function dayCount(startIso, endIso) {
     const start = parseIso(startIso);
     const end = parseIso(endIso);
-    return Math.max(1, Math.floor((end.getTime() - start.getTime()) / 86400000) + 1);
+    return Math.max(1, Math.round((Date.UTC(end.getFullYear(),end.getMonth(),end.getDate()) - Date.UTC(start.getFullYear(),start.getMonth(),start.getDate())) / 86400000) + 1);
   }
 
   function escapeHtml(value) {
@@ -586,6 +586,7 @@
 
   async function commitSharedMutation(trip, path, method, body) {
     if (!isSharedTrip(trip) || sharedBusy) return null;
+    const mutationOwner = window.DailySpaceView.owner();
     sharedBusy = true;
     sharedStatus = t("Syncing…", "同步中…");
     sharedStatusError = false;
@@ -601,6 +602,7 @@
             : JSON.stringify({ baseRevision: trip.revision, ...body }),
         }
       );
+      if (mutationOwner !== window.DailySpaceView.owner()) return null;
       if (payload.trip && !payload.trip.unchanged) replaceSharedTrip(payload.trip);
       if (Number.isFinite(Number(payload.revision))) trip.revision = Number(payload.revision);
       if (payload.stop) {
@@ -625,6 +627,7 @@
       renderWorkspace({ preserveMap: true });
       return payload;
     } catch (error) {
+      if (mutationOwner !== window.DailySpaceView.owner()) return null;
       sharedStatusError = true;
       if (error.status === 409) {
         sharedStatus = t("Changed elsewhere — reloading…", "其他成员已修改 — 正在重新加载…");
@@ -830,6 +833,7 @@
 
   async function showInvitePreview(token) {
     pendingInviteToken = token;
+    window.dispatchEvent(new Event("daily-space-travel-view-updated"));
     if (invitePreviewEl) invitePreviewEl.hidden = false;
     if (emptyEl) emptyEl.hidden = true;
     if (workspaceEl) workspaceEl.hidden = true;
@@ -1317,6 +1321,8 @@
       saveState();
     }
     renderWorkspace({ preserveMap: true });
+    window.dispatchEvent(new Event("daily-space-travel-stop-added"));
+    window.dispatchEvent(new Event("daily-space-travel-saved"));
   }
 
   function removeStop(stopId) {
@@ -1717,9 +1723,10 @@
   }
 
   let phoneTripView = window.DailySpaceView.read("travel").view === "map" ? "map" : "itinerary";
+  let companionView = Boolean(window.DailySpaceView.read("travel").companion);
   const phoneMapQuery = window.matchMedia("(max-width: 819px)");
   function mapIsVisible() {
-    return !phoneMapQuery.matches || phoneTripView === "map";
+    return !companionView && (!phoneMapQuery.matches || phoneTripView === "map");
   }
   function syncTripView() {
     document.body.classList.toggle("travel-map-view", phoneTripView === "map");
@@ -1758,11 +1765,14 @@
       lastMapTripId = null;
       destroyMap();
       renderSharePanel(null);
+      window.dispatchEvent(new Event("daily-space-travel-view-updated"));
       return;
     }
 
     emptyEl.hidden = true;
     workspaceEl.hidden = false;
+    activeDay = Math.max(1, Math.min(activeDay, dayCount(trip.startDate,trip.endDate)));
+    window.DailySpaceView.write('travel',{selectedTrip:activeTripId,day:activeDay});
     sidePlace.textContent = trip.destination;
     sideTitle.textContent = trip.name;
     sideMeta.textContent = `${formatRange(trip.startDate, trip.endDate)} · ${dayCount(
@@ -1773,7 +1783,45 @@
     renderStops();
     ensureMap(trip, { resetView: !preserveMap && lastMapTripId !== trip.id });
     renderSharePanel(trip);
+    window.dispatchEvent(new Event("daily-space-travel-view-updated"));
   }
+
+  window.DailySpaceTravel = {
+    state() { const trip = activeTrip(); return { trip: trip ? structuredClone(trip) : null, day: activeDay, shared: isSharedTrip(trip), invitation: Boolean(pendingInviteToken) }; },
+    setCompanion(on) { companionView = Boolean(on); syncTripView(); const trip = activeTrip(); if (trip && !companionView) ensureMap(trip); },
+    setDay(day) { const trip = activeTrip(); if (!trip) return; activeDay = Math.max(1, Math.min(dayCount(trip.startDate, trip.endDate), Number(day) || 1)); activeStopId = null; routeStopIds = []; clearPlaceResults(); renderWorkspace({preserveMap:true}); },
+    async updateTrip(input) {
+      const trip = activeTrip(); if (!trip) throw new Error(t("Trip unavailable.","行程已不存在。"));
+      const owner = window.DailySpaceView.owner(), tripId = activeTripId;
+      const date = window.DailySpaceWorkspaceCore.date;
+      if (!String(input.name || '').trim() || !String(input.destination || '').trim() || !date(input.startDate) || !date(input.endDate) || input.endDate < input.startDate) throw new Error(t("Check the trip name and dates.","请检查行程名称和日期。"));
+      if (Math.max(1,...trip.stops.map(stop=>stop.day),...trip.reservations.map(item=>item.day)) > dayCount(input.startDate,input.endDate)) throw new Error(t("Move later stops and bookings before shortening the trip.","请先调整后几天的地点和预订，再缩短行程。"));
+      let place = trip;
+      if (input.destination.trim() !== trip.destination) { place = await geocode(input.destination); if (!place) throw new Error(t("Destination not found.","没有找到目的地。")); }
+      if (owner !== window.DailySpaceView.owner() || tripId !== activeTripId) throw new Error(t("The trip changed. Reopen the editor.","行程已切换，请重新打开编辑。"));
+      const next = {...trip, name:input.name.trim().slice(0,60),destination:input.destination.trim().slice(0,80),startDate:input.startDate,endDate:input.endDate,lat:place.lat,lng:place.lng};
+      if (isSharedTrip(trip)) { if (!await commitSharedMutation(trip,'','PATCH',{title:next.name,data:tripPayload(next)})) throw new Error(sharedStatus); }
+      else { Object.assign(trip,next); saveState(); renderWorkspace({preserveMap:true}); }
+      window.dispatchEvent(new Event('daily-space-travel-saved'));
+    },
+    async updateStop(stopId, input) {
+      const trip = activeTrip(), stop = trip?.stops.find(item=>item.id===stopId); if (!stop) throw new Error(t('Stop unavailable.','地点已不存在。'));
+      if (!String(input.title || '').trim()) throw new Error(t('Enter a place name.','请输入地点名称。'));
+      const day = Number(input.day); if (!Number.isInteger(day) || day < 1 || day > dayCount(trip.startDate,trip.endDate)) throw new Error(t('Invalid day.','日期无效。'));
+      const next={...stop,title:input.title.trim().slice(0,80),note:String(input.note || '').slice(0,160),day};
+      if (isSharedTrip(trip)) { if (!await commitSharedMutation(trip,`/stops/${encodeURIComponent(stopId)}`,'PATCH',{data:stopPayload(next)})) throw new Error(sharedStatus); }
+      else { Object.assign(stop,next); saveState(); renderWorkspace({preserveMap:true}); }
+      window.dispatchEvent(new Event('daily-space-travel-saved'));
+    },
+    async moveStop(stopId, offset) {
+      const trip=activeTrip(), stop=trip?.stops.find(item=>item.id===stopId); if (!stop) return;
+      const day=trip.stops.filter(item=>item.day===stop.day), index=day.indexOf(stop), target=day[index+(offset<0?-1:1)]; if (!target) return;
+      const ordered=[...trip.stops], a=ordered.indexOf(stop), b=ordered.indexOf(target); [ordered[a],ordered[b]]=[ordered[b],ordered[a]];
+      if (isSharedTrip(trip)) { if (!await commitSharedMutation(trip,'/stops/reorder','POST',{ids:ordered.map(item=>item.id)})) throw new Error(sharedStatus); }
+      else { trip.stops=ordered; saveState(); renderWorkspace({preserveMap:true}); }
+      window.dispatchEvent(new Event('daily-space-travel-saved'));
+    },
+  };
 
   newOpenBtn?.addEventListener("click", () => setSheetOpen(true));
   emptyAddBtn?.addEventListener("click", () => setSheetOpen(true));
@@ -1874,6 +1922,7 @@
     const destination = newDest.value.trim();
     const startDate = newStart.value;
     const endDate = newEnd.value;
+    const creationOwner = window.DailySpaceView.owner();
     if (!name || !destination || !startDate || !endDate) return;
     if (parseIso(endDate) < parseIso(startDate)) {
       newNote.textContent = "End date must be on or after the start date.";
@@ -1886,6 +1935,7 @@
     newNote.classList.remove("is-error");
     try {
       const place = await geocode(destination);
+      if (creationOwner !== window.DailySpaceView.owner() || newSheet.hidden) return;
       if (!place) {
         newNote.textContent = "Couldn’t find that place. Try a clearer city name.";
         newNote.classList.add("is-error");
@@ -1912,6 +1962,7 @@
       saveState();
       setSheetOpen(false);
       renderWorkspace();
+      window.dispatchEvent(new Event("daily-space-travel-saved"));
     } catch (_) {
       newNote.textContent = "Lookup failed. Check your connection and try again.";
       newNote.classList.add("is-error");
@@ -1926,11 +1977,13 @@
     if (!trip || geocodeBusy) return;
     const query = searchInput?.value.trim() || "";
     if (!query) return;
+    const requestTrip = activeTripId, requestDay = activeDay, requestOwner = window.DailySpaceView.owner();
     geocodeBusy = true;
     clearPlaceResults();
     if (mapHint) mapHint.textContent = "Searching…";
     try {
       const places = await searchPlaces(query, searchNearForTrip(trip), 8);
+      if (requestTrip !== activeTripId || requestDay !== activeDay || requestOwner !== window.DailySpaceView.owner()) return;
       if (!places.length) {
         if (mapHint) mapHint.textContent = "No places found. Try another search.";
         return;
@@ -1983,6 +2036,7 @@
     else if (event.detail?.domains?.includes("tally")) { const trip = activeTrip(); window.DailySpaceTripExpenses?.render(trip ? { ...trip, ref: isSharedTrip(trip) ? sharedSelectionId(trip.id) : trip.id } : null, activeDay); }
   });
   window.addEventListener("daily-space-auth-updated", () => {
+    setSheetOpen(false); newForm.reset();
     bootTravel().catch(() => {});
   });
 
@@ -1998,6 +2052,8 @@
 
   async function bootTravel() {
     loadState();
+    const preference = window.DailySpaceView.read('travel');
+    if (preference.selectedTrip === activeTripId) activeDay = Math.max(1,Number(preference.day)||1);
     const searchTarget = window.DailySpaceSearch?.target();
     if (searchTarget?.focus === "trip") {
       const trip = trips.find(item => item.id === searchTarget.id);

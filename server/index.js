@@ -272,6 +272,14 @@ async function handleApi(request, response, url) {
     }
   }
 
+  const travelReorderMatch = url.pathname.match(/^\/api\/travel\/trips\/([^/]+)\/stops\/reorder$/);
+  if (method === "POST" && travelReorderMatch) {
+    enforceGoogleSession(session);
+    const body = await readJson(request);
+    sendJson(response, { ok: true, ...getTravelCollabStore().reorderStops(decodeURIComponent(travelReorderMatch[1]), session.userId, body) });
+    return;
+  }
+
   const travelStopMatch = url.pathname.match(
     /^\/api\/travel\/trips\/([^/]+)\/stops\/([^/]+)$/
   );
