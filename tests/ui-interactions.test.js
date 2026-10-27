@@ -269,7 +269,7 @@ test("browser interactions on desktop and touch screens", { timeout: 120_000 }, 
     assert.ok(await page.evaluate(() => matchMedia("(prefers-reduced-transparency: reduce)").matches));
     const solid = await paint();
     assert.equal(solid.paintBlur, "none"); assert.equal(solid.wallpaper, "none");
-    assert.equal(solid.background, "rgb(29, 29, 29)");
+    assert.equal(solid.background, "rgb(23, 38, 64)"); // DESIGN.md colors.panel-dark
     await session.detach();
   });
 

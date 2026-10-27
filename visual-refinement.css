@@ -1,4 +1,4 @@
-/* DESIGN.md — monochrome surfaces, open lists, restrained chrome. */
+/* DESIGN.md — open lists, restrained chrome, navy dark surfaces. */
 .task-range, .travel-tools, .workspace-save-status { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-sm); }
 .task-range { margin-block: var(--space-sm); }
 .task-range button, .travel-tools button, .travel-stop-controls button, .travel-companion button, .quick-task-suggestion,
@@ -44,22 +44,23 @@ body.todo-mobile #todo-list .todo-item { flex-wrap: wrap; touch-action: pan-y pi
 body.todo-mobile .todo-item[data-swipe] { background: var(--surface); }
 body.todo-mobile .todo-item[data-swipe=complete]::after { content: '✓'; color: var(--success); }
 :root {
-  --bg: #ffffff;
-  --neutral: #ffffff;
-  --surface: #f5f5f5;
-  --surface-muted: #eeeeee;
-  --surface-hover: #eeeeee;
-  --text: #171717;
-  --text-muted: #686868;
-  --primary: #171717;
+  --bg: #f3f5f9;
+  --neutral: var(--bg);
+  --surface: #eef2f8;
+  --surface-muted: #e7edf7;
+  --surface-hover: var(--surface-muted);
+  --text: #172640;
+  --secondary: #647189;
+  --text-muted: color-mix(in srgb, var(--secondary) 88%, var(--text));
+  --primary: #365cad;
   --on-primary: #ffffff;
-  --primary-hover: #686868;
-  --secondary: #686868;
-  --accent: var(--secondary);
-  --accent-hover: var(--text);
+  --primary-hover: #2c4d96;
+  --accent: var(--primary);
+  --accent-hover: var(--primary-hover);
   --accent-soft: var(--surface-muted);
   --content-surface: var(--surface);
   --panel-surface: #ffffff;
+  --light-backdrop: linear-gradient(165deg, var(--bg) 0%, var(--panel-surface) 100%);
   --content-fill: var(--content-surface);
   --panel-fill: var(--panel-surface);
   --quiet-line: color-mix(in srgb, var(--text) 8%, transparent);
@@ -72,7 +73,7 @@ body.todo-mobile .todo-item[data-swipe=complete]::after { content: '✓'; color:
   --shadow: none;
   --shadow-soft: none;
   --shadow-pop: 0 12px 36px color-mix(in srgb, var(--text) 12%, transparent);
-  --overlay-ink: #000000; /* colors.neutral-dark, stable across themes */
+  --overlay-ink: #000000; /* colors.overlay-ink, stable across themes */
   --modal-scrim: color-mix(in srgb, var(--overlay-ink) 42%, transparent);
   --glow: none;
   --radius: 18px;
@@ -112,18 +113,18 @@ body.todo-mobile .todo-item[data-swipe=complete]::after { content: '✓'; color:
 }
 :root[data-theme="dark"] {
   --modal-scrim: color-mix(in srgb, var(--overlay-ink) 64%, transparent);
-  --bg: #000000;
-  --neutral: #000000;
-  --surface: #161616;
-  --surface-muted: #1d1d1d;
-  --surface-hover: #1d1d1d;
-  --text: #f5f5f5;
-  --text-muted: #999999;
-  --primary: #f5f5f5;
-  --primary-hover: #999999;
-  --on-primary: #171717;
-  --secondary: #999999;
-  --accent: var(--secondary);
+  --bg: #070d19;
+  --neutral: var(--bg);
+  --surface: #111e35;
+  --surface-muted: #172640;
+  --surface-hover: var(--surface-muted);
+  --text: #e8eefb;
+  --text-muted: #a5b4d0;
+  --primary: #8baaff;
+  --primary-hover: #b3c7ff;
+  --on-primary: var(--bg);
+  --secondary: #a5b4d0;
+  --accent: var(--primary);
   --accent-hover: var(--text);
   --accent-soft: var(--surface-muted);
   --border: var(--quiet-line);
@@ -132,7 +133,12 @@ body.todo-mobile .todo-item[data-swipe=complete]::after { content: '✓'; color:
   --glass: var(--surface);
   --glass-strong: var(--surface-muted);
   --inner-light: 0 0 0 transparent;
-  --panel-surface: #1d1d1d;
+  --panel-surface: #172640;
+  --dark-horizon: #172846;
+  --dark-depth: #03060d;
+  --dark-backdrop: linear-gradient(165deg, var(--dark-horizon) 0%, var(--bg) 58%, var(--dark-depth) 100%);
+  --danger: #dfa6a1;
+  --success: #a4bca1;
   --shadow: none;
   --shadow-soft: none;
   --shadow-pop: 0 12px 36px color-mix(in srgb, var(--neutral) 40%, transparent);
@@ -145,6 +151,19 @@ body::before,
 body::after,
 :root[data-theme="dark"] body::before,
 :root[data-theme="dark"] body::after { display: none; }
+/* Fixed paint only: long phone lists do not enlarge the gradient or blur. */
+:root[data-theme="dark"] body::before {
+  display: block;
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background: var(--dark-backdrop);
+  filter: none;
+  transform: none;
+  opacity: 1;
+  pointer-events: none;
+}
 
 h1, h2, .title, .planner-title, .calendar-title, .tally-heading {
   font-family: var(--font-ui);
@@ -333,7 +352,7 @@ body.todo-mobile .todo-main.is-task-action:focus-visible,
 .m-add-bar { left: auto; right: max(var(--space-md), calc((100vw - 28rem) / 2 + var(--space-md))); width: auto; transform: none; }
 .m-add-task { padding-inline: var(--space-md); min-height: 2.75rem; gap: var(--space-sm); }
 
-/* One neutral navigation surface. Brand color is confined to the identity mark. */
+/* Quiet navigation surfaces; yellow remains confined to the identity mark. */
 body.has-bento-rail { --bento-rail-bg: var(--surface); --bento-rail-fg: var(--text); }
 :root[data-theme="dark"] body.has-bento-rail { --bento-rail-bg: var(--surface); --bento-rail-fg: var(--text); }
 body.has-bento-rail .bento-rail { border: 1px solid var(--quiet-line); box-shadow: none; }
@@ -1205,14 +1224,12 @@ body.travel-page :is(.travel-trip-meta, .travel-side-subtitle, .travel-stops-emp
   --material-control: var(--surface);
   --material-edge: color-mix(in srgb, var(--text) 12%, transparent);
   --material-shadow: 0 var(--space-md) var(--space-xl) color-mix(in srgb, var(--overlay-ink) 18%, transparent);
-  --material-veil: color-mix(in srgb, var(--neutral) 24%, transparent);
   --material-blur: none;
   --workspace-viewport-height: 100dvh;
 }
 :root[data-theme="dark"] {
   --material-edge: color-mix(in srgb, var(--text) 13%, transparent);
   --material-shadow: 0 var(--space-md) var(--space-xl) color-mix(in srgb, var(--overlay-ink) 40%, transparent);
-  --material-veil: color-mix(in srgb, var(--neutral) 22%, transparent);
   --text-muted: color-mix(in srgb, var(--secondary) 76%, var(--text));
 }
 body { isolation: isolate; }
@@ -1285,6 +1302,9 @@ body :is(.daily-loop-pill-count, .cal-week-day-wd, .tally-bar-value, .tally-bar-
     --material-fill: color-mix(in srgb, var(--panel-surface) 82%, transparent);
     --material-blur: blur(20px) saturate(1.05);
   }
+  :root[data-theme="dark"] body.has-mobile-dock {
+    --material-fill: color-mix(in srgb, var(--bg) 36%, transparent);
+  }
   body.has-bento-rail::before,
   :root[data-theme="dark"] body.has-bento-rail::before {
     display: block;
@@ -1292,15 +1312,15 @@ body :is(.daily-loop-pill-count, .cal-week-day-wd, .tally-bar-value, .tally-bar-
     position: fixed;
     inset: 0;
     z-index: -2;
-    background: linear-gradient(var(--material-veil), var(--material-veil)),
-      url('light-background.png') center 45% / cover;
-    filter: saturate(.75);
+    background: var(--light-backdrop);
+    filter: none;
     transform: none;
     opacity: 1;
     pointer-events: none;
   }
   :root[data-theme="dark"] body.has-bento-rail::before {
-    filter: saturate(.75) brightness(.68);
+    background: var(--dark-backdrop);
+    filter: none;
   }
 }
 @media (min-width: 820px) {
@@ -1371,12 +1391,14 @@ body.travel-page .travel-desktop-day.is-active {
   body.has-bento-rail { --material-blur: blur(16px); }
 }
 @media (prefers-reduced-transparency: reduce) {
-  :root, :root[data-theme="dark"], body.has-bento-rail {
+  :root, :root[data-theme="dark"], body.has-bento-rail,
+  :root[data-theme="dark"] body.has-mobile-dock {
     --material-fill: var(--panel-surface);
     --material-control: var(--surface);
     --material-blur: none;
   }
   body.has-bento-rail::before,
+  :root[data-theme="dark"] body::before,
   :root[data-theme="dark"] body.has-bento-rail::before { display: none; }
   body.has-bento-rail:not(.has-mobile-dock) .bento-rail {
     background: var(--surface);

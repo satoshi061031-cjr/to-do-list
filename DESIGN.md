@@ -1,86 +1,94 @@
 ---
 version: alpha
 name: Daily Space
-description: Restrained productivity workspace combining Luma open lists with Apple-inspired translucent surfaces, native system typography, and a small yellow brand accent.
+description: Restrained productivity workspace combining Luma open lists with translucent surfaces, geometric Latin typography, coordinated cool-white and navy palettes, and a small yellow identity accent.
 colors:
-  primary: "#171717"
+  primary: "#365cad"
+  primary-hover: "#2c4d96"
   on-primary: "#ffffff"
-  secondary: "#686868"
+  secondary: "#647189"
   tertiary: "#e5c235"
   on-tertiary: "#171717"
   tertiary-deep: "#c9a91c"
-  neutral: "#ffffff"
-  surface: "#f5f5f5"
+  neutral: "#f3f5f9"
+  surface: "#eef2f8"
   panel: "#ffffff"
-  surface-dark: "#161616"
-  panel-dark: "#1d1d1d"
-  neutral-dark: "#000000"
-  text-dark: "#f5f5f5"
-  muted-dark: "#999999"
-  text: "#171717"
-  text-muted: "#686868"
-  accent: "#686868"
-  accent-soft: "#eeeeee"
+  surface-dark: "#111e35"
+  panel-dark: "#172640"
+  neutral-dark: "#070d19"
+  overlay-ink: "#000000"
+  horizon-dark: "#172846"
+  depth-dark: "#03060d"
+  primary-dark: "#8baaff"
+  primary-hover-dark: "#b3c7ff"
+  danger-dark: "#dfa6a1"
+  success-dark: "#a4bca1"
+  text-dark: "#e8eefb"
+  muted-dark: "#a5b4d0"
+  text: "#172640"
+  text-muted: "#647189"
+  accent: "#365cad"
+  accent-soft: "#e7edf7"
   danger: "#a64b45"
   success: "#5a6b58"
   glass-border: "#ffffff14"
   highlight: "#e5c235"
 typography:
   display:
-    fontFamily: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif
+    fontFamily: '"Daily Space Gotham", "Gotham", "Montserrat", -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif'
     fontSize: 2rem
     fontWeight: 600
     lineHeight: 1.2
     letterSpacing: 0
   title:
-    fontFamily: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif
+    fontFamily: '"Daily Space Gotham", "Gotham", "Montserrat", -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif'
     fontSize: 1.5rem
     fontWeight: 600
     lineHeight: 1.3
     letterSpacing: 0
   body-md:
-    fontFamily: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif
+    fontFamily: '"Daily Space Gotham", "Gotham", "Montserrat", -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif'
     fontSize: 1rem
     fontWeight: 400
     lineHeight: 1.5
     letterSpacing: 0
   label-caps:
-    fontFamily: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif
+    fontFamily: '"Daily Space Gotham", "Gotham", "Montserrat", -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif'
     fontSize: 0.875rem
     fontWeight: 600
     letterSpacing: 0
   phone-display:
-    fontFamily: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif
+    fontFamily: '"Daily Space Gotham", "Gotham", "Montserrat", -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif'
     fontSize: 2rem
     fontWeight: 600
     lineHeight: 1.2
     letterSpacing: 0
   phone-title:
-    fontFamily: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif
+    fontFamily: '"Daily Space Gotham", "Gotham", "Montserrat", -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif'
     fontSize: 1.5rem
     fontWeight: 600
     lineHeight: 1.3
     letterSpacing: 0
   phone-task:
-    fontFamily: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif
+    fontFamily: '"Daily Space Gotham", "Gotham", "Montserrat", -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif'
     fontSize: 1rem
     fontWeight: 500
     lineHeight: 1.45
     letterSpacing: 0
   phone-body:
-    fontFamily: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif
+    fontFamily: '"Daily Space Gotham", "Gotham", "Montserrat", -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif'
     fontSize: 1rem
     fontWeight: 400
     lineHeight: 1.5
     letterSpacing: 0
   phone-meta:
-    fontFamily: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif
+    fontFamily: '"Daily Space Gotham", "Gotham", "Montserrat", -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif'
     fontSize: 0.875rem
     fontWeight: 400
     lineHeight: 1.4
     letterSpacing: 0
   phone-action:
-    fontFamily: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif
+    fontFamily: '"Daily Space Gotham", "Gotham", "Montserrat", -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif'
     fontSize: 0.9375rem
     fontWeight: 600
     lineHeight: 1.3
@@ -104,7 +112,7 @@ components:
     padding: 12px
     typography: "{typography.body-md}"
   button-primary-hover:
-    backgroundColor: "{colors.text-muted}"
+    backgroundColor: "{colors.primary-hover}"
     textColor: "{colors.on-primary}"
   button-secondary:
     backgroundColor: "{colors.accent-soft}"
@@ -176,27 +184,45 @@ components:
   dark-caption:
     textColor: "{colors.muted-dark}"
     typography: "{typography.phone-meta}"
+  dark-gradient-top:
+    backgroundColor: "{colors.horizon-dark}"
+  dark-gradient-bottom:
+    backgroundColor: "{colors.depth-dark}"
+  modal-overlay:
+    backgroundColor: "{colors.overlay-ink}"
+  button-primary-dark:
+    backgroundColor: "{colors.primary-dark}"
+    textColor: "{colors.neutral-dark}"
+    rounded: "{rounded.pill}"
+    typography: "{typography.phone-action}"
+  button-primary-hover-dark:
+    backgroundColor: "{colors.primary-hover-dark}"
+    textColor: "{colors.neutral-dark}"
+  danger-action-dark:
+    textColor: "{colors.danger-dark}"
+  success-badge-dark:
+    textColor: "{colors.success-dark}"
 ---
 
 ## Visual direction
 
-The user approved the Apple-inspired Obsidian material preview while retaining the current Daily Space framework and workflows. Keep the Luma-derived open lists, generous spacing, monochrome controls and original ghost identity. App pages use one continuous translucent workspace over the existing softly colored background asset; the welcome page keeps its plain entry layout. Use subtle borders and one quiet window shadow, without glowing edges, hover-following decoration, or a glass card around every item. Yellow remains a small identity accent; primary actions stay monochrome.
+The user approved the Apple-inspired Obsidian material preview while retaining the current Daily Space framework and workflows. Keep the Luma-derived open lists, generous spacing and original ghost identity. Light mode pairs a cool-white background with navy text and restrained blue primary actions; dark primary actions use a lighter cool blue. App pages use one continuous translucent workspace over the theme background; the welcome page keeps its plain entry layout. Use subtle borders and one quiet window shadow, without glowing edges, hover-following decoration, or a glass card around every item. Yellow remains a small identity accent. In dark mode, use the user-approved deep navy and cool blue direction inspired by the Odyssey reference without changing the framework or layout.
 
 ## Colors and depth
 
-Map the existing light and dark tokens through the same CSS roles. Keep solid panel and surface colors as the fallbacks. On desktop, the workspace paint layer uses panel at 72% opacity in light mode and panel-dark at 60% in dark mode, with 28px backdrop blur and 1.05 saturation. The phone shell uses 82% panel opacity and 20px blur for readability. Its paint layer stays fixed to the viewport so a long list does not create a full-document blur surface. Put blur on a separate noninteractive pseudo-element, never on a container of fixed dialogs or navigation; do not isolate the workspace into a stacking context that traps its drawer beneath the shared backdrop. The background uses the existing light-background.png with 0.75 saturation, a neutral veil at 24% in light mode or 22% in dark mode, and 0.68 brightness in dark mode. Thin window borders derive from text at 12% in light mode and 13% in dark mode. Compact secondary controls use surface at 48% opacity. Dark metadata mixes muted-dark 76% with text-dark 24% to stay readable on the material. Content rows remain open, without individual backdrop blur or shadows. Editors stay opaque panel or panel-dark; modal backdrops remain black and unblurred.
+Map the existing light and dark tokens through the same CSS roles. Keep solid panel and surface colors as the fallbacks. On desktop, the workspace paint layer uses panel at 72% opacity in light mode and panel-dark at 60% in dark mode, with 28px backdrop blur and 1.05 saturation. The light phone shell uses 82% panel opacity and 20px blur for readability. The dark phone shell uses neutral-dark at 36% opacity with the same blur, allowing the navy-to-near-black background to remain visible; its editors stay opaque panel-dark. Its paint layer stays fixed to the viewport so a long list does not create a full-document blur surface. Put blur on a separate noninteractive pseudo-element, never on a container of fixed dialogs or navigation; do not isolate the workspace into a stacking context that traps its drawer beneath the shared backdrop. Light mode uses a fixed 165-degree tonal gradient from neutral at 0% to panel at 100%, keeping colored imagery out of the reading surface. Use text for navy reading content, primary for main actions and accent links, surface for quiet secondary controls and accent-soft for selection backgrounds. The light metadata role mixes text-muted 88% with text 12% to maintain readable contrast on tinted controls and the frosted dock. Primary buttons use on-primary text and primary-hover on hover. Dark mode replaces the image with a fixed 165-degree gradient from horizon-dark at 0%, through neutral-dark at 58%, to depth-dark at 100%. Use neutral-dark for the solid fallback, surface-dark for quiet controls and panel-dark for opaque editors. Dark primary actions use primary-dark with neutral-dark text, and primary-hover-dark on hover. Keep main reading text text-dark, metadata a muted-dark/text-dark mix, and reserve blue for primary actions and the existing accent roles. Dark danger and success use danger-dark and success-dark. Keep one background paint layer with no animated gradients or additional per-row blur. Thin window borders derive from text at 12% in light mode and 13% in dark mode. Compact secondary controls use surface at 48% opacity. Dark metadata mixes muted-dark 76% with text-dark 24% to stay readable on the material. Content rows remain open, without individual backdrop blur or shadows. Editors stay opaque panel or panel-dark; modal backdrops remain overlay-ink and unblurred.
 
 The phone dock retains its Luma-inspired frosted surface: 72% surface opacity, 28px backdrop blur with 1.15 saturation, a subtle monochrome 6% top tint, a 14% text-derived border, and one quiet shadow. Its active capsule uses neutral at 56% opacity; inactive dark labels mix the metadata role 70% with text-dark 30%. Success and danger remain semantic, accompanied by checked state, strikethrough, or explicit labels.
 
 ## Typography
 
-Use the system font stack on both phone and desktop. Display is 32px/600, section and sheet title 24px/600, task title 16px/500, body and input 16px/400, metadata 14px/400, actions 15px/600. Zero extra tracking. Use sentence case, readable CJK fallbacks, and tabular time and amount numerals. Phone inputs remain 16px to avoid focus zoom. On Apple devices, use the system San Francisco and PingFang fonts through the native font stack; Android follows its installed Roboto and Noto fonts. Keep task titles at medium weight, metadata at regular weight, and reserve semibold for headings and actions. Do not download platform fonts.
+Use Gotham for Latin text on both phone and desktop when available under a suitable license. This repository includes local-only Gotham Book/Medium/Bold faces and the self-hosted Montserrat upright Latin variable font as a clearly named geometric fallback; it does not distribute Gotham. Preload the single 38 KB WOFF2 before blocking page scripts, keep font-display swap, and precache it for offline use. Genuine Gotham on all devices requires licensed webfont files. Chinese and other missing glyphs fall back to the native system stack. Display is 32px/600, section and sheet title 24px/600, task title 16px/500, body and input 16px/400, metadata 14px/400, actions 15px/600. Zero extra tracking. Use sentence case, readable CJK fallbacks, and tabular time and amount numerals. Phone inputs remain 16px to avoid focus zoom. For CJK on Apple devices, retain PingFang through the native fallback stack; Android follows its installed Noto fonts. Keep task titles at medium weight, metadata at regular weight, and reserve semibold for headings and actions. Do not download platform fonts.
 
 ## Layout and shapes
 
 Desktop rail and workspace share one centered `min(1120px, 92vw)` material window with spacing.lg gaps and outer vertical spacing.lg. The rail joins its leading edge, and the workspace scrolls inside the window. Fixed dialogs retain viewport coordinates and page-wide overlays. Reading and editing controls remain reachable on short windows. Reading columns cap at 48rem; Calendar, Planner, and Teamwork use the remaining width. Phone uses spacing.md horizontal padding, spacing.lg between sections, open rows with a 72px minimum and spacing.sm vertical padding. Long titles wrap and grow naturally. Metadata starts underneath the title. Empty space is intentional.
 
-Use rounded.sm for input controls and contained board cards, rounded.md for module panels, rounded.lg for sheets, and rounded.pill for compact actions and navigation. Task and reminder lists use open rows, with only a subtle separator where it helps. Avoid nested rounded boxes. Selectors use quiet text or monochrome selection; no yellow filled navigation.
+Use rounded.sm for input controls and contained board cards, rounded.md for module panels, rounded.lg for sheets, and rounded.pill for compact actions and navigation. Task and reminder lists use open rows, with only a subtle separator where it helps. Avoid nested rounded boxes. Selectors use quiet text, a neutral capsule, or the blue primary role for an explicit selected control; no yellow filled navigation.
 
 ## Navigation and interactions
 
@@ -218,7 +244,7 @@ Todo multi-selection starts with Select above the list, shows separate selection
 
 Task templates and import/backup open in one keyboard-safe sheet with a fixed action footer, Back-to-close and account-scoped template drafts. Today keeps Select above the list and places a quiet Templates action beside phone New task or after the desktop composer. Import & backup stays in the account dialog and Tally More. Template choices have a visible check as well as their pressed state; New template is a secondary list action and the footer emphasizes only Add these tasks. The batch disclosure can save selected tasks as a template. Preview counts before merging; display validation errors as text and keep existing records by ID.
 
-Expense capture leads with amount, category and date. Notes, trip, expense type, currency, exchange rate and participants live in More options. Restore that disclosure when a draft or existing record contains notes, a linked trip, shared participants or foreign currency. Keep validation errors reachable and all existing editing controls available. Exchange-rate responses apply only to the current identity, editor, currency and date. Cancel outdated requests and protect manual rates. Clear the prior rate when its context changes; wait for a valid automatic or manual rate before saving a foreign expense. Opening and closing the task, calendar, expense and workspace tool sheets share small translations and fades (180ms in, 160ms out); keep focus isolation until the exit completes and switch instantly for reduced motion. Modal backdrops use neutral-dark at 42% in light mode and 64% in dark mode, without backdrop blur. Never brighten a dark page behind its sheet. Disclosure rows show a directional chevron alongside their text.
+Expense capture leads with amount, category and date. Notes, trip, expense type, currency, exchange rate and participants live in More options. Restore that disclosure when a draft or existing record contains notes, a linked trip, shared participants or foreign currency. Keep validation errors reachable and all existing editing controls available. Exchange-rate responses apply only to the current identity, editor, currency and date. Cancel outdated requests and protect manual rates. Clear the prior rate when its context changes; wait for a valid automatic or manual rate before saving a foreign expense. Opening and closing the task, calendar, expense and workspace tool sheets share small translations and fades (180ms in, 160ms out); keep focus isolation until the exit completes and switch instantly for reduced motion. Modal backdrops use overlay-ink at 42% in light mode and 64% in dark mode, without backdrop blur. Never brighten a dark page behind its sheet. Disclosure rows show a directional chevron alongside their text.
 
 Travel expenses use one disclosure in the itinerary, with a total, selected-day spend, optional budget and open category rows and a disclosed ledger record list. Link to the user's own ledger with an explicit privacy label; sharing a trip does not share financial data. Expense capture has an optional Trip selector. Missing trips retain an editable saved link, and expense deep links open the correct month and editor. Use saved exchange rates and the ledger's base currency for all totals. Refresh amounts and records without rebuilding the whole expense disclosure for the same trip and identity; preserve expanded records, focused inputs, unfinished budget edits and scroll position.
 
@@ -244,4 +270,4 @@ Show an open-app prompt for missing/unverified data, retain the last app update 
 
 ## Implementation
 
-Use tokens from this file for colors, typography, spacing, and radii. Shared presentation lives in visual-refinement.css, loaded after page styles. Keep page behavior in the existing vanilla JS modules. Changes apply equally to light and dark modes and do not force a theme on existing users.
+Use tokens from this file for colors, typography, spacing, and radii. Shared presentation lives in visual-refinement.css, loaded after page styles. Keep page behavior in the existing vanilla JS modules. Shared typography applies to both themes. Light mode uses cool white, navy text and a restrained blue accent; dark mode uses the navy-to-near-black palette. Keep the existing user theme preference. Browser and native status-bar colors follow the current page background token.

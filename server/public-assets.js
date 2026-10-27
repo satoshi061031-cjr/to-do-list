@@ -54,6 +54,8 @@ module.exports = [
   "reminder-client.js",
   "bento-rail.js",
   "undo-bar.js",
+  "vendor/fonts/montserrat-latin-wght-normal.woff2",
+  "vendor/fonts/Montserrat-OFL.txt",
   "vendor/leaflet/leaflet.css",
   "vendor/leaflet/leaflet.js",
   "vendor/leaflet/images/marker-icon.png",
