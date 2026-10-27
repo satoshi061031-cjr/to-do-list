@@ -27,8 +27,9 @@
     let draftKey = "";
     let composing = false;
     let closingHistory = false;
+    let changingEditorHistory = false;
+    let editorHistoryTimer = 0;
     let returnScroll = 0;
-    const VIEW_KEY = "daily-space-phone-view-v1";
 
     const t = (en, zh) => window.DailySpaceI18n?.t(en, zh) || en;
     const locale = () => window.DailySpaceI18n?.localeTag() || "en";
@@ -41,17 +42,15 @@
       try { return JSON.parse(localStorage.getItem("daily-space-auth-v1") || "null")?.email || "guest"; }
       catch (_) { return "guest"; }
     }
-    function read(key) {
-      try { return JSON.parse(sessionStorage.getItem(key) || "null"); } catch (_) { return null; }
-    }
-    function write(key, value) {
-      try { sessionStorage.setItem(key, JSON.stringify(value)); } catch (_) { /* Storage may be unavailable. */ }
-    }
     function readDraft(key) {
       try { return JSON.parse(localStorage.getItem(key) || "null"); } catch (_) { return null; }
     }
     function clearDraft() {
       try { localStorage.removeItem(draftKey); } catch (_) {}
+    }
+    function hasNewDraftContent(value) {
+      return Boolean(String(value?.text || "").trim() || String(value?.notes || "").trim() ||
+        (Array.isArray(value?.subtasks) && value.subtasks.some(item => String(item?.text || "").trim())));
     }
     function snapshot() {
       return { ...extraFields.value(), text: title.value, dueDate: date.value, dueTime: time.value,
@@ -59,7 +58,9 @@
     }
     function storeDraft() {
       if (!root.hidden && !motion.closing && draftKey) {
-        try { localStorage.setItem(draftKey, JSON.stringify(snapshot())); } catch (_) {}
+        const value = snapshot();
+        if (!taskId && !hasNewDraftContent(value)) { clearDraft(); return; }
+        try { localStorage.setItem(draftKey, JSON.stringify(value)); } catch (_) {}
       }
     }
     function showStatus(en, zh) { status.textContent = t(en, zh); }
@@ -77,7 +78,8 @@
     function fill(value, source = value) {
       extraFields.fill(value, source);
       title.value = value?.text || "";
-      date.value = value?.dueDate || today();
+      const view = api.getView();
+      date.value = value ? value.dueDate || "" : view.range === "week" ? today() : view.day || today();
       time.value = value?.dueTime || "";
       repeat.value = value?.repeat || "";
       category.replaceChildren();
@@ -98,8 +100,11 @@
       const task = id ? api.getTasks().find(item => item.id === id) : null;
       if (id && !task) return;
       taskId = id || null;
+      date.required = !taskId;
       draftKey = `daily-space-phone-draft-v1:${owner()}:${taskId || "new"}`;
-      const draft = readDraft(draftKey);
+      const storedDraft = readDraft(draftKey);
+      const draft = taskId || hasNewDraftContent(storedDraft) ? storedDraft : null;
+      if (storedDraft && !draft) clearDraft();
       fill(draft || task, task);
       details.open = false;
       document.getElementById("m-task-editor-title").textContent = taskId ? t("Edit task", "编辑任务") : t("New task", "新建任务");
@@ -174,6 +179,13 @@
       }
     });
     window.addEventListener("popstate", () => {
+      if (closingHistory || !root.hidden || history.state?.mobileTaskSheet) {
+        changingEditorHistory = true;
+        clearTimeout(editorHistoryTimer);
+        // A traversal dispatches popstate before its hashchange. Keep that
+        // editor close/restore from being mistaken for a new Today command.
+        editorHistoryTimer = setTimeout(() => { changingEditorHistory = false; }, 0);
+      }
       if (closingHistory) { closingHistory = false; return; }
       if (!root.hidden && !history.state?.mobileTaskSheet) close({ fromHistory: true });
       else if (root.hidden && history.state?.mobileTaskSheet) open(history.state.taskId, false);
@@ -181,10 +193,7 @@
     window.visualViewport?.addEventListener("resize", syncViewport);
     window.visualViewport?.addEventListener("scroll", syncViewport);
     window.addEventListener("resize", syncViewport);
-    window.addEventListener("pagehide", () => {
-      storeDraft();
-      write(`${VIEW_KEY}:${owner()}`, { filter: api.getView().filter, scroll: root.hidden ? scrollY : returnScroll });
-    });
+    window.addEventListener("pagehide", storeDraft);
     window.addEventListener("daily-space-auth-updated", () => close({ immediate: true }));
     function renderChrome() {
       document.getElementById("m-page-date").textContent = new Date().toLocaleDateString(locale(), { weekday: "long", month: "long", day: "numeric" });
@@ -203,11 +212,12 @@
     window.addEventListener("daily-space-locale-changed", renderChrome);
     // The shared greeting is for desktop; the phone keeps its stable Today title.
     document.querySelector(".m-shell .app-greeting")?.remove();
-    const view = read(`${VIEW_KEY}:${owner()}`);
-    if (view?.filter === "completed") api.setFilter("completed");
     renderChrome();
-    if (view?.scroll) requestAnimationFrame(() => requestAnimationFrame(() => scrollTo(0, view.scroll)));
-    window.DailySpaceMobileTodo = { openEdit: (id, push = true) => open(id, push), openNew: () => open(null), closeIfOpen: () => close() };
+    window.DailySpaceMobileTodo = {
+      openEdit: (id, push = true) => open(id, push), openNew: () => open(null), closeIfOpen: () => close(),
+      readingScroll: () => root.hidden ? scrollY : returnScroll,
+      isChangingHistory: () => closingHistory || changingEditorHistory,
+    };
     if (history.state?.mobileTaskSheet) open(history.state.taskId, false);
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);

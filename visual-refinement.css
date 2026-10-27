@@ -4,6 +4,22 @@
 .task-range button, .travel-tools button, .travel-stop-controls button, .travel-companion button, .quick-task-suggestion,
 .workspace-save-status button { min-height: 44px; padding: var(--space-sm) var(--space-md); border: 0; border-radius: var(--radius-pill); background: var(--surface); color: var(--text-muted); font: var(--phone-action-weight) var(--phone-action-size)/var(--phone-body-lh) var(--font-ui); cursor: pointer; }
 .task-range button[aria-pressed=true] { background: var(--primary); color: var(--on-primary); }
+body.todo-mobile .task-view-picker { position: relative; margin: 0; }
+body.todo-mobile .task-view-picker > summary { display: flex; align-items: center; gap: var(--space-sm); width: fit-content; min-height: 44px; padding: var(--space-xs) 0; color: var(--text-muted); list-style: none; cursor: pointer; font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+body.todo-mobile .task-view-picker > summary::-webkit-details-marker { display: none; }
+body.todo-mobile .task-view-picker > summary::after { content: '⌄'; flex-shrink: 0; color: var(--text-muted); }
+body.todo-mobile .task-view-picker[open] > summary::after { transform: rotate(180deg); }
+body.todo-mobile .task-view-options { position: absolute; z-index: 20; inset-inline-start: 0; top: 100%; width: min(22rem, calc(100vw - var(--space-md) * 2)); box-sizing: border-box; padding: var(--space-md); border: 1px solid var(--quiet-line); border-radius: var(--radius-md); background: var(--panel-surface); box-shadow: var(--shadow-pop); }
+body.todo-mobile .task-view-options .task-range { display: flex; flex-wrap: nowrap; margin: 0 0 var(--space-sm); gap: var(--space-sm); }
+body.todo-mobile .task-view-options .task-range button { flex: 1; min-width: 0; padding-inline: var(--space-sm); }
+body.todo-mobile .task-view-options label { display: flex; flex-direction: column; gap: var(--space-sm); color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+body.todo-mobile .task-view-options input { width: 100%; min-width: 0; min-height: 44px; padding: var(--space-sm); border: 1px solid var(--quiet-line); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font: var(--phone-body-weight) var(--phone-body-size)/var(--phone-body-lh) var(--font-ui); }
+body.todo-mobile .m-task-controls { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-sm); min-width: 0; }
+body.todo-mobile .m-task-controls .m-task-tabs { flex: 1; min-width: 0; gap: var(--space-md); }
+body.todo-mobile .m-task-controls .task-selection-head { flex: 0 0 auto; margin: 0; }
+body.todo-mobile .m-task-controls .task-selection-head button { padding-inline: var(--space-sm); }
+body.todo-mobile.task-selecting .m-task-controls .m-task-tabs { display: none; }
+body.todo-mobile.task-selecting .m-task-controls .task-selection-head { flex: 1; min-width: 0; }
 .workspace-save-status { margin-block: var(--space-xs) var(--space-md); color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
 .workspace-save-status[hidden], .workspace-save-status button[hidden], .task-range[hidden], .quick-task-suggestion[hidden], .travel-companion[hidden], .travel-task-status[hidden] { display: none; }
 body.has-bento-rail .guest-save-banner { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); margin: 0; padding: var(--space-sm) 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
@@ -38,11 +54,19 @@ body.travel-day-view .travel-workspace { display: none; }
 body.travel-page .travel-tools-sheet .travel-search-bar { display: grid; position: static; width: 100%; max-width: 100%; margin-top: var(--space-md); padding: 0; border: 0; background: transparent; box-shadow: none; }
 .travel-tools-sheet .travel-tools-body { min-width: 0; }
 .travel-tools-sheet textarea { width: 100%; box-sizing: border-box; min-height: 72px; font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--quiet-line); border-radius: var(--radius-sm); padding: var(--space-sm); }
-body.todo-mobile #todo-list .todo-item { flex-wrap: wrap; touch-action: pan-y pinch-zoom; }
-.task-swipe-actions { flex-basis: 100%; display: flex; justify-content: flex-end; gap: var(--space-sm); padding-block: var(--space-sm); }
-.task-swipe-actions button { min-height: 44px; padding: var(--space-sm); color: var(--text); background: var(--surface); border: 0; border-radius: var(--radius-pill); font: inherit; }
-body.todo-mobile .todo-item[data-swipe] { background: var(--surface); }
-body.todo-mobile .todo-item[data-swipe=complete]::after { content: '✓'; color: var(--success); }
+body.todo-mobile #todo-list .todo-item { flex-wrap: nowrap; touch-action: pan-y pinch-zoom; }
+body.todo-mobile #todo-list .todo-item.task-swipe-ready { overflow: hidden; }
+body.todo-mobile #todo-list .todo-item.task-swipe-ready > :not(.task-swipe-actions) { transform: translateX(var(--task-swipe-offset, 0px)); transition: transform 160ms ease-out; }
+body.todo-mobile #todo-list .todo-item.is-swiping > :not(.task-swipe-actions) { transition: none; }
+.task-swipe-actions { position: absolute; z-index: 1; inset-block: 0; inset-inline-end: 0; display: flex; align-items: center; gap: var(--space-xs); width: max-content; max-width: calc(100% - 44px); clip-path: inset(0 0 0 calc(100% - var(--task-swipe-reveal, 0px))); transition: clip-path 160ms ease-out; }
+.is-swiping > .task-swipe-actions { transition: none; }
+body.todo-mobile #todo-list .todo-item[data-swipe=open] > .task-swipe-actions { transition: none; }
+.task-swipe-actions button { flex-shrink: 0; min-width: 44px; min-height: 44px; padding: var(--space-sm); color: var(--text); background: var(--surface); border: 0; border-radius: var(--radius-sm); font: var(--phone-action-weight) var(--phone-action-size)/var(--phone-action-lh) var(--font-ui); cursor: pointer; }
+body.todo-mobile #todo-list .todo-item[data-swipe=complete]::after { content: '✓'; position: absolute; inset-inline-start: var(--space-sm); top: 50%; transform: translateY(-50%); color: var(--success); }
+body.todo-mobile #todo-list .todo-item.is-leaving { min-height: 0; }
+@media (prefers-reduced-motion: reduce) {
+  body.todo-mobile #todo-list .todo-item.task-swipe-ready > :not(.task-swipe-actions), .task-swipe-actions { transition: none; }
+}
 :root {
   --bg: #f3f5f9;
   --neutral: var(--bg);

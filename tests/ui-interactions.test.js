@@ -60,6 +60,13 @@ test("browser interactions on desktop and touch screens", { timeout: 120_000 }, 
     }
   }
 
+  async function selectTaskRange(page, value) {
+    const button = page.locator(`[data-task-range="${value}"]`);
+    const disclosure = button.locator("xpath=ancestor::details[1]");
+    if (await disclosure.count() && !await button.isVisible()) await disclosure.locator("summary").click();
+    await button.click();
+  }
+
   await t.test("phone More theme control responds to touch and keyboard and persists across pages and reloads", async () => {
     const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
     await page.route("https://**/*", route => route.abort());
@@ -121,7 +128,7 @@ test("browser interactions on desktop and touch screens", { timeout: 120_000 }, 
     const task=await page.evaluate(()=>window.DailySpaceTodo.getTasks().find(task=>task.text==='取快递'));assert.equal(task.dueDate,day);assert.equal(task.dueTime,'15:00');
     assert.equal(await page.locator(`#todo-list [data-id="${task.id}"]`).count(),0);
     await page.evaluate(()=>{const day=new Date();day.setDate(day.getDate()+7);window.DailySpaceTodo.createTasks([{text:'Outside next seven days',dueDate:`${day.getFullYear()}-${String(day.getMonth()+1).padStart(2,'0')}-${String(day.getDate()).padStart(2,'0')}`},{text:'Undated fixture'}]);});
-    await page.locator('[data-task-range=week]').click();assert.ok(await page.locator(`#todo-list [data-id="${task.id}"]`).isVisible());
+    await selectTaskRange(page, 'week');assert.ok(await page.locator(`#todo-list [data-id="${task.id}"]`).isVisible());
     assert.equal(await page.locator('#todo-list .todo-label').filter({hasText:'Outside next seven days'}).count(),0);assert.equal(await page.locator('#todo-list .todo-label').filter({hasText:'Undated fixture'}).count(),0);
     assert.ok((await page.locator('.workspace-save-status').textContent()).includes('Saved on this device'));
     await page.evaluate(()=>window.DailySpaceUndo.hide());if(await page.locator('[data-guest-save-later]').isVisible())await page.locator('[data-guest-save-later]').click();
@@ -133,7 +140,7 @@ test("browser interactions on desktop and touch screens", { timeout: 120_000 }, 
     await page.locator('#todo-input').fill('tomorrow 9:10 Review');await page.locator('.quick-task-suggestion:visible').click();
     assert.equal(await page.locator('#quick-task-time').inputValue(),'09:10');await page.locator('#add-form button[type=submit]').click();
     assert.equal(await page.evaluate(()=>window.DailySpaceTodo.getTasks().find(task=>task.text==='Review').dueTime),'09:10');
-    await page.locator('[data-task-range=week]').click();await captureMail(page,'upcoming-desktop-light.png');
+    await selectTaskRange(page, 'week');await captureMail(page,'upcoming-desktop-light.png');
   });
 
   await t.test("phone task swipes reveal explicit actions, complete with Undo, and cancel vertical and interrupted gestures",async()=>{
@@ -141,13 +148,143 @@ test("browser interactions on desktop and touch screens", { timeout: 120_000 }, 
     async function swipe(dx,dy=0,cancel=false){await page.locator('#todo-list [data-id=a] .todo-main').evaluate((target,{dx,dy,cancel})=>{const r=target.getBoundingClientRect(),x=r.left+80,y=r.top+15;const touch=(cx,cy)=>new Touch({identifier:91,target,clientX:cx,clientY:cy});const fire=(type,cx,cy,end=false)=>target.dispatchEvent(new TouchEvent(type,{bubbles:true,cancelable:true,touches:end?[]:[touch(cx,cy)],changedTouches:[touch(cx,cy)]}));fire('touchstart',x,y);fire('touchmove',x+dx,y+dy);fire(cancel?'touchcancel':'touchend',x+dx,y+dy,true);},{dx,dy,cancel});}
     await swipe(5,80);assert.equal(await page.locator('.task-swipe-actions').count(),0);
     await swipe(-80,0,true);assert.equal(await page.locator('.task-swipe-actions').count(),0);
-    await swipe(-80);await page.locator('.task-swipe-actions button').first().click();
+    const beforeSwipe = await page.locator('#todo-list [data-id=b]').boundingBox();
+    const rowBeforeSwipe = await page.locator('#todo-list [data-id=a]').boundingBox();
+    await swipe(-80);
+    await page.locator('.task-swipe-actions button').first().waitFor({state:'visible'});
+    assert.ok(Math.abs((await page.locator('#todo-list [data-id=b]').boundingBox()).y-beforeSwipe.y)<1,'Revealing actions keeps the following task in place');
+    assert.ok(Math.abs((await page.locator('#todo-list [data-id=a]').boundingBox()).height-rowBeforeSwipe.height)<1,'Swipe actions do not increase row height');
+    await page.locator('.task-swipe-actions button').first().click();
     assert.notEqual(await page.evaluate(()=>window.DailySpaceTodo.getTasks().find(task=>task.id==='a').dueDate),new Date().toISOString().slice(0,10));
     await page.locator('#undo-bar button').click();await swipe(90);
     assert.equal(await page.evaluate(()=>window.DailySpaceTodo.getTasks().find(task=>task.id==='a').completed),true);
+    assert.equal(await page.locator('#todo-list [data-id=a]').evaluate(row=>row.classList.contains('is-leaving')),true,'Swipe completion uses the existing checkbox departure animation');
     await page.locator('#undo-bar button').click();assert.equal(await page.locator('#todo-list [data-id=a] .todo-check').isChecked(),false);
+    await page.waitForTimeout(350);assert.ok(await page.locator('#todo-list [data-id=a]').isVisible(),'Immediate Undo cancels the completion departure');
     await swipe(-80);await page.locator('.task-swipe-actions button').nth(1).click();assert.equal(await page.locator('#todo-list [data-id=a]').count(),0);
     await page.locator('#undo-bar button').click();assert.ok(await page.locator('#todo-list [data-id=a]').isVisible());
+  });
+
+  await t.test("phone capture follows the viewed day, ignores blank drafts, and preserves a real draft's date", async () => {
+    const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await page.route("https://**/*", route => route.abort());
+    await page.goto(`${base}/todo-m.html`, { waitUntil: "load" });
+    const days = await page.evaluate(() => [0, 2, 4, 6].map(offset => {
+      const day = new Date(); day.setDate(day.getDate() + offset);
+      return `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+    }));
+    await page.locator("#m-task-view-toggle").click();
+    await page.locator("#m-task-view-date").fill(days[1]);
+    await page.locator("#m-task-view-date").dispatchEvent("change");
+    await page.locator("#m-task-view-toggle").click(); await page.keyboard.press("Escape");
+    assert.equal(await page.locator("#m-task-view-picker").evaluate(node => node.open), false);
+    assert.equal(await page.evaluate(() => window.DailySpaceTodo.getView().day), days[1], "Escape closes the date choices without resetting the selected day");
+    await page.locator("#m-add-task").click();
+    assert.equal(await page.locator("#m-task-date").inputValue(), days[1]);
+    await page.locator("#m-task-title").fill("A plan for the viewed date");
+    await page.locator("#m-task-save").click();
+    assert.equal(await page.evaluate(() => window.DailySpaceTodo.getTasks().find(task => task.text === "A plan for the viewed date").dueDate), days[1]);
+    await page.locator("#m-task-close").click(); await page.locator("#m-task-editor").waitFor({ state: "hidden" });
+    await page.evaluate(day => window.DailySpaceTodo.selectDueDay(day), days[2]);
+    await page.locator("#m-add-task").click();
+    assert.equal(await page.locator("#m-task-date").inputValue(), days[2], "A blank continuous-entry draft must not retain the previous date");
+    await page.locator("#m-task-title").fill("Keep this unfinished plan");
+    await page.locator("#m-task-close").click(); await page.locator("#m-task-editor").waitFor({ state: "hidden" });
+    await page.evaluate(day => window.DailySpaceTodo.selectDueDay(day), days[3]);
+    await page.locator("#m-add-task").click();
+    assert.equal(await page.locator("#m-task-title").inputValue(), "Keep this unfinished plan");
+    assert.equal(await page.locator("#m-task-date").inputValue(), days[2], "A real draft keeps its explicit date");
+    await page.locator("#m-task-save").click();
+    await page.locator("#m-task-close").click(); await page.locator("#m-task-editor").waitFor({ state: "hidden" });
+    await selectTaskRange(page, "week"); await page.locator("#m-add-task").click();
+    assert.equal(await page.locator("#m-task-date").inputValue(), days[0], "Upcoming capture defaults to today when no single day is selected");
+    await page.locator("#m-task-close").click(); await page.locator("#m-task-editor").waitFor({ state: "hidden" });
+    await page.evaluate(() => {
+      const [task] = window.DailySpaceTodo.createTasks([{ text: "An undated task" }]);
+      window.DailySpaceTodo.focusTask(task.id);
+    });
+    await page.locator("#m-task-editor").waitFor({ state: "visible" });
+    assert.equal(await page.locator("#m-task-date").inputValue(), "", "Editing an existing undated task does not silently add a deadline");
+    await page.locator("#m-task-title").fill("An edited undated task"); await page.locator("#m-task-save").click();
+    await page.locator("#m-task-editor").waitFor({ state: "hidden" });
+    assert.equal(await page.evaluate(() => window.DailySpaceTodo.getTasks().find(task => task.text === "An edited undated task").dueDate), null);
+  });
+
+  await t.test("Today preserves range, selected date, filters and scroll while explicit search navigation takes precedence", async () => {
+    const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await page.route("https://**/*", route => route.abort());
+    await page.addInitScript(() => sessionStorage.setItem("daily-space-guest-save-dismissed-v1", "1"));
+    await page.goto(`${base}/todo-m.html`, { waitUntil: "load" });
+    const future = await page.evaluate(() => {
+      const day = new Date(); day.setDate(day.getDate() + 3);
+      return `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+    });
+    await page.evaluate(() => {
+      const today = window.DailySpaceTodo.getView().day;
+      window.DailySpaceTodo.createTasks(Array.from({ length: 24 }, (_, index) => ({ text: `Reading position ${index}`, dueDate: today })));
+    });
+    await selectTaskRange(page, "week"); await page.evaluate(() => scrollTo(0, 650));
+    await page.locator('[data-rail-page="calendar"]').click(); await page.waitForURL("**/calendar.html");
+    await page.locator('[data-rail-page="todo"]').click(); await page.waitForURL("**/todo-m.html*");
+    await page.waitForFunction(() => window.DailySpaceTodo?.getView().range === "week");
+    await page.waitForFunction(() => Math.abs(scrollY - 650) <= 1);
+    await page.evaluate(day => { window.DailySpaceTodo.selectDueDay(day); window.DailySpaceTodo.setFilter("completed"); }, future);
+    await page.locator('[data-rail-page="calendar"]').click(); await page.waitForURL("**/calendar.html");
+    await page.locator('[data-rail-page="todo"]').click(); await page.waitForURL("**/todo-m.html*");
+    assert.deepEqual(await page.evaluate(() => { const { range, day, filter } = window.DailySpaceTodo.getView(); return { range, day, filter }; }), { range: "day", day: future, filter: "completed" });
+    await page.goto(`${base}/todo-m.html?focus=todo&id=a`, { waitUntil: "load" });
+    await page.locator("#m-task-editor").waitFor({ state: "visible" });
+    const target = await page.evaluate(() => ({ view: window.DailySpaceTodo.getView(), task: window.DailySpaceTodo.getTasks().find(task => task.id === "a") }));
+    assert.equal(target.view.day, target.task.dueDate); assert.equal(target.view.range, "day"); assert.equal(target.view.filter, "active");
+    await page.locator("#m-task-close").click(); await page.locator("#m-task-editor").waitFor({ state: "hidden" });
+    await page.setViewportSize({ width: 1280, height: 900 }); await page.goto(`${base}/todo.html?device=desktop`, { waitUntil: "load" });
+    await selectTaskRange(page, "week"); await page.evaluate(() => window.DailySpaceTodo.setFilter("completed"));
+    await page.reload();
+    assert.equal(await page.evaluate(() => window.DailySpaceTodo.getView().range), "week");
+    assert.equal(await page.evaluate(() => window.DailySpaceTodo.getView().filter), "completed");
+    await page.evaluate(() => window.DailySpaceTodo.setFilter("today"));
+    await page.setViewportSize({ width: 390, height: 844 }); await page.goto(`${base}/todo-m.html`, { waitUntil: "load" });
+    assert.equal(await page.evaluate(() => window.DailySpaceTodo.getView().filter), "active", "Desktop Today/All maps to the phone's To do scope");
+    assert.equal(await page.evaluate(() => window.DailySpaceTodo.getVisibleTasks().some(task => task.completed)), false);
+  });
+
+  await t.test("changing accounts while the task editor is open preserves each reader's view and private draft", async () => {
+    const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await page.route("https://**/*", route => route.abort());
+    await page.route("**/api/user/snapshot", route => route.fulfill({ contentType: "application/json", body: JSON.stringify({ payload: {}, revision: 0 }) }));
+    await page.goto(`${base}/todo-m.html`, { waitUntil: "load" });
+    await selectTaskRange(page, "week"); await page.locator("#m-filter-completed").click();
+    await page.locator("#m-add-task").click(); await page.locator("#m-task-title").fill("Guest private draft");
+    await page.evaluate(() => {
+      localStorage.setItem("daily-space-auth-v1", JSON.stringify({ provider: "Google", label: "Reader A", email: "reader-a@example.test" }));
+      window.dispatchEvent(new CustomEvent("daily-space-auth-updated"));
+    });
+    await page.locator("#m-task-editor").waitFor({ state: "hidden" });
+    await page.waitForFunction(() => !window.DailySpaceMobileTodo.isChangingHistory());
+    assert.equal(await page.evaluate(() => window.DailySpaceTodo.getView().range), "day");
+    assert.equal(await page.evaluate(() => window.DailySpaceTodo.getView().filter), "active");
+    await page.locator("#m-add-task").click(); assert.equal(await page.locator("#m-task-title").inputValue(), "");
+    await page.locator("#m-task-title").fill("Reader A private draft");
+    const readerDay = await page.evaluate(() => {
+      const day = new Date(); day.setDate(day.getDate() + 4);
+      const iso = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+      window.DailySpaceTodo.selectDueDay(iso);
+      localStorage.removeItem("daily-space-auth-v1"); window.dispatchEvent(new CustomEvent("daily-space-auth-updated"));
+      return iso;
+    });
+    await page.locator("#m-task-editor").waitFor({ state: "hidden" });
+    await page.waitForFunction(() => !window.DailySpaceMobileTodo.isChangingHistory());
+    assert.equal(await page.evaluate(() => window.DailySpaceTodo.getView().range), "week");
+    assert.equal(await page.evaluate(() => window.DailySpaceTodo.getView().filter), "completed");
+    await page.locator("#m-add-task").click(); assert.equal(await page.locator("#m-task-title").inputValue(), "Guest private draft");
+    await page.evaluate(() => {
+      localStorage.setItem("daily-space-auth-v1", JSON.stringify({ provider: "Google", label: "Reader A", email: "reader-a@example.test" }));
+      window.dispatchEvent(new CustomEvent("daily-space-auth-updated"));
+    });
+    await page.locator("#m-task-editor").waitFor({ state: "hidden" });
+    await page.waitForFunction(() => !window.DailySpaceMobileTodo.isChangingHistory());
+    assert.equal(await page.evaluate(() => window.DailySpaceTodo.getView().day), readerDay);
+    await page.locator("#m-add-task").click(); assert.equal(await page.locator("#m-task-title").inputValue(), "Reader A private draft");
   });
 
   await t.test("save feedback distinguishes failed cloud sync, retries without losing local edits, and shows offline state",async()=>{
@@ -182,10 +319,31 @@ test("browser interactions on desktop and touch screens", { timeout: 120_000 }, 
     await page.locator('#travel-days button').nth(1).click();await page.locator('#travel-day-mode').click();
     assert.ok(await page.locator('#travel-companion').isVisible());assert.ok((await page.locator('#travel-companion').textContent()).includes('ABC123'));assert.ok((await page.locator('#travel-companion').textContent()).includes('15.00'));assert.ok((await page.locator('.travel-next-stop').textContent()).includes('Lunch cafe'));
     await page.locator('.travel-day-stops button').click();assert.equal(await page.locator('.travel-next-stop').count(),0);await page.locator('.travel-day-stops button').click();assert.equal(await page.locator('.travel-next-stop').count(),1);
-    await page.reload();assert.equal(await page.locator('#travel-day-select').inputValue(),'2');assert.equal(await page.locator('#travel-map.leaflet-container').count(),0);await captureMail(page,'travel-day-390-light.png');
+    await page.reload();assert.equal(await page.locator('#travel-day-select').inputValue(),'2');assert.equal(await page.locator('#travel-map.leaflet-container').count(),0);
+    await page.locator('#travel-day-select').evaluate(select => { window.stableTravelSelect = select; window.stableTravelStop = document.querySelector('.travel-day-stops button'); select.focus(); });
+    await page.evaluate(() => {
+      const ledger = JSON.parse(localStorage.getItem('tally-book-v1'));
+      ledger.records.find(item => item.id === 'trip-lunch').amount = 23;
+      localStorage.setItem('tally-book-v1', JSON.stringify(ledger));
+      window.dispatchEvent(new CustomEvent('daily-space-agent-data-updated', { detail: { domains: ['tally'] } }));
+    });
+    assert.equal(await page.locator('#travel-day-select').evaluate(select => select === window.stableTravelSelect && select === document.activeElement), true, 'A ledger update retains the focused travel date control');
+    assert.equal(await page.locator('.travel-day-stops button').evaluate(button => button === window.stableTravelStop), true, 'Unchanged stop controls survive background amount updates');
+    assert.ok((await page.locator('.travel-day-amount').textContent()).includes('23.00'));
+    await page.evaluate(async () => {
+      const stop = window.DailySpaceTravel.state().trip.stops.find(item => item.day === 2);
+      await window.DailySpaceTravel.updateStop(stop.id, { title: stop.title, note: 'A background address update', day: stop.day });
+    });
+    assert.equal(await page.locator('#travel-day-select').evaluate(select => select === window.stableTravelSelect && select === document.activeElement), true, 'Trip updates also preserve the date selector');
+    await captureMail(page,'travel-day-390-light.png');
     await page.evaluate(()=>document.documentElement.dataset.theme='dark');await captureMail(page,'travel-day-390-dark.png');await page.evaluate(()=>document.documentElement.dataset.theme='light');
     await page.setViewportSize({width:320,height:568});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await captureMail(page,'travel-day-320-light.png');
-    await page.locator('#travel-companion .travel-tools button').first().click();await trapped(page,'.travel-tools-sheet [role=dialog]');await sheet.locator('[name=endDate]').fill('2026-11-02');await sheet.locator('button[type=submit]').click();assert.ok((await sheet.locator('[role=status]').textContent()).includes('shortening'));
+    await page.locator('#travel-companion .travel-tools button').first().click();await trapped(page,'.travel-tools-sheet [role=dialog]');
+    await sheet.locator('[name=name]').fill('An unfinished trip title');
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('daily-space-agent-data-updated', { detail: { domains: ['tally'] } })));
+    assert.equal(await sheet.locator('[name=name]').inputValue(), 'An unfinished trip title');
+    assert.equal(await sheet.locator('[name=name]').evaluate(input => input === document.activeElement), true, 'Expense refresh cannot take focus from the trip editor');
+    await sheet.locator('[name=endDate]').fill('2026-11-02');await sheet.locator('button[type=submit]').click();assert.ok((await sheet.locator('[role=status]').textContent()).includes('shortening'));
     await page.goBack();await sheet.waitFor({state:'hidden'});
     await page.locator('#travel-companion .travel-tools button').first().click();await sheet.locator('button[type=submit]').click();await sheet.waitFor({state:'hidden'});
     await page.locator('[data-travel-view=map]').click();await page.locator('#travel-map.leaflet-container').waitFor();

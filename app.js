@@ -154,6 +154,112 @@
 
   /** @type {"personal" | "assigned"} */
   let todoSource = "personal";
+  let viewOwner = window.DailySpaceView?.owner() || "guest";
+  let viewReady = false;
+  let cancelViewScrollRestore = () => {};
+
+  function viewScrollContainer() {
+    const main = document.querySelector(".main-area");
+    return !isMobileTodoPage() && main && /^(auto|scroll)$/.test(getComputedStyle(main).overflowY)
+      ? main : document.scrollingElement;
+  }
+
+  function readingScroll() {
+    return isMobileTodoPage() && window.DailySpaceMobileTodo?.readingScroll
+      ? window.DailySpaceMobileTodo.readingScroll() : viewScrollContainer()?.scrollTop || 0;
+  }
+
+  function rememberTodoView({ scroll, owner = viewOwner } = {}) {
+    if (!viewReady) return;
+    const value = {
+      filter, range: taskRange, day: viewDueDateFilter, dayIsToday: viewDueDateFilter === todayIso(),
+      source: todoSource, category: selectedCategoryKey,
+      ...(Number.isFinite(scroll) ? { scroll: Math.max(0, scroll) } : {}),
+    };
+    if (owner === window.DailySpaceView?.owner()) {
+      window.DailySpaceView.write("todo", value);
+      return;
+    }
+    // Auth events arrive after the auth key changes. Save the departing reader
+    // under its original identity before reading the new owner's preferences.
+    try {
+      const key = `daily-space-view:${owner}:todo`;
+      const previous = JSON.parse(sessionStorage.getItem(key) || "null") || {};
+      sessionStorage.setItem(key, JSON.stringify({ ...previous, ...value }));
+    } catch (_) { /* Reading remains available without session storage. */ }
+  }
+
+  function savedTodoView() {
+    const saved = window.DailySpaceView?.read("todo") || {};
+    if (["filter", "range", "day", "scroll"].some(key => Object.hasOwn(saved, key))) return saved;
+    try {
+      // One-time compatibility with the former phone-only session preferences.
+      const legacy = JSON.parse(sessionStorage.getItem(`daily-space-phone-view-v1:${viewOwner}`) || "null");
+      return legacy && typeof legacy === "object" ? legacy : null;
+    } catch (_) { return null; }
+  }
+
+  function applyTodoView(saved) {
+    filter = isMobileTodoPage() ? "active" : "today";
+    taskRange = "day";
+    todoSource = "personal";
+    resetViewDayFilter();
+    if (saved) {
+      if (["all", "active", "completed", "today"].includes(saved.filter)) {
+        filter = isMobileTodoPage() && saved.filter !== "completed" ? "active" : saved.filter;
+      }
+      taskRange = saved.range === "week" ? "week" : "day";
+      if (saved.day === null && !isMobileTodoPage()) viewDueDateFilter = null;
+      else if (ISO_DATE.test(saved.day || "")) viewDueDateFilter = saved.dayIsToday ? todayIso() : saved.day;
+      if (saved.source === "assigned") todoSource = "assigned";
+      if (saved.category === "__all__" || categoryExists(saved.category)) selectedCategoryKey = saved.category;
+    }
+    if (taskRange === "week" && filter === "today") filter = "active";
+    if (deadlineInput) {
+      deadlineInput.value = taskRange === "week" ? todayIso() : viewDueDateFilter || todayIso();
+      refreshDeadlineChrome();
+    }
+  }
+
+  function restoreTodoScroll(saved) {
+    cancelViewScrollRestore();
+    if (!Number.isFinite(saved?.scroll) || saved.scroll < 0 || new URLSearchParams(location.search).has("focus")) return;
+    const restoringOwner = viewOwner;
+    let observer, timeout, stopped = false, ready = false;
+    const inputEvents = ["pointerdown", "touchstart", "wheel", "keydown"];
+    function stop() {
+      stopped = true;
+      observer?.disconnect();
+      clearTimeout(timeout);
+      inputEvents.forEach(type => window.removeEventListener(type, stop, true));
+      window.removeEventListener("pagehide", stop);
+    }
+    function restore() {
+      if (stopped || !ready) return;
+      if (viewOwner !== restoringOwner || window.DailySpaceView?.owner() !== restoringOwner) { stop(); return; }
+      const container = viewScrollContainer();
+      if (!container) return;
+      container.scrollTop = saved.scroll;
+      if (Math.abs(container.scrollTop - saved.scroll) <= 1) stop();
+    }
+    cancelViewScrollRestore = stop;
+    inputEvents.forEach(type => window.addEventListener(type, stop, { capture: true, passive: true }));
+    window.addEventListener("pagehide", stop);
+    timeout = setTimeout(stop, 4000);
+    if (typeof ResizeObserver === "function") {
+      observer = new ResizeObserver(restore);
+      const main = document.querySelector(".main-area");
+      new Set([main, ...(main?.children || []), listEl]).forEach(node => { if (node) observer.observe(node); });
+    }
+    function afterLayout() {
+      Promise.resolve(document.fonts?.ready).then(() => {
+        if (stopped) return;
+        requestAnimationFrame(() => requestAnimationFrame(() => { ready = true; restore(); }));
+      });
+    }
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", afterLayout, { once: true });
+    else afterLayout();
+  }
 
   /**
    * @typedef {{
@@ -285,7 +391,7 @@
       .map(legacyTodoToNew);
   }
 
-  function saveAll() {
+  function saveAll({ completedId } = {}) {
     const payload = {
       todos,
       categories,
@@ -302,7 +408,7 @@
       categories = next.categories;
     }
     window.dispatchEvent(
-      new CustomEvent("daily-space-agent-data-updated", { detail: { domains: ["todo"] } })
+      new CustomEvent("daily-space-agent-data-updated", { detail: { domains: ["todo"], completedId } })
     );
   }
 
@@ -613,6 +719,7 @@
   }
 
   function setSelectedCategory(next) {
+    cancelViewScrollRestore();
     selectedCategoryKey = next;
     if (next === "__all__") resetViewDayFilter();
     saveAll();
@@ -946,6 +1053,7 @@
 
   function setTodoSource(next) {
     if (next !== "personal" && next !== "assigned") return;
+    cancelViewScrollRestore();
     if (todoSource === next) {
       if (next === "assigned") loadAssignedTasks();
       syncTodoHash();
@@ -1335,6 +1443,7 @@
   }
 
   function focusTodayList(opts) {
+    cancelViewScrollRestore();
     taskRange = "day";
     const seed = opts && typeof opts.seed === "string" ? opts.seed.trim() : "";
     if (todoSource !== "personal") setTodoSource("personal");
@@ -1728,6 +1837,12 @@
   }
 
   function render({ completedId } = {}) {
+    rememberTodoView();
+    filterBtns.forEach((btn) => {
+      const isActive = btn.dataset.filter === filter;
+      btn.classList.toggle("is-active", isActive);
+      btn.setAttribute("aria-selected", isActive ? "true" : "false");
+    });
     syncSourceChrome();
     if (todoSource === "assigned") {
       renderAssigned();
@@ -2023,7 +2138,7 @@
     const completing = !t.completed;
     t.completed = completing;
     if (completing) spawnRepeatFrom(t);
-    saveAll();
+    saveAll({ completedId: completing ? todoId : null });
     renderCategorySidebar();
     render({ completedId: completing ? todoId : null });
   }
@@ -2093,12 +2208,8 @@
 
   function setFilter(next) {
     if (next !== "all" && next !== "active" && next !== "completed" && next !== "today") return;
+    cancelViewScrollRestore();
     filter = next;
-    filterBtns.forEach((btn) => {
-      const isActive = btn.dataset.filter === next;
-      btn.classList.toggle("is-active", isActive);
-      btn.setAttribute("aria-selected", isActive ? "true" : "false");
-    });
     render();
     syncTodoHash();
   }
@@ -2136,7 +2247,7 @@
     if (!domains.includes("todo")) return;
     bootstrap({ persist: false });
     renderCategorySidebar();
-    render();
+    render({ completedId: event.detail?.completedId });
   });
 
   window.addEventListener("daily-space-locale-changed", () => {
@@ -2147,14 +2258,34 @@
   });
 
   window.addEventListener("daily-space-auth-updated", () => {
+    const nextOwner = window.DailySpaceView?.owner() || "guest";
+    if (nextOwner !== viewOwner) {
+      rememberTodoView({ scroll: readingScroll(), owner: viewOwner });
+      cancelViewScrollRestore();
+      viewOwner = nextOwner;
+      const saved = savedTodoView();
+      selectedCategoryKey = "__all__";
+      applyTodoView(saved);
+      renderCategorySidebar();
+      render();
+      publishViewDay();
+      syncTodoHash();
+      restoreTodoScroll(saved || { scroll: 0 });
+    }
     if (todoSource === "assigned") loadAssignedTasks();
     else refreshAssignedForLoop();
   });
 
+  window.addEventListener("pagehide", () => {
+    if ((window.DailySpaceView?.owner() || "guest") === viewOwner) rememberTodoView({ scroll: readingScroll() });
+  });
+
   bootstrap();
-  renderCategorySidebar();
   resetDeadlineToToday();
-  if (isMobileTodoPage()) resetViewDayFilter();
+  const restoringView = new URLSearchParams(location.search).has("focus") ? null : savedTodoView();
+  applyTodoView(restoringView);
+  renderCategorySidebar();
+  viewReady = true;
   render();
   refreshAssignedForLoop();
   if (window.DailySpaceLoop && typeof window.DailySpaceLoop.refreshMailDigestCache === "function") {
@@ -2163,8 +2294,14 @@
 
   if (window.location.hash === "#assigned") {
     setTodoSource("assigned");
-  } else if (window.location.hash === "#today" || !window.location.hash) {
+  } else if (!restoringView && (window.location.hash === "#today" || !window.location.hash)) {
     focusTodayList({ focus: false });
+  }
+  if (restoringView) {
+    if (todoSource === "assigned" && window.location.hash !== "#assigned") loadAssignedTasks();
+    publishViewDay();
+    syncTodoHash();
+    restoreTodoScroll(restoringView);
   }
 
   window.addEventListener("daily-space-open-assigned", () => {
@@ -2172,6 +2309,7 @@
   });
 
   window.addEventListener("hashchange", () => {
+    if (window.DailySpaceMobileTodo?.isChangingHistory()) return;
     if (window.location.hash === "#assigned") {
       setTodoSource("assigned");
       return;
@@ -2579,6 +2717,7 @@
   }
 
   function selectDueDay(iso) {
+    cancelViewScrollRestore();
     taskRange = "day";
     const day = iso && ISO_DATE.test(iso) ? iso : todayIso();
     if (isMobileTodoPage()) {
@@ -2606,6 +2745,7 @@
   }
 
   function focusTask(id) {
+    cancelViewScrollRestore();
     taskRange = "day";
     const task = todos.find(item => item.id === id);
     if (!task) return false;
@@ -2637,7 +2777,12 @@
     getCategories: () => categories.map(category => ({ ...category })),
     getView: () => ({ filter, day: viewDueDateFilter || todayIso(), source: todoSource, range: taskRange }),
     getVisibleTasks: () => structuredClone(visibleTodosPipeline()),
-    setRange(value) { taskRange = value === "week" ? "week" : "day"; if (taskRange === "day") resetViewDayFilter(); if (filter === "today") setFilter("active"); else render(); },
+    setRange(value) {
+      cancelViewScrollRestore();
+      taskRange = value === "week" ? "week" : "day";
+      if (taskRange === "day") resetViewDayFilter();
+      if (filter === "today") setFilter("active"); else render();
+    },
     saveTask: saveMobileTask,
     removeTask: remove,
     createTasks(drafts) {
@@ -2657,6 +2802,7 @@
     batchTasks(ids, action, value) {
       const selected = new Set(ids);
       const before = structuredClone(todos.filter(task => selected.has(task.id)));
+      const completing = action === "complete" ? before.filter(task => !task.completed) : [];
       const oldIds = new Set(todos.map(task => task.id));
       for (const task of [...todos]) {
         if (!selected.has(task.id)) continue;
@@ -2665,7 +2811,8 @@
         if (action === "category" && (value === null || categoryExists(value))) task.categoryId = value;
       }
       const spawned = new Set(todos.filter(task => !oldIds.has(task.id)).map(task => task.id));
-      saveAll(); renderCategorySidebar(); render();
+      const completedId = selected.size === 1 && completing.length === 1 ? completing[0].id : null;
+      saveAll({ completedId }); renderCategorySidebar(); render({ completedId });
       offerUndo(window.DailySpaceI18n?.t("Tasks updated", "已更新任务") || "Tasks updated", () => {
         todos = todos.filter(task => !spawned.has(task.id));
         before.forEach(original => {

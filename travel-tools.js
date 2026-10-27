@@ -51,7 +51,9 @@
   document.getElementById("travel-workspace").after(companion);
   let dayView = Boolean(window.DailySpaceView.read("travel").companion),
     editor = null,
-    searchHome = null;
+    searchHome = null,
+    companionView = null,
+    messageContext = null;
   const storage = document.querySelector(".travel-info");
   document.body.classList.toggle("travel-day-view", dayView);
   const root = node("div", "", "travel-sheet travel-tools-sheet");
@@ -108,15 +110,7 @@
   }
   function daySelect(trip, day) {
     const select = node("select");
-    select.setAttribute("aria-label", t("Trip day", "行程日期"));
-    for (let i = 1; i <= Math.min(366, totalDays(trip)); i++)
-      select.add(
-        new Option(
-          `${dateAt(trip, i)} · ${t("Day", "第")}${i}${t("", "天")}`,
-          String(i),
-        ),
-      );
-    select.value = String(day);
+    syncDaySelect(select, trip, day);
     return select;
   }
   function field(form, label, type, value, name, max) {
@@ -291,16 +285,297 @@
       refresh();
     }),
   );
-  function refresh() {
-    if (!dayView) {
-      document.querySelector(".travel-view-switch").before(storage);
-      document.querySelector(".travel-view-switch").after(message);
+  function text(element, value) {
+    if (element.textContent !== value) element.textContent = value;
+  }
+  function tripRef(trip, shared) {
+    return shared ? `shared:${trip.id}` : trip.id;
+  }
+  function clearMessage() {
+    message.hidden = true;
+    message.replaceChildren();
+    messageContext = null;
+  }
+  function placeOutsideCompanion() {
+    const controls = document.querySelector(".travel-view-switch");
+    // Moving a connected input or disclosure can drop its focus. Leave it in
+    // place when the current view already has the requested ordering.
+    if (
+      storage.parentNode !== controls.parentNode ||
+      storage.nextSibling !== controls
+    )
+      controls.before(storage);
+    if (
+      message.parentNode !== controls.parentNode ||
+      message.previousSibling !== controls
+    )
+      controls.after(message);
+  }
+  function clearCompanion() {
+    placeOutsideCompanion();
+    companion.replaceChildren();
+    companionView = null;
+  }
+  function syncChildren(parent, children) {
+    const expected = new Set(children),
+      focused = document.activeElement;
+    for (const child of [...parent.children])
+      if (!expected.has(child)) child.remove();
+    children.forEach((child, index) => {
+      if (parent.children[index] !== child)
+        parent.insertBefore(child, parent.children[index] || null);
+    });
+    if (
+      focused?.isConnected &&
+      parent.contains(focused) &&
+      document.activeElement !== focused
+    )
+      focused.focus({ preventScroll: true });
+  }
+  function syncDaySelect(select, trip, day) {
+    const count = Math.min(366, totalDays(trip));
+    for (let index = 0; index < count; index++) {
+      const value = String(index + 1),
+        label = `${dateAt(trip, index + 1)} · ${t("Day", "第")}${index + 1}${t("", "天")}`;
+      let option = select.options[index];
+      if (!option) {
+        option = new Option(label, value);
+        select.add(option);
+      } else {
+        if (option.value !== value) option.value = value;
+        text(option, label);
+      }
     }
+    while (select.options.length > count)
+      select.remove(select.options.length - 1);
+    select.setAttribute("aria-label", t("Trip day", "行程日期"));
+    if (select.value !== String(day)) select.value = String(day);
+  }
+  function buildCompanion(trip, shared) {
+    const view = {
+      owner: owner(),
+      ref: tripRef(trip, shared),
+      stops: new Map(),
+      bookings: new Map(),
+      head: node("header"),
+      name: node("h2"),
+      select: node("select"),
+      nextTitle: node("h3"),
+      next: node("a", "", "travel-next-stop"),
+      list: node("ol", "", "travel-day-stops"),
+      emptyStops: node("p"),
+      bookingTitle: node("h3"),
+      emptyBookings: node("p"),
+      bookingList: node("div"),
+      expenseTitle: node("h3"),
+      amount: node("p", "", "travel-day-amount"),
+      budget: node("p", "", "travel-day-budget"),
+      expense: node("a"),
+      privacy: node("p", "", "trip-expense-note"),
+      actions: node("div", "", "travel-tools"),
+    };
+    view.select.id = "travel-day-select";
+    view.select.addEventListener("change", () => {
+      if (companionView === view && view.owner === owner())
+        api.setDay(view.select.value);
+    });
+    view.next.target = "_blank";
+    view.next.rel = "noopener noreferrer";
+    view.head.append(view.name, view.select);
+    view.edit = button("", () => open("trip"));
+    view.add = button("", () => open("places"));
+    view.actions.append(view.edit, view.add);
+    companion.replaceChildren(
+      view.head,
+      view.nextTitle,
+      view.list,
+      view.emptyStops,
+      view.bookingTitle,
+      view.emptyBookings,
+      view.bookingList,
+      view.expenseTitle,
+      view.amount,
+      view.budget,
+      view.expense,
+      view.privacy,
+      view.actions,
+      storage,
+      message,
+    );
+    companionView = view;
+    return view;
+  }
+  function updateCompanionExpenses(view, trip, day, shared) {
+    if (
+      !view ||
+      view !== companionView ||
+      view.owner !== owner() ||
+      view.ref !== tripRef(trip, shared)
+    )
+      return;
+    const state = window.DailySpaceTallyCore.readState(),
+      stats = window.DailySpaceTripExpenses.stats(state, view.ref),
+      amount = new Map(stats.days).get(dateAt(trip, day)) || 0,
+      money = (value) =>
+        window.DailySpaceTallyCore.formatAmount(
+          state,
+          value,
+          state.baseCurrency,
+        ),
+      budget = window.DailySpaceTripExpenses.budget(state, view.ref);
+    text(view.expenseTitle, t("This day’s expenses", "当天花费"));
+    text(view.amount, money(amount));
+    view.budget.hidden = budget?.currency !== state.baseCurrency;
+    text(
+      view.budget,
+      !view.budget.hidden
+        ? `${stats.total > budget.amount ? t("Over budget", "已超预算") : t("Remaining budget", "剩余预算")} · ${money(Math.abs(budget.amount - stats.total))}`
+        : "",
+    );
+    text(view.expense, t("Add trip expense", "记一笔旅行费用"));
+    view.expense.href = `tally.html?${new URLSearchParams({ trip: view.ref, tripName: trip.name, date: dateAt(trip, day) })}`;
+    text(
+      view.privacy,
+      t(
+        "Your ledger only. Other trip members cannot see these amounts.",
+        "仅来自你的个人账本，其他行程成员无法查看。",
+      ),
+    );
+  }
+  function renderCompanion(trip, day, shared) {
+    let view = companionView;
+    if (!view || view.owner !== owner() || view.ref !== tripRef(trip, shared))
+      view = buildCompanion(trip, shared);
+    if (storage.parentNode !== companion) companion.append(storage);
+    if (message.parentNode !== companion) companion.append(message);
+    text(view.name, trip.name);
+    syncDaySelect(view.select, trip, day);
+    const key = `travel-progress:${view.ref}`,
+      visited = new Set(window.DailySpaceView.read(key).visited || []),
+      stops = trip.stops.filter((stop) => stop.day === day),
+      next = stops.find((stop) => !visited.has(stop.id));
+    text(
+      view.nextTitle,
+      next ? t("Next stop", "下一站") : t("This day’s route", "当天路线"),
+    );
+    if (next) {
+      text(view.next, `${t("Navigate", "导航")} · ${next.title}`);
+      view.next.href = `https://www.google.com/maps/dir/?${new URLSearchParams({ api: "1", destination: `${next.lat},${next.lng}`, travelmode: "transit" })}`;
+      if (view.next.nextSibling !== view.list)
+        companion.insertBefore(view.next, view.list);
+    } else view.next.remove();
+    const stopIds = new Set(stops.map((stop) => stop.id));
+    for (const [id] of view.stops) if (!stopIds.has(id)) view.stops.delete(id);
+    const rows = stops.map((stop) => {
+      let row = view.stops.get(stop.id);
+      if (!row) {
+        row = {
+          item: node("li"),
+          copy: node("div"),
+          title: node("strong"),
+          note: node("p"),
+        };
+        row.done = button("", () => {
+          const current = api.state();
+          if (
+            view !== companionView ||
+            view.owner !== owner() ||
+            !current.trip ||
+            view.ref !== tripRef(current.trip, current.shared) ||
+            !current.trip.stops.some(
+              (item) => item.id === stop.id && item.day === current.day,
+            )
+          )
+            return;
+          const saved = new Set(window.DailySpaceView.read(key).visited || []);
+          saved.has(stop.id) ? saved.delete(stop.id) : saved.add(stop.id);
+          window.DailySpaceView.write(key, { visited: [...saved] });
+          renderCompanion(current.trip, current.day, current.shared);
+        });
+        row.copy.append(row.title, row.note);
+        row.item.append(row.copy, row.done);
+        view.stops.set(stop.id, row);
+      }
+      text(row.title, stop.title);
+      text(row.note, stop.note || "");
+      text(
+        row.done,
+        visited.has(stop.id)
+          ? t("Visited · Undo", "已到达 · 撤销")
+          : t("Mark visited", "标记到达"),
+      );
+      row.done.setAttribute("aria-pressed", String(visited.has(stop.id)));
+      return row.item;
+    });
+    syncChildren(view.list, rows);
+    view.emptyStops.hidden = stops.length > 0;
+    text(
+      view.emptyStops,
+      t(
+        "No places yet. Add your first stop.",
+        "还没有地点，添加当天的第一站吧。",
+      ),
+    );
+    text(view.bookingTitle, t("Bookings", "预订"));
+    const bookings = trip.reservations.filter((item) => item.day === day),
+      bookingIds = new Set();
+    view.emptyBookings.hidden = bookings.length > 0;
+    text(view.emptyBookings, t("No bookings on this day.", "当天没有预订。"));
+    const bookingRows = bookings.map((booking, index) => {
+      const id = booking.id || `booking-${index}`;
+      bookingIds.add(id);
+      let row = view.bookings.get(id);
+      if (!row) {
+        row = {
+          item: node("article", "", "travel-day-booking"),
+          title: node("strong"),
+          details: node("p"),
+          confirmation: node("p"),
+        };
+        row.item.append(row.title, row.details, row.confirmation);
+        view.bookings.set(id, row);
+      }
+      text(row.title, booking.title);
+      text(
+        row.details,
+        [
+          booking.startTime,
+          booking.location,
+          booking.origin && `${booking.origin} → ${booking.destination || ""}`,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+      );
+      row.confirmation.hidden = !booking.confirmationCode;
+      text(
+        row.confirmation,
+        booking.confirmationCode
+          ? `${t("Confirmation", "确认号")} · ${booking.confirmationCode}`
+          : "",
+      );
+      return row.item;
+    });
+    for (const [id] of view.bookings)
+      if (!bookingIds.has(id)) view.bookings.delete(id);
+    syncChildren(view.bookingList, bookingRows);
+    updateCompanionExpenses(view, trip, day, shared);
+    text(view.edit, t("Edit trip", "编辑行程"));
+    text(view.add, t("＋ Add a place", "＋ 添加地点"));
+  }
+  function refresh() {
+    if (!dayView) placeOutsideCompanion();
     const { trip, day, shared, invitation } = api.state();
     const available =
       trip &&
       !invitation &&
       document.body.classList.contains("travel-has-trip");
+    if (
+      messageContext &&
+      (messageContext.owner !== owner() ||
+        !available ||
+        messageContext.ref !== tripRef(trip, shared))
+    )
+      clearMessage();
     toolbar.hidden = !available;
     dayButton.hidden = !available;
     companion.hidden = !available || !dayView;
@@ -314,7 +589,10 @@
       document
         .querySelectorAll("[data-travel-view]")
         .forEach((control) => control.setAttribute("aria-pressed", "false"));
-    if (!available) return;
+    if (!available) {
+      if (companionView) clearCompanion();
+      return;
+    }
     // Add explicit actions beside route selection; all user strings remain text.
     for (const [selector, desktop] of [
       ["#travel-stop-list .travel-stop", false],
@@ -345,12 +623,21 @@
           [1, t("Move down", "下移")],
         ]) {
           const control = button(label, async () => {
+            const context = { owner: owner(), ref: tripRef(trip, shared) };
             control.disabled = true;
             try {
               await api.moveStop(stop.id, delta);
             } catch (error) {
-              message.hidden = false;
-              message.textContent = error.message;
+              const current = api.state();
+              if (
+                context.owner === owner() &&
+                current.trip &&
+                context.ref === tripRef(current.trip, current.shared)
+              ) {
+                messageContext = context;
+                message.hidden = false;
+                message.textContent = error.message;
+              }
             } finally {
               control.disabled = false;
             }
@@ -362,147 +649,16 @@
         row.append(controls);
       });
     if (!dayView) return;
-    companion.replaceChildren();
-    const head = node("header"),
-      name = node("h2", trip.name),
-      select = daySelect(trip, day);
-    select.id = "travel-day-select";
-    select.addEventListener("change", () => api.setDay(select.value));
-    head.append(name, select);
-    companion.append(head);
-    const ref = shared ? `shared:${trip.id}` : trip.id,
-      key = `travel-progress:${ref}`,
-      saved = window.DailySpaceView.read(key),
-      visited = new Set(saved.visited || []);
-    const stops = trip.stops.filter((stop) => stop.day === day),
-      next = stops.find((stop) => !visited.has(stop.id));
-    companion.append(
-      node(
-        "h3",
-        next ? t("Next stop", "下一站") : t("This day’s route", "当天路线"),
-      ),
-    );
-    if (next) {
-      const link = node(
-        "a",
-        `${t("Navigate", "导航")} · ${next.title}`,
-        "travel-next-stop",
-      );
-      link.href = `https://www.google.com/maps/dir/?${new URLSearchParams({ api: "1", destination: `${next.lat},${next.lng}`, travelmode: "transit" })}`;
-      link.target = "_blank";
-      link.rel = "noopener noreferrer";
-      companion.append(link);
-    }
-    const list = node("ol", "", "travel-day-stops");
-    for (const stop of stops) {
-      const item = node("li"),
-        copy = node("div");
-      copy.append(node("strong", stop.title), node("p", stop.note));
-      const done = button(
-        visited.has(stop.id)
-          ? t("Visited · Undo", "已到达 · 撤销")
-          : t("Mark visited", "标记到达"),
-        () => {
-          visited.has(stop.id) ? visited.delete(stop.id) : visited.add(stop.id);
-          window.DailySpaceView.write(key, { visited: [...visited] });
-          refresh();
-        },
-      );
-      done.setAttribute("aria-pressed", String(visited.has(stop.id)));
-      item.append(copy, done);
-      list.append(item);
-    }
-    companion.append(list);
-    if (!stops.length)
-      companion.append(
-        node(
-          "p",
-          t(
-            "No places yet. Add your first stop.",
-            "还没有地点，添加当天的第一站吧。",
-          ),
-        ),
-      );
-    const bookings = trip.reservations.filter((item) => item.day === day);
-    companion.append(node("h3", t("Bookings", "预订")));
-    if (!bookings.length)
-      companion.append(
-        node("p", t("No bookings on this day.", "当天没有预订。")),
-      );
-    for (const booking of bookings) {
-      const item = node("article", "", "travel-day-booking");
-      item.append(
-        node("strong", booking.title),
-        node(
-          "p",
-          [
-            booking.startTime,
-            booking.location,
-            booking.origin &&
-              `${booking.origin} → ${booking.destination || ""}`,
-          ]
-            .filter(Boolean)
-            .join(" · "),
-        ),
-      );
-      if (booking.confirmationCode)
-        item.append(
-          node(
-            "p",
-            `${t("Confirmation", "确认号")} · ${booking.confirmationCode}`,
-          ),
-        );
-      companion.append(item);
-    }
-    const state = window.DailySpaceTallyCore.readState(),
-      stats = window.DailySpaceTripExpenses.stats(state, ref),
-      amount = new Map(stats.days).get(dateAt(trip, day)) || 0;
-    companion.append(
-      node("h3", t("This day’s expenses", "当天花费")),
-      node(
-        "p",
-        window.DailySpaceTallyCore.formatAmount(
-          state,
-          amount,
-          state.baseCurrency,
-        ),
-      ),
-    );
-    const budget = window.DailySpaceTripExpenses.budget(state, ref);
-    if (budget?.currency === state.baseCurrency)
-      companion.append(
-        node(
-          "p",
-          `${stats.total > budget.amount ? t("Over budget", "已超预算") : t("Remaining budget", "剩余预算")} · ${window.DailySpaceTallyCore.formatAmount(state, Math.abs(budget.amount - stats.total), state.baseCurrency)}`,
-        ),
-      );
-    const expense = node("a", t("Add trip expense", "记一笔旅行费用"));
-    expense.href = `tally.html?${new URLSearchParams({ trip: ref, tripName: trip.name, date: dateAt(trip, day) })}`;
-    companion.append(
-      expense,
-      node(
-        "p",
-        t(
-          "Your ledger only. Other trip members cannot see these amounts.",
-          "仅来自你的个人账本，其他行程成员无法查看。",
-        ),
-        "trip-expense-note",
-      ),
-    );
-    const actions = node("div", "", "travel-tools");
-    actions.append(
-      button(t("Edit trip", "编辑行程"), () => open("trip")),
-      button(t("＋ Add a place", "＋ 添加地点"), () => open("places")),
-    );
-    companion.append(actions, storage, message);
+    renderCompanion(trip, day, shared);
   }
   window.addEventListener("daily-space-travel-view-updated", refresh);
   window.addEventListener("daily-space-travel-stop-added", () => {
     if (editor?.mode === "places") close();
   });
   window.addEventListener("daily-space-travel-saved", () => {
-    const { trip } = api.state();
+    const { trip, shared } = api.state();
     if (!trip) return;
+    messageContext = { owner: owner(), ref: tripRef(trip, shared) };
     message.hidden = false;
     message.replaceChildren();
     const task = JSON.parse(
@@ -524,7 +680,15 @@
     refresh();
   });
   window.addEventListener("daily-space-agent-data-updated", (event) => {
-    if (event.detail?.domains?.includes("tally")) refresh();
+    if (
+      !event.detail?.domains?.includes("tally") ||
+      !dayView ||
+      companion.hidden
+    )
+      return;
+    const { trip, day, shared, invitation } = api.state();
+    if (trip && !invitation)
+      updateCompanionExpenses(companionView, trip, day, shared);
   });
   window.addEventListener("daily-space-locale-changed", () => {
     if (editor) close();
@@ -532,8 +696,9 @@
   });
   window.addEventListener("daily-space-auth-updated", () => {
     close(true, true);
-    message.hidden = true;
+    clearMessage();
     setDayView(false);
+    clearCompanion();
   });
   refresh();
 })();
