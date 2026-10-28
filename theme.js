@@ -2161,7 +2161,7 @@
     function schedule() { clearTimeout(timer); if (currentUserId() && isBrowserOnline() && userSnapshotStatus !== 'conflict') timer = setTimeout(() => userSnapshotTick().then(render), 1000); }
     function render() {
       const user = currentUserId(); const dirty = user && userSnapshotSignature(collectUserSnapshotPayload()) !== userSnapshotBaseline;
-      retry.hidden = true; row.hidden = !user && !localSave;
+      retry.hidden = true; row.hidden = !user && !localSave; row.inert = row.hidden;
       if (!user) label.textContent = t('Saved on this device','已保存到本机');
       else if (userSnapshotStatus === 'conflict') { label.textContent=t('Saved locally · choose which version to keep','已保存到本机 · 请选择保留的版本');retry.hidden=false;retry.textContent=t('Review','查看'); }
       else if (!isBrowserOnline() || userSnapshotStatus === 'offline') label.textContent=t('Saved locally · waiting for connection','已保存到本机 · 等待联网');

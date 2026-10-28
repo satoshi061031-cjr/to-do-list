@@ -44,7 +44,8 @@
     };
   }
   function boot() {
-    const api = window.DailySpaceTodo;
+    const calendar = Boolean(window.DailySpaceCalendarTodo);
+    const api = window.DailySpaceTodo || window.DailySpaceCalendarTodo;
     if (!api) return;
     if (!document.body.classList.contains('todo-mobile')) {
       const root = element('div', '', 'task-desktop-editor'); root.hidden = true; root.dataset.dialogRoot = '';
@@ -62,10 +63,14 @@
       const form = root.querySelector('form'); const controls = form.elements;
       const extras = mount(form, root.querySelector('.task-desktop-options'));
       let taskId = null, draftKey = '', composing = false;
+      const restoreCalendarFocus = () => {
+        if (!calendar) return;
+        requestAnimationFrame(() => (document.querySelector(`#task-list [data-id="${CSS.escape(taskId || '')}"] .calendar-task-open`) || document.getElementById('calendar-capture'))?.focus({ preventScroll: true }));
+      };
       const remove = button(t('Delete task', '删除任务'), () => {
         if (root.hidden || motion.closing || !taskId) return;
         localStorage.removeItem(draftKey);
-        motion.close(() => requestAnimationFrame(() => document.getElementById('todo-input')?.focus({ preventScroll: true })));
+        motion.close(calendar ? restoreCalendarFocus : () => requestAnimationFrame(() => document.getElementById('todo-input')?.focus({ preventScroll: true })));
         historyController.back();
         api.removeTask(taskId);
       }, 'task-desktop-delete');
@@ -86,17 +91,18 @@
         extras.fill(value, task); root.querySelector('[role=status]').textContent = draft ? t('Draft restored', '已恢复草稿') : '';
         motion.open(); controls.text.focus({ preventScroll: true });
       }
-      function close(fromHistory = false) { if (root.hidden || motion.closing) return; stash(); motion.close(); if (!fromHistory) historyController.back(); }
+      function close(fromHistory = false) { if (root.hidden || motion.closing) return; stash(); motion.close(restoreCalendarFocus); if (!fromHistory) historyController.back(); }
       root.querySelectorAll('[data-dialog-close]').forEach(node => node.addEventListener('click', () => close()));
       form.addEventListener('input', stash); form.addEventListener('change', stash); window.addEventListener('pagehide', stash);
       form.addEventListener('compositionstart', () => { composing = true; }); form.addEventListener('compositionend', () => { composing = false; stash(); });
       form.addEventListener('submit', event => { event.preventDefault(); if (motion.closing || composing || !form.reportValidity()) return;
         if (!api.saveTask(read(), taskId)) { root.querySelector('[role=status]').textContent = t('This task is no longer available.', '这条任务已不存在。'); return; }
-        localStorage.removeItem(draftKey); motion.close(); historyController.back();
+        localStorage.removeItem(draftKey); motion.close(restoreCalendarFocus); historyController.back();
       });
       window.addEventListener('daily-space-auth-updated', () => { motion.close(null, true); draftKey = ''; });
       window.DailySpaceTaskDetails.open = open;
     }
+    if (calendar) return;
     const list = document.getElementById('todo-list');
     const head = element('div', '', 'task-selection-head');
     const selected = new Set(); let selecting = false;

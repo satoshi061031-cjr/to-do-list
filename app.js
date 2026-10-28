@@ -2780,7 +2780,6 @@
     setRange(value) {
       cancelViewScrollRestore();
       taskRange = value === "week" ? "week" : "day";
-      if (taskRange === "day") resetViewDayFilter();
       if (filter === "today") setFilter("active"); else render();
     },
     saveTask: saveMobileTask,

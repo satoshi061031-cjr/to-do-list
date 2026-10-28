@@ -497,7 +497,9 @@ async function handleApi(request, response, url) {
   }
 
   if (method === "GET" && url.pathname === "/api/agent/status") {
-    sendJson(response, { ok: true, configured: isAgentConfigured() });
+    const configured = isAgentConfigured();
+    // Configuration presence is not an upstream model connectivity probe.
+    sendJson(response, { ok: true, configured, connection: configured ? "unverified" : "unconfigured", modelVerified: false });
     return;
   }
 

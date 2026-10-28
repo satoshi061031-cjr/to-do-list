@@ -67,6 +67,60 @@ test("browser interactions on desktop and touch screens", { timeout: 120_000 }, 
     await button.click();
   }
 
+  await t.test("save feedback keeps task positions stable and the day range returns to the chosen date", async () => {
+    const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await page.route("https://**/*", route => route.abort());
+    await page.addInitScript(() => sessionStorage.setItem("daily-space-guest-save-dismissed-v1", "1"));
+    await page.goto(`${base}/todo-m.html`, { waitUntil: "load" });
+    await page.evaluate(() => document.fonts.ready);
+    const before = await page.locator('#todo-list [data-id="b"]').boundingBox();
+    await page.evaluate(() => { const task = window.DailySpaceTodo.getTasks().find(item => item.id === "a"); window.DailySpaceTodo.saveTask(task, task.id); });
+    assert.ok((await page.locator('.workspace-save-status').textContent()).includes('Saved on this device'));
+    assert.ok(Math.abs((await page.locator('#todo-list [data-id="b"]').boundingBox()).y - before.y) < 1, 'First save does not push down the task list');
+    const future = await page.evaluate(() => { const date = new Date(); date.setDate(date.getDate() + 3); return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`; });
+    await page.locator('#m-task-view-toggle').tap(); await page.locator('#m-task-view-date').fill(future); await page.locator('#m-task-view-date').dispatchEvent('change');
+    await selectTaskRange(page, 'week'); await selectTaskRange(page, 'day');
+    assert.equal(await page.evaluate(() => window.DailySpaceTodo.getView().day), future);
+    await page.locator('#m-add-task').tap(); assert.equal(await page.locator('#m-task-date').inputValue(), future);
+  });
+
+  await t.test("Calendar task titles open editable details and completion and drawer targets remain at least 44px", async () => {
+    const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await page.route("https://**/*", route => route.abort());
+    await page.addInitScript(() => {
+      if (sessionStorage.getItem('calendar-detail-fixture')) return;
+      sessionStorage.setItem('calendar-detail-fixture','1');
+      const state = JSON.parse(localStorage.getItem('todo-app-v2')); Object.assign(state.todos[0], {notes:'Original note',subtasks:[{id:'sub',text:'Keep this checklist',completed:false}],sourceMailId:'mail:fixture',sourceMailUrl:'https://mail.google.com/mail/#all/fixture'});
+      localStorage.setItem('todo-app-v2', JSON.stringify(state));
+    });
+    await page.goto(`${base}/calendar.html`, { waitUntil: "load" });
+    const row = page.locator('#task-list [data-id="a"]');
+    await row.locator('.todo-label').tap();
+    await page.locator('.task-desktop-editor').waitFor({state:'visible'});
+    assert.ok(page.url().endsWith('/calendar.html'));
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('todo-app-v2')).todos.find(task => task.id === 'a').completed), false);
+    await trapped(page, '.task-desktop-panel');
+    await page.locator('[data-task-notes]').fill('Unfinished calendar notes');
+    await page.goBack(); await page.locator('.task-desktop-editor').waitFor({state:'hidden'});
+    await row.locator('.calendar-task-open').press('Enter');
+    assert.equal(await page.locator('[data-task-notes]').inputValue(), 'Unfinished calendar notes');
+    await page.locator('.task-desktop-form [name=text]').fill('Updated from Calendar');
+    await page.locator('.task-desktop-save').tap(); await page.locator('.task-desktop-editor').waitFor({state:'hidden'});
+    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('todo-app-v2')).todos.find(task => task.id === 'a'));
+    assert.equal(saved.text,'Updated from Calendar'); assert.equal(saved.notes,'Unfinished calendar notes'); assert.equal(saved.subtasks[0].text,'Keep this checklist'); assert.equal(saved.sourceMailId,'mail:fixture'); assert.equal(saved.completed,false);
+    const target = row.locator('.todo-check-target'); const bounds = await target.boundingBox(); assert.ok(bounds.width >= 44 && bounds.height >= 44);
+    await target.tap({position:{x:3,y:3}});
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('todo-app-v2')).todos.find(task => task.id === 'a').completed), true);
+    for (const width of [390,320]) {
+      await page.setViewportSize({width,height:844}); await page.locator('#bento-menu-toggle').tap();
+      const links = page.locator('#sidebar .sidebar-page-link:visible, #sidebar .sidebar-more-summary:visible');
+      assert.ok(await links.count());
+      for (const link of await links.all()) { const box = await link.boundingBox(); assert.ok(box.height >= 44 && box.width >= 44, `${await link.textContent()}: ${JSON.stringify(box)}`); }
+      await page.keyboard.press('Escape');
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    }
+  });
+
   await t.test("phone More theme control responds to touch and keyboard and persists across pages and reloads", async () => {
     const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
     await page.route("https://**/*", route => route.abort());
@@ -524,6 +578,101 @@ test("browser interactions on desktop and touch screens", { timeout: 120_000 }, 
     await agent.click(); await page.locator(".todo-agent-close").click();
     await page.waitForFunction(() => history.state?.workspaceSheet?.key !== "agent");
     await page.goBack({ waitUntil: "load" }); assert.match(page.url(), /tally\.html$/);
+  });
+
+  await t.test("Agent outage fallback confirms deletion and never turns a question into a task", async () => {
+    const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await page.route('**/api/agent/status', route => route.fulfill({contentType:'application/json',body:JSON.stringify({configured:true})}));
+    await page.route('**/api/agent', route => route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'Simulated outage'})}));
+    await page.goto(`${base}/todo-m.html`, {waitUntil:'load'});
+    await page.locator('[data-workspace-agent]').tap();
+    await page.waitForFunction(() => document.body.dataset.agentConfigured === '1');
+    assert.match(await page.locator('.todo-agent-hint').textContent(), /not been verified/);
+    let confirmations = 0, accept = false;
+    page.on('dialog', async dialog => { confirmations++; if (accept) await dialog.accept(); else await dialog.dismiss(); });
+    async function send(message) { await page.locator('.todo-agent-input').fill(message); await page.locator('.todo-agent-send').tap(); await page.waitForFunction(() => !document.querySelector('.todo-agent-send').disabled); }
+    await send('delete Task a');
+    assert.equal(confirmations,1); assert.ok(await page.evaluate(() => window.DailySpaceTodo.getTasks().some(task => task.id === 'a')));
+    assert.equal(await page.locator('.todo-agent-input').inputValue(),'delete Task a');
+    accept = true; await send('delete Task a');
+    assert.equal(confirmations,2); assert.equal(await page.evaluate(() => window.DailySpaceTodo.getTasks().some(task => task.id === 'a')), false);
+    const count = await page.evaluate(() => window.DailySpaceTodo.getTasks().length);
+    await send('帮我分析一下最近的支出');
+    assert.equal(await page.evaluate(() => window.DailySpaceTodo.getTasks().length), count);
+    assert.equal(await page.locator('.todo-agent-input').inputValue(),'帮我分析一下最近的支出');
+    await send('添加今天买牛奶');
+    assert.equal(await page.evaluate(() => window.DailySpaceTodo.getTasks().filter(task => task.text === '买牛奶').length),1);
+    await page.keyboard.press('Escape');
+    await page.unroute('**/api/agent/status');
+    await page.route('**/api/agent/status', route => route.fulfill({contentType:'application/json',body:JSON.stringify({configured:false})}));
+    await page.locator('[data-workspace-agent]').tap();
+    await page.waitForFunction(() => document.body.dataset.agentConfigured === '0');
+    const offlineCount = await page.evaluate(() => window.DailySpaceTodo.getTasks().length);
+    await send('What should I do today?');
+    assert.equal(await page.evaluate(() => window.DailySpaceTodo.getTasks().length),offlineCount);
+  });
+
+  await t.test("Agent rejects stale success and failure across account changes even when a fetch ignores abort", async () => {
+    const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await page.route('**/api/agent/status', route => route.fulfill({contentType:'application/json',body:JSON.stringify({configured:true})}));
+    await page.route('**/api/user/snapshot', route => route.fulfill({contentType:'application/json',body:JSON.stringify({payload:{},revision:0})}));
+    await page.addInitScript(() => {
+      const realFetch = window.fetch.bind(window); window.pendingAgentResponses = [];
+      window.fetch = (url, options) => String(url) === '/api/agent' ? new Promise(resolve => window.pendingAgentResponses.push(resolve)) : realFetch(url, options);
+    });
+    await page.goto(`${base}/todo-m.html`, {waitUntil:'load'});
+    for (const failure of [false,true]) {
+      await page.locator('[data-workspace-agent]').tap();
+      await page.waitForFunction(() => document.body.dataset.agentConfigured === '1');
+      await page.locator('.todo-agent-input').fill('Add a stale action'); await page.locator('.todo-agent-send').tap();
+      await page.waitForFunction(() => window.pendingAgentResponses.length === 1);
+      await page.evaluate(storageChange => {
+        localStorage.setItem('daily-space-auth-v1', JSON.stringify({email:'agent-reader@example.test',provider:'Google',label:'Agent reader'}));
+        if (!storageChange) window.dispatchEvent(new CustomEvent('daily-space-auth-updated'));
+        localStorage.removeItem('daily-space-auth-v1');
+        window.dispatchEvent(storageChange ? new StorageEvent('storage', {key:'daily-space-auth-v1',oldValue:'previous account',newValue:null}) : new CustomEvent('daily-space-auth-updated'));
+      }, failure);
+      assert.equal(await page.locator('.todo-agent-input').inputValue(),'');
+      await page.evaluate(fail => {
+        const resolve = window.pendingAgentResponses.shift();
+        resolve(new Response(JSON.stringify(fail ? {error:'Late error'} : {reply:'Late private reply',actions:[{type:'todo_add',text:'Old reader action',dueDate:null}]}), {status:fail?503:200,headers:{'Content-Type':'application/json'}}));
+      }, failure);
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      assert.equal(await page.evaluate(() => window.DailySpaceTodo.getTasks().some(task => task.text === 'Old reader action' || task.text === 'a stale action')),false);
+      assert.equal(await page.locator('#todo-agent-messages').textContent(),'');
+      assert.equal(await page.locator('.todo-agent-send').isDisabled(),false);
+    }
+    await page.locator('[data-workspace-agent]').tap();
+    await page.waitForFunction(() => document.body.dataset.agentConfigured === '1');
+    await page.locator('.todo-agent-input').fill('A new question'); await page.locator('.todo-agent-send').tap();
+    await page.waitForFunction(() => window.pendingAgentResponses.length === 1);
+    await page.evaluate(() => window.pendingAgentResponses.shift()(new Response(JSON.stringify({reply:'New reader reply',actions:[]}),{headers:{'Content-Type':'application/json'}})));
+    await page.waitForFunction(() => !document.querySelector('.todo-agent-send').disabled);
+    assert.match(await page.locator('.todo-agent-hint').textContent(), /responded successfully/);
+  });
+
+  await t.test("Agent status errors do not claim connectivity or duplicate a submit while checking", async () => {
+    const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await page.addInitScript(() => {
+      const realFetch = window.fetch.bind(window); window.pendingAgentStatus = [];
+      window.fetch = (url, options) => String(url) === '/api/agent/status' ? new Promise(resolve => window.pendingAgentStatus.push(resolve)) : realFetch(url, options);
+    });
+    await page.goto(`${base}/todo-m.html`, {waitUntil:'load'}); await page.locator('[data-workspace-agent]').tap();
+    await page.waitForFunction(() => window.pendingAgentStatus.length === 1);
+    await page.locator('.todo-agent-input').fill('Add one diagnostic task');
+    await page.locator('.todo-agent-form').evaluate(form => { form.requestSubmit(); form.requestSubmit(); });
+    await page.waitForFunction(() => window.pendingAgentStatus.length === 2);
+    await page.locator('.todo-agent-input').fill('Keep my next unsent question');
+    await page.evaluate(() => window.pendingAgentStatus.pop()(new Response(JSON.stringify({configured:true}),{status:503,headers:{'Content-Type':'application/json'}})));
+    await page.waitForFunction(() => !document.querySelector('.todo-agent-send').disabled);
+    assert.equal(await page.evaluate(() => window.DailySpaceTodo.getTasks().filter(task => task.text === 'one diagnostic task').length),1);
+    assert.equal(await page.locator('.todo-agent-input').inputValue(),'Keep my next unsent question');
+    await page.evaluate(() => window.pendingAgentStatus.shift()(new Response(JSON.stringify({configured:true}),{headers:{'Content-Type':'application/json'}})));
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
+    assert.equal(await page.evaluate(() => document.body.dataset.agentConfigured),'0');
+    assert.match(await page.locator('.todo-agent-hint').textContent(),/could not be checked/);
+    const status = await page.request.get(`${base}/api/agent/status`);
+    const data = await status.json(); assert.equal(data.modelVerified,false); assert.equal(data.connection, data.configured ? 'unverified' : 'unconfigured');
   });
 
   await t.test("late Agent replies do not steal focus after Back closes the dialog", async () => {

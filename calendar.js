@@ -633,9 +633,16 @@
   }
 
   function removeTask(todoId) {
+    const removed = todos.find(task => task.id === todoId);
+    if (!removed) return;
     todos = todos.filter((t) => t.id !== todoId);
     saveTodoState();
     render();
+    window.DailySpaceUndo?.offer(t("Task deleted", "已删除任务"), () => {
+      loadTodoState();
+      if (!todos.some(task => task.id === todoId)) todos.push(removed);
+      saveTodoState(); render();
+    });
   }
 
   function renderWeekGrid() {
@@ -940,14 +947,24 @@
     check.checked = todo.completed;
     check.setAttribute("aria-label", todo.completed ? "Mark as active" : "Mark as done");
     check.addEventListener("change", () => toggleTask(todo.id));
+    const checkTarget = document.createElement("label");
+    checkTarget.className = "todo-check-target";
+    checkTarget.append(check);
 
     const main = document.createElement("div");
-    main.className = "todo-main";
+    main.className = "todo-main calendar-task-open";
+    main.tabIndex = 0;
+    main.setAttribute("role", "button");
+    main.setAttribute("aria-label", `${t("Task details", "任务详情")}: ${todo.text}`);
+    const openDetails = () => window.DailySpaceTaskDetails?.open(todo.id);
+    main.addEventListener("click", openDetails);
+    main.addEventListener("keydown", event => {
+      if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openDetails(); }
+    });
 
     const label = document.createElement("span");
     label.className = "todo-label";
     label.textContent = todo.text;
-    label.addEventListener("click", () => toggleTask(todo.id));
     main.appendChild(label);
     if (todo.sourceTripId) {
       const tag = document.createElement("span");
@@ -977,7 +994,7 @@
     del.textContent = "×";
     del.addEventListener("click", () => removeTask(todo.id));
 
-    li.append(check, main, del);
+    li.append(checkTarget, main, del);
     return li;
   }
 
@@ -1295,6 +1312,31 @@
     const payload = await window.DailySpaceTasks.fetchExternalEvents(dateToIso(days[0]), weekEndIso());
     googleEvents = Array.isArray(payload.events) ? payload.events : [];
   }
+
+  window.DailySpaceCalendarTodo = {
+    getTasks: () => structuredClone(todos),
+    getCategories: () => structuredClone(categories),
+    removeTask,
+    saveTask(draft, taskId) {
+      loadTodoState();
+      const task = todos.find(item => item.id === taskId);
+      if (!task || !String(draft.text || "").trim()) return null;
+      const dueDate = ISO_DATE.test(draft.dueDate || "") ? draft.dueDate : null;
+      const dueTime = normalizeTime(draft.dueTime);
+      const reminderChanged = task.dueDate !== dueDate || task.dueTime !== dueTime;
+      Object.assign(task, window.DailySpaceTaskFields.fields({ ...task, notes: draft.notes, subtasks: draft.subtasks }), {
+        text: String(draft.text).trim().slice(0, 500), dueDate, dueTime,
+        categoryId: categoryExists(draft.categoryId) ? draft.categoryId : null,
+        repeat: ["daily", "weekly", "monthly"].includes(draft.repeat) ? draft.repeat : null,
+        remindAt: reminderChanged ? null : task.remindAt,
+      });
+      const saved = structuredClone(task);
+      saveTodoState();
+      window.DailySpaceTasks?.syncLinkedWork({ from: "todo", silent: true });
+      loadTodoState(); render();
+      return saved;
+    },
+  };
 
   loadTodoState();
   loadCalendarState();

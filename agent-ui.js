@@ -1,6 +1,8 @@
 (function () {
   const api = window.DailySpaceAgentData;
   const AGENT_REQUEST_TIMEOUT_MS = 22_000;
+  const t = (en, zh) => window.DailySpaceI18n?.t(en, zh) || en;
+  const owner = () => window.DailySpaceView.owner();
   if (!api || typeof api.getSnapshot !== "function" || typeof api.applyActions !== "function") return;
 
   function currentPage() {
@@ -25,31 +27,33 @@
     const raw = String(message || "").trim();
     if (!raw) return { actions: [], reply: "" };
 
-    let m = raw.match(/^(?:complete|done|finish|完成|搞定|做完)\s+(.+)/i);
+    let m = raw.match(/^(?:(?:complete|done|finish)\s+|(?:完成|搞定|做完)\s*)(.+)/i);
     if (m) {
       return {
         actions: [{ type: "todo_complete", matchText: m[1].trim() }],
-        reply: "Marked complete (offline).",
+        reply: t("Marked complete (offline).", "已在本机标记完成。"),
       };
     }
 
-    m = raw.match(/^(?:uncomplete|reopen|恢复|取消完成)\s+(.+)/i);
+    m = raw.match(/^(?:(?:uncomplete|reopen)\s+|(?:恢复|取消完成)\s*)(.+)/i);
     if (m) {
       return {
         actions: [{ type: "todo_uncomplete", matchText: m[1].trim() }],
-        reply: "Reopened (offline).",
+        reply: t("Reopened (offline).", "已在本机恢复为待办。"),
       };
     }
 
-    m = raw.match(/^(?:delete|remove|删除|去掉)\s+(.+)/i);
+    m = raw.match(/^(?:(?:delete|remove)\s+|(?:删除|去掉)\s*)(.+)/i);
     if (m) {
       return {
         actions: [{ type: "todo_delete", matchText: m[1].trim() }],
-        reply: "Deleted (offline).",
+        reply: t("Deleted (offline).", "已在本机删除。"),
       };
     }
 
-    let text = raw.replace(/^(?:add|create|new|todo|添加|创建|加个|加一下|帮我加)\s+/i, "").trim() || raw;
+    const add = raw.match(/^(?:(?:add|create|new|todo)\s+|(?:请|帮我)?(?:添加|创建|新增|加个|加一下|加)\s*)(.+)/i);
+    if (!add) return { actions: [], reply: t('Offline mode only accepts explicit task commands, such as “Add buy milk today”. Your message was not saved as a task.', '离线模式只处理明确的任务指令，例如“添加 今天买牛奶”。这条消息没有被保存为任务。') };
+    let text = add[1].trim();
     let dueDate = null;
     if (/\b(today|tonight)\b/i.test(text) || /今天|今晚/.test(text)) {
       dueDate = today;
@@ -73,7 +77,7 @@
 
     return {
       actions: [{ type: "todo_add", text, dueDate, dueTime: null, categoryName: null }],
-      reply: dueDate ? `Added for ${dueDate} (offline).` : "Added (offline).",
+      reply: dueDate ? t(`Added for ${dueDate} (offline).`, `已在本机添加到 ${dueDate}。`) : t("Added (offline).", "已在本机添加。"),
     };
   }
 
@@ -163,7 +167,15 @@
 
   let busy = false;
   let configured = null;
-  let statusMessageShown = false;
+  let identity = owner(), generation = 0, activeRequest = null;
+  let statusVersion = 0, statusController = null, connection = 'unknown';
+  const isCurrent = request => request === activeRequest && request.owner === owner() && request.generation === generation;
+  function restoreInput(message) { if (!input.value.trim()) input.value = message; }
+  function applyConfirmed(actions, request) {
+    if (!isCurrent(request)) return null;
+    if (api.needsConfirmation(actions) && !window.confirm(api.confirmationText(actions))) return null;
+    return isCurrent(request) ? api.applyActions(actions) : null;
+  }
   const agentHistory = window.DailySpaceDialogHistory.create("agent", {
     isOpen: () => !overlay.hidden,
     restore: () => setOpen(true, true),
@@ -174,7 +186,7 @@
     document.body.dataset.agentConfigured = configured === true ? "1" : "0";
     document.dispatchEvent(
       new CustomEvent("daily-space-agent-status", {
-        detail: { configured: configured === true },
+        detail: { configured: configured === true, connection },
       })
     );
   }
@@ -185,6 +197,7 @@
     bubble.textContent = text;
     messagesEl.appendChild(bubble);
     messagesEl.scrollTop = messagesEl.scrollHeight;
+    return bubble;
   }
 
   function applyConfiguredUi() {
@@ -193,19 +206,17 @@
     sendBtn.disabled = busy;
     input.disabled = false;
     if (hintEl) {
-      if (pageMode) {
-        hintEl.textContent = ready
-          ? "Tell the agent what to add, complete, or reschedule. Your list updates below."
-          : "Offline mode: type a task (e.g. “buy milk today”). Add GROQ_API_KEY for full agent.";
-      } else if (onMail) {
-        hintEl.textContent = ready
-          ? "Use the digest or ask the agent to turn important mail into Today."
-          : "Offline mode still adds Todo locally. Connect mail + agent for digest help.";
-      } else {
-        hintEl.textContent = ready
-          ? "Primary capture for Todo — also reaches Planner, Calendar, and Tally."
-          : "Offline mode adds Todo items locally. Add GROQ_API_KEY for the full agent.";
-      }
+      hintEl.textContent = configured == null
+        ? connection === 'error'
+          ? t('Agent status could not be checked. Explicit local task commands remain available.', '暂时无法检查助手状态，仍可使用明确的本地任务指令。')
+          : t('Checking agent availability…', '正在检查助手状态…')
+        : !ready
+          ? t('Local task mode. Use an explicit command, e.g. “Add buy milk today”.', '本地任务模式。请输入明确指令，例如“添加 今天买牛奶”。')
+          : connection === 'error'
+            ? t('The last AI request failed. Retry, or use an explicit local task command.', '上次 AI 请求失败，可重试或使用明确的本地任务指令。')
+            : connection === 'verified'
+              ? t('AI responded successfully in this session. Todo, Calendar, Planner and Tally are available.', '本次会话已收到 AI 回复，可操作任务、日历、项目和记账。')
+              : t('AI is configured; model connectivity has not been verified yet.', 'AI 已配置，模型连通性尚未验证。');
     }
     publishStatus();
   }
@@ -239,158 +250,117 @@
   }
 
   async function refreshStatus(options) {
-    const force = Boolean(options && options.force);
-    if (!force && configured != null) {
-      applyConfiguredUi();
-      return;
-    }
+    if (!options?.force && configured != null) return;
+    const version = ++statusVersion, requestedOwner = owner(), requestedGeneration = generation;
+    statusController?.abort();
+    const controller = new AbortController(); statusController = controller;
+    const timer = setTimeout(() => controller.abort(), 6000);
+    const current = () => version === statusVersion && requestedOwner === owner() && requestedGeneration === generation;
     try {
-      const response = await fetch("/api/agent/status");
-      const data = await response.json().catch(function () {
-        return {};
-      });
-      configured = Boolean(data.configured);
-      if (!configured && !statusMessageShown) {
-        statusMessageShown = true;
-        appendMessage(
-          "assistant",
-          "Full agent is offline (no GROQ_API_KEY). You can still add, complete, or delete Todo items here — type naturally."
-        );
-      }
+      const response = await fetch('/api/agent/status', { signal: controller.signal });
+      const data = await response.json();
+      if (!response.ok || typeof data.configured !== 'boolean') throw new Error('Invalid agent status');
+      if (!current()) return;
+      configured = data.configured;
+      if (!configured) connection = 'unconfigured';
+      else if (connection !== 'verified' && connection !== 'error') connection = 'unverified';
     } catch (_) {
-      configured = false;
-      if (!statusMessageShown) {
-        statusMessageShown = true;
-        appendMessage(
-          "assistant",
-          "Could not reach the agent service. Offline Todo capture still works in this box."
-        );
+      if (!current()) return;
+      configured = null; connection = 'error';
+    } finally {
+      clearTimeout(timer);
+      if (current()) {
+        if (statusController === controller) statusController = null;
+        applyConfiguredUi();
       }
     }
-    applyConfiguredUi();
-  }
-
-  async function sendOffline(message) {
-    const today = typeof api.todayIso === "function" ? api.todayIso() : new Date().toISOString().slice(0, 10);
-    const parsed = localTodoActions(message, today);
-    appendMessage("user", message);
-    input.value = "";
-    if (!parsed.actions.length) {
-      appendMessage("assistant", parsed.reply || "Could not understand that offline. Try “buy milk today”.");
-      return;
-    }
-    if (api.needsConfirmation(parsed.actions)) {
-      const confirmed = window.confirm(api.confirmationText(parsed.actions));
-      if (!confirmed) {
-        appendMessage("assistant", "Cancelled. No changes were applied.");
-        return;
-      }
-    }
-    const applied = api.applyActions(parsed.actions);
-    const ok = applied.filter((a) => a && a.ok !== false).length;
-    appendMessage(
-      "assistant",
-      ok > 0 ? `${parsed.reply}\n\nApplied ${ok} change(s).` : parsed.reply || "Nothing changed."
-    );
   }
 
   async function sendMessage(raw) {
-    const message = String(raw || "").trim();
+    const message = String(raw || '').trim();
     if (!message || busy) return;
-
-    if (configured !== true) {
-      await refreshStatus({ force: true });
-    }
-
-    if (configured !== true) {
-      busy = true;
-      applyConfiguredUi();
-      try {
-        await sendOffline(message);
-      } finally {
-        busy = false;
-        applyConfiguredUi();
-        if (!overlay.hidden) input.focus();
-      }
-      return;
-    }
-
-    busy = true;
-    applyConfiguredUi();
-    appendMessage("user", message);
-    input.value = "";
-    appendMessage("assistant", "Working…");
-    const thinking = messagesEl.lastElementChild;
-    const controller = new AbortController();
-    const timeoutId = window.setTimeout(function () {
-      controller.abort();
-    }, AGENT_REQUEST_TIMEOUT_MS);
-
+    const request = { owner: owner(), generation, controller: new AbortController() };
+    activeRequest = request; busy = true; applyConfiguredUi();
+    input.value = '';
+    let timer, thinking, mayFallback = true;
     try {
-      const context = api.getSnapshot();
-      const response = await fetch("/api/agent", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message,
-          context,
-          today: api.todayIso(),
-          currentPage: currentPage(),
-        }),
-        signal: controller.signal,
-      });
-      const data = await response.json().catch(function () {
-        return {};
-      });
-      if (!response.ok) {
-        throw new Error((data && data.error) || "Agent request failed.");
-      }
-      const actions = Array.isArray(data.actions) ? data.actions : [];
-      if (api.needsConfirmation(actions)) {
-        const confirmed = window.confirm(api.confirmationText(actions));
-        if (!confirmed) {
-          if (thinking) thinking.textContent = "Cancelled. No changes were applied.";
-          return;
+      if (configured !== true) await refreshStatus({ force: true });
+      if (!isCurrent(request)) return;
+      appendMessage('user', message);
+      thinking = appendMessage('assistant', t('Working…', '处理中…'));
+      if (configured !== true) {
+        const parsed = localTodoActions(message, api.todayIso());
+        const applied = parsed.actions.length ? applyConfirmed(parsed.actions, request) : [];
+        if (!isCurrent(request)) return;
+        if (applied === null) { thinking.textContent = t('Cancelled. No changes were applied.', '已取消，未执行任何修改。'); restoreInput(message); }
+        else {
+          const changed = applied.some(action => action && action.ok !== false);
+          thinking.textContent = parsed.actions.length && !changed ? t('No matching task was changed. Check the task name and retry.', '未修改任何匹配的任务，请核对任务名称后重试。') : parsed.reply;
+          if (!changed) restoreInput(message);
         }
+        return;
       }
-      const applied = api.applyActions(actions);
-      const reply = typeof data.reply === "string" && data.reply.trim() ? data.reply.trim() : "Done.";
-      const summary =
-        applied.length > 0
-          ? `${reply}\n\nApplied ${applied.filter((a) => a && a.ok !== false).length} change(s).`
-          : reply;
-      if (thinking) thinking.textContent = summary;
-      else appendMessage("assistant", summary);
+      timer = setTimeout(() => request.controller.abort(), AGENT_REQUEST_TIMEOUT_MS);
+      const response = await fetch('/api/agent', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message, context: api.getSnapshot(), today: api.todayIso(), currentPage: currentPage() }),
+        signal: request.controller.signal,
+      });
+      const data = await response.json();
+      if (!isCurrent(request)) return;
+      if (request.controller.signal.aborted) throw new Error('Agent request timed out.');
+      if (!response.ok) throw new Error(data.error || 'Agent request failed.');
+      if (!Array.isArray(data.actions) || typeof data.reply !== 'string') throw new Error('Invalid agent response.');
+      mayFallback = false; connection = 'verified';
+      const applied = applyConfirmed(data.actions, request);
+      if (!isCurrent(request)) return;
+      if (applied === null) { thinking.textContent = t('Cancelled. No changes were applied.', '已取消，未执行任何修改。'); restoreInput(message); return; }
+      const count = applied.filter(action => action && action.ok !== false).length;
+      thinking.textContent = (data.reply.trim() || t('Done.', '已完成。')) + (applied.length ? `\n\n${t('Applied', '已执行')} ${count} ${t('change(s).', '项改动。')}` : '');
     } catch (error) {
-      const requestError = controller.signal.aborted
-        ? new Error("Agent request timed out. Please try again.")
-        : error;
-      // Network/LLM failure → fall back to local Todo capture so the hub never dead-ends.
-      const today = typeof api.todayIso === "function" ? api.todayIso() : new Date().toISOString().slice(0, 10);
-      const parsed = localTodoActions(message, today);
+      if (!isCurrent(request)) return;
+      connection = 'error';
+      const parsed = mayFallback ? localTodoActions(message, api.todayIso()) : { actions: [] };
       if (parsed.actions.length) {
-        const applied = api.applyActions(parsed.actions);
-        const ok = applied.filter((a) => a && a.ok !== false).length;
-        const text =
-          ok > 0
-            ? `Agent unreachable — applied offline.\n${parsed.reply}`
-            : requestError instanceof Error
-              ? requestError.message
-              : "Agent request failed.";
-        if (thinking) thinking.textContent = text;
-        else appendMessage("assistant", text);
+        const applied = applyConfirmed(parsed.actions, request);
+        if (!isCurrent(request)) return;
+        if (applied === null) { thinking.textContent = t('Cancelled. No changes were applied.', '已取消，未执行任何修改。'); restoreInput(message); }
+        else {
+          const changed = applied.some(action => action && action.ok !== false);
+          thinking.textContent = changed
+            ? t('Agent unreachable — processed as an explicit local task command.', 'AI 暂时不可用，已按明确的本地任务指令处理。')
+            : t('No matching task was changed. Check the task name and retry.', '未修改任何匹配的任务，请核对任务名称后重试。');
+          if (!changed) restoreInput(message);
+        }
       } else {
-        const text = requestError instanceof Error ? requestError.message : "Agent request failed.";
+        const text = request.controller.signal.aborted
+          ? t('Agent request timed out. No local changes were applied; your message is ready to retry.', '助手请求超时，未执行本地修改，已保留消息供重试。')
+          : t('Agent request failed. No automatic local changes were applied; your message is ready to retry.', '助手请求失败，未自动执行本地修改，已保留消息供重试。');
         if (thinking) thinking.textContent = text;
-        else appendMessage("assistant", text);
+        restoreInput(message);
       }
     } finally {
-      window.clearTimeout(timeoutId);
-      busy = false;
-      applyConfiguredUi();
-      if (!overlay.hidden) input.focus();
+      clearTimeout(timer);
+      if (isCurrent(request)) {
+        activeRequest = null; busy = false; applyConfiguredUi();
+        if (!overlay.hidden) input.focus();
+      }
     }
   }
+
+  function resetForIdentityChange(force = false) {
+    if (!force && identity === owner()) return;
+    identity = owner(); generation++; statusVersion++;
+    activeRequest?.controller.abort(); statusController?.abort();
+    activeRequest = null; statusController = null; busy = false; configured = null; connection = 'unknown';
+    messagesEl.replaceChildren(); input.value = '';
+    if (!overlay.hidden) setOpen(false, true);
+    applyConfiguredUi();
+  }
+  window.addEventListener('daily-space-auth-updated', () => resetForIdentityChange());
+  window.addEventListener('storage', event => {
+    if (event.key === 'daily-space-auth-v1' || event.key === null) resetForIdentityChange(true);
+  });
 
   fab.addEventListener("click", function () {
     setOpen(overlay.hidden);
