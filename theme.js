@@ -49,6 +49,22 @@
   let userSnapshotStatus = "idle";
   let userSnapshotRevision = null;
   let userSnapshotWriteInFlight = false;
+  let snapshotGeneration = 0;
+  const snapshotRequests = new Set();
+  let snapshotRetryTimer = 0;
+  let snapshotRetryCount = 0;
+  let snapshotNextRetryAt = 0;
+  const snapshotPendingKeys = new Set();
+
+  function resetSnapshotRequests() {
+    snapshotGeneration++;
+    snapshotRequests.forEach(controller => controller.abort());
+    snapshotRequests.clear();
+    snapshotPendingKeys.clear();
+    clearTimeout(snapshotRetryTimer);
+    snapshotRetryTimer = 0; snapshotRetryCount = 0; snapshotNextRetryAt = 0;
+    userSnapshotInFlight = false; userSnapshotWriteInFlight = false;
+  }
 
   function isBrowserOnline() {
     return typeof navigator === "undefined" || navigator.onLine !== false;
@@ -316,6 +332,7 @@
           status: userSnapshotStatus,
           lastSyncedAt: userSnapshotLastSyncedAt || "",
           userId: userSnapshotUserId || "",
+          nextRetryAt: snapshotNextRetryAt,
         },
       })
     );
@@ -493,6 +510,11 @@
           </button>
         </div>
         <div class="auth-account-actions" hidden>
+          <div class="auth-conflict-actions" hidden>
+            <p>Both this device and cloud changed. Choose which version to keep.</p>
+            <button type="button" class="btn" data-sync-choice="local">Keep this device</button>
+            <button type="button" class="btn" data-sync-choice="cloud">Use cloud</button>
+          </div>
           <p class="auth-account-hint">Mail and Calendar use your connected account.</p>
           <button type="button" class="auth-export">Download my data</button>
           <button type="button" class="auth-delete">Delete account</button>
@@ -543,7 +565,7 @@
       } else if (userSnapshotStatus === "conflict") {
         authSync.hidden = false;
         authSync.innerHTML =
-          'You edited offline — <button type="button" class="sidebar-auth-sync-action" id="auth-sync-keep-local">Keep this device</button> or <button type="button" class="sidebar-auth-sync-action" id="auth-sync-use-cloud">Use cloud</button>';
+          'Both this device and cloud changed — <button type="button" class="sidebar-auth-sync-action" id="auth-sync-keep-local">Keep this device</button> or <button type="button" class="sidebar-auth-sync-action" id="auth-sync-use-cloud">Use cloud</button>';
         const keepLocal = authSync.querySelector("#auth-sync-keep-local");
         const useCloud = authSync.querySelector("#auth-sync-use-cloud");
         if (keepLocal) {
@@ -559,18 +581,28 @@
           useCloud.addEventListener("click", function (event) {
             event.preventDefault();
             event.stopPropagation();
-            applyCloudSnapshotPreferringRemote().catch(function () {
-              userSnapshotStatus = "error";
-              emitUserSnapshotUpdate();
-            });
+            applyCloudSnapshotPreferringRemote().catch(handleSnapshotFailure);
           });
         }
       } else if (userSnapshotStatus === "syncing") {
         authSync.hidden = false;
         authSync.textContent = "Syncing…";
-      } else if (userSnapshotStatus === "error") {
+      } else if (userSnapshotStatus === "auth-required") {
         authSync.hidden = false;
-        authSync.textContent = "Sync failed — will retry";
+        authSync.textContent = "Sign-in expired — reconnect Google to sync";
+      } else if (userSnapshotStatus === "remote-pending") {
+        authSync.hidden = false;
+        authSync.textContent = "Cloud updates waiting — finish editing to sync";
+      } else if (userSnapshotStatus === "too-large") {
+        authSync.hidden = false;
+        authSync.textContent = "Cloud storage limit reached — export a backup";
+      } else if (["error", "timeout", "unavailable"].includes(userSnapshotStatus)) {
+        authSync.hidden = false;
+        authSync.textContent = userSnapshotStatus === "timeout" ? "Sync timed out — will retry"
+          : userSnapshotStatus === "unavailable" ? "Sync service unavailable — will retry" : "Sync failed — will retry";
+      } else if (userSnapshotSignature(collectUserSnapshotPayload()) !== userSnapshotBaseline) {
+        authSync.hidden = false;
+        authSync.textContent = "Changes waiting to sync";
       } else if (userSnapshotLastSyncedAt) {
         authSync.hidden = false;
         authSync.textContent = `Synced ${formatSyncTime(userSnapshotLastSyncedAt)}`;
@@ -581,10 +613,11 @@
       authButton.classList.toggle("is-signed-in", !!state);
       if (logoutButton) logoutButton.hidden = !state;
       if (accountActions) accountActions.hidden = !state;
-      if (providerList) providerList.hidden = Boolean(state);
-      if (authTitle) authTitle.textContent = state ? "Account" : "Sign in";
+      modal.querySelector('.auth-conflict-actions').hidden = userSnapshotStatus !== 'conflict';
+      if (providerList) providerList.hidden = Boolean(state) && userSnapshotStatus !== "auth-required";
+      if (authTitle) authTitle.textContent = userSnapshotStatus === "auth-required" ? "Reconnect Google" : state ? "Account" : "Sign in";
       if (authCopy) {
-        authCopy.textContent = state
+        authCopy.textContent = userSnapshotStatus === "auth-required" ? "Your changes are saved on this device. Sign in again to resume sync." : state
           ? "Download a copy, fix sync conflicts from the Account row, or delete your cloud account."
           : "Sign in with Google to sync your workspace, or continue as guest to keep it on this device.";
       }
@@ -659,6 +692,14 @@
       if (!(target instanceof Element)) return;
       if (target.matches("[data-auth-close]") || target.closest("[data-auth-guest]")) {
         closeModal();
+        return;
+      }
+      const choice = target.closest('[data-sync-choice]');
+      if (choice) {
+        if (choice.disabled) return;
+        choice.disabled = true;
+        const action = choice.dataset.syncChoice === 'local' ? keepLocalSnapshotOverCloud : applyCloudSnapshotPreferringRemote;
+        action().catch(handleSnapshotFailure).finally(() => { choice.disabled = false; });
         return;
       }
       const providerButton = target.closest(".auth-provider");
@@ -887,33 +928,73 @@
   }
 
   function handleSnapshotFailure(error) {
+    if (error?.code === "SYNC_STALE") return;
     userSnapshotStatus = !isBrowserOnline() ? "offline"
-      : error?.code === "SNAPSHOT_CONFLICT" ? "conflict" : "error";
+      : error?.status === 401 ? "auth-required"
+      : error?.code === "SNAPSHOT_CONFLICT" ? "conflict"
+      : error?.status === 413 ? "too-large"
+      : error?.code === "SYNC_TIMEOUT" ? "timeout"
+      : error?.status >= 500 ? "unavailable" : "error";
+    clearTimeout(snapshotRetryTimer); snapshotRetryTimer = 0; snapshotNextRetryAt = 0;
+    if (["error", "timeout", "unavailable"].includes(userSnapshotStatus) && currentUserId()) {
+      const generation = snapshotGeneration, userId = currentUserId();
+      const delay = Math.min(60000, 5000 * 2 ** Math.min(snapshotRetryCount++, 4));
+      snapshotNextRetryAt = Date.now() + delay;
+      snapshotRetryTimer = setTimeout(() => {
+        snapshotRetryTimer = 0;
+        if (generation === snapshotGeneration && currentUserId() === userId) userSnapshotTick(true);
+      }, delay);
+    }
     emitUserSnapshotUpdate();
   }
 
-  async function requestUserSnapshot(method, payload) {
+  async function requestUserSnapshot(method, payload, keepalive = false) {
+    const generation = snapshotGeneration, owner = currentUserId();
+    const assertCurrent = () => {
+      if (generation !== snapshotGeneration || owner !== currentUserId()) throw Object.assign(new Error("Stale sync request"), { code: "SYNC_STALE" });
+    };
     const writing = method === "PUT";
     if (writing && (userSnapshotWriteInFlight || userSnapshotRevision == null)) {
       throw new Error("Wait for cloud data to load before syncing.");
     }
     if (writing) userSnapshotWriteInFlight = true;
+    const controller = new AbortController();
+    snapshotRequests.add(controller);
+    let timer, timedOut = false;
+    const canceled = new Promise((_, reject) => {
+      controller.signal.addEventListener("abort", () => reject(Object.assign(new Error("Sync interrupted"), { code: timedOut ? "SYNC_TIMEOUT" : "SYNC_STALE" })), { once: true });
+      timer = setTimeout(() => { timedOut = true; controller.abort(); }, 20000);
+    });
     try {
+      const operation = (async () => {
       const response = await fetch("/api/user/snapshot", {
         method,
         headers: { "Content-Type": "application/json" },
         body: payload ? JSON.stringify({ ...payload, baseRevision: userSnapshotRevision }) : undefined,
+        signal: controller.signal,
+        keepalive,
+        cache: "no-store",
       });
       const data = await response.json().catch(function () { return {}; });
+      assertCurrent();
       if (!response.ok) {
         throw Object.assign(new Error(data.error || "User sync request failed."), {
           code: data.code, status: response.status,
         });
       }
+      if (!Number.isSafeInteger(data.revision) || data.revision < 0 || (data.payload != null && (typeof data.payload !== "object" || Array.isArray(data.payload)))) {
+        throw Object.assign(new Error("Invalid sync response"), { status: 502 });
+      }
+      if (data.userId && String(data.userId).toLowerCase() !== owner) throw Object.assign(new Error("Sign in again"), { status: 401 });
+      return data;
+      })();
+      const data = await Promise.race([operation, canceled]);
+      assertCurrent();
       if (writing) userSnapshotRevision = data.revision;
       return data;
     } finally {
-      if (writing) userSnapshotWriteInFlight = false;
+      clearTimeout(timer); snapshotRequests.delete(controller);
+      if (writing && generation === snapshotGeneration) userSnapshotWriteInFlight = false;
     }
   }
 
@@ -1062,8 +1143,7 @@
     writeUserLocalCache(userId, collectUserSnapshotPayload());
     setSyncedBaseline(userId, collectUserSnapshotPayload());
     userSnapshotLastSyncedAt = data.updatedAt || new Date().toISOString();
-    userSnapshotStatus = "ok";
-    emitUserSnapshotUpdate();
+    snapshotSucceeded();
     window.location.reload();
   }
 
@@ -1086,11 +1166,11 @@
     writeUserLocalCache(userId, payload);
     setSyncedBaseline(userId, payload);
     userSnapshotLastSyncedAt = (saved && saved.updatedAt) || new Date().toISOString();
-    userSnapshotStatus = "ok";
-    emitUserSnapshotUpdate();
+    snapshotSucceeded();
   }
 
   async function downloadUserDataExport() {
+    const owner = currentUserId(), generation = snapshotGeneration;
     const localPayload = collectUserSnapshotPayload();
     let cloudPayload = null;
     let cloudUpdatedAt = null;
@@ -1103,6 +1183,7 @@
         /* fall back to local-only export */
       }
     }
+    if (owner !== currentUserId() || generation !== snapshotGeneration) return;
     const exportedAt = new Date().toISOString();
     const body = {
       exportedAt,
@@ -1122,146 +1203,129 @@
     URL.revokeObjectURL(url);
   }
 
-  async function loadSnapshotForCurrentUser() {
-    const userId = currentUserId();
-    if (!userId) return;
-    if (!isBrowserOnline()) {
-      userSnapshotUserId = userId;
-      writeLastUserId(userId);
-      userSnapshotBaseline = readPersistedBaseline(userId) || userSnapshotSignature(collectUserSnapshotPayload());
-      userSnapshotStatus = "offline";
-      emitUserSnapshotUpdate();
-      return;
-    }
-    const previousUserId = userSnapshotUserId || readLastUserId();
-    const localPayload = collectUserSnapshotPayload();
-    if (previousUserId !== userId) userSnapshotRevision = null;
-    if (previousUserId && previousUserId !== userId) {
-      writeUserLocalCache(previousUserId, localPayload);
-    }
-    userSnapshotStatus = "syncing";
-    emitUserSnapshotUpdate();
-    const data = await requestUserSnapshot("GET");
-    userSnapshotRevision = data.revision;
-    let nextPayload = data.payload && typeof data.payload === "object" ? data.payload : {};
-    let syncedAt = data.updatedAt || "";
-    if (!data.updatedAt) {
-      const cachedPayload = readUserLocalCache(userId);
-      nextPayload = cachedPayload || (!previousUserId ? localPayload : {});
-      applyUserSnapshotPayload(nextPayload);
-      if (Object.keys(nextPayload).length) {
-        const saved = await requestUserSnapshot("PUT", { payload: nextPayload });
-        syncedAt = saved.updatedAt || new Date().toISOString();
-      }
-    } else {
-      const remoteSig = userSnapshotSignature(nextPayload);
-      const localSig = userSnapshotSignature(localPayload);
-      const baselineSig = readPersistedBaseline(userId) || userSnapshotBaseline;
-      const localDirty = Boolean(baselineSig) && localSig !== baselineSig;
-      if (localDirty && localSig !== remoteSig && payloadHasAppData(localPayload)) {
-        // Local and cloud diverge — keep showing local until the user chooses.
-        userSnapshotUserId = userId;
-        writeLastUserId(userId);
-        writeUserLocalCache(userId, localPayload);
-        userSnapshotLastSyncedAt = syncedAt;
-        userSnapshotStatus = "conflict";
-        emitUserSnapshotUpdate();
-        return;
-      }
-      applyUserSnapshotPayload(nextPayload);
-    }
-    userSnapshotUserId = userId;
-    writeLastUserId(userId);
-    writeUserLocalCache(userId, collectUserSnapshotPayload());
-    setSyncedBaseline(userId, collectUserSnapshotPayload());
-    userSnapshotLastSyncedAt = syncedAt;
+  function snapshotEditorActive() {
+    const focused = document.activeElement;
+    return Boolean(document.querySelector('[data-dialog-root]:not([hidden]), .todo-item.is-editing') ||
+      (focused?.matches?.('input, textarea, [contenteditable="true"]') && String(focused.value || focused.textContent || '').trim()));
+  }
+
+  function notifySnapshotApplied(before, after) {
+    const mapping = { "todo-app-v2": "todo", "calendar-app-v1": "calendar", "planner-app-v1": "planner",
+      "tally-book-v1": "tally", "teamwork-page-v1": "teamwork", "travel-book-v1": "travel", "travel-shared-v1": "travel" };
+    Object.keys(mapping).filter(key => before[key] !== after[key]).forEach(key => snapshotPendingKeys.add(key));
+    if (snapshotEditorActive()) return;
+    const domains = [...new Set([...snapshotPendingKeys].map(key => mapping[key]).filter(Boolean))];
+    snapshotPendingKeys.clear();
+    if (domains.length) window.dispatchEvent(new CustomEvent("daily-space-agent-data-updated", { detail: { domains, source: "cloud-sync" } }));
+  }
+
+  function snapshotSucceeded() {
+    clearTimeout(snapshotRetryTimer); snapshotRetryTimer = 0; snapshotNextRetryAt = 0; snapshotRetryCount = 0;
     userSnapshotStatus = "ok";
     emitUserSnapshotUpdate();
   }
 
-  async function userSnapshotTick() {
-    if (userSnapshotInFlight || document.hidden) return;
+  async function loadSnapshotForCurrentUser() {
+    const userId = currentUserId();
+    if (!userId) return;
+    if (!isBrowserOnline()) {
+      userSnapshotStatus = "offline"; emitUserSnapshotUpdate(); return;
+    }
+    const previousUserId = userSnapshotUserId || readLastUserId();
+    const switched = previousUserId && previousUserId !== userId;
+    if (switched) { userSnapshotRevision = null; userSnapshotLastSyncedAt = ""; }
+    const initialPayload = collectUserSnapshotPayload();
+    const baseline = readPersistedBaseline(userId) || (userSnapshotUserId === userId ? userSnapshotBaseline : "");
+    if (switched) writeUserLocalCache(previousUserId, initialPayload);
+    userSnapshotStatus = "syncing";
+    emitUserSnapshotUpdate();
+    const data = await requestUserSnapshot("GET");
+    userSnapshotRevision = data.revision;
+    // Read again: edits made while the request was pending must participate in
+    // reconciliation rather than being overwritten by a late cloud response.
+    const localPayload = switched ? (readUserLocalCache(userId) || {}) : collectUserSnapshotPayload();
+    const remotePayload = data.payload || {};
+    const localSig = userSnapshotSignature(localPayload);
+    const remoteSig = userSnapshotSignature(remotePayload);
+    const localDirty = baseline ? localSig !== baseline
+      : !switched && localSig !== userSnapshotSignature(initialPayload);
+    const remoteDirty = baseline ? remoteSig !== baseline : Boolean(data.updatedAt);
+    if (switched && snapshotEditorActive()) { userSnapshotStatus = "remote-pending"; emitUserSnapshotUpdate(); return; }
+    userSnapshotUserId = userId; writeLastUserId(userId);
+    userSnapshotBaseline = baseline;
+    if (localSig !== remoteSig && localDirty && remoteDirty) {
+      if (switched) applyUserSnapshotPayload(localPayload, { clearMissing: true });
+      writeUserLocalCache(userId, localPayload);
+      userSnapshotStatus = "conflict"; emitUserSnapshotUpdate(); return;
+    }
+    let syncedPayload = remotePayload;
+    if (localSig !== remoteSig && (localDirty || !data.updatedAt)) {
+      syncedPayload = localPayload;
+      if (switched) applyUserSnapshotPayload(localPayload, { clearMissing: true });
+      if (Object.keys(syncedPayload).length) {
+        const saved = await requestUserSnapshot("PUT", { payload: syncedPayload });
+        userSnapshotLastSyncedAt = saved.updatedAt || new Date().toISOString();
+      }
+    } else if (localSig !== remoteSig || switched) {
+      if (snapshotEditorActive()) { userSnapshotStatus = "remote-pending"; emitUserSnapshotUpdate(); return; }
+      applyUserSnapshotPayload(remotePayload, { clearMissing: true });
+    }
+    userSnapshotLastSyncedAt = userSnapshotLastSyncedAt || data.updatedAt || "";
+    if (data.updatedAt && syncedPayload === remotePayload) userSnapshotLastSyncedAt = data.updatedAt;
+    setSyncedBaseline(userId, syncedPayload);
+    writeUserLocalCache(userId, collectUserSnapshotPayload());
+    snapshotSucceeded();
+    notifySnapshotApplied(initialPayload, collectUserSnapshotPayload());
+  }
+
+  async function userSnapshotTick(force = false) {
+    if (userSnapshotInFlight || userSnapshotWriteInFlight || document.hidden) return;
     const userId = currentUserId();
     if (!userId) return;
     if (!isBrowserOnline()) {
       writeUserLocalCache(userId, collectUserSnapshotPayload());
-      userSnapshotStatus = "offline";
-      emitUserSnapshotUpdate();
-      return;
+      userSnapshotStatus = "offline"; emitUserSnapshotUpdate(); return;
     }
-    if (userSnapshotStatus === "conflict") {
+    if (["conflict", "auth-required"].includes(userSnapshotStatus)) {
+      writeUserLocalCache(userId, collectUserSnapshotPayload()); return;
+    }
+    if (!force && snapshotNextRetryAt > Date.now()) return;
+    if (new Blob([JSON.stringify(collectUserSnapshotPayload())]).size > 1024 * 1024) {
       writeUserLocalCache(userId, collectUserSnapshotPayload());
-      emitUserSnapshotUpdate();
-      return;
+      handleSnapshotFailure({ status: 413 }); return;
     }
+    const generation = snapshotGeneration;
     userSnapshotInFlight = true;
-    userSnapshotStatus = "syncing";
-    emitUserSnapshotUpdate();
     try {
-      if (userSnapshotUserId !== userId || userSnapshotRevision == null) {
-        await loadSnapshotForCurrentUser();
-        return;
-      }
-      const payload = collectUserSnapshotPayload();
-      const signature = userSnapshotSignature(payload);
-      if (signature === userSnapshotBaseline) {
-        userSnapshotStatus = "ok";
-        emitUserSnapshotUpdate();
-        return;
-      }
-      const saved = await requestUserSnapshot("PUT", { payload });
-      if (saved && saved.ok) {
-        setSyncedBaseline(userId, payload);
-        userSnapshotLastSyncedAt = saved.updatedAt || new Date().toISOString();
-        writeUserLocalCache(userId, payload);
-      }
-      userSnapshotStatus = "ok";
-      emitUserSnapshotUpdate();
+      await loadSnapshotForCurrentUser();
     } catch (error) {
+      if (generation !== snapshotGeneration || userId !== currentUserId()) return;
       writeUserLocalCache(userId, collectUserSnapshotPayload());
       handleSnapshotFailure(error);
     } finally {
-      userSnapshotInFlight = false;
+      if (generation === snapshotGeneration) userSnapshotInFlight = false;
     }
   }
 
   function flushUserSnapshotOnPageHide() {
     const userId = currentUserId();
     if (!userId) return;
-    if (userSnapshotStatus === "conflict") {
-      writeUserLocalCache(userId, collectUserSnapshotPayload());
-      return;
-    }
     const payload = collectUserSnapshotPayload();
-    const signature = userSnapshotSignature(payload);
-    if (signature === userSnapshotBaseline) return;
     writeUserLocalCache(userId, payload);
-    if (!isBrowserOnline()) {
-      userSnapshotStatus = "offline";
-      emitUserSnapshotUpdate();
-      return;
-    }
+    if (["conflict", "auth-required", "too-large", "remote-pending"].includes(userSnapshotStatus)) return;
+    if (userSnapshotSignature(payload) === userSnapshotBaseline) return;
+    if (!isBrowserOnline()) { userSnapshotStatus = "offline"; emitUserSnapshotUpdate(); return; }
     if (userSnapshotWriteInFlight || userSnapshotInFlight || userSnapshotRevision == null) return;
-    const body = JSON.stringify({ payload, baseRevision: userSnapshotRevision });
-    if (new Blob([body]).size > 60 * 1024) return;
-    userSnapshotWriteInFlight = true;
-    fetch("/api/user/snapshot", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body,
-      keepalive: true,
-    }).then(async function (response) {
-      const data = await response.json();
-      if (!response.ok) throw Object.assign(new Error(data.error), { code: data.code });
-      userSnapshotRevision = data.revision;
+    if (new Blob([JSON.stringify({ payload, baseRevision: userSnapshotRevision })]).size > 60 * 1024) return;
+    const generation = snapshotGeneration;
+    requestUserSnapshot("PUT", { payload }, true).then(data => {
       setSyncedBaseline(userId, payload);
       userSnapshotLastSyncedAt = data.updatedAt;
-    }).catch(handleSnapshotFailure).finally(function () {
-      userSnapshotWriteInFlight = false;
-    });
+    }).catch(error => { if (generation === snapshotGeneration && userId === currentUserId()) handleSnapshotFailure(error); });
   }
 
   function stopUserSnapshotSync() {
+    resetSnapshotRequests();
     const previousUserId = userSnapshotUserId || readLastUserId();
     if (previousUserId) {
       writeUserLocalCache(previousUserId, collectUserSnapshotPayload());
@@ -1285,42 +1349,35 @@
 
   async function refreshUserSnapshotSession(forceLoad) {
     const userId = currentUserId();
-    if (!userId) {
-      stopUserSnapshotSync();
-      return;
-    }
+    if (!userId) { stopUserSnapshotSync(); return; }
     startUserSnapshotSync();
-    if (forceLoad || userSnapshotUserId !== userId) {
-      try {
-        await loadSnapshotForCurrentUser();
-      } catch (error) {
-        /* keep UX responsive even if sync unavailable */
-        writeUserLocalCache(userId, collectUserSnapshotPayload());
-        handleSnapshotFailure(error);
-      }
-    } else {
-      emitUserSnapshotUpdate();
-    }
+    if (forceLoad) { resetSnapshotRequests(); userSnapshotStatus = "idle"; }
+    await userSnapshotTick(true);
   }
 
   function setupUserSnapshotSync() {
-    window.addEventListener("daily-space-auth-updated", function () {
-      refreshUserSnapshotSession(true);
+    window.addEventListener("daily-space-auth-updated", () => refreshUserSnapshotSession(true));
+    window.addEventListener("storage", event => {
+      if (event.key === STORAGE_AUTH || event.key === null) refreshUserSnapshotSession(true);
+      else if (USER_SNAPSHOT_KEYS.includes(event.key)) {
+        snapshotPendingKeys.add(event.key);
+        userSnapshotTick();
+      }
     });
-    document.addEventListener("visibilitychange", function () {
+    document.addEventListener("visibilitychange", () => {
       if (document.hidden) flushUserSnapshotOnPageHide();
-      else userSnapshotTick();
+      else userSnapshotTick(true);
+    });
+    window.addEventListener("focus", () => userSnapshotTick(true));
+    document.addEventListener("focusout", () => {
+      if (userSnapshotStatus === "remote-pending") setTimeout(() => userSnapshotTick(), 200);
     });
     window.addEventListener("pagehide", flushUserSnapshotOnPageHide);
-    window.addEventListener("online", function () {
-      if (!currentUserId()) return;
-      userSnapshotTick();
-    });
-    window.addEventListener("offline", function () {
+    window.addEventListener("online", () => userSnapshotTick(true));
+    window.addEventListener("offline", () => {
       if (!currentUserId()) return;
       writeUserLocalCache(currentUserId(), collectUserSnapshotPayload());
-      userSnapshotStatus = "offline";
-      emitUserSnapshotUpdate();
+      userSnapshotStatus = "offline"; emitUserSnapshotUpdate();
     });
     refreshUserSnapshotSession(false);
   }
@@ -2158,20 +2215,23 @@
     const label = document.createElement('span'); label.setAttribute('role','status'); label.setAttribute('aria-live','polite');
     const retry = document.createElement('button'); retry.type = 'button'; retry.hidden = true; row.append(label,retry); header.after(row);
     let localSave = false, timer = 0;
-    function schedule() { clearTimeout(timer); if (currentUserId() && isBrowserOnline() && userSnapshotStatus !== 'conflict') timer = setTimeout(() => userSnapshotTick().then(render), 1000); }
+    function schedule() { clearTimeout(timer); if (currentUserId() && isBrowserOnline() && !['conflict','auth-required'].includes(userSnapshotStatus)) timer = setTimeout(() => userSnapshotTick().then(render), 1000); }
     function render() {
       const user = currentUserId(); const dirty = user && userSnapshotSignature(collectUserSnapshotPayload()) !== userSnapshotBaseline;
       retry.hidden = true; row.hidden = !user && !localSave; row.inert = row.hidden;
       if (!user) label.textContent = t('Saved on this device','已保存到本机');
       else if (userSnapshotStatus === 'conflict') { label.textContent=t('Saved locally · choose which version to keep','已保存到本机 · 请选择保留的版本');retry.hidden=false;retry.textContent=t('Review','查看'); }
       else if (!isBrowserOnline() || userSnapshotStatus === 'offline') label.textContent=t('Saved locally · waiting for connection','已保存到本机 · 等待联网');
-      else if (userSnapshotStatus === 'error') { label.textContent=t('Saved locally · cloud sync failed','已保存到本机 · 云端同步失败');retry.hidden=false;retry.textContent=t('Retry','重试'); }
+      else if (userSnapshotStatus === 'auth-required') { label.textContent=t('Saved locally · sign in again to sync','已保存到本机 · 登录已失效，请重新登录');retry.hidden=false;retry.textContent=t('Reconnect','重新登录'); }
+      else if (userSnapshotStatus === 'remote-pending') label.textContent=t('Cloud updates waiting · finish editing to sync','云端有更新 · 结束编辑后同步');
+      else if (userSnapshotStatus === 'too-large') { label.textContent=t('Saved locally · cloud storage limit reached','已保存到本机 · 超出云端容量限制');retry.hidden=false;retry.textContent=t('Review','查看'); }
+      else if (['error','timeout','unavailable'].includes(userSnapshotStatus)) { label.textContent=userSnapshotStatus==='timeout' ? t('Saved locally · sync timed out, retrying','已保存到本机 · 同步超时，将自动重试') : userSnapshotStatus==='unavailable' ? t('Saved locally · cloud sync failed (service unavailable), retrying','已保存到本机 · 同步服务暂不可用，将自动重试') : t('Saved locally · cloud sync failed (connection error), retrying','已保存到本机 · 同步连接失败，将自动重试');retry.hidden=false;retry.textContent=t('Retry','重试'); }
       else if (userSnapshotStatus === 'syncing') label.textContent=t('Saved locally · syncing…','已保存到本机 · 正在同步…');
       else if (dirty) { label.textContent=t('Saved locally · waiting to sync','已保存到本机 · 等待同步'); if(userSnapshotStatus==='ok')schedule(); }
       else label.textContent=t('Synced to cloud','已同步到云端');
     }
-    retry.addEventListener('click',()=>{if(userSnapshotStatus==='conflict')document.querySelector('.sidebar-auth-entry')?.click();else { userSnapshotTick().then(render); }});
-    window.addEventListener('daily-space-agent-data-updated',()=>{localSave=true;render();schedule();});
+    retry.addEventListener('click',()=>{if(['conflict','too-large'].includes(userSnapshotStatus))document.querySelector('.sidebar-auth-entry')?.click();else if(userSnapshotStatus==='auth-required')window.DailySpaceAuth.startGoogleSignIn().catch(()=>{label.textContent=t('Could not open sign-in. Please try again.','暂时无法打开登录，请重试。');});else { userSnapshotTick(true).then(render); }});
+    window.addEventListener('daily-space-agent-data-updated',event=>{if(event.detail?.source==='cloud-sync')return;localSave=true;render();schedule();});
     window.addEventListener('daily-space-travel-saved',()=>{localSave=true;render();schedule();});
     window.addEventListener('daily-space-user-sync-updated',render);
     window.addEventListener('daily-space-auth-updated',()=>{localSave=false;clearTimeout(timer);render();});

@@ -150,6 +150,27 @@
     return (Array.isArray(records) ? records : []).filter((record) => record.scope === "shared");
   }
 
+  // Callers choose the ledger/trip scope first. Use saved rates and local calendar
+  // dates, with the entire month's day count as the daily-average denominator.
+  function monthSpending(records, year, month) {
+    const dayCount = new Date(year, month, 0).getDate();
+    const prefix = `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}`;
+    const days = Array.from({ length: dayCount }, (_, index) => ({
+      date: `${prefix}-${String(index + 1).padStart(2, "0")}`,
+      amount: 0,
+      count: 0,
+    }));
+    const byDate = new Map(days.map(day => [day.date, day]));
+    (records || []).forEach(record => {
+      const day = byDate.get(record.date);
+      if (!day) return;
+      day.amount += baseAmount(record);
+      day.count++;
+    });
+    const total = days.reduce((sum, day) => sum + day.amount, 0);
+    return { days, total, average: total / dayCount, firstWeekday: new Date(year, month - 1, 1).getDay() };
+  }
+
   function computeBalances(state, records) {
     const balances = Object.fromEntries(state.people.map((person) => [person.id, 0]));
     sharedRecords(records || state.records).forEach((record) => {
@@ -216,6 +237,7 @@
     currencyCode,
     currencySymbol,
     formatAmount,
+    monthSpending,
     normalizeRecord,
     normalizeState,
     personalRecords,

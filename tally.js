@@ -6,6 +6,9 @@
   let viewYear = new Date().getFullYear();
   let viewMonth = new Date().getMonth() + 1;
   let viewMode = "personal";
+  let ledgerLayout = "list";
+  let selectedDay = "";
+  let viewOwner = window.DailySpaceView.owner();
   let editingId = null;
   let fxSerial = 0;
   let fxController = null;
@@ -17,6 +20,10 @@
   const monthTotalEl = $("tally-month-total");
   const weekTotalEl = $("tally-week-total");
   const todayTotalEl = $("tally-today-total");
+  const monthViewEl = $("tally-month-view");
+  const monthGridEl = $("tally-month-grid");
+  const weekdaysEl = $("tally-month-weekdays");
+  const daySummaryEl = $("tally-day-summary");
   const budgetInput = $("tally-budget");
   const currencyInput = $("tally-currency");
   const progressBar = $("tally-progress-bar");
@@ -52,6 +59,7 @@
   const sheetEyebrowEl = $("tally-sheet-eyebrow");
   const sheetTitleEl = $("tally-add-title");
   const submitBtn = $("tally-submit");
+  const formErrorEl = $("tally-form-error");
   const categoryOptionsEl = $("tally-category-options");
   const categorySuggestionsEl = $("tally-category-suggestions");
   const settlementEl = $("tally-settlement");
@@ -99,6 +107,38 @@
 
   function monthKey(year, month) {
     return `${year}-${pad2(month)}`;
+  }
+
+  function ensureSelectedDay() {
+    const key = monthKey(viewYear, viewMonth);
+    if (selectedDay.startsWith(`${key}-`) && dateToIso(parseIso(selectedDay)) === selectedDay) return;
+    selectedDay = todayIso().startsWith(`${key}-`) ? todayIso() : `${key}-01`;
+  }
+
+  function restoreView() {
+    const saved = window.DailySpaceView.read("tally");
+    const now = new Date();
+    viewYear = now.getFullYear(); viewMonth = now.getMonth() + 1;
+    if (Number.isInteger(saved.year) && saved.year >= 1900 && saved.year <= 9999 && Number.isInteger(saved.month) && saved.month >= 1 && saved.month <= 12) {
+      viewYear = saved.year; viewMonth = saved.month;
+    }
+    viewMode = saved.mode === "shared" ? "shared" : "personal";
+    ledgerLayout = saved.layout === "month" ? "month" : "list";
+    selectedDay = typeof saved.day === "string" ? saved.day : "";
+    ensureSelectedDay();
+  }
+
+  function captureDate() {
+    return ledgerLayout === "month" ? selectedDay : todayIso();
+  }
+
+  function changeMonth(offset) {
+    const next = new Date(viewYear, viewMonth - 1 + offset, 1);
+    if (next.getFullYear() < 1900 || next.getFullYear() > 9999) return;
+    const day = parseIso(selectedDay).getDate();
+    viewYear = next.getFullYear(); viewMonth = next.getMonth() + 1;
+    selectedDay = dateToIso(new Date(viewYear, viewMonth - 1, Math.min(day, new Date(viewYear, viewMonth, 0).getDate())));
+    render();
   }
 
   function escapeHtml(value) {
@@ -151,6 +191,82 @@
       button.setAttribute("aria-pressed", String(active));
     });
     settlementEl.hidden = viewMode !== "shared";
+    document.querySelectorAll("[data-tally-layout]").forEach(button => {
+      const active = button.dataset.tallyLayout === ledgerLayout;
+      button.setAttribute("aria-pressed", String(active));
+      button.textContent = button.dataset.tallyLayout === "month" ? (isZh() ? "月历" : "Month") : (isZh() ? "列表" : "List");
+    });
+    $("tally-layout-switch").setAttribute("aria-label", isZh() ? "账单显示方式" : "Transactions view");
+    monthViewEl.hidden = ledgerLayout !== "month";
+    daySummaryEl.hidden = ledgerLayout !== "month";
+    $("tally-list-total").hidden = ledgerLayout === "month";
+    $("tally-today-strip").hidden = ledgerLayout === "month";
+    $("tally-prev").disabled = viewYear === 1900 && viewMonth === 1;
+    $("tally-next").disabled = viewYear === 9999 && viewMonth === 12;
+  }
+
+  let calendarKey = "";
+  let weekdaysLocale = "";
+  function renderMonth() {
+    if (ledgerLayout !== "month") return;
+    const overview = Core.monthSpending(activeRecords(), viewYear, viewMonth);
+    const key = monthKey(viewYear, viewMonth);
+    if (weekdaysLocale !== uiLocale()) {
+      weekdaysLocale = uiLocale();
+      weekdaysEl.replaceChildren(...Array.from({ length: 7 }, (_, index) => {
+        const day = document.createElement("span");
+        day.textContent = new Date(2026, 0, 4 + index).toLocaleDateString(uiLocale(), { weekday: "narrow" });
+        return day;
+      }));
+    }
+    if (calendarKey !== key) {
+      calendarKey = key;
+      const nodes = Array.from({ length: overview.firstWeekday }, () => {
+        const spacer = document.createElement("span"); spacer.setAttribute("aria-hidden", "true"); return spacer;
+      });
+      overview.days.forEach((day, index) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "tally-month-day";
+        button.dataset.tallyDay = day.date;
+        button.setAttribute("aria-controls", "tally-day-summary tally-record-list");
+        const number = document.createElement("span"); number.className = "tally-month-date"; number.textContent = String(index + 1);
+        const amount = document.createElement("span"); amount.className = "tally-month-amount";
+        button.append(number, amount);
+        button.addEventListener("click", () => { selectedDay = day.date; render(); });
+        nodes.push(button);
+      });
+      monthGridEl.replaceChildren(...nodes);
+    }
+    const compact = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 });
+    monthGridEl.querySelectorAll("[data-tally-day]").forEach((button, index) => {
+      const day = overview.days[index];
+      const fullDate = parseIso(day.date).toLocaleDateString(uiLocale(), { year: "numeric", month: "long", day: "numeric", weekday: "long" });
+      button.setAttribute("aria-pressed", String(day.date === selectedDay));
+      button.tabIndex = day.date === selectedDay ? 0 : -1;
+      if (day.date === todayIso()) button.setAttribute("aria-current", "date");
+      else button.removeAttribute("aria-current");
+      button.classList.toggle("has-spend", day.count > 0);
+      const label = `${fullDate} · ${baseMoney(day.amount)} · ${isZh() ? `${day.count} 笔支出` : `${day.count} expense${day.count === 1 ? "" : "s"}`}`;
+      button.setAttribute("aria-label", label);
+      button.title = label;
+      const amount = day.amount >= 1000 ? compact.format(day.amount).toLowerCase()
+        : new Intl.NumberFormat(uiLocale(), { maximumFractionDigits: day.amount < 10 ? 2 : 1 }).format(day.amount);
+      const amountEl = button.querySelector(".tally-month-amount");
+      const text = day.count ? amount : "–";
+      if (amountEl.textContent !== text) amountEl.textContent = text;
+    });
+    monthViewEl.setAttribute("aria-label", isZh() ? "月度支出" : "Monthly spending");
+    $("tally-month-hint").textContent = isZh() ? `每日概览 · ${state.baseCurrency} · 点选查看完整金额` : `Daily overview · ${state.baseCurrency} · Select a day for exact amounts`;
+    $("tally-calendar-total-label").textContent = isZh() ? "本月支出" : "Month total";
+    $("tally-calendar-average-label").textContent = isZh() ? "日均支出" : "Daily average";
+    $("tally-calendar-total").textContent = baseMoney(overview.total);
+    $("tally-calendar-average").textContent = baseMoney(overview.average);
+    $("tally-average-note").textContent = isZh() ? `日均按整月 ${overview.days.length} 天计算` : `Daily average uses all ${overview.days.length} days of this month`;
+    const selected = overview.days.find(day => day.date === selectedDay);
+    $("tally-day-title").textContent = parseIso(selectedDay).toLocaleDateString(uiLocale(), { month: "long", day: "numeric", weekday: "long" });
+    $("tally-day-meta").textContent = `${baseMoney(selected.amount)} · ${isZh() ? `${selected.count} 笔支出` : `${selected.count} expense${selected.count === 1 ? "" : "s"}`}`;
+    $("tally-day-add").textContent = isZh() ? "记一笔" : "Add expense";
   }
 
   function renderSummary() {
@@ -223,8 +339,8 @@
   }
 
   function groupTitle(iso) {
-    if (iso === todayIso()) return "Today";
-    if (iso === dateToIso(addDays(new Date(), -1))) return "Yesterday";
+    if (iso === todayIso()) return isZh() ? "今天" : "Today";
+    if (iso === dateToIso(addDays(new Date(), -1))) return isZh() ? "昨天" : "Yesterday";
     return parseIso(iso).toLocaleDateString(uiLocale(), {
       weekday: "long",
       month: "short",
@@ -245,12 +361,12 @@
 
   let recordsSignature = "";
   function renderRecords() {
-    const monthRecords = recordsForMonth(activeRecords(), viewYear, viewMonth).sort((a, b) => {
+    const monthRecords = recordsForMonth(activeRecords(), viewYear, viewMonth).filter(record => ledgerLayout !== "month" || record.date === selectedDay).sort((a, b) => {
       if (a.date !== b.date) return b.date.localeCompare(a.date);
       return state.records.indexOf(a) - state.records.indexOf(b);
     });
     const tripNames = new Map(window.DailySpaceTripExpenses.trips().map(trip => [trip.ref, trip.name]));
-    const signature = JSON.stringify([viewMode, monthRecords, state.baseCurrency, state.people, uiLocale(), todayIso(), [...tripNames]]);
+    const signature = JSON.stringify([viewYear, viewMonth, viewMode, ledgerLayout, selectedDay, monthRecords, state.baseCurrency, state.people, uiLocale(), todayIso(), [...tripNames]]);
     if (signature === recordsSignature) return;
     recordsSignature = signature;
     const groups = new Map();
@@ -264,6 +380,7 @@
       group.className = "tally-record-group";
       const heading = document.createElement("h2");
       heading.className = "tally-record-group-title";
+      heading.hidden = ledgerLayout === "month";
       heading.textContent = `${groupTitle(date)} · ${baseMoney(total(groupRecords))}`;
       const card = document.createElement("div");
       card.className = "tally-record-group-card";
@@ -324,8 +441,12 @@
     });
     const isEmpty = monthRecords.length === 0;
     emptyPanelEl.hidden = !isEmpty;
-    emptyEl.textContent =
-      viewMode === "shared" ? "No shared expenses this month." : "No expenses this month.";
+    $("tally-empty-kicker").hidden = ledgerLayout === "month";
+    emptyCtaBtn.hidden = ledgerLayout === "month";
+    emptyEl.dataset.i18nIgnore = "true";
+    emptyEl.textContent = ledgerLayout === "month"
+      ? (viewMode === "shared" ? (isZh() ? "这天还没有多人支出。" : "No shared expenses on this day.") : (isZh() ? "这天还没有支出。" : "No expenses on this day."))
+      : (viewMode === "shared" ? (isZh() ? "本月还没有多人支出。" : "No shared expenses this month.") : (isZh() ? "本月还没有支出。" : "No expenses this month."));
     recordListEl.hidden = isEmpty;
   }
 
@@ -399,13 +520,15 @@
   }
 
   function render() {
-    window.DailySpaceView?.write("tally", { year: viewYear, month: viewMonth, mode: viewMode });
+    ensureSelectedDay();
+    window.DailySpaceView?.write("tally", { year: viewYear, month: viewMonth, mode: viewMode, layout: ledgerLayout, day: selectedDay });
     const meta = document.getElementById("tally-page-meta");
     if (meta) meta.textContent = new Date().toLocaleDateString(uiLocale(), { weekday: "long", month: "long", day: "numeric" });
     renderViewSwitch();
     renderPeople();
     renderSummary();
     renderBars();
+    renderMonth();
     renderRecords();
     renderSettlement();
   }
@@ -447,10 +570,33 @@
     sharedFields.hidden = !shared;
     const foreignCurrency = recordCurrencyInput.value !== state.baseCurrency;
     fxField.hidden = !foreignCurrency;
+    fxRateInput.disabled = !foreignCurrency;
     fxRateInput.required = foreignCurrency;
     fxHelp.textContent = foreignCurrency
       ? fxPending ? "Fetching rate…" : `1 ${recordCurrencyInput.value} = ${fxRateInput.value || "?"} ${state.baseCurrency}`
       : "";
+  }
+
+  function selectRecordCurrency(value) {
+    const code = Core.currencyCode(value, state.baseCurrency);
+    if (![...recordCurrencyInput.options].some(option => option.value === code)) recordCurrencyInput.add(new Option(code, code));
+    recordCurrencyInput.value = code;
+  }
+
+  function clearFormError() {
+    formErrorEl.hidden = true;
+    formErrorEl.textContent = "";
+    form.querySelectorAll('[aria-invalid="true"]').forEach(input => { input.removeAttribute('aria-invalid'); input.removeAttribute('aria-errormessage'); });
+  }
+
+  function showFormError(message, input) {
+    if (extraOptions.contains(input)) extraOptions.open = true;
+    formErrorEl.textContent = message;
+    formErrorEl.hidden = false;
+    input?.setAttribute('aria-invalid', 'true');
+    input?.setAttribute('aria-errormessage', formErrorEl.id);
+    input?.focus({ preventScroll: true });
+    (input?.closest('label') || input)?.scrollIntoView({ block: 'nearest' });
   }
 
   function cancelFxRequest() {
@@ -459,6 +605,7 @@
     fxController = null;
     fxPending = false;
     submitBtn.disabled = false;
+    syncSheetMode();
     fxField.setAttribute("aria-busy", "false");
   }
 
@@ -484,6 +631,7 @@
     fxRateInput.value = "";
     fxPending = true;
     submitBtn.disabled = true;
+    submitBtn.textContent = "Fetching rate…";
     fxField.setAttribute("aria-busy", "true");
     fxHelp.textContent = "Fetching rate…";
     saveDraft();
@@ -505,6 +653,7 @@
         fxController = null;
         fxPending = false;
         submitBtn.disabled = false;
+        syncSheetMode();
         fxField.setAttribute("aria-busy", "false");
       }
     }
@@ -550,15 +699,22 @@
     cancelFxRequest();
     editingId = record?.id || null;
     const draft = window.DailySpaceView.read("tally").draft;
-    const value = draft && draft.id === editingId ? draft : record;
-    dateInput.value = value?.date || todayIso();
+    const customSplit = draft?.scope === "shared" && (draft.paidById !== state.selfPersonId ||
+      draft.splitAmongIds?.length !== state.people.length || state.people.some(person => !draft.splitAmongIds?.includes(person.id)));
+    // A blank date-only form follows the next selected day. Currency, scope and
+    // participant choices are meaningful even before an amount has been typed.
+    const hasDraftContent = draft && (editingId || draft.amount || draft.category?.trim() || draft.note?.trim() || draft.tripId ||
+      draft.currency !== state.baseCurrency || draft.scope !== viewMode || customSplit);
+    const value = draft && draft.id === editingId && hasDraftContent ? draft : record;
+    dateInput.value = value?.date || captureDate();
     amountInput.value = value?.amount || "";
     categoryInput.value = value?.category || "";
     noteInput.value = value?.note || "";
     window.DailySpaceTripExpenses.populate(tripInput, value?.tripId || "", value?.tripName);
     scopeInput.value = value?.scope || (viewMode === "shared" ? "shared" : "personal");
-    recordCurrencyInput.value = value?.currency || state.baseCurrency;
+    selectRecordCurrency(value?.currency || state.baseCurrency);
     fxRateInput.value = String(value?.fxRate ?? 1);
+    clearFormError();
     syncSheetMode();
     renderPeople(true);
     paidByInput.value = value?.paidById || state.selfPersonId;
@@ -575,25 +731,45 @@
   }
   form.addEventListener("input", saveDraft);
   form.addEventListener("change", saveDraft);
+  form.addEventListener("input", clearFormError);
+  form.addEventListener("change", clearFormError);
   form.addEventListener("invalid", event => { if (extraOptions.contains(event.target)) extraOptions.open = true; }, true);
   window.addEventListener("pagehide", () => { saveDraft(); cancelFxRequest(); });
   window.addEventListener("daily-space-auth-updated", () => {
     setSheetOpen(false, null, false, false, true);
     form.reset();
     state = Core.readState();
+    if (viewOwner !== window.DailySpaceView.owner()) {
+      viewOwner = window.DailySpaceView.owner();
+      restoreView();
+    }
     render();
   });
 
   form.addEventListener("submit", (event) => {
     event.preventDefault();
-    if (sheetMotion.closing || fxPending || !form.reportValidity()) return;
+    if (sheetMotion.closing || fxPending) return;
+    clearFormError();
+    if (!form.checkValidity()) {
+      const invalid = form.querySelector(':invalid');
+      const message = invalid === amountInput ? (isZh() ? '请输入有效金额，最小为 0.01。' : 'Enter a valid amount of at least 0.01.')
+        : invalid === fxRateInput ? (isZh() ? '请填写有效汇率后再保存。' : 'Enter a valid exchange rate before saving.')
+        : invalid === dateInput ? (isZh() ? '请选择有效日期。' : 'Choose a valid date.')
+        : (isZh() ? '请检查标出的字段。' : 'Check the highlighted field.');
+      showFormError(message, invalid);
+      return;
+    }
     const amount = Number(amountInput.value);
-    const category = categoryInput.value.trim();
+    const category = categoryInput.value.trim() || (isZh() ? "其他" : "Other");
     const shared = scopeInput.value === "shared";
     const splitAmongIds = Array.from(splitPeopleEl.querySelectorAll("input:checked")).map(
       (input) => input.value
     );
-    if (!(amount > 0) || !category || (shared && !splitAmongIds.length)) return;
+    if (!(amount > 0) || !category) return;
+    if (shared && !splitAmongIds.length) {
+      showFormError(isZh() ? '请选择至少一位分摊人。' : 'Choose at least one person to split with.', splitPeopleEl.querySelector('input'));
+      return;
+    }
     const foreignCurrency = recordCurrencyInput.value !== state.baseCurrency;
     const fxRate = foreignCurrency ? Number(fxRateInput.value) : 1;
     if (!Number.isFinite(fxRate) || !(fxRate > 0)) return;
@@ -623,6 +799,7 @@
     const recordDate = parseIso(nextRecord.date);
     viewYear = recordDate.getFullYear();
     viewMonth = recordDate.getMonth() + 1;
+    selectedDay = nextRecord.date;
     viewMode = nextRecord.scope === "shared" ? "shared" : "personal";
     saveState();
     window.DailySpaceView.write("tally", { draft: null });
@@ -636,25 +813,15 @@
       render();
     });
   });
-  $("tally-prev").addEventListener("click", () => {
-    viewMonth -= 1;
-    if (viewMonth < 1) {
-      viewMonth = 12;
-      viewYear -= 1;
-    }
-    render();
+  document.querySelectorAll("[data-tally-layout]").forEach(button => {
+    button.addEventListener("click", () => { ledgerLayout = button.dataset.tallyLayout; render(); });
   });
-  $("tally-next").addEventListener("click", () => {
-    viewMonth += 1;
-    if (viewMonth > 12) {
-      viewMonth = 1;
-      viewYear += 1;
-    }
-    render();
-  });
+  $("tally-prev").addEventListener("click", () => changeMonth(-1));
+  $("tally-next").addEventListener("click", () => changeMonth(1));
   $("tally-today").addEventListener("click", () => {
     viewYear = new Date().getFullYear();
     viewMonth = new Date().getMonth() + 1;
+    selectedDay = todayIso();
     render();
   });
   budgetInput.addEventListener("change", () => {
@@ -729,6 +896,23 @@
   addCloseBtn.addEventListener("click", () => setSheetOpen(false));
   addBackdrop.addEventListener("click", () => setSheetOpen(false));
   emptyCtaBtn.addEventListener("click", () => setSheetOpen(true));
+  $("tally-day-add").addEventListener("click", () => setSheetOpen(true));
+  monthGridEl.addEventListener("keydown", event => {
+    const button = event.target.closest("[data-tally-day]");
+    if (!button || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+    const date = parseIso(button.dataset.tallyDay);
+    const step = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[event.key];
+    if (step !== undefined) {
+      const next = addDays(date, step);
+      if (next.getFullYear() < 1900 || next.getFullYear() > 9999) return;
+      event.preventDefault();
+      selectedDay = dateToIso(next); viewYear = next.getFullYear(); viewMonth = next.getMonth() + 1;
+      render();
+      const nextButton = monthGridEl.querySelector(`[data-tally-day="${selectedDay}"]`);
+      nextButton?.focus({ preventScroll: true });
+      nextButton?.scrollIntoView({ block: "nearest" });
+    }
+  });
 
   const quickForm = $("tally-quick-form");
   const quickAmount = $("tally-quick-amount");
@@ -737,25 +921,27 @@
     quickForm.addEventListener("submit", (event) => {
       event.preventDefault();
       const amount = Number(quickAmount.value);
-      const category = quickCategory.value.trim();
+      const category = quickCategory.value.trim() || (isZh() ? "其他" : "Other");
       if (!(amount > 0) || !category) return;
       const nextRecord = Core.normalizeRecord(
         {
           id: Core.uid("expense"),
-          date: todayIso(),
+          date: captureDate(),
           amount,
           currency: state.baseCurrency,
           fxRate: 1,
           category,
           note: "",
-          scope: "personal",
+          scope: viewMode,
           paidById: state.selfPersonId,
-          splitAmongIds: [],
+          splitAmongIds: viewMode === "shared" ? state.people.map(person => person.id) : [],
         },
         state
       );
       if (!nextRecord) return;
       state.records.unshift(nextRecord);
+      const date = parseIso(nextRecord.date);
+      viewYear = date.getFullYear(); viewMonth = date.getMonth() + 1; selectedDay = nextRecord.date;
       saveState();
       quickAmount.value = "";
       quickCategory.value = "";
@@ -783,11 +969,7 @@
   });
   window.addEventListener("daily-space-locale-changed", render);
 
-  const savedView = window.DailySpaceView.read("tally");
-  if (Number.isInteger(savedView.year) && savedView.year >= 1900 && savedView.year <= 9999 && savedView.month >= 1 && savedView.month <= 12) {
-    viewYear = savedView.year; viewMonth = savedView.month;
-    viewMode = savedView.mode === "shared" ? "shared" : "personal";
-  }
+  restoreView();
   if (!window.matchMedia("(max-width: 819px)").matches) document.getElementById("tally-insights").open = true;
   if (tripFilter) {
     const filter = document.createElement("button"); filter.type = "button"; filter.className = "tally-trip-filter";
@@ -810,6 +992,7 @@
     const record = state.records.find(item => item.id === searchTarget.id);
     if (record) {
       const date = parseIso(record.date); viewYear = date.getFullYear(); viewMonth = date.getMonth() + 1;
+      selectedDay = record.date;
       viewMode = record.scope === "shared" ? "shared" : "personal";
       render();
       requestAnimationFrame(() => {

@@ -343,11 +343,12 @@ test("browser interactions on desktop and touch screens", { timeout: 120_000 }, 
 
   await t.test("save feedback distinguishes failed cloud sync, retries without losing local edits, and shows offline state",async()=>{
     const page=await pageFor({viewport:{width:390,height:844},isMobile:true,hasTouch:true});await seedWorkspace(page,true);
-    let revision=0,fail=false;
+    let revision=0,fail=false,payload={},updatedAt=null;
     await page.route('**/api/user/snapshot',async route=>{
-      if(route.request().method()==='GET')return route.fulfill({contentType:'application/json',body:JSON.stringify({payload:{},revision})});
+      if(route.request().method()==='GET')return route.fulfill({contentType:'application/json',body:JSON.stringify({payload,revision,updatedAt})});
       if(fail){fail=false;return route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'Temporary failure'})});}
-      return route.fulfill({contentType:'application/json',body:JSON.stringify({ok:true,revision:++revision,updatedAt:new Date().toISOString()})});
+      payload=route.request().postDataJSON().payload; updatedAt=new Date().toISOString();
+      return route.fulfill({contentType:'application/json',body:JSON.stringify({ok:true,revision:++revision,updatedAt})});
     });
     await page.goto(`${base}/todo-m.html`,{waitUntil:'load'});await page.waitForFunction(()=>document.querySelector('.workspace-save-status')?.textContent.includes('Synced to cloud'));
     fail=true;await page.evaluate(()=>window.DailySpaceTodo.createTasks([{text:'Keep this local edit'}]));
@@ -356,6 +357,92 @@ test("browser interactions on desktop and touch screens", { timeout: 120_000 }, 
     await page.locator('.workspace-save-status button').click();await page.waitForFunction(()=>document.querySelector('.workspace-save-status')?.textContent.includes('Synced to cloud'));
     await page.context().setOffline(true);await page.waitForFunction(()=>document.querySelector('.workspace-save-status')?.textContent.includes('waiting for connection'));
     await page.context().setOffline(false);
+  });
+
+  async function liveSnapshotFixture(page) {
+    await seedWorkspace(page, true);
+    let cloud = { payload: {}, revision: 0, updatedAt: null }, status = 200;
+    const requests = [];
+    await page.route('**/api/user/snapshot', route => {
+      const method = route.request().method(); requests.push(method);
+      if (status !== 200) return route.fulfill({status,contentType:'application/json',body:JSON.stringify({error:'Simulated unavailable session or service'})});
+      if (method === 'PUT') {
+        const body = route.request().postDataJSON();
+        if (body.baseRevision !== cloud.revision) return route.fulfill({status:409,contentType:'application/json',body:JSON.stringify({code:'SNAPSHOT_CONFLICT'})});
+        cloud = {payload:body.payload,revision:cloud.revision+1,updatedAt:new Date().toISOString()};
+      }
+      return route.fulfill({contentType:'application/json',body:JSON.stringify({ok:true,...cloud})});
+    });
+    return { requests, fail: value => {status=value;}, update: text => {
+      const tasks=JSON.parse(cloud.payload['todo-app-v2']); tasks.todos.find(task=>task.id==='design').text=text;
+      cloud={payload:{...cloud.payload,'todo-app-v2':JSON.stringify(tasks)},revision:cloud.revision+1,updatedAt:new Date().toISOString()};
+    } };
+  }
+
+  await t.test('desktop sync pulls cloud edits in place, protects open drafts and exposes conflict choices in Account', async () => {
+    const page=await pageFor(); const fixture=await liveSnapshotFixture(page);
+    await page.goto(`${base}/todo.html?device=desktop`,{waitUntil:'load'});
+    await page.waitForFunction(()=>document.querySelector('.workspace-save-status')?.textContent.includes('Synced to cloud'));
+    fixture.update('Phone edit visible on desktop');
+    await page.evaluate(()=>{document.activeElement?.blur();window.dispatchEvent(new Event('focus'));});
+    await page.waitForFunction(()=>document.querySelector('#todo-list [data-id="design"] .todo-label')?.textContent==='Phone edit visible on desktop');
+    await page.locator('#todo-list [data-id="design"] .task-details-open').click();
+    await page.locator('.task-desktop-panel .task-detail-fields summary').click();
+    await page.locator('[data-task-notes]').fill('Unfinished private notes');
+    fixture.update('Another phone edit');
+    await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+    await page.waitForFunction(()=>document.querySelector('.workspace-save-status')?.textContent.includes('finish editing'));
+    assert.equal(await page.locator('[data-task-notes]').inputValue(),'Unfinished private notes');
+    await page.keyboard.press('Escape'); await page.locator('.task-desktop-editor').waitFor({state:'hidden'});
+    await page.evaluate(()=>{document.activeElement?.blur();window.dispatchEvent(new Event('focus'));});
+    await page.waitForFunction(()=>document.querySelector('#todo-list [data-id="design"] .todo-label')?.textContent==='Another phone edit');
+    fixture.update('Concurrent phone edit');
+    await page.evaluate(()=>window.DailySpaceTodo.createTasks([{text:'Local content to retain'}]));
+    await page.waitForFunction(()=>document.querySelector('.workspace-save-status')?.textContent.includes('choose which version'));
+    assert.ok(await page.evaluate(()=>window.DailySpaceTodo.getTasks().some(task=>task.text==='Local content to retain')));
+    await page.locator('.workspace-save-status button').click();
+    await page.locator('.auth-modal:not([hidden])').waitFor();
+    assert.ok(await page.locator('.auth-conflict-actions [data-sync-choice="local"]').isVisible());
+    for (const width of [390,320]) {
+      await page.setViewportSize({width,height:568});
+      const card=await page.locator('.auth-card').boundingBox();
+      assert.ok(card.y>=0 && card.y+card.height<=568,JSON.stringify(card));
+      for (const button of await page.locator('[data-sync-choice]').all()) {
+        await button.scrollIntoViewIfNeeded(); const box=await button.boundingBox();
+        assert.ok(box.height>=44 && box.y>=0 && box.y+box.height<=568);
+      }
+      await captureMail(page,`sync-conflict-${width}.png`);
+    }
+    await page.locator('[data-sync-choice="local"]').click();
+    await page.waitForFunction(()=>document.querySelector('.workspace-save-status')?.textContent.includes('Synced to cloud'));
+    assert.ok(await page.evaluate(()=>window.DailySpaceTodo.getTasks().some(task=>task.text==='Local content to retain')));
+  });
+
+  await t.test('expired sync sessions retain local data and offer usable reconnect controls on phone and desktop', async () => {
+    const page=await pageFor({viewport:{width:390,height:844},isMobile:true,hasTouch:true}); const fixture=await liveSnapshotFixture(page);
+    await page.goto(`${base}/todo-m.html`,{waitUntil:'load'});
+    await page.waitForFunction(()=>document.querySelector('.workspace-save-status')?.textContent.includes('Synced to cloud'));
+    fixture.fail(401);
+    await page.evaluate(()=>window.DailySpaceTodo.createTasks([{text:'Offline desktop note survives expiry'}]));
+    await page.waitForFunction(()=>document.querySelector('.workspace-save-status')?.textContent.includes('sign in again'));
+    assert.equal(await page.locator('.workspace-save-status button').textContent(),'Reconnect');
+    await page.evaluate(()=>{window.reconnectClicks=0;window.DailySpaceAuth.startGoogleSignIn=async()=>{window.reconnectClicks++;};});
+    await page.locator('.workspace-save-status button').click();
+    assert.equal(await page.evaluate(()=>window.reconnectClicks),1);
+    await page.setViewportSize({width:320,height:568}); await page.evaluate(()=>window.DailySpaceI18n.setLocale('zh'));
+    assert.ok((await page.locator('.workspace-save-status').textContent()).includes('登录已失效'));
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+    await page.evaluate(()=>document.querySelector('.sidebar-auth-entry').click());
+    assert.ok(await page.locator('.auth-provider[data-provider=google]').isVisible());
+    assert.equal(await page.locator('#auth-title').textContent(),'重新连接 Google');
+    const card=await page.locator('.auth-card').boundingBox(); assert.ok(card.y>=0 && card.y+card.height<=568);
+    await page.locator('.auth-provider[data-provider=google]').scrollIntoViewIfNeeded();
+    await captureMail(page,'sync-reconnect-320.png');
+    await page.keyboard.press('Escape');
+    fixture.fail(200);
+    await page.evaluate(()=>window.dispatchEvent(new CustomEvent('daily-space-auth-updated')));
+    await page.waitForFunction(()=>document.querySelector('.workspace-save-status')?.textContent.includes('已同步到云端'));
+    assert.ok(await page.evaluate(()=>window.DailySpaceTodo.getTasks().some(task=>task.text==='Offline desktop note survives expiry')));
   });
 
   await t.test("Travel edits trips and places from itinerary, reorders, and shows bookings and personal spend in travel day mode",async()=>{
@@ -1709,6 +1796,229 @@ test("browser interactions on desktop and touch screens", { timeout: 120_000 }, 
     assert.equal(await page.locator("#cal-search-input").inputValue(), "Draft appointment");
     await page.setViewportSize({ width: 1280, height: 900 });
     await captureMail(page, "calendar-desktop-dark.png");
+  });
+
+  async function seedMonthlyLedger(page) {
+    await seedWorkspace(page);
+    await page.addInitScript(() => {
+      if (sessionStorage.getItem("month-ledger-fixture")) return;
+      sessionStorage.setItem("month-ledger-fixture", "1");
+      localStorage.setItem("tally-book-v1", JSON.stringify({ baseCurrency: "CNY", budget: 3000, records: [
+        { id: "month-first", date: "2024-02-01", amount: 100, currency: "CNY", category: "Groceries", scope: "personal" },
+        { id: "month-usd", date: "2024-02-29", amount: 10, currency: "USD", fxRate: 7.2, category: "Transport", scope: "personal", tripId: "focus-trip", tripName: "Kyoto" },
+        { id: "month-last", date: "2024-02-29", amount: 20, currency: "CNY", category: "Coffee", scope: "personal" },
+        { id: "month-shared", date: "2024-02-29", amount: 90, currency: "CNY", category: "Dinner together", scope: "shared" },
+        { id: "other-month", date: "2024-03-01", amount: 500, currency: "CNY", category: "Rent", scope: "personal" },
+      ] }));
+      sessionStorage.setItem("daily-space-view:guest:tally", JSON.stringify({ year: 2024, month: 2, mode: "personal", layout: "list", day: "2024-02-29" }));
+    });
+  }
+
+  await t.test("Tally month view sums converted daily expenses, adds and edits selected dates, and restores navigation", async () => {
+    const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await seedMonthlyLedger(page);
+    await page.goto(`${base}/tally.html`, { waitUntil: "load" });
+    assert.equal(await page.locator("#tally-month-view").isVisible(), false);
+    assert.equal(await page.locator(".tally-record").count(), 3);
+    await page.locator('[data-tally-layout="month"]').tap();
+    assert.equal(await page.locator("[data-tally-day]").count(), 29);
+    assert.equal(await page.locator("#tally-month-grid > :first-child").getAttribute("aria-hidden"), "true");
+    assert.equal(await page.locator("#tally-calendar-total").textContent(), "CN¥192.00");
+    assert.equal(await page.locator("#tally-calendar-average").textContent(), "CN¥6.62");
+    assert.match(await page.locator('[data-tally-day="2024-02-29"]').getAttribute("aria-label"), /CN¥92\.00 · 2 expenses/);
+    assert.equal(await page.locator(".tally-record").count(), 2);
+    await page.locator('[data-tally-day="2024-02-01"]').tap();
+    assert.equal(await page.locator(".tally-record").count(), 1);
+    assert.ok(await page.locator('[data-record-id="month-first"]').isVisible());
+    await page.locator('[data-tally-day="2024-02-02"]').tap();
+    assert.equal(await page.locator("#tally-record-list").isVisible(), false);
+    assert.equal(await page.locator("#tally-empty").textContent(), "No expenses on this day.");
+    assert.equal(await page.locator("#tally-empty-cta").isVisible(), false);
+    await page.locator("#tally-day-add").tap();
+    assert.equal(await page.locator("#tally-date").inputValue(), "2024-02-02");
+    await page.locator("#tally-amount").fill("12.50"); await page.locator("#tally-category").fill("Breakfast");
+    await page.locator("#tally-submit").tap(); await page.locator("#tally-add-sheet").waitFor({ state: "hidden" });
+    assert.equal(await page.locator("#tally-calendar-total").textContent(), "CN¥204.50");
+    assert.match(await page.locator("#tally-day-meta").textContent(), /CN¥12\.50/);
+    await page.locator(".tally-record").tap(); await page.locator("#tally-date").fill("2024-03-01");
+    await page.locator("#tally-submit").tap(); await page.locator("#tally-add-sheet").waitFor({ state: "hidden" });
+    assert.equal(await page.locator('[data-tally-day="2024-03-01"]').getAttribute("aria-pressed"), "true");
+    assert.equal(await page.locator("#tally-calendar-total").textContent(), "CN¥512.50");
+    await page.locator('[data-tally-day="2024-03-31"]').tap(); await page.locator("#tally-prev").tap();
+    assert.equal(await page.locator('[data-tally-day="2024-02-29"]').getAttribute("aria-pressed"), "true");
+    await page.locator('[data-tally-view="shared"]').tap();
+    assert.equal(await page.locator("#tally-calendar-total").textContent(), "CN¥90.00");
+    assert.equal(await page.locator(".tally-record").count(), 1);
+    assert.ok(await page.locator('[data-record-id="month-shared"]').isVisible());
+    await page.locator('[data-tally-view="personal"]').tap();
+    await page.locator('[data-record-id="month-usd"] .tally-record-delete').tap();
+    assert.equal(await page.locator("#tally-calendar-total").textContent(), "CN¥120.00");
+    assert.equal(await page.locator('[data-tally-day="2024-02-29"] .tally-month-amount').textContent(), "20");
+    await page.locator("#undo-bar button").tap();
+    assert.equal(await page.locator("#tally-calendar-total").textContent(), "CN¥192.00");
+    await page.locator('[data-tally-layout="list"]').tap();
+    assert.equal(await page.locator(".tally-record").count(), 3);
+    await page.locator('[data-tally-layout="month"]').tap();
+    await page.reload({ waitUntil: "load" });
+    assert.equal(await page.locator('[data-tally-layout="month"]').getAttribute("aria-pressed"), "true");
+    assert.equal(await page.locator('[data-tally-day="2024-02-29"]').getAttribute("aria-pressed"), "true");
+    await page.locator('[data-rail-page="calendar"]').tap(); await page.waitForURL("**/calendar.html");
+    await page.locator('[data-rail-page="tally"]').tap(); await page.waitForURL("**/tally.html");
+    assert.equal(await page.locator('[data-tally-day="2024-02-29"]').getAttribute("aria-pressed"), "true");
+  });
+
+  await t.test("Tally month view keeps full touch targets, focused days and keyboard navigation through updates", async () => {
+    const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await seedMonthlyLedger(page);
+    await page.goto(`${base}/tally.html`, { waitUntil: "load" });
+    await page.locator('[data-tally-layout="month"]').tap();
+    for (const width of [320, 390, 1280]) {
+      await page.setViewportSize({ width, height: 844 });
+      const sizes = await page.locator("[data-tally-day]").evaluateAll(nodes => nodes.map(node => { const r = node.getBoundingClientRect(); return { width: r.width, height: r.height }; }));
+      assert.ok(sizes.every(size => size.width >= 44 && size.height >= 44), JSON.stringify({ width, sizes }));
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `No overflow at ${width}px`);
+    }
+    await page.locator('[data-tally-day="2024-02-29"]').focus();
+    await page.evaluate(() => {
+      window.keptMonthDay = document.activeElement;
+      const state = JSON.parse(localStorage.getItem("tally-book-v1"));
+      state.records.find(record => record.id === "month-usd").amount = 1234567;
+      localStorage.setItem("tally-book-v1", JSON.stringify(state));
+      window.dispatchEvent(new CustomEvent("daily-space-agent-data-updated", { detail: { domains: ["tally"] } }));
+    });
+    assert.equal(await page.evaluate(() => document.activeElement === window.keptMonthDay), true);
+    assert.equal(await page.locator('[data-tally-day="2024-02-29"] .tally-month-amount').textContent(), "8.9m");
+    assert.match(await page.locator('[data-tally-day="2024-02-29"]').getAttribute("aria-label"), /CN¥8888902\.40/);
+    await page.keyboard.press("ArrowRight");
+    assert.equal(await page.evaluate(() => document.activeElement.dataset.tallyDay), "2024-03-01");
+    await page.keyboard.press("ArrowLeft"); await page.keyboard.press("ArrowUp");
+    assert.equal(await page.evaluate(() => document.activeElement.dataset.tallyDay), "2024-02-22");
+    assert.equal(await page.locator('[data-tally-day="2024-02-22"]').getAttribute("aria-pressed"), "true");
+    await page.setViewportSize({ width: 320, height: 568 });
+    await page.evaluate(() => window.DailySpaceI18n.setLocale("zh"));
+    assert.equal(await page.locator('[data-tally-layout="month"]').textContent(), "月历");
+    assert.match(await page.locator("#tally-day-meta").textContent(), /0 笔支出/);
+    await page.locator("#tally-add-open").tap();
+    assert.equal(await page.locator("#tally-date").inputValue(), "2024-02-22");
+    await page.locator("#tally-add-sheet").waitFor({ state: "visible" });
+    const save = await page.locator("#tally-submit").boundingBox();
+    assert.ok(save.y >= 0 && save.y + save.height <= 568);
+    await page.goBack(); await page.locator("#tally-add-sheet").waitFor({ state: "hidden" });
+    await page.locator('[data-tally-day="2024-02-23"]').tap(); await page.locator("#tally-day-add").tap();
+    assert.equal(await page.locator("#tally-date").inputValue(), "2024-02-23", "An empty sheet must not leave a stale date-only draft");
+    await page.goBack(); await page.locator("#tally-add-sheet").waitFor({ state: "hidden" });
+    await page.evaluate(() => window.DailySpaceI18n.setLocale("en"));
+    assert.equal(await page.locator('[data-tally-layout="month"]').textContent(), "Month");
+    assert.equal(await page.locator("#tally-empty").textContent(), "No expenses on this day.");
+    await page.locator('[data-tally-day="2024-02-23"]').focus(); await page.keyboard.press("ArrowDown");
+    const focused = await page.locator('[data-tally-day="2024-03-01"]').boundingBox();
+    const capture = await page.locator("#tally-add-open").boundingBox();
+    assert.ok(focused.y >= 0 && focused.y + focused.height <= capture.y, "Keyboard day navigation clears the fixed capture and dock");
+  });
+
+  await t.test("Tally month preferences stay account scoped and drafts, trip filters and expense links retain their dates", async () => {
+    const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await seedMonthlyLedger(page);
+    await page.goto(`${base}/tally.html`, { waitUntil: "load" });
+    await page.locator('[data-tally-layout="month"]').tap(); await page.locator('[data-tally-day="2024-02-01"]').tap();
+    await page.locator("#tally-day-add").tap(); await page.locator("#tally-amount").fill("8"); await page.locator("#tally-category").fill("Draft breakfast");
+    await page.goBack(); await page.locator("#tally-add-sheet").waitFor({ state: "hidden" });
+    await page.locator('[data-tally-day="2024-02-29"]').tap(); await page.locator("#tally-day-add").tap();
+    assert.equal(await page.locator("#tally-amount").inputValue(), "8");
+    assert.equal(await page.locator("#tally-date").inputValue(), "2024-02-01", "A meaningful draft keeps its own date");
+    await page.locator("#tally-submit").tap(); await page.locator("#tally-add-sheet").waitFor({ state: "hidden" });
+    await page.goto(`${base}/tally.html?focus=expense&id=month-usd`, { waitUntil: "load" });
+    await page.locator("#tally-add-sheet").waitFor({ state: "visible" });
+    assert.equal(await page.locator("#tally-date").inputValue(), "2024-02-29");
+    assert.equal(await page.locator("#tally-record-currency").inputValue(), "USD");
+    await page.goBack(); await page.locator("#tally-add-sheet").waitFor({ state: "hidden" });
+    assert.equal(await page.locator('[data-tally-day="2024-02-29"]').getAttribute("aria-pressed"), "true");
+    await page.goto(`${base}/tally.html?tripFilter=focus-trip`, { waitUntil: "load" });
+    assert.equal(await page.locator("#tally-calendar-total").textContent(), "CN¥72.00");
+    await page.locator(".tally-trip-filter").tap();
+    assert.equal(await page.locator("#tally-calendar-total").textContent(), "CN¥200.00");
+    await page.locator('[data-tally-view="shared"]').tap(); await page.locator('[data-tally-day="2024-02-03"]').tap();
+    await page.locator("#tally-quick-options > summary").tap();
+    await page.locator("#tally-quick-amount").fill("15"); await page.locator("#tally-quick-category").fill("Shared quick entry");
+    await page.locator("#tally-quick-form button[type=submit]").tap();
+    const quickRecord = await page.evaluate(() => JSON.parse(localStorage.getItem("tally-book-v1")).records.find(record => record.category === "Shared quick entry"));
+    assert.equal(quickRecord.date, "2024-02-03"); assert.equal(quickRecord.scope, "shared");
+    assert.equal(await page.locator("#tally-calendar-total").textContent(), "CN¥105.00");
+    await page.locator('[data-tally-view="personal"]').tap(); await page.locator('[data-tally-day="2024-02-29"]').tap();
+    await page.evaluate(() => {
+      sessionStorage.setItem("daily-space-view:other@gmail.com:tally", JSON.stringify({ year: 2025, month: 2, mode: "shared", layout: "list", day: "2025-02-14" }));
+      localStorage.setItem("daily-space-auth-v1", JSON.stringify({ email: "other@gmail.com", provider: "Google", label: "Other" }));
+      window.dispatchEvent(new CustomEvent("daily-space-auth-updated"));
+    });
+    assert.equal(await page.locator('[data-tally-layout="list"]').getAttribute("aria-pressed"), "true");
+    assert.equal(await page.locator('[data-tally-view="shared"]').getAttribute("aria-pressed"), "true");
+    assert.match(await page.locator("#tally-month-title").textContent(), /2025/);
+    await page.evaluate(() => { localStorage.removeItem("daily-space-auth-v1"); window.dispatchEvent(new CustomEvent("daily-space-auth-updated")); });
+    assert.equal(await page.locator('[data-tally-layout="month"]').getAttribute("aria-pressed"), "true");
+    assert.equal(await page.locator('[data-tally-day="2024-02-29"]').getAttribute("aria-pressed"), "true");
+  });
+
+  await t.test("Tally saves amount-only expenses without opening options and keeps custom base currencies selected", async () => {
+    for (const [width, currency] of [[390,'CNY'],[320,'MYR'],[1280,'AUD']]) {
+      const page=await pageFor({viewport:{width,height:844},isMobile:width<820,hasTouch:width<820});
+      await seedWorkspace(page);
+      await page.addInitScript(code=>{if(sessionStorage.getItem('capture-currency-fixture'))return;sessionStorage.setItem('capture-currency-fixture','1');const state=JSON.parse(localStorage.getItem('tally-book-v1'));state.baseCurrency=code;localStorage.setItem('tally-book-v1',JSON.stringify(state));},currency);
+      await page.goto(`${base}/tally.html`,{waitUntil:'load'});
+      await page.locator('#tally-add-open').click();
+      assert.equal(await page.locator('#tally-record-currency').inputValue(),currency);
+      assert.equal(await page.locator('#tally-extra-options').evaluate(node=>node.open),false);
+      assert.equal(await page.locator('#tally-fx-rate').isDisabled(),true);
+      const day=await page.locator('#tally-date').inputValue();
+      await page.locator('#tally-amount').fill('35.75');
+      if(width===390) await captureMail(page,'tally-simple-entry-390.png');
+      await page.locator('#tally-submit').click(); await page.locator('#tally-add-sheet').waitFor({state:'hidden'});
+      const record=await page.evaluate(()=>JSON.parse(localStorage.getItem('tally-book-v1')).records[0]);
+      assert.equal(record.amount,35.75); assert.equal(record.category,'Other');assert.equal(record.currency,currency);assert.equal(record.date,day);assert.equal(record.scope,'personal');assert.equal(record.fxRate,1);
+      await page.locator('#tally-add-open').click(); await page.locator('#tally-amount').fill('20'); await page.locator('#tally-category').fill('A new category typed directly');
+      await page.locator('#tally-submit').click(); await page.locator('#tally-add-sheet').waitFor({state:'hidden'});
+      assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('tally-book-v1')).records.filter(record=>record.category==='A new category typed directly').length),1);
+      await page.evaluate(()=>window.DailySpaceI18n.setLocale('zh'));
+      await page.locator('#tally-quick-options > summary').click(); await page.locator('#tally-quick-amount').fill('6.50');
+      await page.locator('#tally-quick-form button[type=submit]').click();
+      assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('tally-book-v1')).records[0].category),'其他');
+      assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+    }
+  });
+
+  await t.test("Tally explains invalid amounts, hidden rates and missing split participants beside Save", async () => {
+    const page=await pageFor({viewport:{width:390,height:420},isMobile:true,hasTouch:true}); await seedWorkspace(page);
+    const nextFx=await holdFxRequests(page);
+    await page.goto(`${base}/tally.html`,{waitUntil:'load'}); await page.locator('#tally-add-open').click();
+    const original=await page.evaluate(()=>JSON.parse(localStorage.getItem('tally-book-v1')).records.length);
+    await page.locator('#tally-amount').fill('0'); await page.locator('#tally-submit').click();
+    assert.ok((await page.locator('#tally-form-error').textContent()).includes('0.01'));
+    assert.equal(await page.evaluate(()=>document.activeElement.id),'tally-amount');
+    await page.locator('#tally-amount').fill('12');
+    assert.equal(await page.locator('#tally-form-error').isVisible(),false);
+    await page.locator('#tally-extra-options > summary').click(); await page.locator('#tally-record-currency').selectOption('USD');
+    const request=await nextFx(); assert.equal(await page.locator('#tally-submit').isDisabled(),true);
+    assert.equal(await page.locator('#tally-submit').textContent(),'Fetching rate…');
+    await request.reply(null,503); await page.waitForFunction(()=>!document.getElementById('tally-submit').disabled);
+    await page.evaluate(()=>document.getElementById('tally-extra-options').open=false);
+    await page.locator('#tally-submit').click();
+    assert.equal(await page.locator('#tally-extra-options').evaluate(node=>node.open),true);
+    assert.equal(await page.evaluate(()=>document.activeElement.id),'tally-fx-rate');
+    assert.ok((await page.locator('#tally-form-error').textContent()).includes('exchange rate'));
+    const save=await page.locator('#tally-submit').boundingBox();assert.ok(save.y>=0 && save.y+save.height<=420);
+    await captureMail(page,'tally-rate-error-390-420.png');
+    await page.locator('#tally-record-currency').selectOption('CNY'); await page.locator('#tally-scope').selectOption('shared');
+    for(const checkbox of await page.locator('#tally-split-people input').all()) await checkbox.uncheck();
+    await page.evaluate(()=>document.getElementById('tally-extra-options').open=false); await page.locator('#tally-submit').click();
+    assert.ok((await page.locator('#tally-form-error').textContent()).includes('at least one person'));
+    const person=await page.locator('#tally-split-people .tally-person-check span').first().boundingBox(); assert.ok(person.height>=44);
+    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('tally-book-v1')).records.length),original);
+    await page.locator('#tally-split-people input').first().check(); await page.locator('#tally-submit').click();await page.locator('#tally-add-sheet').waitFor({state:'hidden'});
+    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('tally-book-v1')).records.length),original+1);
+    // A saved foreign currency outside the preset list must also survive editing.
+    await page.evaluate(()=>{const state=JSON.parse(localStorage.getItem('tally-book-v1'));state.records[0].currency='NZD';state.records[0].fxRate=4.2;localStorage.setItem('tally-book-v1',JSON.stringify(state));window.dispatchEvent(new CustomEvent('daily-space-agent-data-updated',{detail:{domains:['tally']}}));});
+    await page.locator('.tally-record').first().click(); assert.equal(await page.locator('#tally-record-currency').inputValue(),'NZD');
+    await page.locator('#tally-submit').click(); await page.locator('#tally-add-sheet').waitFor({state:'hidden'});
+    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('tally-book-v1')).records[0].currency),'NZD');
   });
 
   await t.test("phone Tally saves editor drafts, exposes tools and preserves the selected month", async () => {

@@ -128,12 +128,29 @@
           </section>
           <section class="tally-transactions" aria-label="Expense records">
             <div class="tally-records-head">
-              <h2>Transactions</h2>
-              <span><b id="tally-month-total">¥0.00</b> this month</span>
+              <div class="tally-records-title"><h2>Transactions</h2><span id="tally-list-total"><b id="tally-month-total">¥0.00</b> this month</span></div>
+              <div class="tally-layout-switch" id="tally-layout-switch" role="group" aria-label="Transactions view" data-i18n-ignore>
+                <button type="button" data-tally-layout="list" aria-pressed="true">List</button>
+                <button type="button" data-tally-layout="month" aria-pressed="false" aria-controls="tally-month-view">Month</button>
+              </div>
+            </div>
+            <section class="tally-month-view" id="tally-month-view" aria-label="Monthly spending" data-i18n-ignore hidden>
+              <p class="tally-month-hint" id="tally-month-hint"></p>
+              <div class="tally-month-weekdays" id="tally-month-weekdays" aria-hidden="true"></div>
+              <div class="tally-month-grid" id="tally-month-grid" role="group" aria-labelledby="tally-month-title" aria-describedby="tally-month-hint"></div>
+              <dl class="tally-month-stats">
+                <div><dt id="tally-calendar-total-label">Month total</dt><dd id="tally-calendar-total"></dd></div>
+                <div><dt id="tally-calendar-average-label">Daily average</dt><dd id="tally-calendar-average" aria-describedby="tally-average-note"></dd></div>
+              </dl>
+              <p class="tally-month-hint" id="tally-average-note"></p>
+            </section>
+            <div class="tally-day-summary" id="tally-day-summary" data-i18n-ignore hidden>
+              <div aria-live="polite" aria-atomic="true"><h3 id="tally-day-title"></h3><p id="tally-day-meta"></p></div>
+              <button type="button" id="tally-day-add">Add expense</button>
             </div>
             <ul class="tally-record-list" id="tally-record-list"></ul>
             <div class="tally-empty-panel" id="tally-empty-panel" hidden>
-              <p class="tally-empty-kicker">This month</p>
+              <p class="tally-empty-kicker" id="tally-empty-kicker">This month</p>
               <p class="tally-empty" id="tally-empty">No expenses this month.</p>
               <button type="button" class="btn btn-primary tally-empty-cta" id="tally-empty-cta">Add expense</button>
             </div>
@@ -155,7 +172,7 @@
               type="text"
               id="tally-quick-category"
               class="tally-quick-category"
-              placeholder="What for?"
+              placeholder="What for? (optional)"
               maxlength="40"
               aria-label="Category"
             />
@@ -189,11 +206,11 @@
                 </div>
                 <button type="button" class="tally-sheet-close" data-dialog-close id="tally-add-close" aria-label="Close expense sheet">×</button>
               </div>
-              <form class="tally-form" id="tally-form" autocomplete="off">
+              <form class="tally-form" id="tally-form" autocomplete="off" novalidate>
                 <label>Amount<input type="number" min="0.01" step="0.01" inputmode="decimal" id="tally-amount" placeholder="0.00" required /></label>
                 <label class="tally-category-field">
-                  Category
-                  <input type="text" id="tally-category" list="tally-category-options" placeholder="Coffee, groceries..." maxlength="40" required autocomplete="off" />
+                  Category (optional)
+                  <input type="text" id="tally-category" list="tally-category-options" placeholder="Optional, defaults to Other" maxlength="40" autocomplete="off" />
                   <datalist id="tally-category-options"></datalist>
                   <div class="tally-category-suggestions" id="tally-category-suggestions" hidden></div>
                 </label>
@@ -212,7 +229,7 @@
                     </label>
                     <label>
                       Currency
-                      <select id="tally-record-currency">
+                      <select id="tally-record-currency" required>
                         <option value="JPY">JPY</option>
                         <option value="CNY">CNY</option>
                         <option value="USD">USD</option>
@@ -241,7 +258,7 @@
                   </div>
                 </details>
               </form>
-              <footer class="tally-sheet-footer"><button type="submit" class="tally-submit-btn" id="tally-submit" form="tally-form">Add transaction</button></footer>
+              <footer class="tally-sheet-footer"><p class="tally-form-error" id="tally-form-error" role="alert" data-i18n-ignore hidden></p><button type="submit" class="tally-submit-btn" id="tally-submit" form="tally-form">Add transaction</button></footer>
             </section>
           </div>
         </div>
