@@ -23,6 +23,15 @@ body.todo-mobile.task-selecting .m-task-controls .task-selection-head { flex: 1;
 .workspace-save-status { height: 44px; min-height: 44px; margin: 0; flex-wrap: nowrap; color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
 .workspace-save-status > span { min-width: 0; max-height: 100%; overflow-y: auto; overflow-wrap: anywhere; }
 .workspace-save-status > button { flex-shrink: 0; }
+html[data-workspace-locked="true"] .main-area { display: none !important; }
+[data-workspace-isolated="true"] { display: none !important; }
+.workspace-account-gate { flex: 1; min-width: 0; width: min(100%, 48rem); margin-inline: auto; padding: var(--space-lg) var(--space-md); color: var(--text); }
+.workspace-account-gate[hidden] { display: none; }
+.workspace-account-gate h2 { margin: 0 0 var(--space-md); font: var(--phone-title-weight) var(--phone-title-size)/var(--phone-title-lh) var(--font-ui); }
+.workspace-account-gate p { margin: 0 0 var(--space-md); color: var(--text-muted); font: var(--phone-body-weight) var(--phone-body-size)/var(--phone-body-lh) var(--font-ui); overflow-wrap: anywhere; }
+.workspace-account-gate-actions { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
+.workspace-account-gate button { min-width: 44px; min-height: 44px; padding: var(--space-sm) var(--space-md); border: 1px solid var(--quiet-line); border-radius: var(--radius-pill); color: var(--text); background: var(--surface); font: var(--phone-action-weight) var(--phone-action-size)/var(--phone-action-lh) var(--font-ui); cursor: pointer; }
+.workspace-account-gate button:first-child { color: var(--on-primary); background: var(--primary); border-color: var(--primary); }
 .auth-conflict-actions { display: grid; gap: var(--space-sm); }
 .auth-conflict-actions[hidden] { display: none; }
 .auth-conflict-actions button { min-height: 44px; }
@@ -831,6 +840,12 @@ body.tally-page .tally-form input,
 body.tally-page .tally-form select { font-size: var(--phone-body-size); min-height: 48px; }
 body.tally-page .tally-sheet-footer { padding: var(--space-md); padding-bottom: max(var(--space-md), env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--quiet-line); flex-shrink: 0; }
 body.tally-page .tally-sheet-footer button { width: 100%; min-height: 52px; }
+body.tally-page .tally-sheet-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-sm); }
+body.tally-page .tally-sheet-actions:has(#tally-save-another[hidden]) { grid-template-columns: minmax(0, 1fr); }
+body.tally-page .tally-sheet-actions > button { grid-column: auto; min-width: 0; padding: var(--space-sm); font: var(--phone-action-weight) var(--phone-action-size)/var(--phone-action-lh) var(--font-ui); white-space: normal; }
+body.tally-page #tally-save-another { order: -1; background: var(--surface); color: var(--text); border: 1px solid var(--quiet-line); border-radius: var(--radius-pill); box-shadow: none; cursor: pointer; }
+body.tally-page #tally-entry-status { margin: 0 0 var(--space-sm); color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); overflow-wrap: anywhere; }
+body.tally-page :is(#tally-save-another, #tally-entry-status)[hidden] { display: none; }
 body.tally-page .tally-form-error { margin: 0 0 var(--space-sm); color: var(--danger); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); overflow-wrap: anywhere; }
 body.tally-page .tally-form-error[hidden] { display: none; }
 body.tally-page .tally-person-check span { display: flex; align-items: center; min-height: 44px; }

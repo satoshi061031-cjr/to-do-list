@@ -44,7 +44,7 @@
       categoryName: categories.find(category => category.id === task.categoryId)?.name || '' })) });
   }
   function instantiate(raw, day) { return template(raw).items.map(item => ({ ...item, dueDate: addDays(day, item.offsetDays), subtasks: item.subtasks.map(sub => ({ id: uid(), text: sub.text, completed: false })), repeat: null })); }
-  function parseCsv(source) {
+  function parseCsv(source, limit = 1000) {
     const input = String(source).replace(/^\uFEFF/, ''); const rows = []; let row = [], cell = '', quoted = false, afterQuote = false;
     for (let i=0; i<input.length; i++) {
       const char = input[i];
@@ -55,7 +55,7 @@
       else { if (afterQuote && char.trim()) fail('Invalid CSV quoting.'); if (!afterQuote) cell += char; }
     }
     if (quoted) fail('Unclosed CSV quote.'); row.push(cell); if (row.some(value => value.trim())) rows.push(row);
-    if (rows.length < 2 || rows.length > 1001) fail('CSV needs a header and 1–1000 rows.');
+    if (rows.length < 2 || rows.length > limit + 1) fail(limit === Infinity ? 'CSV needs a header and at least one data row.' : 'CSV needs a header and 1–1000 rows.');
     const headers = rows.shift().map(value => value.trim()); if (new Set(headers).size !== headers.length) fail('Duplicate CSV column.');
     return rows.map((values, index) => { if (values.length !== headers.length) fail(`CSV row ${index+2} has the wrong number of columns.`); return Object.fromEntries(headers.map((key,i) => [key,values[i]])); });
   }
@@ -70,7 +70,9 @@
     return /[",\r\n]/.test(safe)?`"${safe.replace(/"/g,'""')}"`:safe;
   }
   function csvPayload(source, kind, current) {
-    const rows = parseCsv(source), seen = new Map(); const records = rows.map(row => {
+    // Ledger history is bounded by the file and merged-workspace byte ceilings,
+    // not a count that would prevent restoring a valid device backup.
+    const rows = parseCsv(source, kind === 'tally' ? Infinity : 1000), seen = new Map(); const records = rows.map(row => {
       if(row._format==='daily-space-csv-v1')for(const key of Object.keys(row)){if(/^'(?:[=+@-]|')/.test(row[key]))row[key]=row[key].slice(1);}
       const pick = (...keys) => keys.map(key => row[key]).find(value => value !== undefined)?.trim() || '';
       let value;
@@ -95,7 +97,7 @@
       array(raw.people,24).forEach(person=>{identity(person.id);if(!text(person.name,60))fail('Invalid person.');});
       const state = Tally.normalizeState({ ...raw, records: [] });
       if (array(raw.people,24).length && new Set(raw.people.map(person=>person.id)).size !== raw.people.length) fail('Duplicate people in file.');
-      state.records = unique(array(raw.records,1000).map(item => {
+      state.records = unique(array(raw.records,Infinity).map(item => {
         if (!date(item?.date) || !Number.isFinite(Number(item.amount)) || Number(item.amount)<=0 || Number(item.amount)>1e12 || !text(item.category,40)) fail('Invalid expense.');
         if (item.currency && !validCurrency(item.currency)) fail('Invalid currency.');
         const currency = Tally.currencyCode(item.currency,state.baseCurrency);
@@ -139,7 +141,19 @@
         for(const [id,board]of Object.entries(imported.boards)){const old=boards[id]||{columns:[],entries:[]};const columns=merge(old.columns,board.columns),entries=merge(old.entries,board.entries);boards[id]={...old,columns:columns.items,entries:entries.items};added+=columns.added+entries.added;skipped+=columns.skipped+entries.skipped;}
         result={...imported,...local,planners:records.items,boards,selectedPlannerId:local.selectedPlannerId||imported.selectedPlannerId};summary.push({key,added,skipped});
       }
-      else if(key==='tally-book-v1'){const old=Tally.normalizeState(local);if(old.records.length&&old.baseCurrency!==imported.baseCurrency)fail('The backup and current ledger use different base currencies.');const base=old.records.length?old:imported;const idMap=id=>id===imported.selfPersonId?base.selfPersonId:id;const people=merge(base.people,imported.people.filter(person=>person.id!==imported.selfPersonId));if(people.items.length>24)fail('Too many people after merge.');const records=merge(old.records,imported.records.map(record=>({...record,paidById:idMap(record.paidById),splitAmongIds:record.splitAmongIds.map(idMap)})));if(records.items.length>1000)fail('Too many expenses after merge.');result={...base,people:people.items,records:records.items,tripBudgets:{...imported.tripBudgets,...old.tripBudgets},settlements:merge(old.settlements||[],imported.settlements||[]).items};summary.push({key,...records,items:undefined});}
+      else if(key==='tally-book-v1'){
+        const old=Tally.normalizeState(local);
+        const hasLocalHistory=old.records.length||old.settlements.length||Object.keys(old.tripBudgets).length;
+        if(hasLocalHistory&&old.baseCurrency!==imported.baseCurrency)fail('The backup and current ledger use different base currencies.');
+        const base=hasLocalHistory?old:imported;
+        const idMap=id=>id===imported.selfPersonId?base.selfPersonId:id;
+        const people=merge(base.people,imported.people.filter(person=>person.id!==imported.selfPersonId));
+        if(people.items.length>24)fail('Too many people after merge.');
+        const records=merge(old.records,imported.records.map(record=>({...record,paidById:idMap(record.paidById),splitAmongIds:record.splitAmongIds.map(idMap)})));
+        const settlements=merge(old.settlements,imported.settlements.map(item=>({...item,fromId:idMap(item.fromId),toId:idMap(item.toId)})));
+        result={...base,people:people.items,records:records.items,tripBudgets:{...imported.tripBudgets,...old.tripBudgets},settlements:settlements.items};
+        summary.push({key,...records,items:undefined});
+      }
       else if(key==='travel-book-v1'){
         const records=merge(local.trips||[],imported.trips);let added=records.added,skipped=records.skipped;
         result={...imported,...local,trips:records.items.map(trip=>{const source=imported.trips.find(item=>item.id===trip.id);const existed=(local.trips||[]).some(item=>item.id===trip.id);if(!source||!existed)return trip;const stops=merge(trip.stops||[],source.stops),reservations=merge(trip.reservations||[],source.reservations);added+=stops.added+reservations.added;skipped+=stops.skipped+reservations.skipped;return{...trip,stops:stops.items,reservations:reservations.items};})};summary.push({key,added,skipped});

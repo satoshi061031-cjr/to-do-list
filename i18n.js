@@ -8,6 +8,15 @@
   let originalTitle = "";
 
   const ZH = {
+    "CSV needs a header and at least one data row.": "CSV 需要表头和至少一行数据。",
+    "Device storage failed — export a backup and retry": "本机存储失败 — 请导出备份后重试",
+    "Guest work and cloud data differ —": "访客内容与云端数据不同 —",
+    "Guest work is backed up on this device. Choose this work or your cloud data.": "访客内容已备份到本机，请选择保留当前内容还是使用云端数据。",
+    "Sync is paused. Free device storage or export a backup before retrying.": "同步已暂停，请释放本机存储空间或导出备份后重试。",
+    "Save and add another": "保存并继续",
+    "Request timed out. Please try again.": "请求超时，请重试。",
+    "Mail refresh timed out. Your previous mail and selection are still here.": "邮件刷新超时，已保留原有邮件和选择。",
+    "Mailbox check timed out. Try again.": "邮箱连接检查超时，请重试。",
     "Category (optional)": "分类（可选）",
     "Optional, defaults to Other": "可不填，默认记为其他",
     "What for? (optional)": "用途（可选）",

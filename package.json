@@ -15,7 +15,7 @@
     "cap:run:android": "npm run cap:sync && npx cap run android",
     "cap:run:ios": "npm run cap:sync && npx cap run ios",
     "db:backup": "node --experimental-sqlite --disable-warning=ExperimentalWarning scripts/backup-db.js",
-    "test:ui": "node --experimental-sqlite --disable-warning=ExperimentalWarning --test tests/ui-interactions.test.js",
+    "test:ui": "node --experimental-sqlite --disable-warning=ExperimentalWarning --test --test-concurrency=1 tests/ui-interactions.test.js tests/data-integrity-ui.test.js tests/planner-isolation.test.js tests/mail-timeout-ui.test.js",
     "test:widget": "node --test tests/native-widget.test.js"
   },
   "engines": {

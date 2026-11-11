@@ -85,6 +85,7 @@
               <span>Base currency</span>
               <input type="text" id="tally-currency" class="tally-currency-input" list="tally-currency-options" maxlength="8" placeholder="JPY" />
             </label>
+            <p class="tally-card-note" id="tally-currency-note" role="status" data-i18n-ignore hidden></p>
             <datalist id="tally-currency-options">
               <option value="JPY"></option>
               <option value="CNY"></option>
@@ -178,6 +179,7 @@
             />
             <button type="submit" class="btn btn-primary tally-quick-submit">Add</button>
           </form>
+          <p class="tally-form-error" id="tally-quick-error" role="alert" data-i18n-ignore hidden></p>
 
           </details>
           <details class="tally-insights" id="tally-insights"><summary>This week</summary>
@@ -258,7 +260,7 @@
                   </div>
                 </details>
               </form>
-              <footer class="tally-sheet-footer"><p class="tally-form-error" id="tally-form-error" role="alert" data-i18n-ignore hidden></p><button type="submit" class="tally-submit-btn" id="tally-submit" form="tally-form">Add transaction</button></footer>
+              <footer class="tally-sheet-footer"><p class="tally-form-error" id="tally-form-error" role="alert" data-i18n-ignore hidden></p><p class="tally-entry-status" id="tally-entry-status" role="status" data-i18n-ignore hidden></p><div class="tally-sheet-actions"><button type="submit" class="tally-submit-btn" id="tally-submit" form="tally-form">Add transaction</button><button type="submit" class="tally-save-another" id="tally-save-another" form="tally-form">Save and add another</button></div></footer>
             </section>
           </div>
         </div>

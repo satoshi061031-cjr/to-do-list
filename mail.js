@@ -66,7 +66,12 @@
   let authUserId = "";
   let authRequestId = 0;
   let activeController = null;
+  let authController = null;
+  let bookingController = null;
   let bookingRequestId = 0;
+  let mailGeneration = 0;
+  const pendingRequests = new Set();
+  const REQUEST_TIMEOUT_MS = 20000;
   const inboxCache = new Map();
 
   function todayIso() {
@@ -375,11 +380,19 @@
 
   function closeBookingSheet() {
     bookingRequestId++;
+    bookingController?.abort();
+    bookingController = null;
+    if (detailBooking) detailBooking.disabled = false;
+    if (importPdfBtn) importPdfBtn.disabled = false;
+    if (importPdfInput) importPdfInput.value = '';
     if (!bookingSheet) return;
     const wasOpen = !bookingSheet.hidden;
     bookingSheet.hidden = true;
     document.body.classList.remove("mail-booking-open");
     pendingBookingImport = null;
+    if (bookingSource) bookingSource.textContent = '';
+    if (bookingPreview) bookingPreview.replaceChildren();
+    if (bookingTripSelect) bookingTripSelect.replaceChildren();
     setBookingStatus("");
     if (wasOpen && detailSheet.hidden) requestAnimationFrame(() => {
       if (!tools.hidden) tools.querySelector("summary")?.focus({ preventScroll: true });
@@ -420,9 +433,8 @@
         )}</p>`;
 
     const travelApi = window.DailySpaceTravelBookings;
-    const trips = travelApi?.listTripsForImport
-      ? await travelApi.listTripsForImport()
-      : travelApi?.listTrips?.() || [];
+    const trips = await boundedMailOperation(() => travelApi?.listTripsForImport
+      ? travelApi.listTripsForImport() : travelApi?.listTrips?.() || [], { signal: bookingController?.signal });
     if (!isCurrent()) return;
     pending.trips = trips;
     pendingBookingImport = pending;
@@ -455,6 +467,9 @@
     const account = selectedAccount();
     if (!account || !message?.id) return;
     const requestId = ++bookingRequestId;
+    bookingController?.abort();
+    const controller = new AbortController();
+    bookingController = controller;
     const userId = authUserId;
     const isCurrent = () => requestId === bookingRequestId && userId === authUserId && selectedAccount()?.id === account.id;
     if (button) button.disabled = true;
@@ -469,15 +484,16 @@
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ today: todayIso(), lang }),
+          signal: controller.signal,
         }
       );
       if (!isCurrent()) return;
       await openBookingSheet(payload, `mail-booking:${account.id}:${message.id}`, isCurrent);
       if (isCurrent()) setInboxStatus("");
     } catch (error) {
-      if (isCurrent()) setInboxStatus(error.message || t("Booking import failed.", "预订导入失败。"), true);
+      if (isCurrent() && !isCanceled(error)) showBookingLoadError(error, () => parseMessageBooking(message, button));
     } finally {
-      if (button) button.disabled = false;
+      if (isCurrent()) { bookingController = null; if (button) button.disabled = false; }
     }
   }
 
@@ -493,21 +509,27 @@
     }
     if (importPdfBtn) importPdfBtn.disabled = true;
     const requestId = ++bookingRequestId;
+    bookingController?.abort();
+    const controller = new AbortController();
+    bookingController = controller;
     const userId = authUserId;
     const isCurrent = () => requestId === bookingRequestId && userId === authUserId && signedIn;
     setInboxStatus(t("Reading booking PDF…", "正在读取预订 PDF…"));
     try {
-      const pdfBase64 = await new Promise((resolve, reject) => {
+      const pdfBase64 = await boundedMailOperation(signal => new Promise((resolve, reject) => {
         const reader = new FileReader();
+        signal.addEventListener('abort', () => reader.abort(), { once: true });
         reader.onload = () => resolve(String(reader.result || "").split(",").pop() || "");
         reader.onerror = () => reject(reader.error || new Error("Unable to read PDF."));
         reader.readAsDataURL(file);
-      });
+      }), { signal: controller.signal });
+      if (!isCurrent()) return;
       const lang = window.DailySpaceI18n?.localeTag?.() || document.documentElement.lang || "en";
       const payload = await request("/api/mail/booking-import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ filename: file.name, pdfBase64, today: todayIso(), lang }),
+        signal: controller.signal,
       });
       if (!isCurrent()) return;
       await openBookingSheet(
@@ -517,45 +539,43 @@
       );
       if (isCurrent()) setInboxStatus("");
     } catch (error) {
-      if (isCurrent()) setInboxStatus(error.message || t("PDF import failed.", "PDF 导入失败。"), true);
+      if (isCurrent() && !isCanceled(error)) showBookingLoadError(error, () => parseBookingPdf(file));
     } finally {
-      if (importPdfBtn) importPdfBtn.disabled = false;
-      if (importPdfInput) importPdfInput.value = "";
+      if (isCurrent()) {
+        bookingController = null;
+        if (importPdfBtn) importPdfBtn.disabled = false;
+        if (importPdfInput) importPdfInput.value = "";
+      }
     }
   }
 
   async function confirmBookingImport() {
-    if (!pendingBookingImport || !bookingTripSelect) return;
+    if (!pendingBookingImport || !bookingTripSelect || bookingConfirm.disabled) return;
+    const pending = pendingBookingImport, requestId = bookingRequestId, userId = authUserId;
     const selected = bookingTripSelect.value;
-    const selectedTrip = (pendingBookingImport.trips || []).find((trip) => trip.id === selected);
-    const result = await Promise.resolve(
-      window.DailySpaceTravelBookings?.importBookings?.({
-        tripId: selected,
-        bookings: pendingBookingImport.bookings,
-        sourceKey: pendingBookingImport.sourceKey,
-        trip: selectedTrip,
-      })
-    );
-    if (!result?.ok) {
-      setBookingStatus(
-        result?.reason && result.reason !== "trip_not_found"
-          ? result.reason
-          : t("Trip was not found.", "未找到所选行程。"),
-        true
-      );
-      return;
-    }
-    if (!result.added) {
-      setBookingStatus(t("This booking was already imported.", "这条预订已经导入过了。"));
-      return;
-    }
-    setBookingStatus(
-      t(
-        `Imported ${result.added} booking${result.added === 1 ? "" : "s"} to Travel.`,
-        `已导入 ${result.added} 条预订到旅行。`
-      )
-    );
+    const selectedTrip = (pending.trips || []).find(trip => trip.id === selected);
+    const controller = new AbortController();
+    bookingController?.abort(); bookingController = controller;
+    const isCurrent = () => requestId === bookingRequestId && userId === authUserId && pending === pendingBookingImport;
     bookingConfirm.disabled = true;
+    let imported = false;
+    try {
+      const result = await boundedMailOperation(() => window.DailySpaceTravelBookings?.importBookings?.({
+        tripId: selected, bookings: pending.bookings, sourceKey: pending.sourceKey, trip: selectedTrip,
+      }), { signal: controller.signal });
+      if (!isCurrent()) return;
+      if (!result?.ok) {
+        setBookingStatus(result?.reason && result.reason !== 'trip_not_found' ? result.reason : t('Trip was not found.', '未找到所选行程。'), true);
+        return;
+      }
+      imported = true;
+      setBookingStatus(!result.added ? t('This booking was already imported.', '这条预订已经导入过了。')
+        : t(`Imported ${result.added} booking${result.added === 1 ? '' : 's'} to Travel.`, `已导入 ${result.added} 条预订到旅行。`));
+    } catch (error) {
+      if (isCurrent() && !isCanceled(error)) setBookingStatus(error.message || t('Booking import failed.', '预订导入失败。'), true);
+    } finally {
+      if (isCurrent()) { bookingController = null; bookingConfirm.disabled = imported; }
+    }
   }
 
   function syncBatchBar() {
@@ -727,25 +747,78 @@
     else original.removeAttribute("href");
   }
 
-  async function request(path, init) {
+  function isCanceled(error) {
+    return error?.code === 'mail_request_canceled' || error?.name === 'AbortError';
+  }
+
+  async function boundedMailOperation(operation, options = {}) {
+    const generation = mailGeneration;
+    const controller = new AbortController();
+    const signal = options.signal;
+    let timer, timedOut = false;
+    const cancel = () => controller.abort();
+    const interrupted = new Promise((_, reject) => {
+      controller.signal.addEventListener('abort', () => reject(Object.assign(new Error(timedOut
+        ? t('Request timed out. Please try again.', '请求超时，请重试。')
+        : 'Mail request canceled'), { code: timedOut ? 'mail_timeout' : 'mail_request_canceled' })), { once: true });
+    });
+    pendingRequests.add(controller);
+    signal?.addEventListener('abort', cancel, { once: true });
+    if (signal?.aborted) controller.abort();
+    timer = setTimeout(() => { timedOut = true; controller.abort(); }, REQUEST_TIMEOUT_MS);
+    try {
+      if (controller.signal.aborted) return await interrupted;
+      // The race also bounds providers/mocks which ignore AbortSignal. The late
+      // result has no route back to the current mailbox or its controls.
+      const result = await Promise.race([Promise.resolve().then(() => operation(controller.signal)), interrupted]);
+      if (generation !== mailGeneration || controller.signal.aborted) throw Object.assign(new Error('Mail request canceled'), { code: 'mail_request_canceled' });
+      return result;
+    } finally {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', cancel);
+      pendingRequests.delete(controller);
+    }
+  }
+
+  async function request(path, init = {}) {
     if (typeof navigator !== "undefined" && navigator.onLine === false) {
       const offline = new Error("You’re offline. Connect to refresh mail.");
       offline.code = "offline";
       throw offline;
     }
-    const response = await fetch(path, init);
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      const err = new Error(payload.error || "Request failed");
-      if (payload.code) err.code = payload.code;
-      throw err;
+    return boundedMailOperation(async signal => {
+      const response = await fetch(path, { ...init, signal });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const err = new Error(payload.error || "Request failed");
+        err.status = response.status;
+        if (payload.code) err.code = payload.code;
+        throw err;
+      }
+      return payload;
+    }, { signal: init.signal });
+  }
+
+  function showBookingLoadError(error, retry) {
+    setInboxStatus(error.message || t('Booking import failed.', '预订导入失败。'), true);
+    for (const target of [statusEl, detailSheet && !detailSheet.hidden ? detailStatus : null]) {
+      if (!target) continue;
+      const button = document.createElement('button');
+      button.type = 'button'; button.className = 'mail-retry-btn';
+      button.textContent = t('Retry', '重试');
+      const generation = mailGeneration, requestId = bookingRequestId;
+      button.addEventListener('click', () => {
+        if (generation !== mailGeneration || requestId !== bookingRequestId) return;
+        retry();
+      });
+      target.appendChild(button);
     }
-    return payload;
   }
 
   function showMailLoadError(failText, code) {
     const needsReauth = code === "mail_reauth_required" || /reconnect|token missing|not authorized|expired/i.test(failText);
-    setInboxStatus(latestMessages.length
+    setInboxStatus(code === 'mail_timeout'
+      ? t('Mail refresh timed out. Your previous mail and selection are still here.', '邮件刷新超时，已保留原有邮件和选择。') : latestMessages.length
       ? t("Could not refresh. Your previous mail and selection are still here.", "刷新失败，已保留原有邮件和选择。")
       : t("Could not load your inbox. Try again.", "暂时无法加载收件箱，请重试。"), true);
     if (!statusEl) return;
@@ -766,6 +839,7 @@
     if (!account) return;
     if (options?.silent && activeController && displayedAccountId === account.id) return;
     const requestId = ++messagesRequestId;
+    const userId = authUserId;
     activeController?.abort();
     activeController = new AbortController();
     const controller = activeController;
@@ -788,7 +862,7 @@
     try {
       const lang = window.DailySpaceI18n?.localeTag?.() || document.documentElement.lang || "en";
       const payload = await request(`/api/mail/accounts/${encodeURIComponent(account.id)}/digest?limit=12&today=${encodeURIComponent(todayIso())}&lang=${encodeURIComponent(lang)}`, { signal: controller.signal });
-      if (requestId !== messagesRequestId || selectedAccount()?.id !== account.id) return;
+      if (requestId !== messagesRequestId || userId !== authUserId || selectedAccount()?.id !== account.id) return;
       const rows = Array.isArray(payload.messages) ? payload.messages : [];
       const unavailable = rows.length > 0 && !payload.summarized;
       lastUpdatedAt = new Date().toISOString();
@@ -802,7 +876,7 @@
       updateHero();
       setInboxStatus("");
     } catch (error) {
-      if (requestId !== messagesRequestId || controller.signal.aborted) return;
+      if (requestId !== messagesRequestId || userId !== authUserId || controller.signal.aborted || isCanceled(error)) return;
       // A failed refresh must not replace a usable inbox, summary or selection.
       showMailLoadError(error.message || "", error.code);
     } finally {
@@ -856,6 +930,7 @@
     messagesRequestId++;
     activeController?.abort();
     activeController = null;
+    if (refreshBtn) { refreshBtn.disabled = false; refreshBtn.classList.remove('is-loading'); }
     inboxCache.clear();
     lastUpdatedAt = null;
     latestMessages = [];
@@ -892,40 +967,49 @@
 
   async function loadFromServer() {
     const authId = ++authRequestId;
-    const me = await request("/api/auth/me");
-    if (authId !== authRequestId) return;
-    const nextUser = me?.user?.userId || me?.user?.email || "";
-    if (nextUser !== authUserId) {
-      renderSignedOutConnect();
-      authUserId = nextUser;
-    }
-    signedIn = Boolean(me?.user);
-    if (!signedIn) { renderSignedOutConnect(); return; }
-    const payload = await request("/api/mail/accounts");
-    if (authId !== authRequestId) return;
-    accounts = Array.isArray(payload.accounts) ? payload.accounts : [];
-    for (const id of inboxCache.keys()) if (!accounts.some(account => account.id === id)) inboxCache.delete(id);
-    ensureSelectedAccount();
-    renderConnectMailbox();
-    renderShell();
-    if (readyAccounts().length) {
-      setPageStatus("");
-      await loadMessagesForSelected();
-      startMailPolling();
-    } else {
-      stopMailPolling();
-      messagesRequestId++;
-      activeController?.abort();
-      closeDetail(false);
-      displayedAccountId = "";
-      lastUpdatedAt = null;
-      selecting = false;
-      selectedMailIds.clear();
-      renderMessages([]);
-      setAiBanner(false);
-      setDigest("");
-      setInboxStatus("");
-      updateHero();
+    authController?.abort();
+    const controller = new AbortController();
+    authController = controller;
+    try {
+      const me = await request("/api/auth/me", { signal: controller.signal });
+      if (authId !== authRequestId) return;
+      const nextUser = me?.user?.userId || me?.user?.email || "";
+      if (nextUser !== authUserId) {
+        renderSignedOutConnect();
+        authUserId = nextUser;
+      }
+      signedIn = Boolean(me?.user);
+      if (!signedIn) { renderSignedOutConnect(); return; }
+      const payload = await request("/api/mail/accounts", { signal: controller.signal });
+      if (authId !== authRequestId) return;
+      accounts = Array.isArray(payload.accounts) ? payload.accounts : [];
+      for (const id of inboxCache.keys()) if (!accounts.some(account => account.id === id)) inboxCache.delete(id);
+      ensureSelectedAccount();
+      renderConnectMailbox();
+      renderShell();
+      if (readyAccounts().length) {
+        setPageStatus("");
+        await loadMessagesForSelected();
+        startMailPolling();
+      } else {
+        stopMailPolling();
+        messagesRequestId++;
+        activeController?.abort();
+        activeController = null;
+        if (refreshBtn) { refreshBtn.disabled = false; refreshBtn.classList.remove('is-loading'); }
+        closeDetail(false);
+        displayedAccountId = "";
+        lastUpdatedAt = null;
+        selecting = false;
+        selectedMailIds.clear();
+        renderMessages([]);
+        setAiBanner(false);
+        setDigest("");
+        setInboxStatus("");
+        updateHero();
+      }
+    } finally {
+      if (authId === authRequestId) authController = null;
     }
   }
 
@@ -997,6 +1081,7 @@
       if (!payload.authUrl) throw new Error("Authorization URL not returned.");
       window.location.href = payload.authUrl;
     } catch (error) {
+      if (isCanceled(error)) return;
       setPageStatus(error.message || "Authorization failed.", true);
     } finally {
       if (button) button.removeAttribute("disabled");
@@ -1066,13 +1151,35 @@
     });
   }
 
-  window.addEventListener("daily-space-auth-updated", () => {
+  function readAuthIdentity() {
+    try { return String(JSON.parse(localStorage.getItem(STORAGE_AUTH) || 'null')?.email || '').trim().toLowerCase(); }
+    catch (_) { return ''; }
+  }
+  let observedAuthIdentity = readAuthIdentity();
+  function refreshAuthSession() {
+    mailGeneration++;
+    pendingRequests.forEach(controller => controller.abort());
+    pendingRequests.clear();
+    authController?.abort();
     messagesRequestId++;
     activeController?.abort();
     activeController = null;
+    if (refreshBtn) { refreshBtn.disabled = false; refreshBtn.classList.remove('is-loading'); }
     closeDetail(false);
+    const nextIdentity = readAuthIdentity();
+    if (nextIdentity !== observedAuthIdentity) { renderSignedOutConnect(); authUserId = ''; }
+    observedAuthIdentity = nextIdentity;
     loadFromServer().catch(showAccountLoadError);
+  }
+  window.addEventListener("daily-space-auth-updated", refreshAuthSession);
+  window.addEventListener('storage', event => { if (event.key === STORAGE_AUTH || event.key === null) refreshAuthSession(); });
+  window.addEventListener('pagehide', () => {
+    mailGeneration++;
+    pendingRequests.forEach(controller => controller.abort());
+    pendingRequests.clear();
+    stopMailPolling();
   });
+  window.addEventListener('pageshow', event => { if (event.persisted) refreshAuthSession(); });
 
   document.addEventListener("click", async (event) => {
     const target = event.target;
@@ -1114,6 +1221,7 @@
       await loadFromServer();
       setPageStatus("Mailbox disconnected.");
     } catch (error) {
+      if (isCanceled(error)) return;
       setPageStatus(error.message || "Failed to disconnect account.", true);
     }
   });
@@ -1140,8 +1248,10 @@
   });
 
   function showAccountLoadError(error) {
-    if (/sign in first/i.test(error.message || "")) { renderSignedOutConnect(); return; }
-    setPageStatus(t("Could not check your mailbox. Try again.", "暂时无法连接邮箱，请重试。"), true);
+    if (isCanceled(error)) return;
+    if (error.status === 401 || /sign in first/i.test(error.message || "")) { renderSignedOutConnect(); return; }
+    setPageStatus(error.code === 'mail_timeout' ? t('Mailbox check timed out. Try again.', '邮箱连接检查超时，请重试。')
+      : t("Could not check your mailbox. Try again.", "暂时无法连接邮箱，请重试。"), true);
     const retry = document.createElement("button");
     retry.type = "button";
     retry.className = "mail-retry-btn";

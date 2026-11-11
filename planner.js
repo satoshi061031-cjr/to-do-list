@@ -38,6 +38,55 @@
   /** @type {string} */
   let selectedWorkspaceRole = "";
   let canManageTeamBoards = false;
+  let plannerIdentity = plannerOwner();
+  let identityGeneration = 0;
+  let boardGeneration = 0;
+  let boardReadGeneration = 0;
+  let listGeneration = 0;
+  const teamRequests = new Set();
+  let personalReady = true;
+
+  function plannerOwner() {
+    if (window.DailySpaceView?.owner) return window.DailySpaceView.owner();
+    try { return JSON.parse(localStorage.getItem("daily-space-auth-v1") || "null")?.email || "guest"; }
+    catch (_) { return "guest"; }
+  }
+
+  function teamContext(board = false, list = false) {
+    return { owner: plannerOwner(), identity: identityGeneration,
+      board: board ? selectedTeamBoardId : null, view: board ? boardGeneration : null,
+      list: list ? listGeneration : null };
+  }
+
+  function currentTeamContext(context) {
+    return context.owner === plannerOwner() && context.identity === identityGeneration &&
+      (context.view === null || (context.view === boardGeneration && isTeamMode() && context.board === selectedTeamBoardId)) &&
+      (context.list === null || context.list === listGeneration) &&
+      (context.read === undefined || context.read === boardReadGeneration) &&
+      (context.selection === undefined || context.selection === boardGeneration) &&
+      (context.workspace === undefined || context.workspace === selectedWorkspaceId);
+  }
+
+  function staleTeamRequest() {
+    return Object.assign(new Error("Obsolete board request"), { code: "PLANNER_STALE" });
+  }
+
+  function invalidateTeamView(all = false) {
+    boardGeneration++; boardReadGeneration++;
+    if (all) { identityGeneration++; listGeneration++; }
+    teamRequests.forEach(request => {
+      // An edit already submitted to its captured board may finish there after
+      // navigation. Only reads are canceled on view changes; callbacks still
+      // require the original view, and identity changes abort every request.
+      if (all || (request.method === "GET" && (request.context.view !== null || request.context.selection !== undefined))) request.controller.abort();
+    });
+  }
+
+  function reportTeamError(error, fallback, context) {
+    if (error?.code === "PLANNER_STALE" || (context && !currentTeamContext(context))) return;
+    setTeamStatus(error.message || fallback, true);
+  }
+
 
   const STORAGE_SELECTED_WORKSPACE = "daily-space-selected-workspace-v1";
   const sidebarEl = document.getElementById("sidebar");
@@ -607,11 +656,21 @@
     plannerTeamStatusEl.classList.toggle("is-error", Boolean(isError));
   }
 
-  async function apiRequest(path, init) {
-    const response = await fetch(path, init);
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload.error || "Request failed");
-    return payload;
+  async function apiRequest(path, init, context = teamContext()) {
+    if (!currentTeamContext(context)) throw staleTeamRequest();
+    const controller = new AbortController();
+    const request = { controller, context, method: String(init?.method || "GET").toUpperCase() };
+    teamRequests.add(request);
+    try {
+      const response = await fetch(path, { ...init, signal: controller.signal });
+      const payload = await response.json().catch(() => ({}));
+      if (!currentTeamContext(context)) throw staleTeamRequest();
+      if (!response.ok) throw new Error(payload.error || "Request failed");
+      return payload;
+    } catch (error) {
+      if (!currentTeamContext(context) || controller.signal.aborted) throw staleTeamRequest();
+      throw error;
+    } finally { teamRequests.delete(request); }
   }
 
   function taskFromApi(task) {
@@ -639,23 +698,54 @@
     plannerEntries = (board.tasks || []).map(taskFromApi);
   }
 
-  async function loadTeamMembers(workspaceId) {
-    const payload = await apiRequest(`/api/workspaces/${encodeURIComponent(workspaceId)}/members`);
+  function restorePersonalBoard() {
+    boardMode = "personal";
+    selectedTeamBoardId = "";
+    selectedColumnId = "";
+    plannerColumns = personalReady ? boards[selectedPlannerId]?.columns || [] : [];
+    plannerEntries = personalReady ? boards[selectedPlannerId]?.entries || [] : [];
+  }
+
+  function clearSharedPlanner() {
+    const wasTeam = isTeamMode();
+    if (wasTeam) {
+      invalidateTeamView();
+      restorePersonalBoard();
+    }
+    selectedWorkspaceId = ""; selectedWorkspaceName = ""; selectedWorkspaceRole = "";
+    sessionUserId = ""; canManageTeamBoards = false; teamBoards = []; teamMembers = [];
+    setTeamStatus("");
+    renderPlannerSidebar();
+    if (wasTeam) renderPlanner();
+  }
+
+  async function loadTeamMembers(workspaceId, context) {
+    const payload = await apiRequest(`/api/workspaces/${encodeURIComponent(workspaceId)}/members`, undefined, context);
     teamMembers = (payload.members || [])
       .filter((m) => m.status === "active")
       .map((m) => ({ userId: m.userId, label: m.label || m.userId, role: m.role }));
   }
 
-  async function reloadSelectedTeamBoard() {
-    if (!selectedTeamBoardId) return;
-    const payload = await apiRequest(`/api/boards/${encodeURIComponent(selectedTeamBoardId)}`);
+  async function reloadSelectedTeamBoard(context = teamContext(true)) {
+    if (!context.board || !currentTeamContext(context)) return false;
+    teamRequests.forEach(request => { if (request.context.read !== undefined) request.controller.abort(); });
+    const readContext = { ...context, read: ++boardReadGeneration };
+    const payload = await apiRequest(`/api/boards/${encodeURIComponent(context.board)}`, undefined, readContext);
+    if (!currentTeamContext(readContext)) throw staleTeamRequest();
+    if (payload.board?.id !== context.board) throw new Error("Failed to open team board.");
     applyTeamBoardPayload(payload.board);
+    return true;
   }
 
   async function loadTeamBoards() {
+    teamRequests.forEach(request => { if (request.context.list !== null && request.method === "GET") request.controller.abort(); });
+    listGeneration++;
+    const context = teamContext(false, true);
     try {
-      const me = await apiRequest("/api/auth/me");
-      if (!me.user) {
+      const me = await apiRequest("/api/auth/me", undefined, context);
+      const account = String(me.user?.email || me.user?.userId || "").trim().toLowerCase();
+      if (!me.user || context.owner === "guest" || account !== String(context.owner).toLowerCase()) {
+        clearSharedPlanner();
         sessionUserId = "";
         selectedWorkspaceId = "";
         selectedWorkspaceName = "";
@@ -671,9 +761,10 @@
         return;
       }
       sessionUserId = String(me.user.userId || me.user.email || "").trim().toLowerCase();
-      const workspacesPayload = await apiRequest("/api/workspaces");
+      const workspacesPayload = await apiRequest("/api/workspaces", undefined, context);
       const workspaces = Array.isArray(workspacesPayload.workspaces) ? workspacesPayload.workspaces : [];
       if (!workspaces.length) {
+        clearSharedPlanner();
         teamBoards = [];
         selectedWorkspaceId = "";
         selectedWorkspaceName = "";
@@ -693,6 +784,9 @@
       }
       const activeWorkspace = workspaces.find((w) => w.id === workspaceId) || workspaces[0];
       workspaceId = activeWorkspace.id;
+      if (isTeamMode() && selectedWorkspaceId && selectedWorkspaceId !== workspaceId) {
+        invalidateTeamView(); restorePersonalBoard(); renderPlanner();
+      }
       selectedWorkspaceId = workspaceId;
       selectedWorkspaceName =
         typeof activeWorkspace.name === "string" && activeWorkspace.name.trim()
@@ -709,14 +803,14 @@
       } catch (_) {
         /* ignore */
       }
-      const boardsPayload = await apiRequest(`/api/workspaces/${encodeURIComponent(workspaceId)}/boards`);
+      const boardsPayload = await apiRequest(`/api/workspaces/${encodeURIComponent(workspaceId)}/boards`, undefined, context);
       let boardsList = Array.isArray(boardsPayload.boards) ? boardsPayload.boards : [];
       if (!boardsList.length && canManageTeamBoards) {
         const created = await apiRequest(`/api/workspaces/${encodeURIComponent(workspaceId)}/boards`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name: "Team board" }),
-        });
+        }, context);
         boardsList = [created.board];
       }
       teamBoards = boardsList.map((b) => ({
@@ -724,7 +818,10 @@
         name: b.name,
         workspaceId: b.workspaceId || workspaceId,
       }));
-      await loadTeamMembers(workspaceId);
+      await loadTeamMembers(workspaceId, context);
+      if (isTeamMode() && !teamBoards.some(board => board.id === selectedTeamBoardId)) {
+        invalidateTeamView(); restorePersonalBoard(); renderPlanner();
+      }
       if (plannerTeamHintEl) {
         if (teamBoards.length) {
           plannerTeamHintEl.hidden = true;
@@ -736,37 +833,37 @@
         }
       }
       setTeamStatus("");
+      return true;
     } catch (error) {
+      if (!currentTeamContext(context) || error?.code === "PLANNER_STALE") return false;
       teamBoards = [];
-      setTeamStatus(error.message || "Failed to load team boards.", true);
+      reportTeamError(error, "Failed to load team boards.", context);
+      return false;
     }
   }
 
   async function selectTeamBoard(boardId) {
+    if (!teamBoards.some(board => board.id === boardId)) return;
+    invalidateTeamView();
     boardMode = "team";
     selectedTeamBoardId = boardId;
+    selectedColumnId = "";
+    plannerColumns = []; plannerEntries = [];
+    const context = teamContext(true);
     setTeamStatus("Loading board…");
+    renderPlannerSidebar(); renderPlanner();
     try {
-      await reloadSelectedTeamBoard();
+      if (!await reloadSelectedTeamBoard(context) || !currentTeamContext(context)) return;
       setTeamStatus("");
-      renderPlannerSidebar();
-      renderPlanner();
-      closeSidebar();
-    } catch (error) {
-      setTeamStatus(error.message || "Failed to open team board.", true);
-    }
+      renderPlannerSidebar(); renderPlanner(); closeSidebar();
+    } catch (error) { reportTeamError(error, "Failed to open team board.", context); }
   }
 
-  function selectPersonalPlanner(pid) {
-    boardMode = "personal";
-    selectedTeamBoardId = "";
-    setTeamStatus("");
-    selectPlanner(pid);
-  }
+  function selectPersonalPlanner(pid) { selectPlanner(pid); }
 
   function savePlannerState() {
-    if (isTeamMode()) return;
-    if (selectedPlannerId && boards[selectedPlannerId]) {
+    if (!personalReady) return;
+    if (!isTeamMode() && selectedPlannerId && boards[selectedPlannerId]) {
       boards[selectedPlannerId] = { columns: plannerColumns, entries: plannerEntries };
     }
     localStorage.setItem(
@@ -793,18 +890,17 @@
   }
 
   function syncTeamTask(entryId, patch) {
+    const context = teamContext(true);
     apiRequest(`/api/tasks/${encodeURIComponent(entryId)}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(patchToApi(patch)),
-    }).catch(async (error) => {
-      setTeamStatus(error.message || "Failed to update task.", true);
+    }, context).catch(async (error) => {
+      if (!currentTeamContext(context) || error?.code === "PLANNER_STALE") return;
+      reportTeamError(error, "Failed to update task.", context);
       try {
-        await reloadSelectedTeamBoard();
-        renderPlanner();
-      } catch (_) {
-        /* ignore */
-      }
+        if (await reloadSelectedTeamBoard(context) && currentTeamContext(context)) renderPlanner();
+      } catch (_) { /* The original failure is already shown for this board. */ }
     });
   }
 
@@ -891,11 +987,12 @@
     if (!c) return;
     Object.assign(c, partial);
     if (isTeamMode()) {
-      apiRequest(`/api/boards/${encodeURIComponent(selectedTeamBoardId)}/columns/${encodeURIComponent(columnId)}`, {
+      const context = teamContext(true);
+      apiRequest(`/api/boards/${encodeURIComponent(context.board)}/columns/${encodeURIComponent(columnId)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(partial),
-      }).catch((error) => setTeamStatus(error.message || "Failed to update column.", true));
+      }, context).catch(error => reportTeamError(error, "Failed to update column.", context));
       return;
     }
     savePlannerState();
@@ -915,9 +1012,11 @@
   }
 
   function addPlannerEntry(columnId) {
+    if (!isTeamMode() && !personalReady) return;
     if (!plannerColumns.some((c) => c.id === columnId)) return;
     if (isTeamMode()) {
-      apiRequest(`/api/boards/${encodeURIComponent(selectedTeamBoardId)}/tasks`, {
+      const context = teamContext(true);
+      apiRequest(`/api/boards/${encodeURIComponent(context.board)}/tasks`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -926,13 +1025,12 @@
           note: "",
           assigneeUserId: sessionUserId || null,
         }),
-      })
+      }, context)
         .then(async () => {
-          await reloadSelectedTeamBoard();
-          renderPlannerSidebar();
-          renderPlanner();
+          if (!currentTeamContext(context) || !await reloadSelectedTeamBoard(context)) return;
+          renderPlannerSidebar(); renderPlanner();
         })
-        .catch((error) => setTeamStatus(error.message || "Failed to add card.", true));
+        .catch(error => reportTeamError(error, "Failed to add card.", context));
       return;
     }
     plannerEntries.unshift({
@@ -953,13 +1051,13 @@
 
   function removePlannerEntry(entryId) {
     if (isTeamMode()) {
-      apiRequest(`/api/tasks/${encodeURIComponent(entryId)}`, { method: "DELETE" })
+      const context = teamContext(true);
+      apiRequest(`/api/tasks/${encodeURIComponent(entryId)}`, { method: "DELETE" }, context)
         .then(async () => {
-          await reloadSelectedTeamBoard();
-          renderPlannerSidebar();
-          renderPlanner();
+          if (!currentTeamContext(context) || !await reloadSelectedTeamBoard(context)) return;
+          renderPlannerSidebar(); renderPlanner();
         })
-        .catch((error) => setTeamStatus(error.message || "Failed to delete card.", true));
+        .catch(error => reportTeamError(error, "Failed to delete card.", context));
       return;
     }
     plannerEntries = plannerEntries.filter((e) => e.id !== entryId);
@@ -998,18 +1096,18 @@
 
   function clearPlannerCompleted() {
     if (isTeamMode()) {
+      const context = teamContext(true);
       const done = plannerEntries.filter((e) => e.completed);
       Promise.all(
         done.map((entry) =>
-          apiRequest(`/api/tasks/${encodeURIComponent(entry.id)}`, { method: "DELETE" })
+          apiRequest(`/api/tasks/${encodeURIComponent(entry.id)}`, { method: "DELETE" }, context)
         )
       )
         .then(async () => {
-          await reloadSelectedTeamBoard();
-          renderPlannerSidebar();
-          renderPlanner();
+          if (!currentTeamContext(context) || !await reloadSelectedTeamBoard(context)) return;
+          renderPlannerSidebar(); renderPlanner();
         })
-        .catch((error) => setTeamStatus(error.message || "Failed to clear completed.", true));
+        .catch(error => reportTeamError(error, "Failed to clear completed.", context));
       return;
     }
     plannerEntries = plannerEntries.filter((e) => !e.completed);
@@ -1019,6 +1117,7 @@
   }
 
   function selectPlanner(pid) {
+    if (!personalReady || !boards[pid]) return;
     const switchingFromTeam = boardMode === "team";
     boardMode = "personal";
     selectedTeamBoardId = "";
@@ -1027,6 +1126,7 @@
       if (isMobileSidebar()) closeSidebar();
       return;
     }
+    invalidateTeamView();
     if (!boards[pid]) return;
     selectedPlannerId = pid;
     plannerColumns = boards[pid].columns;
@@ -1038,8 +1138,11 @@
   }
 
   function addPlannerWorkspace(name) {
+    if (!personalReady) return;
     const trimmed = name.trim();
     if (!trimmed) return;
+    invalidateTeamView();
+    if (isTeamMode()) restorePersonalBoard();
     boards[selectedPlannerId] = { columns: plannerColumns, entries: plannerEntries };
     const pid = id();
     planners.push({ id: pid, name: trimmed.slice(0, 48) });
@@ -1056,17 +1159,20 @@
 
   function removePlannerWorkspace(plannerId, evt) {
     evt.stopPropagation();
+    if (!personalReady) return;
     if (planners.length <= 1) return;
     const target = planners.find((p) => p.id === plannerId);
     const name = target ? target.name : t("planner", "计划板");
     if (!window.confirm(t(`Delete planner “${name}”?`, `删除计划板“${name}”？`))) return;
-    boards[selectedPlannerId] = { columns: plannerColumns, entries: plannerEntries };
+    if (!isTeamMode()) boards[selectedPlannerId] = { columns: plannerColumns, entries: plannerEntries };
     planners = planners.filter((p) => p.id !== plannerId);
     delete boards[plannerId];
     if (selectedPlannerId === plannerId) {
       selectedPlannerId = planners[0].id;
-      plannerColumns = boards[selectedPlannerId].columns;
-      plannerEntries = boards[selectedPlannerId].entries;
+      if (!isTeamMode()) {
+        plannerColumns = boards[selectedPlannerId].columns;
+        plannerEntries = boards[selectedPlannerId].entries;
+      }
     }
     savePlannerState();
     renderPlannerSidebar();
@@ -1077,7 +1183,15 @@
     return entry.expanded === true;
   }
 
+  function guardPlannerNode(node, context) {
+    ["click", "change", "blur", "keydown", "dragstart", "drop"].forEach(type => node.addEventListener(type, event => {
+      if (currentTeamContext(context)) return;
+      event.preventDefault(); event.stopImmediatePropagation();
+    }, true));
+  }
+
   function buildPlannerCardEl(entry) {
+    const context = { ...teamContext(), selection: boardGeneration };
     const expanded = entryIsExpanded(entry);
     const card = document.createElement("article");
     card.className =
@@ -1086,6 +1200,7 @@
       (expanded ? "" : " is-collapsed") +
       (entryMatchesSearch(entry) ? "" : " is-filtered-out");
     card.dataset.entryId = entry.id;
+    guardPlannerNode(card, context);
     card.addEventListener("click", (ev) => {
       if (expanded) return;
       if (ev.target.closest("a, button, input, textarea, select, label")) return;
@@ -1288,6 +1403,7 @@
   }
 
   function renderPlannerSidebar() {
+    toggleNewPlannerBtn.disabled = !personalReady;
     plannerWorkspaceListEl.innerHTML = "";
     planners.forEach((pl) => {
       const li = document.createElement("li");
@@ -1298,6 +1414,7 @@
         "category-btn planner-sidebar-row" +
         (boardMode === "personal" && pl.id === selectedPlannerId ? " is-active" : "");
       row.setAttribute("role", "button");
+      guardPlannerNode(row, { ...teamContext(), selection: boardGeneration });
       row.tabIndex = 0;
       row.setAttribute("aria-label", `Planner ${pl.name}`);
       row.setAttribute(
@@ -1368,6 +1485,7 @@
           "category-btn planner-sidebar-row" +
           (boardMode === "team" && board.id === selectedTeamBoardId ? " is-active" : "");
         row.setAttribute("role", "button");
+        guardPlannerNode(row, { ...teamContext(), selection: boardGeneration });
         row.tabIndex = 0;
         row.setAttribute("aria-label", `Team board ${board.name}`);
         row.setAttribute(
@@ -1413,13 +1531,15 @@
     if (!canManageTeamBoards) return;
     const label = boardName || t("Board", "看板");
     if (!window.confirm(t(`Delete team board “${label}”?`, `删除团队看板“${label}”？`))) return;
+    const context = { ...teamContext(), selection: boardGeneration, workspace: selectedWorkspaceId };
     try {
-      await apiRequest(`/api/boards/${encodeURIComponent(boardId)}`, { method: "DELETE" });
+      await apiRequest(`/api/boards/${encodeURIComponent(boardId)}`, { method: "DELETE" }, context);
+      if (!currentTeamContext(context)) return;
       if (selectedTeamBoardId === boardId) {
-        selectedTeamBoardId = "";
-        boardMode = "personal";
+        invalidateTeamView(); restorePersonalBoard();
       }
-      await loadTeamBoards();
+      const selection = boardGeneration;
+      if (!await loadTeamBoards() || context.owner !== plannerOwner() || context.identity !== identityGeneration || selection !== boardGeneration) return;
       if (!selectedTeamBoardId && teamBoards[0]) {
         await selectTeamBoard(teamBoards[0].id);
       } else {
@@ -1427,9 +1547,7 @@
         renderPlanner();
       }
       setTeamStatus("");
-    } catch (error) {
-      setTeamStatus(error.message || "Failed to delete board.", true);
-    }
+    } catch (error) { reportTeamError(error, "Failed to delete board.", context); }
   }
 
   async function createTeamBoard() {
@@ -1438,28 +1556,29 @@
     const name = window.prompt(t("Team board name", "团队看板名称"), fallback);
     if (name == null) return;
     const trimmed = String(name).trim().slice(0, 80) || fallback;
+    const context = { ...teamContext(), selection: boardGeneration, workspace: selectedWorkspaceId };
     try {
-      const created = await apiRequest(`/api/workspaces/${encodeURIComponent(selectedWorkspaceId)}/boards`, {
+      const created = await apiRequest(`/api/workspaces/${encodeURIComponent(context.workspace)}/boards`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: trimmed }),
-      });
-      await loadTeamBoards();
+      }, context);
+      if (!currentTeamContext(context) || !await loadTeamBoards() || !currentTeamContext(context)) return;
       if (created.board?.id) await selectTeamBoard(created.board.id);
       else {
         renderPlannerSidebar();
         renderPlanner();
       }
-    } catch (error) {
-      setTeamStatus(error.message || "Failed to create board.", true);
-    }
+    } catch (error) { reportTeamError(error, "Failed to create board.", context); }
   }
 
   function buildPlannerColumnEl(col) {
+    const context = { ...teamContext(), selection: boardGeneration };
     const colEl = document.createElement("section");
     colEl.className = "planner-column";
     if (col.id === dealingColumnId) colEl.classList.add("is-dealing");
     colEl.dataset.columnId = col.id;
+    guardPlannerNode(colEl, context);
 
     const head = document.createElement("header");
     head.className = "planner-column-head";
@@ -1716,17 +1835,41 @@
     if (!isMobileSidebar()) closeSidebar();
   });
 
+  function clearPersonalPlannerMemory() {
+    personalReady = false;
+    planners = []; boards = {}; selectedPlannerId = "";
+    if (!isTeamMode()) { plannerColumns = []; plannerEntries = []; selectedColumnId = ""; }
+    closeNewPlannerPanel();
+    plannerSearchQuery = ""; plannerSearchInput.value = "";
+  }
+
+  function reloadPersonalPlanner() {
+    const shared = isTeamMode() ? { columns: plannerColumns, entries: plannerEntries } : null;
+    personalReady = true;
+    loadPlannerState();
+    if (shared) { plannerColumns = shared.columns; plannerEntries = shared.entries; }
+    renderPlannerSidebar(); renderPlanner();
+  }
+
   window.addEventListener("daily-space-agent-data-updated", (event) => {
     const domains = Array.isArray(event.detail?.domains) ? event.detail.domains : [];
     if (!domains.includes("planner")) return;
-    loadPlannerState();
-    renderPlannerSidebar();
-    renderPlanner();
+    if (!personalReady && event.detail?.source !== "cloud-sync") return;
+    // Cloud-sync emits only after the current identity's workspace is materialized.
+    reloadPersonalPlanner();
+  });
+  window.addEventListener("daily-space-user-sync-updated", event => {
+    const detail = event.detail || {};
+    if (detail.workspaceReady === true && detail.workspaceOwner === plannerOwner()) {
+      if (!personalReady) reloadPersonalPlanner();
+    } else if (detail.workspaceReady === false && personalReady) {
+      clearPersonalPlannerMemory(); renderPlannerSidebar(); renderPlanner();
+    }
   });
 
   window.addEventListener("daily-space-locale-changed", () => {
     plannerSearchInput.placeholder = t("Search this board…", "搜索此看板…");
-    if (!isTeamMode() && ensureFixedKanbanColumns()) savePlannerState();
+    if (personalReady && !isTeamMode() && ensureFixedKanbanColumns()) savePlannerState();
     renderPlannerSidebar();
     renderPlanner();
   });
@@ -1738,11 +1881,23 @@
     });
   }
 
-  window.addEventListener("daily-space-auth-updated", () => {
-    loadTeamBoards().then(() => {
-      renderPlannerSidebar();
-      if (isTeamMode() && selectedTeamBoardId) return selectTeamBoard(selectedTeamBoardId);
+  function refreshPlannerIdentity() {
+    const nextOwner = plannerOwner();
+    invalidateTeamView(true);
+    const changed = plannerIdentity !== nextOwner;
+    plannerIdentity = nextOwner;
+    if (changed) clearPersonalPlannerMemory();
+    const wasTeam = isTeamMode();
+    clearSharedPlanner();
+    if (!wasTeam) renderPlanner();
+    const context = teamContext();
+    loadTeamBoards().then(loaded => {
+      if (loaded && currentTeamContext(context)) renderPlannerSidebar();
     });
+  }
+  window.addEventListener("daily-space-auth-updated", refreshPlannerIdentity);
+  window.addEventListener("storage", event => {
+    if (event.key === "daily-space-auth-v1" || event.key === null) refreshPlannerIdentity();
   });
 
   if (plannerNewTeamBoardBtn) {
@@ -1751,9 +1906,12 @@
     });
   }
 
-  loadPlannerState();
-  renderPlannerSidebar();
-  renderPlanner();
+  try {
+    const previousOwner = localStorage.getItem("daily-space-last-user-v1");
+    if (previousOwner && previousOwner !== plannerOwner()) personalReady = false;
+  } catch (_) { /* The confirmed workspace event will still refresh personal data. */ }
+  if (personalReady) loadPlannerState();
+  renderPlannerSidebar(); renderPlanner();
   const searchTarget = window.DailySpaceSearch?.target();
   if (searchTarget?.focus === "card") {
     const board = boards[searchTarget.board];
@@ -1767,5 +1925,5 @@
       requestAnimationFrame(() => window.DailySpaceSearch.highlight(plannerBoardEl.querySelector(`[data-entry-id="${CSS.escape(entry.id)}"]`)));
     } else window.DailySpaceSearch.missing();
   }
-  loadTeamBoards().then(() => renderPlannerSidebar());
+  loadTeamBoards().then(loaded => { if (loaded) renderPlannerSidebar(); });
 })();

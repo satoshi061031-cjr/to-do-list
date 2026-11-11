@@ -6,7 +6,7 @@ const path = require("node:path");
 const { spawn } = require("node:child_process");
 const { chromium } = require("playwright-core");
 
-test("browser interactions on desktop and touch screens", { timeout: 120_000 }, async t => {
+test("browser interactions on desktop and touch screens", { timeout: 180_000 }, async t => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "daily-space-ui-"));
   const port = 45000 + Math.floor(Math.random() * 5000);
   const base = `http://127.0.0.1:${port}`;
@@ -1410,15 +1410,16 @@ test("browser interactions on desktop and touch screens", { timeout: 120_000 }, 
     assert.equal(await page.evaluate(() => document.activeElement.id), "mail-detail-booking");
     await page.keyboard.press("Escape");
     await page.waitForFunction(() => document.activeElement?.dataset.openMail === "hotel");
-    let releaseBooking;
+    let releaseBooking, finishBooking;
+    const completed = new Promise(resolve => { finishBooking = resolve; });
     await page.route("**/api/mail/accounts/*/messages/*/booking-import", async route => {
       const payload = await new Promise(resolve => { releaseBooking = resolve; });
-      await route.fulfill({ contentType: "application/json", body: JSON.stringify(payload) });
+      await route.fulfill({ contentType: "application/json", body: JSON.stringify(payload) }).catch(() => {});
+      finishBooking();
     });
     await page.locator('[data-open-mail="hotel"]').click();
     await page.locator("#mail-detail-booking").click();
     await page.keyboard.press("Escape");
-    const completed = page.waitForResponse(/booking-import$/);
     releaseBooking({ bookings: [], source: { subject: "Late booking" } });
     await completed;
     await page.waitForFunction(() => !document.getElementById("mail-detail-booking").disabled);

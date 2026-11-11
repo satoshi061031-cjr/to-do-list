@@ -13,6 +13,9 @@
   let fxSerial = 0;
   let fxController = null;
   let fxPending = false;
+  let composing = false;
+  let savingExpense = false;
+  let continuingEntry = false;
 
   const $ = (id) => document.getElementById(id);
   const monthTitleEl = $("tally-month-title");
@@ -26,6 +29,7 @@
   const daySummaryEl = $("tally-day-summary");
   const budgetInput = $("tally-budget");
   const currencyInput = $("tally-currency");
+  const currencyNote = $("tally-currency-note");
   const progressBar = $("tally-progress-bar");
   const budgetNoteEl = $("tally-budget-note");
   const settingsToggle = $("tally-settings-toggle");
@@ -37,7 +41,7 @@
   const noteInput = $("tally-note");
   const tripInput = $("tally-trip");
   const extraOptions = $("tally-extra-options");
-  let tripFilter = new URLSearchParams(location.search).get("tripFilter") || "";
+  let tripFilter = (new URLSearchParams(location.search).get("tripFilter") || "").trim().slice(0, 160);
   const scopeInput = $("tally-scope");
   const recordCurrencyInput = $("tally-record-currency");
   const fxField = $("tally-fx-field");
@@ -59,6 +63,8 @@
   const sheetEyebrowEl = $("tally-sheet-eyebrow");
   const sheetTitleEl = $("tally-add-title");
   const submitBtn = $("tally-submit");
+  const saveAnotherBtn = $("tally-save-another");
+  const entryStatusEl = $("tally-entry-status");
   const formErrorEl = $("tally-form-error");
   const categoryOptionsEl = $("tally-category-options");
   const categorySuggestionsEl = $("tally-category-suggestions");
@@ -130,6 +136,13 @@
 
   function captureDate() {
     return ledgerLayout === "month" ? selectedDay : todayIso();
+  }
+
+  function filteredTripLink() {
+    if (!tripFilter) return { tripId: null, tripName: "" };
+    const trip = window.DailySpaceTripExpenses.trips().find(item => item.ref === tripFilter);
+    const record = state.records.find(item => window.DailySpaceTripExpenses.matches(item, tripFilter));
+    return { tripId: tripFilter, tripName: trip?.name || record?.tripName || "" };
   }
 
   function changeMonth(offset) {
@@ -303,6 +316,13 @@
     todayTotalEl.textContent = baseMoney(spentToday);
     budgetInput.value = String(state.budget);
     currencyInput.value = state.baseCurrency;
+    const currencyLocked = Boolean(state.records.length || state.settlements.length || Object.keys(state.tripBudgets).length);
+    currencyInput.readOnly = currencyLocked;
+    currencyInput.setAttribute("aria-describedby", "tally-currency-note");
+    currencyNote.hidden = !currencyLocked;
+    currencyNote.textContent = currencyLocked ? (isZh()
+      ? "账本已有记录、结算或行程预算，基础币种已锁定；可为单笔支出选择其他币种。"
+      : "Base currency is locked while this ledger has records, settlements or trip budgets. Add expenses in another currency instead.") : "";
     progressBar.style.width = `${viewMode === "personal" ? percent : 0}%`;
     progressBar.classList.toggle("is-over", viewMode === "personal" && overBudget);
     budgetNoteEl.textContent = overBudget
@@ -586,6 +606,8 @@
   function clearFormError() {
     formErrorEl.hidden = true;
     formErrorEl.textContent = "";
+    entryStatusEl.hidden = true;
+    entryStatusEl.textContent = "";
     form.querySelectorAll('[aria-invalid="true"]').forEach(input => { input.removeAttribute('aria-invalid'); input.removeAttribute('aria-errormessage'); });
   }
 
@@ -605,6 +627,7 @@
     fxController = null;
     fxPending = false;
     submitBtn.disabled = false;
+    saveAnotherBtn.disabled = false;
     syncSheetMode();
     fxField.setAttribute("aria-busy", "false");
   }
@@ -631,6 +654,7 @@
     fxRateInput.value = "";
     fxPending = true;
     submitBtn.disabled = true;
+    saveAnotherBtn.disabled = true;
     submitBtn.textContent = "Fetching rate…";
     fxField.setAttribute("aria-busy", "true");
     fxHelp.textContent = "Fetching rate…";
@@ -653,6 +677,7 @@
         fxController = null;
         fxPending = false;
         submitBtn.disabled = false;
+        saveAnotherBtn.disabled = false;
         syncSheetMode();
         fxField.setAttribute("aria-busy", "false");
       }
@@ -664,6 +689,7 @@
     sheetEyebrowEl.textContent = editing ? "Edit transaction" : "New transaction";
     sheetTitleEl.textContent = editing ? "Edit expense" : "Add expense";
     submitBtn.textContent = editing ? "Save changes" : "Add transaction";
+    saveAnotherBtn.hidden = editing;
   }
 
   const sheetMotion = window.DailySpaceDialogHistory.motion(addSheet);
@@ -683,6 +709,7 @@
       amount: amountInput.value, category: categoryInput.value, note: noteInput.value,
       tripId: tripInput.value || null, tripName: tripInput.selectedOptions[0]?.dataset.tripName || "",
       scope: scopeInput.value, currency: recordCurrencyInput.value, fxRate: fxRateInput.value,
+      continuing: continuingEntry,
       paidById: paidByInput.value, splitAmongIds: Array.from(splitPeopleEl.querySelectorAll("input:checked")).map(input => input.value) } });
   }
   function setSheetOpen(open, record, fromHistory = false, preserve = true, immediate = false) {
@@ -691,6 +718,8 @@
       if (preserve) saveDraft();
       cancelFxRequest();
       editingId = null;
+      continuingEntry = false;
+      composing = false;
       sheetMotion.close(() => document.body.classList.remove("tally-sheet-open"), immediate);
       if (!fromHistory) sheetHistory.back();
       return;
@@ -698,19 +727,22 @@
     if (!fromHistory && !sheetHistory.push({ id: record?.id || null })) return;
     cancelFxRequest();
     editingId = record?.id || null;
+    composing = false;
     const draft = window.DailySpaceView.read("tally").draft;
     const customSplit = draft?.scope === "shared" && (draft.paidById !== state.selfPersonId ||
       draft.splitAmongIds?.length !== state.people.length || state.people.some(person => !draft.splitAmongIds?.includes(person.id)));
     // A blank date-only form follows the next selected day. Currency, scope and
     // participant choices are meaningful even before an amount has been typed.
     const hasDraftContent = draft && (editingId || draft.amount || draft.category?.trim() || draft.note?.trim() || draft.tripId ||
-      draft.currency !== state.baseCurrency || draft.scope !== viewMode || customSplit);
+      draft.currency !== state.baseCurrency || draft.scope !== viewMode || customSplit || draft.continuing);
     const value = draft && draft.id === editingId && hasDraftContent ? draft : record;
+    continuingEntry = !editingId && Boolean(value?.continuing);
     dateInput.value = value?.date || captureDate();
     amountInput.value = value?.amount || "";
     categoryInput.value = value?.category || "";
     noteInput.value = value?.note || "";
-    window.DailySpaceTripExpenses.populate(tripInput, value?.tripId || "", value?.tripName);
+    const tripLink = value ? { tripId: value.tripId || null, tripName: value.tripName || "" } : filteredTripLink();
+    window.DailySpaceTripExpenses.populate(tripInput, tripLink.tripId || "", tripLink.tripName);
     scopeInput.value = value?.scope || (viewMode === "shared" ? "shared" : "personal");
     selectRecordCurrency(value?.currency || state.baseCurrency);
     fxRateInput.value = String(value?.fxRate ?? 1);
@@ -734,6 +766,11 @@
   form.addEventListener("input", clearFormError);
   form.addEventListener("change", clearFormError);
   form.addEventListener("invalid", event => { if (extraOptions.contains(event.target)) extraOptions.open = true; }, true);
+  form.addEventListener("compositionstart", () => { composing = true; });
+  form.addEventListener("compositionend", () => { composing = false; });
+  form.addEventListener("keydown", event => {
+    if (event.key === "Enter" && (composing || event.isComposing || event.keyCode === 229)) event.preventDefault();
+  });
   window.addEventListener("pagehide", () => { saveDraft(); cancelFxRequest(); });
   window.addEventListener("daily-space-auth-updated", () => {
     setSheetOpen(false, null, false, false, true);
@@ -748,7 +785,7 @@
 
   form.addEventListener("submit", (event) => {
     event.preventDefault();
-    if (sheetMotion.closing || fxPending) return;
+    if (sheetMotion.closing || fxPending || composing || savingExpense) return;
     clearFormError();
     if (!form.checkValidity()) {
       const invalid = form.querySelector(':invalid');
@@ -791,19 +828,36 @@
       state
     );
     if (!nextRecord) return;
-    if (editingId) {
-      state.records = state.records.map((record) => (record.id === editingId ? nextRecord : record));
-    } else {
-      state.records.unshift(nextRecord);
-    }
+    const continueAdding = !editingId && event.submitter === saveAnotherBtn;
+    const previousState = state;
+    state = { ...state, records: editingId
+      ? state.records.map(record => record.id === editingId ? nextRecord : record)
+      : [nextRecord, ...state.records] };
+    savingExpense = true;
+    try { saveState(); }
+    catch (_) {
+      state = previousState;
+      showFormError(isZh() ? "无法保存到本机，请保留当前内容并检查浏览器存储空间。" : "Could not save on this device. Keep this form and check browser storage.", amountInput);
+      return;
+    } finally { savingExpense = false; }
     const recordDate = parseIso(nextRecord.date);
     viewYear = recordDate.getFullYear();
     viewMonth = recordDate.getMonth() + 1;
     selectedDay = nextRecord.date;
     viewMode = nextRecord.scope === "shared" ? "shared" : "personal";
-    saveState();
     window.DailySpaceView.write("tally", { draft: null });
-    setSheetOpen(false, null, false, false);
+    if (continueAdding) {
+      continuingEntry = true;
+      amountInput.value = "";
+      noteInput.value = "";
+      clearFormError();
+      saveDraft();
+      entryStatusEl.textContent = isZh() ? "已保存，可以继续记下一笔。" : "Saved. Ready for another expense.";
+      entryStatusEl.hidden = false;
+      form.scrollTop = 0;
+      fitSheet();
+      amountInput.focus({ preventScroll: true });
+    } else setSheetOpen(false, null, false, false);
     render();
   });
 
@@ -830,9 +884,8 @@
     render();
   });
   currencyInput.addEventListener("change", () => {
-    state.baseCurrency = Core.currencyCode(currencyInput.value, state.baseCurrency);
-    state.currency = Core.currencySymbol(state.baseCurrency, currencyInput.value);
-    saveState();
+    const result = Core.changeBaseCurrency(state, currencyInput.value);
+    if (result.changed) { state = result.state; saveState(); }
     render();
   });
   settingsToggle.addEventListener("click", () => {
@@ -917,7 +970,9 @@
   const quickForm = $("tally-quick-form");
   const quickAmount = $("tally-quick-amount");
   const quickCategory = $("tally-quick-category");
+  const quickError = $("tally-quick-error");
   if (quickForm && quickAmount && quickCategory) {
+    quickForm.addEventListener("input", () => { quickError.hidden = true; quickError.textContent = ""; });
     quickForm.addEventListener("submit", (event) => {
       event.preventDefault();
       const amount = Number(quickAmount.value);
@@ -932,6 +987,7 @@
           fxRate: 1,
           category,
           note: "",
+          ...filteredTripLink(),
           scope: viewMode,
           paidById: state.selfPersonId,
           splitAmongIds: viewMode === "shared" ? state.people.map(person => person.id) : [],
@@ -939,10 +995,19 @@
         state
       );
       if (!nextRecord) return;
-      state.records.unshift(nextRecord);
+      const previousState = state;
+      state = { ...state, records: [nextRecord, ...state.records] };
+      try { saveState(); }
+      catch (_) {
+        state = previousState;
+        quickError.textContent = isZh() ? "无法保存到本机，请保留当前内容并检查浏览器存储空间。" : "Could not save on this device. Keep this form and check browser storage.";
+        quickError.hidden = false;
+        quickAmount.focus();
+        return;
+      }
+      quickError.hidden = true; quickError.textContent = "";
       const date = parseIso(nextRecord.date);
       viewYear = date.getFullYear(); viewMonth = date.getMonth() + 1; selectedDay = nextRecord.date;
-      saveState();
       quickAmount.value = "";
       quickCategory.value = "";
       render();

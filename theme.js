@@ -39,6 +39,9 @@
   const USER_LOCAL_CACHE_PREFIX = "daily-space-user-cache-v1:";
   const USER_BASELINE_PREFIX = "daily-space-user-baseline-v1:";
   const USER_LAST_ID_STORAGE = "daily-space-last-user-v1";
+  const WORKSPACE_OWNER_STORAGE = "daily-space-workspace-owner-v1";
+  const SNAPSHOT_RECOVERY_STORAGE = "daily-space-snapshot-recovery-v1";
+  const GUEST_CACHE_OWNER = "__guest__";
   const DARK = "dark";
   const LIGHT = "light";
   let userSnapshotTimer = 0;
@@ -55,6 +58,23 @@
   let snapshotRetryCount = 0;
   let snapshotNextRetryAt = 0;
   const snapshotPendingKeys = new Set();
+  // Authentication may change before the workspace has loaded. Its data owner
+  // is a separate durable fact, including across reloads and browser tabs.
+  let snapshotWorkspaceOwner = readWorkspaceOwner();
+  let snapshotStorageFault = Boolean(readSnapshotRecovery());
+  let snapshotPageOwner = snapshotWorkspaceOwner;
+  let snapshotPageRefreshPending = false;
+  let snapshotRendering = false;
+  const snapshotIsolatedElements = new Set();
+  try {
+    if (localStorage.getItem(WORKSPACE_OWNER_STORAGE) === null) markWorkspaceOwner(snapshotWorkspaceOwner);
+  } catch (_) { snapshotStorageFault = true; }
+  if (typeof window.addEventListener === "function") window.addEventListener("daily-space-auth-updated", () => {
+    // Capture before page controllers can reuse an old identity's in-memory
+    // models. Storage and DOM ownership are separate when multiple tabs exist.
+    snapshotPageRefreshPending = true;
+    emitUserSnapshotUpdate();
+  }, true);
 
   function resetSnapshotRequests() {
     snapshotGeneration++;
@@ -326,6 +346,14 @@
   }
 
   function emitUserSnapshotUpdate() {
+    const owner = readWorkspaceOwner(), recovery = readSnapshotRecovery();
+    const ready = !snapshotStorageFault && !recovery && owner === currentUserId() && !snapshotPageRefreshPending;
+    const locked = Boolean(recovery || snapshotRendering || (owner && owner !== currentUserId()) ||
+      (snapshotPageOwner && snapshotPageOwner !== currentUserId()));
+    document.documentElement.dataset.workspaceOwner = owner || "guest";
+    document.documentElement.dataset.workspaceReady = String(ready);
+    document.documentElement.dataset.workspaceLocked = String(locked);
+    renderWorkspaceAccountGate(locked);
     window.dispatchEvent(
       new CustomEvent("daily-space-user-sync-updated", {
         detail: {
@@ -333,9 +361,46 @@
           lastSyncedAt: userSnapshotLastSyncedAt || "",
           userId: userSnapshotUserId || "",
           nextRetryAt: snapshotNextRetryAt,
+          workspaceOwner: owner || "guest",
+          workspaceReady: ready,
         },
       })
     );
+  }
+
+  function renderWorkspaceAccountGate(locked) {
+    const main = document.querySelector(".main-area");
+    if (!main) return;
+    let gate = document.querySelector(".workspace-account-gate");
+    if (!gate) {
+      gate = document.createElement("section"); gate.className = "workspace-account-gate"; gate.dataset.i18nIgnore = "";
+      gate.setAttribute("aria-labelledby", "workspace-account-gate-title");
+      gate.innerHTML = '<h2 id="workspace-account-gate-title"></h2><p role="status"></p><div class="workspace-account-gate-actions"><button type="button" class="btn" data-workspace-gate-retry></button><button type="button" class="btn" data-workspace-gate-account></button><button type="button" class="btn" data-workspace-gate-export></button></div>';
+      gate.querySelector('[data-workspace-gate-retry]').addEventListener('click', () => {
+        if (currentUserId()) userSnapshotTick(true);
+        else stopUserSnapshotSync();
+      });
+      gate.querySelector('[data-workspace-gate-account]').addEventListener('click', () => document.querySelector('.sidebar-auth-entry')?.click());
+      gate.querySelector('[data-workspace-gate-export]').addEventListener('click', () => downloadUserDataExport().catch(handleSnapshotFailure));
+      main.before(gate);
+    }
+    gate.hidden = !locked;
+    gate.querySelector('h2').textContent = t('Workspace is protected', '工作区已保护');
+    gate.querySelector('p').textContent = userSnapshotStatus === 'storage-error'
+      ? t('Device storage is unavailable. Previous account content stays hidden. Free space, then retry or sign in to export your own data.', '本机存储暂不可用，已隐藏上一账号内容。请释放空间后重试，或登录原账号导出自己的数据。')
+      : t('Loading this account. Previous account content stays hidden until the workspace is ready.', '正在加载当前账号。工作区就绪前，上一账号内容保持隐藏。');
+    gate.querySelector('[data-workspace-gate-retry]').textContent = t('Retry', '重试');
+    gate.querySelector('[data-workspace-gate-account]').textContent = t('Account', '账号');
+    gate.querySelector('[data-workspace-gate-export]').textContent = t('Download my data', '下载我的数据');
+    const areas = [main, ...document.querySelectorAll('.m-add-bar, .task-batch-bar, .todo-agent, .command-palette, #due-day-page, .category-list, .sidebar-actions')];
+    if (locked) areas.forEach(area => {
+      snapshotIsolatedElements.add(area); area.dataset.workspaceIsolated = "true";
+    });
+    else {
+      snapshotIsolatedElements.forEach(area => { delete area.dataset.workspaceIsolated; });
+      snapshotIsolatedElements.clear();
+    }
+    if (locked && areas.some(area => area.contains(document.activeElement))) gate.querySelector('[data-workspace-gate-retry]').focus({ preventScroll: true });
   }
 
   const DEFAULT_APP_PATH = "/todo.html#today";
@@ -559,13 +624,16 @@
       authHint.textContent = state ? state.provider : "Google or local guest";
       if (!state) {
         authSync.hidden = true;
+      } else if (userSnapshotStatus === "storage-error") {
+        authSync.hidden = false;
+        authSync.textContent = "Device storage failed — export a backup and retry";
       } else if (userSnapshotStatus === "offline" || !isBrowserOnline()) {
         authSync.hidden = false;
         authSync.textContent = "Offline — saved on this device";
       } else if (userSnapshotStatus === "conflict") {
         authSync.hidden = false;
-        authSync.innerHTML =
-          'Both this device and cloud changed — <button type="button" class="sidebar-auth-sync-action" id="auth-sync-keep-local">Keep this device</button> or <button type="button" class="sidebar-auth-sync-action" id="auth-sync-use-cloud">Use cloud</button>';
+        authSync.innerHTML = (readWorkspaceOwner() ? 'Both this device and cloud changed — ' : 'Guest work and cloud data differ — ') +
+          '<button type="button" class="sidebar-auth-sync-action" id="auth-sync-keep-local">Keep this device</button> or <button type="button" class="sidebar-auth-sync-action" id="auth-sync-use-cloud">Use cloud</button>';
         const keepLocal = authSync.querySelector("#auth-sync-keep-local");
         const useCloud = authSync.querySelector("#auth-sync-use-cloud");
         if (keepLocal) {
@@ -614,10 +682,14 @@
       if (logoutButton) logoutButton.hidden = !state;
       if (accountActions) accountActions.hidden = !state;
       modal.querySelector('.auth-conflict-actions').hidden = userSnapshotStatus !== 'conflict';
+      modal.querySelector('.auth-conflict-actions p').textContent = readWorkspaceOwner()
+        ? "Both this device and cloud changed. Choose which version to keep."
+        : "Guest work is backed up on this device. Choose this work or your cloud data.";
       if (providerList) providerList.hidden = Boolean(state) && userSnapshotStatus !== "auth-required";
       if (authTitle) authTitle.textContent = userSnapshotStatus === "auth-required" ? "Reconnect Google" : state ? "Account" : "Sign in";
       if (authCopy) {
-        authCopy.textContent = userSnapshotStatus === "auth-required" ? "Your changes are saved on this device. Sign in again to resume sync." : state
+        authCopy.textContent = userSnapshotStatus === "storage-error" ? "Sync is paused. Free device storage or export a backup before retrying."
+          : userSnapshotStatus === "auth-required" ? "Your changes are saved on this device. Sign in again to resume sync." : state
           ? "Download a copy, fix sync conflicts from the Account row, or delete your cloud account."
           : "Sign in with Google to sync your workspace, or continue as guest to keep it on this device.";
       }
@@ -664,6 +736,7 @@
     }
 
     async function startGoogleSignIn() {
+      cacheMaterializedWorkspace();
       const response = await fetch("/api/auth/google/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -752,7 +825,6 @@
           }
           clearAuthState();
           stopUserSnapshotSync();
-          applyUserSnapshotPayload({}, { clearMissing: true });
           renderAuth();
           closeModal();
           window.location.href = "todo.html#today";
@@ -929,7 +1001,9 @@
 
   function handleSnapshotFailure(error) {
     if (error?.code === "SYNC_STALE") return;
-    userSnapshotStatus = !isBrowserOnline() ? "offline"
+    if (error?.code === "SYNC_STORAGE") snapshotStorageFault = true;
+    userSnapshotStatus = error?.code === "SYNC_STORAGE" ? "storage-error"
+      : !isBrowserOnline() ? "offline"
       : error?.status === 401 ? "auth-required"
       : error?.code === "SNAPSHOT_CONFLICT" ? "conflict"
       : error?.status === 413 ? "too-large"
@@ -1023,12 +1097,39 @@
     }
   }
 
-  function writeLastUserId(userId) {
+  function storageFailure(cause) {
+    return Object.assign(new Error("Device storage failed. Free space or export a backup before retrying."), { code: "SYNC_STORAGE", cause });
+  }
+
+  function writeStorageChecked(key, value) {
     try {
-      if (userId) localStorage.setItem(USER_LAST_ID_STORAGE, userId);
-    } catch (_) {
-      /* ignore inaccessible local cache */
-    }
+      localStorage.setItem(key, value);
+      if (localStorage.getItem(key) !== value) throw new Error("Storage did not retain data");
+    } catch (error) { throw storageFailure(error); }
+  }
+
+  function readWorkspaceOwner() {
+    try {
+      const stored = localStorage.getItem(WORKSPACE_OWNER_STORAGE);
+      if (stored !== null) return String(JSON.parse(stored)?.owner || "").trim().toLowerCase();
+    } catch (_) { /* Older installations use the last confirmed account. */ }
+    return currentUserId() ? readLastUserId() : "";
+  }
+
+  function markWorkspaceOwner(owner) {
+    writeStorageChecked(WORKSPACE_OWNER_STORAGE, JSON.stringify({ owner: owner || "" }));
+    snapshotWorkspaceOwner = owner || "";
+  }
+
+  function readSnapshotRecovery() {
+    try {
+      const value = JSON.parse(localStorage.getItem(SNAPSHOT_RECOVERY_STORAGE) || "null");
+      return value && typeof value.ownerBefore === "string" && value.payloadBefore && typeof value.payloadBefore === "object" ? value : null;
+    } catch (_) { return null; }
+  }
+
+  function writeLastUserId(userId) {
+    if (userId) writeStorageChecked(USER_LAST_ID_STORAGE, userId);
   }
 
   function readUserLocalCache(userId) {
@@ -1043,11 +1144,23 @@
 
   function writeUserLocalCache(userId, payload) {
     if (!userId) return;
-    try {
-      localStorage.setItem(`${USER_LOCAL_CACHE_PREFIX}${userId}`, JSON.stringify(payload || {}));
-    } catch (_) {
-      /* ignore inaccessible local cache */
-    }
+    writeStorageChecked(`${USER_LOCAL_CACHE_PREFIX}${userId}`, JSON.stringify(payload || {}));
+  }
+
+  function cacheMaterializedWorkspace() {
+    // A failed apply may leave partial data behind. Only its complete recovery
+    // copy is usable until a successful retry; never cache or upload the mix.
+    if (readSnapshotRecovery()) throw storageFailure();
+    const owner = readWorkspaceOwner();
+    snapshotWorkspaceOwner = owner;
+    const payload = collectUserSnapshotPayload();
+    writeUserLocalCache(owner || GUEST_CACHE_OWNER, payload);
+    return payload;
+  }
+
+  function tryCacheMaterializedWorkspace() {
+    try { cacheMaterializedWorkspace(); return true; }
+    catch (error) { handleSnapshotFailure(error); return false; }
   }
 
   function readPersistedBaseline(userId) {
@@ -1061,18 +1174,17 @@
 
   function writePersistedBaseline(userId, signature) {
     if (!userId) return;
-    try {
-      if (signature) localStorage.setItem(`${USER_BASELINE_PREFIX}${userId}`, signature);
-      else localStorage.removeItem(`${USER_BASELINE_PREFIX}${userId}`);
-    } catch (_) {
-      /* ignore inaccessible local cache */
+    if (signature) writeStorageChecked(`${USER_BASELINE_PREFIX}${userId}`, signature);
+    else {
+      try { localStorage.removeItem(`${USER_BASELINE_PREFIX}${userId}`); }
+      catch (error) { throw storageFailure(error); }
     }
   }
 
   function setSyncedBaseline(userId, payload) {
     const signature = userSnapshotSignature(payload);
-    userSnapshotBaseline = signature;
     writePersistedBaseline(userId, signature);
+    userSnapshotBaseline = signature;
     return signature;
   }
 
@@ -1081,7 +1193,16 @@
     return USER_SNAPSHOT_KEYS.some(function (key) {
       if (key === STORAGE_THEME) return false;
       const value = payload[key];
-      return typeof value === "string" && value.length > 2;
+      if (typeof value !== "string" || value.length <= 2) return false;
+      try {
+        const state = JSON.parse(value);
+        if (!state || typeof state !== "object") return Boolean(state);
+        if (Array.isArray(state)) return state.length > 0;
+        if (key === "teamwork-page-v1") return Object.values(state).some(item =>
+          typeof item === "string" ? item.trim() : Array.isArray(item) && item.length);
+        if (["todos", "categories", "reminders", "records", "settlements", "entries", "plannerEntries", "trips", "templates", "accounts"].some(name => Array.isArray(state[name]) && state[name].length)) return true;
+        return Object.values(state.boards || {}).some(board => Array.isArray(board?.entries) && board.entries.length);
+      } catch (_) { return true; } // Preserve legacy/plain-text data rather than assume it is empty.
     });
   }
 
@@ -1104,23 +1225,43 @@
     }).join("|");
   }
 
-  function applyUserSnapshotPayload(payload, options) {
+  function applyUserSnapshotPayload(payload, options = {}) {
     const nextPayload = payload && typeof payload === "object" ? payload : {};
-    const clearMissing = Boolean(options && options.clearMissing);
-    USER_SNAPSHOT_KEYS.forEach(function (key) {
-      const value = nextPayload[key];
-      try {
+    const clearMissing = Boolean(options.clearMissing);
+    const owner = options.owner ?? currentUserId();
+    const recovery = readSnapshotRecovery() || { ownerBefore: readWorkspaceOwner(), payloadBefore: collectUserSnapshotPayload() };
+    // Persist rollback data before the first write. If even this backup cannot
+    // fit, leave the old workspace intact and ask the user to free space.
+    writeStorageChecked(SNAPSHOT_RECOVERY_STORAGE, JSON.stringify(recovery));
+    try {
+      USER_SNAPSHOT_KEYS.forEach(key => {
+        const value = nextPayload[key];
         if (typeof value === "string") {
-          // Theme is a device preference: never let a missing/empty remote value wipe local dark/light.
           if (key === STORAGE_THEME && value !== DARK && value !== LIGHT) return;
-          localStorage.setItem(key, value);
+          writeStorageChecked(key, value);
         } else if (clearMissing && key !== STORAGE_THEME) {
           localStorage.removeItem(key);
+          if (localStorage.getItem(key) !== null) throw new Error("Could not clear stored data");
         }
-      } catch (_) {
-        /* ignore write failures */
-      }
-    });
+      });
+      markWorkspaceOwner(owner);
+      localStorage.removeItem(SNAPSHOT_RECOVERY_STORAGE);
+      if (localStorage.getItem(SNAPSHOT_RECOVERY_STORAGE) !== null) throw new Error("Could not finish local restore");
+    } catch (error) {
+      // Best-effort rollback. Keep the durable recovery copy if any rollback
+      // write fails; subsequent syncs cannot upload this partial workspace.
+      try {
+        USER_SNAPSHOT_KEYS.forEach(key => {
+          const value = recovery.payloadBefore[key];
+          if (typeof value === "string") writeStorageChecked(key, value);
+          else localStorage.removeItem(key);
+        });
+        markWorkspaceOwner(recovery.ownerBefore);
+        localStorage.removeItem(SNAPSHOT_RECOVERY_STORAGE);
+      } catch (_) { /* Recovery stays available after quota/permission errors. */ }
+      throw storageFailure(error);
+    }
+    snapshotStorageFault = false;
     applyTheme(storedTheme());
     renderGreeting();
   }
@@ -1129,21 +1270,23 @@
     const userId = currentUserId();
     if (!userId || !isBrowserOnline()) {
       userSnapshotStatus = isBrowserOnline() ? "error" : "offline";
-      emitUserSnapshotUpdate();
-      return;
+      emitUserSnapshotUpdate(); return;
     }
-    userSnapshotStatus = "syncing";
-    emitUserSnapshotUpdate();
+    userSnapshotStatus = "syncing"; emitUserSnapshotUpdate();
+    const before = collectUserSnapshotPayload();
     const data = await requestUserSnapshot("GET");
+    const nextPayload = data.payload || {};
+    // Guest data was backed up before the conflict appeared. Preserve any
+    // later edits too before the explicit cloud choice replaces the workspace.
+    if (!readSnapshotRecovery()) cacheMaterializedWorkspace();
+    applyUserSnapshotPayload(nextPayload, { clearMissing: true, owner: userId });
     userSnapshotRevision = data.revision;
-    const nextPayload = data.payload && typeof data.payload === "object" ? data.payload : {};
-    applyUserSnapshotPayload(nextPayload, { clearMissing: true });
-    userSnapshotUserId = userId;
-    writeLastUserId(userId);
+    userSnapshotUserId = userId; writeLastUserId(userId);
     writeUserLocalCache(userId, collectUserSnapshotPayload());
     setSyncedBaseline(userId, collectUserSnapshotPayload());
     userSnapshotLastSyncedAt = data.updatedAt || new Date().toISOString();
     snapshotSucceeded();
+    notifySnapshotApplied(before, collectUserSnapshotPayload(), true);
     window.location.reload();
   }
 
@@ -1151,27 +1294,36 @@
     const userId = currentUserId();
     if (!userId || !isBrowserOnline()) {
       userSnapshotStatus = isBrowserOnline() ? "error" : "offline";
-      emitUserSnapshotUpdate();
-      return;
+      emitUserSnapshotUpdate(); return;
     }
-    userSnapshotStatus = "syncing";
-    emitUserSnapshotUpdate();
-    // The user explicitly chose this device; still protect against changes after this read.
+    if (snapshotStorageFault || readSnapshotRecovery()) throw storageFailure();
+    const beforeOwner = readWorkspaceOwner();
+    // An unresolved signed-in workspace belongs to its original account, even
+    // when the account chooser is already showing another identity.
+    if (beforeOwner && beforeOwner !== userId) throw Object.assign(new Error("Wait for this account to load."), { code: "SYNC_STALE" });
+    userSnapshotStatus = "syncing"; emitUserSnapshotUpdate();
     const latest = await requestUserSnapshot("GET");
+    const payload = cacheMaterializedWorkspace();
+    if (beforeOwner !== userId) applyUserSnapshotPayload(payload, { clearMissing: true, owner: userId });
     userSnapshotRevision = latest.revision;
-    const payload = collectUserSnapshotPayload();
-    const saved = await requestUserSnapshot("PUT", { payload });
-    userSnapshotUserId = userId;
-    writeLastUserId(userId);
+    // Remember the version explicitly compared by the user. A failed upload
+    // must remain a local-only change on retry, rather than being discarded.
+    setSyncedBaseline(userId, latest.payload || {});
     writeUserLocalCache(userId, payload);
+    userSnapshotUserId = userId; writeLastUserId(userId);
+    const saved = await requestUserSnapshot("PUT", { payload });
     setSyncedBaseline(userId, payload);
-    userSnapshotLastSyncedAt = (saved && saved.updatedAt) || new Date().toISOString();
+    userSnapshotLastSyncedAt = saved.updatedAt || new Date().toISOString();
     snapshotSucceeded();
+    notifySnapshotApplied(payload, collectUserSnapshotPayload(), beforeOwner !== userId);
   }
 
   async function downloadUserDataExport() {
     const owner = currentUserId(), generation = snapshotGeneration;
-    const localPayload = collectUserSnapshotPayload();
+    const recovery = readSnapshotRecovery();
+    const materializedOwner = readWorkspaceOwner();
+    const localPayload = recovery?.ownerBefore === owner ? recovery.payloadBefore
+      : materializedOwner === owner && !recovery ? collectUserSnapshotPayload() : readUserLocalCache(owner || GUEST_CACHE_OWNER) || {};
     let cloudPayload = null;
     let cloudUpdatedAt = null;
     if (currentUserId() && isBrowserOnline()) {
@@ -1192,6 +1344,11 @@
       cloud: cloudPayload,
       cloudUpdatedAt,
     };
+    if (!materializedOwner || recovery?.ownerBefore === "") {
+      const guest = recovery?.ownerBefore === "" ? recovery.payloadBefore
+        : !recovery && !materializedOwner ? collectUserSnapshotPayload() : readUserLocalCache(GUEST_CACHE_OWNER);
+      if (guest && Object.keys(guest).length) body.guest = { owner: "guest", payload: guest };
+    }
     const blob = new Blob([JSON.stringify(body, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -1209,14 +1366,23 @@
       (focused?.matches?.('input, textarea, [contenteditable="true"]') && String(focused.value || focused.textContent || '').trim()));
   }
 
-  function notifySnapshotApplied(before, after) {
+  function notifySnapshotApplied(before, after, materialized = false) {
+    materialized = materialized || snapshotPageRefreshPending || snapshotPageOwner !== readWorkspaceOwner();
     const mapping = { "todo-app-v2": "todo", "calendar-app-v1": "calendar", "planner-app-v1": "planner",
       "tally-book-v1": "tally", "teamwork-page-v1": "teamwork", "travel-book-v1": "travel", "travel-shared-v1": "travel" };
-    Object.keys(mapping).filter(key => before[key] !== after[key]).forEach(key => snapshotPendingKeys.add(key));
-    if (snapshotEditorActive()) return;
+    Object.keys(mapping).filter(key => materialized || before[key] !== after[key]).forEach(key => snapshotPendingKeys.add(key));
+    if (!materialized && snapshotEditorActive()) return;
     const domains = [...new Set([...snapshotPendingKeys].map(key => mapping[key]).filter(Boolean))];
     snapshotPendingKeys.clear();
-    if (domains.length) window.dispatchEvent(new CustomEvent("daily-space-agent-data-updated", { detail: { domains, source: "cloud-sync" } }));
+    if (materialized) {
+      snapshotPageOwner = readWorkspaceOwner(); snapshotPageRefreshPending = false; snapshotRendering = true;
+      emitUserSnapshotUpdate();
+    }
+    try {
+      if (domains.length) window.dispatchEvent(new CustomEvent("daily-space-agent-data-updated", { detail: { domains, source: "cloud-sync" } }));
+    } finally {
+      if (materialized) { snapshotRendering = false; emitUserSnapshotUpdate(); }
+    }
   }
 
   function snapshotSucceeded() {
@@ -1228,54 +1394,67 @@
   async function loadSnapshotForCurrentUser() {
     const userId = currentUserId();
     if (!userId) return;
-    if (!isBrowserOnline()) {
-      userSnapshotStatus = "offline"; emitUserSnapshotUpdate(); return;
-    }
-    const previousUserId = userSnapshotUserId || readLastUserId();
-    const switched = previousUserId && previousUserId !== userId;
+    const ownerBefore = readWorkspaceOwner();
+    const switched = ownerBefore !== userId;
     if (switched) { userSnapshotRevision = null; userSnapshotLastSyncedAt = ""; }
+    const recovery = readSnapshotRecovery();
     const initialPayload = collectUserSnapshotPayload();
+    // Never cache a workspace under the requested account until that account
+    // has actually been materialized. This also handles failed/offline switches.
+    if (!recovery) cacheMaterializedWorkspace();
+    if (!isBrowserOnline()) { userSnapshotStatus = "offline"; emitUserSnapshotUpdate(); return; }
     const baseline = readPersistedBaseline(userId) || (userSnapshotUserId === userId ? userSnapshotBaseline : "");
-    if (switched) writeUserLocalCache(previousUserId, initialPayload);
-    userSnapshotStatus = "syncing";
-    emitUserSnapshotUpdate();
+    userSnapshotStatus = "syncing"; emitUserSnapshotUpdate();
     const data = await requestUserSnapshot("GET");
     userSnapshotRevision = data.revision;
-    // Read again: edits made while the request was pending must participate in
-    // reconciliation rather than being overwritten by a late cloud response.
-    const localPayload = switched ? (readUserLocalCache(userId) || {}) : collectUserSnapshotPayload();
+    if (readWorkspaceOwner() !== ownerBefore) throw Object.assign(new Error("Workspace owner changed during sync"), { code: "SYNC_STALE" });
+    const accountCache = readUserLocalCache(userId);
+    const guestPayload = !ownerBefore && !recovery ? collectUserSnapshotPayload() : readUserLocalCache(GUEST_CACHE_OWNER);
+    if (!ownerBefore && !recovery) writeUserLocalCache(GUEST_CACHE_OWNER, guestPayload);
+    const importGuest = switched && !ownerBefore && !accountCache && payloadHasAppData(guestPayload);
+    let localPayload;
+    if (recovery) localPayload = recovery.ownerBefore === userId ? recovery.payloadBefore
+      : accountCache || (importGuest ? guestPayload : {});
+    else localPayload = switched ? accountCache || (importGuest ? guestPayload : {}) : collectUserSnapshotPayload();
     const remotePayload = data.payload || {};
     const localSig = userSnapshotSignature(localPayload);
     const remoteSig = userSnapshotSignature(remotePayload);
-    const localDirty = baseline ? localSig !== baseline
-      : !switched && localSig !== userSnapshotSignature(initialPayload);
+    const localDirty = baseline ? localSig !== baseline : importGuest ||
+      (!switched && localSig !== userSnapshotSignature(initialPayload));
     const remoteDirty = baseline ? remoteSig !== baseline : Boolean(data.updatedAt);
-    if (switched && snapshotEditorActive()) { userSnapshotStatus = "remote-pending"; emitUserSnapshotUpdate(); return; }
-    userSnapshotUserId = userId; writeLastUserId(userId);
-    userSnapshotBaseline = baseline;
+    if (switched && !snapshotPageRefreshPending && snapshotEditorActive()) { userSnapshotStatus = "remote-pending"; emitUserSnapshotUpdate(); return; }
     if (localSig !== remoteSig && localDirty && remoteDirty) {
-      if (switched) applyUserSnapshotPayload(localPayload, { clearMissing: true });
-      writeUserLocalCache(userId, localPayload);
-      userSnapshotStatus = "conflict"; emitUserSnapshotUpdate(); return;
+      // For a first Guest sign-in, keep the materialized Guest owner until an
+      // explicit choice. The separate Guest backup survives reload and logout.
+      const restoredConflict = (switched && !importGuest) || Boolean(recovery) || snapshotStorageFault;
+      if (restoredConflict) applyUserSnapshotPayload(localPayload, { clearMissing: true, owner: importGuest ? "" : userId });
+      if (!importGuest) writeUserLocalCache(userId, localPayload);
+      userSnapshotUserId = userId; userSnapshotBaseline = baseline;
+      if (!importGuest) writeLastUserId(userId);
+      userSnapshotStatus = "conflict"; emitUserSnapshotUpdate();
+      if (restoredConflict) notifySnapshotApplied(initialPayload, collectUserSnapshotPayload(), true);
+      return;
     }
     let syncedPayload = remotePayload;
     if (localSig !== remoteSig && (localDirty || !data.updatedAt)) {
       syncedPayload = localPayload;
-      if (switched) applyUserSnapshotPayload(localPayload, { clearMissing: true });
+      if (switched || recovery || snapshotStorageFault) applyUserSnapshotPayload(localPayload, { clearMissing: true, owner: userId });
       if (Object.keys(syncedPayload).length) {
         const saved = await requestUserSnapshot("PUT", { payload: syncedPayload });
         userSnapshotLastSyncedAt = saved.updatedAt || new Date().toISOString();
       }
-    } else if (localSig !== remoteSig || switched) {
-      if (snapshotEditorActive()) { userSnapshotStatus = "remote-pending"; emitUserSnapshotUpdate(); return; }
-      applyUserSnapshotPayload(remotePayload, { clearMissing: true });
+    } else if (localSig !== remoteSig || switched || recovery || snapshotStorageFault) {
+      if (!snapshotPageRefreshPending && snapshotEditorActive()) { userSnapshotStatus = "remote-pending"; emitUserSnapshotUpdate(); return; }
+      applyUserSnapshotPayload(remotePayload, { clearMissing: true, owner: userId });
     }
+    userSnapshotUserId = userId; writeLastUserId(userId);
     userSnapshotLastSyncedAt = userSnapshotLastSyncedAt || data.updatedAt || "";
     if (data.updatedAt && syncedPayload === remotePayload) userSnapshotLastSyncedAt = data.updatedAt;
-    setSyncedBaseline(userId, syncedPayload);
     writeUserLocalCache(userId, collectUserSnapshotPayload());
+    setSyncedBaseline(userId, syncedPayload);
+    snapshotStorageFault = false;
     snapshotSucceeded();
-    notifySnapshotApplied(initialPayload, collectUserSnapshotPayload());
+    notifySnapshotApplied(initialPayload, collectUserSnapshotPayload(), switched || Boolean(recovery));
   }
 
   async function userSnapshotTick(force = false) {
@@ -1283,16 +1462,19 @@
     const userId = currentUserId();
     if (!userId) return;
     if (!isBrowserOnline()) {
-      writeUserLocalCache(userId, collectUserSnapshotPayload());
+      if (!tryCacheMaterializedWorkspace()) return;
       userSnapshotStatus = "offline"; emitUserSnapshotUpdate(); return;
     }
     if (["conflict", "auth-required"].includes(userSnapshotStatus)) {
-      writeUserLocalCache(userId, collectUserSnapshotPayload()); return;
+      tryCacheMaterializedWorkspace(); return;
     }
+    if (userSnapshotStatus === "storage-error" && !force) return;
     if (!force && snapshotNextRetryAt > Date.now()) return;
-    if (new Blob([JSON.stringify(collectUserSnapshotPayload())]).size > 1024 * 1024) {
-      writeUserLocalCache(userId, collectUserSnapshotPayload());
-      handleSnapshotFailure({ status: 413 }); return;
+    const recovery = readSnapshotRecovery();
+    const candidate = recovery?.ownerBefore === userId ? recovery.payloadBefore
+      : readWorkspaceOwner() === userId && !recovery ? collectUserSnapshotPayload() : readUserLocalCache(userId) || {};
+    if (new Blob([JSON.stringify(candidate)]).size > 1024 * 1024) {
+      if (tryCacheMaterializedWorkspace()) handleSnapshotFailure({ status: 413 }); return;
     }
     const generation = snapshotGeneration;
     userSnapshotInFlight = true;
@@ -1300,8 +1482,8 @@
       await loadSnapshotForCurrentUser();
     } catch (error) {
       if (generation !== snapshotGeneration || userId !== currentUserId()) return;
-      writeUserLocalCache(userId, collectUserSnapshotPayload());
-      handleSnapshotFailure(error);
+      if (error?.code === "SYNC_STORAGE") handleSnapshotFailure(error);
+      else if (tryCacheMaterializedWorkspace()) handleSnapshotFailure(error);
     } finally {
       if (generation === snapshotGeneration) userSnapshotInFlight = false;
     }
@@ -1309,10 +1491,11 @@
 
   function flushUserSnapshotOnPageHide() {
     const userId = currentUserId();
-    if (!userId) return;
+    if (!userId) { tryCacheMaterializedWorkspace(); return; }
+    if (!tryCacheMaterializedWorkspace()) return;
+    if (readWorkspaceOwner() !== userId || snapshotStorageFault) return;
     const payload = collectUserSnapshotPayload();
-    writeUserLocalCache(userId, payload);
-    if (["conflict", "auth-required", "too-large", "remote-pending"].includes(userSnapshotStatus)) return;
+    if (["conflict", "auth-required", "too-large", "remote-pending", "storage-error"].includes(userSnapshotStatus)) return;
     if (userSnapshotSignature(payload) === userSnapshotBaseline) return;
     if (!isBrowserOnline()) { userSnapshotStatus = "offline"; emitUserSnapshotUpdate(); return; }
     if (userSnapshotWriteInFlight || userSnapshotInFlight || userSnapshotRevision == null) return;
@@ -1326,20 +1509,26 @@
 
   function stopUserSnapshotSync() {
     resetSnapshotRequests();
-    const previousUserId = userSnapshotUserId || readLastUserId();
-    if (previousUserId) {
-      writeUserLocalCache(previousUserId, collectUserSnapshotPayload());
-      // Clear synced app data for the signed-out user, but keep local theme preference.
-      applyUserSnapshotPayload({}, { clearMissing: true });
+    const ownerBefore = readWorkspaceOwner();
+    const before = collectUserSnapshotPayload();
+    try {
+      if (ownerBefore || readSnapshotRecovery()) {
+        if (!readSnapshotRecovery()) cacheMaterializedWorkspace();
+        applyUserSnapshotPayload(readUserLocalCache(GUEST_CACHE_OWNER) || {}, { clearMissing: true, owner: "" });
+      } else {
+        // Repeated stop calls must not erase a Guest restored by the first call.
+        cacheMaterializedWorkspace();
+        markWorkspaceOwner("");
+      }
+    } catch (error) {
+      handleSnapshotFailure(error);
+      return;
     }
-    window.clearInterval(userSnapshotTimer);
-    userSnapshotTimer = 0;
-    userSnapshotUserId = "";
-    userSnapshotRevision = null;
-    userSnapshotBaseline = "";
-    userSnapshotLastSyncedAt = "";
-    userSnapshotStatus = "idle";
+    window.clearInterval(userSnapshotTimer); userSnapshotTimer = 0;
+    userSnapshotUserId = ""; userSnapshotRevision = null; userSnapshotBaseline = "";
+    userSnapshotLastSyncedAt = ""; userSnapshotStatus = "idle";
     emitUserSnapshotUpdate();
+    notifySnapshotApplied(before, collectUserSnapshotPayload(), Boolean(ownerBefore));
   }
 
   function startUserSnapshotSync() {
@@ -1357,8 +1546,13 @@
 
   function setupUserSnapshotSync() {
     window.addEventListener("daily-space-auth-updated", () => refreshUserSnapshotSession(true));
+    window.addEventListener("daily-space-locale-changed", () => renderWorkspaceAccountGate(document.documentElement.dataset.workspaceLocked === "true"));
     window.addEventListener("storage", event => {
-      if (event.key === STORAGE_AUTH || event.key === null) refreshUserSnapshotSession(true);
+      if (event.key === STORAGE_AUTH || event.key === WORKSPACE_OWNER_STORAGE || event.key === null) {
+        snapshotPageRefreshPending = true;
+        emitUserSnapshotUpdate();
+        window.dispatchEvent(new CustomEvent("daily-space-auth-updated"));
+      }
       else if (USER_SNAPSHOT_KEYS.includes(event.key)) {
         snapshotPendingKeys.add(event.key);
         userSnapshotTick();
@@ -1376,9 +1570,19 @@
     window.addEventListener("online", () => userSnapshotTick(true));
     window.addEventListener("offline", () => {
       if (!currentUserId()) return;
-      writeUserLocalCache(currentUserId(), collectUserSnapshotPayload());
+      if (!tryCacheMaterializedWorkspace()) return;
       userSnapshotStatus = "offline"; emitUserSnapshotUpdate();
     });
+    document.addEventListener('keydown', event => {
+      if (document.documentElement.dataset.workspaceLocked !== 'true' || event.target.closest?.('.auth-modal, .workspace-account-gate')) return;
+      const key = String(event.key).toLowerCase();
+      if (((event.metaKey || event.ctrlKey) && key === 'k') || (!event.metaKey && !event.ctrlKey && !event.altKey && ['n','t','g'].includes(key))) {
+        event.preventDefault(); event.stopImmediatePropagation();
+      }
+    }, true);
+    window.addEventListener('daily-space-shortcut', event => {
+      if (document.documentElement.dataset.workspaceLocked === 'true') { event.preventDefault(); event.stopImmediatePropagation(); }
+    }, true);
     refreshUserSnapshotSession(false);
   }
 
@@ -2218,8 +2422,9 @@
     function schedule() { clearTimeout(timer); if (currentUserId() && isBrowserOnline() && !['conflict','auth-required'].includes(userSnapshotStatus)) timer = setTimeout(() => userSnapshotTick().then(render), 1000); }
     function render() {
       const user = currentUserId(); const dirty = user && userSnapshotSignature(collectUserSnapshotPayload()) !== userSnapshotBaseline;
-      retry.hidden = true; row.hidden = !user && !localSave; row.inert = row.hidden;
-      if (!user) label.textContent = t('Saved on this device','已保存到本机');
+      retry.hidden = true; row.hidden = !user && !localSave && userSnapshotStatus !== 'storage-error'; row.inert = row.hidden;
+      if (userSnapshotStatus === 'storage-error') { label.textContent=t('Device storage failed · sync paused','本机存储失败 · 同步已暂停');retry.hidden=false;retry.textContent=t('Retry','重试'); }
+      else if (!user) label.textContent = t('Saved on this device','已保存到本机');
       else if (userSnapshotStatus === 'conflict') { label.textContent=t('Saved locally · choose which version to keep','已保存到本机 · 请选择保留的版本');retry.hidden=false;retry.textContent=t('Review','查看'); }
       else if (!isBrowserOnline() || userSnapshotStatus === 'offline') label.textContent=t('Saved locally · waiting for connection','已保存到本机 · 等待联网');
       else if (userSnapshotStatus === 'auth-required') { label.textContent=t('Saved locally · sign in again to sync','已保存到本机 · 登录已失效，请重新登录');retry.hidden=false;retry.textContent=t('Reconnect','重新登录'); }
@@ -2230,7 +2435,7 @@
       else if (dirty) { label.textContent=t('Saved locally · waiting to sync','已保存到本机 · 等待同步'); if(userSnapshotStatus==='ok')schedule(); }
       else label.textContent=t('Synced to cloud','已同步到云端');
     }
-    retry.addEventListener('click',()=>{if(['conflict','too-large'].includes(userSnapshotStatus))document.querySelector('.sidebar-auth-entry')?.click();else if(userSnapshotStatus==='auth-required')window.DailySpaceAuth.startGoogleSignIn().catch(()=>{label.textContent=t('Could not open sign-in. Please try again.','暂时无法打开登录，请重试。');});else { userSnapshotTick(true).then(render); }});
+    retry.addEventListener('click',()=>{if(['conflict','too-large'].includes(userSnapshotStatus))document.querySelector('.sidebar-auth-entry')?.click();else if(userSnapshotStatus==='storage-error'&&!currentUserId()){stopUserSnapshotSync();render();}else if(userSnapshotStatus==='auth-required')window.DailySpaceAuth.startGoogleSignIn().catch(()=>{label.textContent=t('Could not open sign-in. Please try again.','暂时无法打开登录，请重试。');});else { userSnapshotTick(true).then(render); }});
     window.addEventListener('daily-space-agent-data-updated',event=>{if(event.detail?.source==='cloud-sync')return;localSave=true;render();schedule();});
     window.addEventListener('daily-space-travel-saved',()=>{localSave=true;render();schedule();});
     window.addEventListener('daily-space-user-sync-updated',render);

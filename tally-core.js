@@ -114,12 +114,26 @@
         !["__proto__", "constructor", "prototype"].includes(key) && key.length <= 160 && Number.isFinite(Number(value?.amount)) && Number(value.amount) > 0
       ).map(([key, value]) => [key, { amount: Number(value.amount), currency: currencyCode(value.currency, baseCurrency) }])),
       records: [],
-      settlements: Array.isArray(state.settlements) ? state.settlements.slice(0, 200) : [],
+      settlements: Array.isArray(state.settlements) ? state.settlements.slice() : [],
     };
     normalized.records = Array.isArray(state.records)
-      ? state.records.map((record) => normalizeRecord(record, normalized)).filter(Boolean).slice(0, 1000)
+      ? state.records.map((record) => normalizeRecord(record, normalized)).filter(Boolean)
       : [];
     return normalized;
+  }
+
+  function changeBaseCurrency(state, value) {
+    const current = currencyCode(state.baseCurrency || state.currency, "JPY");
+    const next = currencyCode(value, current);
+    if (next === current) return { state, changed: false, blocked: false };
+    // Saved rates, settlements and budgets are denominated in the original base.
+    // A different display currency needs an explicit migration with dated rates;
+    // never reinterpret those amounts or normalize their saved rates to one.
+    const hasHistory = (Array.isArray(state.records) && state.records.length > 0) ||
+      (Array.isArray(state.settlements) && state.settlements.length > 0) ||
+      (state.tripBudgets && Object.keys(state.tripBudgets).length > 0);
+    if (hasHistory) return { state, changed: false, blocked: true, reason: "history" };
+    return { state: { ...state, baseCurrency: next, currency: currencySymbol(next) }, changed: true, blocked: false };
   }
 
   function readState(storage) {
@@ -233,6 +247,7 @@
   const api = {
     STORAGE_KEY,
     baseAmount,
+    changeBaseCurrency,
     computeBalances,
     currencyCode,
     currencySymbol,

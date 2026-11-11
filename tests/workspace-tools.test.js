@@ -75,3 +75,90 @@ test('promoted trip totals include old personal links once and exclude unrelated
  assert.equal(result.total,100);assert.equal(result.records.length,2);assert.equal(result.categories.length,2);assert.equal(result.days.length,2);
  const budget={amount:200,currency:'CNY'};assert.deepEqual(window.DailySpaceTripExpenses.budget({tripBudgets:{'local-trip':budget}},'shared:server-trip'),budget);
 });
+
+function largeLedger(){
+ const records=Array.from({length:1001},(_,index)=>({id:`history-${index}`,date:'2026-11-11',amount:1,currency:'CNY',category:'Food',tripId:'tokyo',tripName:'Tokyo'}));
+ Object.assign(records[0],{amount:2,currency:'USD',fxRate:7.5,scope:'shared',paidById:'backup-self',splitAmongIds:['backup-self','friend']});
+ return Tally.normalizeState({baseCurrency:'CNY',selfPersonId:'backup-self',people:[{id:'backup-self',name:'Me',isSelf:true},{id:'friend',name:'Friend'}],records,
+  settlements:Array.from({length:201},(_,index)=>({id:`settlement-${index}`,fromId:'backup-self',toId:'friend',amountBase:1})),
+  tripBudgets:{tokyo:{amount:3000,currency:'CNY'},kyoto:{amount:400,currency:'USD'}}});
+}
+
+test('large ledger JSON backups restore all expenses, settlements, rates and trip budgets',()=>{
+ const ledger=largeLedger(),source=storage({'tally-book-v1':ledger}),target=storage();
+ const file=JSON.stringify(Core.backup(source));
+ assert.ok(new TextEncoder().encode(file).length<1024*1024);
+ const plan=Core.prepare(file,'json',target);
+ assert.equal(plan.summary[0].added,1001);
+ Core.apply(plan,target);
+ const restored=Tally.readState(target);
+ assert.deepEqual(restored.records,ledger.records);
+ assert.deepEqual(restored.settlements,ledger.settlements);
+ assert.deepEqual(restored.tripBudgets,ledger.tripBudgets);
+ assert.deepEqual(Tally.computeBalances(restored),Tally.computeBalances(ledger));
+ Core.apply(Core.prepare(file,'json',target),target);
+ assert.equal(Tally.readState(target).records.length,1001);
+ assert.equal(Tally.readState(target).settlements.length,201);
+});
+
+test('large ledger merges retain local history and remap settlement participant identity',()=>{
+ const ledger=largeLedger();
+ const target=storage({'tally-book-v1':{baseCurrency:'CNY',selfPersonId:'local-self',people:[{id:'local-self',name:'Me',isSelf:true},{id:'friend',name:'Local friend'}],
+  records:[{id:'local-expense',date:'2026-11-10',amount:5,currency:'CNY',category:'Local'}],
+  settlements:[{id:'local-settlement',fromId:'friend',toId:'local-self',amountBase:3}],tripBudgets:{tokyo:{amount:3500,currency:'CNY'}}}});
+ const file=JSON.stringify({'tally-book-v1':ledger});
+ Core.apply(Core.prepare(file,'json',target),target);
+ const merged=Tally.readState(target);
+ assert.equal(merged.records.length,1002);
+ assert.equal(merged.records[0].id,'local-expense');
+ assert.equal(merged.records.find(record=>record.id==='history-0').paidById,'local-self');
+ assert.equal(merged.settlements.length,202);
+ assert.equal(merged.settlements[0].id,'local-settlement');
+ assert.ok(merged.settlements.slice(1).every(item=>item.fromId==='local-self'&&item.toId==='friend'));
+ assert.deepEqual(merged.tripBudgets.tokyo,{amount:3500,currency:'CNY'});
+ assert.deepEqual(merged.tripBudgets.kyoto,ledger.tripBudgets.kyoto);
+ Core.apply(Core.prepare(file,'json',target),target);
+ assert.equal(Tally.readState(target).records.length,1002);
+ assert.equal(Tally.readState(target).settlements.length,202);
+});
+
+test('ledger CSV imports can exceed 1000 rows while task CSV keeps its existing bound',()=>{
+ const csv=['id,date,amount,currency,category',...Array.from({length:1001},(_,index)=>`csv-${index},2026-11-11,2.50,CNY,Food`)].join('\n');
+ const target=storage({'tally-book-v1':{baseCurrency:'CNY',records:[]}});
+ Core.apply(Core.prepare(csv,'tally',target),target);
+ assert.equal(Tally.readState(target).records.length,1001);
+ assert.equal(Tally.readState(target).records.at(-1).id,'csv-1000');
+ Core.apply(Core.prepare(csv,'tally',target),target);
+ assert.equal(Tally.readState(target).records.length,1001);
+ assert.throws(()=>Core.parseCsv(csv),/1000/);
+ assert.throws(()=>Core.prepare(csv,'todo',storage()),/1000/);
+});
+
+test('large imports keep byte limits and reject invalid late records without writing',()=>{
+ const ledger=largeLedger(),file=JSON.stringify({'tally-book-v1':ledger});
+ const full=storage({'teamwork-page-v1':'x'.repeat(1024*1024)}),before=new Map(full.values);
+ assert.throws(()=>Core.prepare(file,'json',full),/1 MB sync limit/);
+ assert.deepEqual(full.values,before);
+ const changedCapacity=storage(),plan=Core.prepare(file,'json',changedCapacity);
+ changedCapacity.setItem('teamwork-page-v1','x'.repeat(1024*1024));
+ assert.throws(()=>Core.apply(plan,changedCapacity),/1 MB sync limit/);
+ assert.equal(changedCapacity.getItem('tally-book-v1'),null);
+ assert.throws(()=>Core.prepare(file+' '.repeat(1024*1024),'json',storage()),/File is too large/);
+ for(const corrupt of [value=>{value.records.at(-1).amount=-1;},value=>{value.records.at(-1).id=value.records[0].id;}]){
+  const invalid=structuredClone(ledger);corrupt(invalid);const target=storage();
+  assert.throws(()=>Core.prepare(JSON.stringify({'tally-book-v1':invalid}),'json',target));
+  assert.equal(target.getItem('tally-book-v1'),null);
+ }
+});
+
+test('settlement and trip budget history also prevent mismatched base currency imports',()=>{
+ const incoming=JSON.stringify({'tally-book-v1':{baseCurrency:'USD',records:[]}});
+ for(const history of [{settlements:[{id:'payment',fromId:'me',toId:'friend',amountBase:3}]},{tripBudgets:{trip:{amount:50,currency:'CNY'}}}]){
+  const target=storage({'tally-book-v1':{baseCurrency:'CNY',records:[],...history}}),before=target.getItem('tally-book-v1');
+  assert.throws(()=>Core.prepare(incoming,'json',target),/different base currencies/);
+  assert.equal(target.getItem('tally-book-v1'),before);
+ }
+ const empty=storage({'tally-book-v1':{baseCurrency:'CNY',records:[]}});
+ Core.apply(Core.prepare(incoming,'json',empty),empty);
+ assert.equal(Tally.readState(empty).baseCurrency,'USD');
+});
