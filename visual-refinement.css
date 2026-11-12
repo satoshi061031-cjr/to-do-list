@@ -66,7 +66,16 @@ body.travel-page .travel-view-switch button[aria-pressed=true] { background: var
 body.travel-day-view .travel-workspace { display: none; }
 .travel-companion { max-width: 48rem; margin-inline: auto; padding-bottom: var(--space-xl); }
 .travel-companion header { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
-.travel-companion h2 { width: 100%; font: var(--phone-title-weight) var(--phone-title-size)/var(--phone-title-lh) var(--font-ui); margin: var(--space-md) 0; overflow-wrap: anywhere; }
+.travel-companion h2 { width: 100%; font: var(--phone-title-weight) var(--phone-title-size)/var(--phone-title-lh) var(--font-ui); margin: 0 0 var(--space-sm); overflow-wrap: anywhere; }
+.travel-companion .travel-side-chrome { width: 100%; margin: 0; padding: 0; border: 0; }
+.travel-companion .travel-side-chrome:not(:has(.travel-trip-select-wrap:not([hidden]))) { display: none; }
+.travel-companion #travel-day-select { width: 100%; }
+.travel-day-options { margin-top: var(--space-lg); border-top: 1px solid var(--quiet-line); }
+.travel-day-options > summary { display: flex; align-items: center; color: var(--text-muted); font: var(--phone-action-weight) var(--phone-action-size)/var(--phone-action-lh) var(--font-ui); }
+.travel-day-options .travel-tools { margin-block: var(--space-sm); }
+.travel-day-options .travel-add-label-mobile { display: none; }
+.travel-day-options .travel-add-label-desktop { display: inline; }
+.travel-day-options #travel-delete-trip { color: var(--danger); }
 .travel-companion h3 { margin: var(--space-lg) 0 var(--space-sm); font: var(--phone-task-weight) var(--phone-task-size)/var(--phone-task-lh) var(--font-ui); }
 .travel-companion select, .travel-tools-body select { max-width: 100%; min-height: 44px; font: var(--phone-body-weight) var(--phone-body-size)/var(--phone-body-lh) var(--font-ui); padding: var(--space-sm); color: var(--text); background: var(--surface); border: 1px solid var(--quiet-line); border-radius: var(--radius-sm); }
 .travel-companion a { display: inline-flex; align-items: center; min-height: 44px; color: var(--text); font: inherit; overflow-wrap: anywhere; }
@@ -349,20 +358,21 @@ body.todo-mobile .todo-main.is-task-action { padding-block: var(--space-xs); bor
 body.todo-mobile .todo-item .todo-due { margin-top: 0; }
 body.todo-mobile .todo-item .todo-due.is-overdue { color: var(--danger); }
 body.todo-mobile .m-todo-list { gap: var(--space-sm); }
-body.todo-mobile .todo-item input.todo-check[type="checkbox"] {
+body .todo-item input.todo-check[type="checkbox"] {
   appearance: none;
   -webkit-appearance: none;
-  width: 1.35rem;
-  height: 1.35rem;
+  width: var(--space-md);
+  height: var(--space-md);
   margin: 0;
   border: 1.5px solid var(--text-muted);
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   background: transparent;
   display: grid;
   place-content: center;
 }
-body.todo-mobile .todo-item input.todo-check[type="checkbox"]:checked { background: var(--primary); border-color: var(--primary); }
-body.todo-mobile .todo-item input.todo-check[type="checkbox"]:checked::after {
+body .todo-item input.todo-check[type="checkbox"]:checked { background: var(--primary); border-color: var(--primary); }
+body .todo-item input.todo-check[type="checkbox"]:focus-visible { outline: 2px solid var(--text); outline-offset: var(--space-xs); }
+body .todo-item input.todo-check[type="checkbox"]:checked::after {
   content: "";
   width: var(--space-xs);
   height: var(--space-sm);
@@ -370,7 +380,8 @@ body.todo-mobile .todo-item input.todo-check[type="checkbox"]:checked::after {
   border-width: 0 1.5px 1.5px 0;
   transform: translateY(-1px) rotate(45deg);
 }
-body.todo-mobile .m-shell { gap: var(--space-lg); padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12rem); }
+body.todo-mobile .m-shell { gap: var(--space-md); padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12rem); }
+.today-heading { display: flex; flex-direction: column; min-width: 0; }
 body.todo-mobile .m-top { align-items: flex-start; }
 body.todo-mobile .m-greet { font-size: var(--phone-title-size); margin: 0 0 var(--space-sm); }
 body.todo-mobile .m-page-date { color: var(--text-muted); }
@@ -422,7 +433,7 @@ body.todo-bento .today-kicker { color: var(--text-muted); }
 @media (min-width: 820px) {
   body.has-bento-rail .layout,
   body.planner-page.has-bento-rail .layout { width: min(1120px, 92vw); max-width: min(1120px, 92vw); margin-inline: auto; gap: var(--space-lg); }
-  body.todo-bento .app.bento-shell.today-shell { width: min(48rem, 100%); max-width: min(48rem, 100%); padding: var(--space-lg) 0 var(--space-xl); gap: var(--space-lg); }
+  body.todo-bento .app.bento-shell.today-shell { width: min(48rem, 100%); max-width: min(48rem, 100%); padding: var(--space-lg) 0 var(--space-xl); gap: var(--space-md); }
   body.todo-bento .today-hero { padding: 0; align-items: center; }
   body.todo-bento .today-title { font-size: var(--type-display-size); font-weight: var(--phone-display-weight); letter-spacing: 0; }
   body.todo-bento .today-tasks { padding: 0; }
@@ -453,6 +464,7 @@ body.todo-bento .today-kicker { color: var(--text-muted); }
   body.calendar-page .cal-composer { background: transparent; border-radius: 0; }
   body.calendar-page .cal-range { background: var(--surface); color: var(--text); }
   body.calendar-page .cal-week-day.is-selected { background: var(--surface); border-color: transparent; box-shadow: none; }
+  body.calendar-page .cal-week-day.is-selected .cal-week-day-wd { color: var(--text); }
   body.calendar-page .cal-week-day.is-selected .cal-week-day-num { background: var(--primary); color: var(--on-primary); }
   body.calendar-page .reminder-form,
   .tally-quick { background: var(--surface); border-color: transparent; box-shadow: none; backdrop-filter: none; }
@@ -838,6 +850,10 @@ body.tally-page .tally-sheet-close { min-width: 44px; min-height: 44px; }
 body.tally-page .tally-form { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 var(--space-md) var(--space-md); }
 body.tally-page .tally-form input,
 body.tally-page .tally-form select { font-size: var(--phone-body-size); min-height: 48px; }
+body.tally-page .tally-amount-field { grid-column: 1 / -1; }
+body.tally-page #tally-amount { min-height: calc(var(--space-xl) + var(--space-md)); font: var(--phone-display-weight) var(--phone-display-size)/var(--phone-display-lh) var(--font-ui); font-variant-numeric: tabular-nums; }
+body.tally-page .tally-add-fab { background: var(--primary); color: var(--on-primary); box-shadow: none; }
+body.tally-page .tally-add-fab:hover { background: var(--primary-hover); color: var(--on-primary); transform: none; }
 body.tally-page .tally-sheet-footer { padding: var(--space-md); padding-bottom: max(var(--space-md), env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--quiet-line); flex-shrink: 0; }
 body.tally-page .tally-sheet-footer button { width: 100%; min-height: 52px; }
 body.tally-page .tally-sheet-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-sm); }
@@ -862,6 +878,8 @@ body.tally-page .tally-person-check input:focus-visible + span { outline: 2px so
   body.todo-bento .today-tasks .filters { margin-left: auto; border: 0; box-shadow: none; background: transparent; }
   body.todo-bento .today-list-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-sm); }
   body.todo-bento .today-list-actions .task-selection-head { flex: 1; margin: 0; }
+  body.todo-bento .today-list-actions .task-range { order: -1; margin: 0; flex-wrap: nowrap; }
+  body.todo-bento .today-list-actions .workspace-task-shortcuts { margin: 0; }
   body.todo-bento .today-tasks > .daily-loop { margin-top: var(--space-lg); }
   body.todo-bento .today-tasks > .daily-loop:not(:has(.daily-loop-reminders:not([hidden]))) { display: none; }
   body.tally-page .tally-quick { display: flex; }
@@ -1108,8 +1126,11 @@ body.workspace-tool-open .bento-rail, body.workspace-tool-open .m-add-bar, body.
 .trip-expense-history > summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
 body.tally-page .tally-submit-btn { background: var(--primary); color: var(--on-primary); border-color: var(--primary); font-size: var(--phone-action-size); font-weight: var(--phone-action-weight); }
 body.tally-page .tally-submit-btn:hover { background: var(--primary-hover); }
-body.tally-page #tally-sheet-eyebrow { color: var(--text-muted); }
-body.tally-page .tally-category-suggestions button { background: var(--surface); color: var(--text); border-color: var(--border); }
+body.tally-page .tally-category-suggestions button { background: transparent; color: var(--text-muted); border-color: transparent; }
+body.tally-page .tally-category-suggestions button:hover { background: var(--surface); color: var(--text); }
+body.tally-page .tally-category-suggestions button:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+body.tally-page .tally-record-icon { color: var(--text-muted); }
+body :is(.todo-delete, .calendar-item-delete, .tally-record-delete) svg { display: block; margin-inline: auto; pointer-events: none; }
 
 /* Capture has one primary action; occasional tools stay alongside it. */
 .workspace-task-shortcuts button { min-height: 44px; padding: var(--space-sm) var(--space-md); border: 0; border-radius: var(--radius-pill); color: var(--text-muted); background: var(--surface); font: var(--phone-action-weight) var(--phone-action-size)/var(--phone-action-lh) var(--font-ui); cursor: pointer; }
@@ -1198,8 +1219,7 @@ body :is(.sidebar-heading, .sidebar-auth-hint, .sidebar-auth-sync) { font: var(-
 body :is(.sidebar-auth-label, .sidebar-page-link) { font: var(--phone-action-weight) var(--phone-action-size)/var(--phone-action-lh) var(--font-ui); }
 body .sidebar-auth-entry:hover { transform: none; box-shadow: none; }
 body.tally-page .tally-sheet-head h2 { font: var(--phone-title-weight) var(--phone-title-size)/var(--phone-title-lh) var(--font-ui); }
-body.tally-page #tally-sheet-eyebrow { font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
-body.tally-page .tally-category-suggestions button { min-height: 44px; border-radius: var(--radius-pill); padding: var(--space-sm); }
+body.tally-page .tally-category-suggestions button { min-height: 44px; max-width: 100%; border-radius: var(--radius-pill); padding: var(--space-sm); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); overflow-wrap: anywhere; }
 body.tally-page :is(.tally-record-category, .tally-record-amount) { font: var(--phone-task-weight) var(--phone-task-size)/var(--phone-task-lh) var(--font-ui); }
 body.tally-page :is(.tally-record-note, .tally-record-amount small) { font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
 body.planner-page :is(.planner-card-title, .planner-card-tags, .planner-card-toggle, .planner-card-delete) { min-height: 44px; }
@@ -1273,10 +1293,10 @@ body.travel-page :is(.travel-trip-title, .travel-stop-name) { font: var(--phone-
 body.travel-page :is(.travel-trip-meta, .travel-side-subtitle, .travel-stops-empty, .travel-share-hint) { font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); letter-spacing: 0; }
 
 /* Every disclosure keeps its direction visible, including the secondary tools. */
-:is(.tally-quick-options, .tally-insights, .cal-search-disclosure, .travel-info, .reminder-settings, .teamwork-personal-draft, .m-task-details, .mail-digest-rest) > summary { min-height: 44px; list-style: none; cursor: pointer; gap: var(--space-sm); }
-:is(.tally-quick-options, .tally-insights, .cal-search-disclosure, .travel-info, .reminder-settings, .teamwork-personal-draft, .m-task-details, .mail-digest-rest) > summary::-webkit-details-marker { display: none; }
-:is(.tally-quick-options, .tally-insights, .cal-search-disclosure, .travel-info, .reminder-settings, .teamwork-personal-draft, .m-task-details, .mail-digest-rest) > summary::after { content: '›'; display: inline-block; margin-left: auto; color: var(--text-muted); transform: rotate(0deg); }
-:is(.tally-quick-options, .tally-insights, .cal-search-disclosure, .travel-info, .reminder-settings, .teamwork-personal-draft, .m-task-details, .mail-digest-rest)[open] > summary::after { transform: rotate(90deg); }
+:is(.tally-quick-options, .tally-insights, .cal-search-disclosure, .travel-info, .travel-day-options, .reminder-settings, .teamwork-personal-draft, .m-task-details, .mail-digest-rest) > summary { min-height: 44px; list-style: none; cursor: pointer; gap: var(--space-sm); }
+:is(.tally-quick-options, .tally-insights, .cal-search-disclosure, .travel-info, .travel-day-options, .reminder-settings, .teamwork-personal-draft, .m-task-details, .mail-digest-rest) > summary::-webkit-details-marker { display: none; }
+:is(.tally-quick-options, .tally-insights, .cal-search-disclosure, .travel-info, .travel-day-options, .reminder-settings, .teamwork-personal-draft, .m-task-details, .mail-digest-rest) > summary::after { content: '›'; display: inline-block; margin-left: auto; color: var(--text-muted); transform: rotate(0deg); }
+:is(.tally-quick-options, .tally-insights, .cal-search-disclosure, .travel-info, .travel-day-options, .reminder-settings, .teamwork-personal-draft, .m-task-details, .mail-digest-rest)[open] > summary::after { transform: rotate(90deg); }
 
 /* Welcome exposes the two entry choices directly and keeps the original mark. */
 .welcome-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-lg); min-height: 100dvh; box-sizing: border-box; padding: max(var(--space-lg), env(safe-area-inset-top, 0px)) var(--space-md) max(var(--space-lg), env(safe-area-inset-bottom, 0px)); overflow: visible; touch-action: auto; }

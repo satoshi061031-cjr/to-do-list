@@ -38,23 +38,29 @@
   message.setAttribute("role", "status");
   message.hidden = true;
   document.querySelector(".travel-view-switch").after(message);
-  const dayButton = button("", () =>
-    setDayView(!document.body.classList.contains("travel-day-view")),
-  );
+  const dayButton = button("", () => setDayView(true));
   dayButton.dataset.i18nIgnore = "";
   dayButton.id = "travel-day-mode";
-  document.querySelector(".travel-view-switch").append(dayButton);
+  document.querySelector(".travel-view-switch").prepend(dayButton);
   const companion = node("section", "", "travel-companion");
   companion.id = "travel-companion";
-  companion.dataset.i18nIgnore = "";
   companion.hidden = true;
   document.getElementById("travel-workspace").after(companion);
-  let dayView = Boolean(window.DailySpaceView.read("travel").companion),
+  let dayView = api.preferredCompanionView(),
     editor = null,
     searchHome = null,
     companionView = null,
     messageContext = null;
   const storage = document.querySelector(".travel-info");
+  const tripChrome = document.getElementById("travel-side-chrome"),
+    newTrip = document.getElementById("travel-new-open"),
+    deleteTrip = document.getElementById("travel-delete-trip"),
+    share = document.getElementById("travel-share");
+  const homes = new Map([newTrip, deleteTrip, tripChrome, share].map(element => {
+    const marker = document.createComment("Travel control home");
+    element.before(marker);
+    return [element, marker];
+  }));
   document.body.classList.toggle("travel-day-view", dayView);
   const root = node("div", "", "travel-sheet travel-tools-sheet");
   root.hidden = true;
@@ -257,12 +263,13 @@
       body.querySelector("input,select")?.focus({ preventScroll: true }),
     );
   }
-  function setDayView(on) {
+  function setDayView(on, { persist = true, selectToday = true } = {}) {
+    const entering = on && !dayView;
     dayView = on;
     api.setCompanion(on);
     document.body.classList.toggle("travel-day-view", on);
-    window.DailySpaceView.write("travel", { companion: on });
-    if (on) {
+    if (persist) window.DailySpaceView.write("travel", { companion: on });
+    if (entering && selectToday) {
       const { trip } = api.state();
       const today = window.DailySpaceLoop.todayIso();
       if (trip && today >= trip.startDate && today <= trip.endDate)
@@ -286,6 +293,7 @@
     }),
   );
   function text(element, value) {
+    element.dataset.i18nIgnore = "";
     if (element.textContent !== value) element.textContent = value;
   }
   function tripRef(trip, shared) {
@@ -297,6 +305,8 @@
     messageContext = null;
   }
   function placeOutsideCompanion() {
+    for (const [element, marker] of homes)
+      if (element.previousSibling !== marker) marker.after(element);
     const controls = document.querySelector(".travel-view-switch");
     // Moving a connected input or disclosure can drop its focus. Leave it in
     // place when the current view already has the requested ordering.
@@ -352,6 +362,7 @@
     if (select.value !== String(day)) select.value = String(day);
   }
   function buildCompanion(trip, shared) {
+    if (companionView) placeOutsideCompanion();
     const view = {
       owner: owner(),
       ref: tripRef(trip, shared),
@@ -373,8 +384,11 @@
       expense: node("a"),
       privacy: node("p", "", "trip-expense-note"),
       actions: node("div", "", "travel-tools"),
+      options: node("details", "", "travel-day-options"),
+      optionsTitle: node("summary"),
     };
     view.select.id = "travel-day-select";
+    view.select.dataset.i18nIgnore = "";
     view.select.addEventListener("change", () => {
       if (companionView === view && view.owner === owner())
         api.setDay(view.select.value);
@@ -385,6 +399,7 @@
     view.edit = button("", () => open("trip"));
     view.add = button("", () => open("places"));
     view.actions.append(view.edit, view.add);
+    view.options.append(view.optionsTitle, view.actions);
     companion.replaceChildren(
       view.head,
       view.nextTitle,
@@ -398,8 +413,7 @@
       view.budget,
       view.expense,
       view.privacy,
-      view.actions,
-      storage,
+      view.options,
       message,
     );
     companionView = view;
@@ -446,9 +460,15 @@
     let view = companionView;
     if (!view || view.owner !== owner() || view.ref !== tripRef(trip, shared))
       view = buildCompanion(trip, shared);
-    if (storage.parentNode !== companion) companion.append(storage);
+    if (tripChrome.parentNode !== view.head) view.head.insertBefore(tripChrome, view.select);
+    if (newTrip.parentNode !== view.actions) view.actions.append(newTrip);
+    if (deleteTrip.parentNode !== view.actions) view.actions.append(deleteTrip);
+    if (share.parentNode !== view.options) view.options.append(share);
+    if (storage.parentNode !== view.options) view.options.append(storage);
     if (message.parentNode !== companion) companion.append(message);
+    text(view.optionsTitle, t("Trip options", "行程选项"));
     text(view.name, trip.name);
+    view.name.hidden = !tripChrome.querySelector(".travel-trip-select-wrap").hidden;
     syncDaySelect(view.select, trip, day);
     const key = `travel-progress:${view.ref}`,
       visited = new Set(window.DailySpaceView.read(key).visited || []),
@@ -697,8 +717,11 @@
   window.addEventListener("daily-space-auth-updated", () => {
     close(true, true);
     clearMessage();
-    setDayView(false);
     clearCompanion();
+    setDayView(api.preferredCompanionView(), { persist: false, selectToday: false });
+  });
+  window.matchMedia("(max-width: 819px)").addEventListener("change", () => {
+    setDayView(api.preferredCompanionView(), { persist: false, selectToday: false });
   });
   refresh();
 })();

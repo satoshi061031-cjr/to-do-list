@@ -3,6 +3,7 @@
   const STORAGE_CALENDAR = "calendar-app-v1";
   const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
   const TIME_24H = /^([01]\d|2[0-3]):[0-5]\d$/;
+  const deleteIcon = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></svg>';
 
   function uiLocale() {
     return window.DailySpaceI18n?.localeTag() || "en-US";
@@ -991,7 +992,7 @@
     del.type = "button";
     del.className = "todo-delete";
     del.setAttribute("aria-label", "Delete task");
-    del.textContent = "×";
+    del.innerHTML = deleteIcon;
     del.addEventListener("click", () => removeTask(todo.id));
 
     li.append(checkTarget, main, del);
@@ -1034,7 +1035,7 @@
     const del = document.createElement("button");
     del.type = "button";
     del.className = "calendar-item-delete";
-    del.textContent = "×";
+    del.innerHTML = deleteIcon;
     del.setAttribute("aria-label", "Delete reminder");
     del.addEventListener("click", () => removeReminder(reminder.id));
 

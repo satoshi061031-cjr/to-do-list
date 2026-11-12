@@ -14,6 +14,7 @@
     "Guest work is backed up on this device. Choose this work or your cloud data.": "访客内容已备份到本机，请选择保留当前内容还是使用云端数据。",
     "Sync is paused. Free device storage or export a backup before retrying.": "同步已暂停，请释放本机存储空间或导出备份后重试。",
     "Save and add another": "保存并继续",
+    "Save": "保存",
     "Request timed out. Please try again.": "请求超时，请重试。",
     "Mail refresh timed out. Your previous mail and selection are still here.": "邮件刷新超时，已保留原有邮件和选择。",
     "Mailbox check timed out. Try again.": "邮箱连接检查超时，请重试。",

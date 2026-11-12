@@ -1722,9 +1722,17 @@
     }
   }
 
-  let phoneTripView = window.DailySpaceView.read("travel").view === "map" ? "map" : "itinerary";
-  let companionView = Boolean(window.DailySpaceView.read("travel").companion);
   const phoneMapQuery = window.matchMedia("(max-width: 819px)");
+  function preferredCompanionView() {
+    const query = new URLSearchParams(location.search);
+    if (query.get("focus") === "trip" || query.has("invite")) return false;
+    const preference = window.DailySpaceView.read("travel");
+    if (typeof preference.companion === "boolean") return preference.companion;
+    if (["map", "itinerary"].includes(preference.view)) return false;
+    return phoneMapQuery.matches;
+  }
+  let phoneTripView = window.DailySpaceView.read("travel").view === "map" ? "map" : "itinerary";
+  let companionView = preferredCompanionView();
   function mapIsVisible() {
     return !companionView && (!phoneMapQuery.matches || phoneTripView === "map");
   }
@@ -1788,6 +1796,7 @@
 
   window.DailySpaceTravel = {
     state() { const trip = activeTrip(); return { trip: trip ? structuredClone(trip) : null, day: activeDay, shared: isSharedTrip(trip), invitation: Boolean(pendingInviteToken) }; },
+    preferredCompanionView,
     setCompanion(on) { companionView = Boolean(on); syncTripView(); const trip = activeTrip(); if (trip && !companionView) ensureMap(trip); },
     setDay(day) { const trip = activeTrip(); if (!trip) return; activeDay = Math.max(1, Math.min(dayCount(trip.startDate, trip.endDate), Number(day) || 1)); activeStopId = null; routeStopIds = []; clearPlaceResults(); renderWorkspace({preserveMap:true}); },
     async updateTrip(input) {
@@ -2053,7 +2062,16 @@
   async function bootTravel() {
     loadState();
     const preference = window.DailySpaceView.read('travel');
+    phoneTripView = preference.view === "map" ? "map" : "itinerary";
+    companionView = preferredCompanionView();
+    syncTripView();
     if (preference.selectedTrip === activeTripId) activeDay = Math.max(1,Number(preference.day)||1);
+    else {
+      const trip = activeTrip(), today = window.DailySpaceLoop.todayIso();
+      activeDay = companionView && trip && today >= trip.startDate && today <= trip.endDate
+        ? Math.round((Date.parse(`${today}T12:00Z`) - Date.parse(`${trip.startDate}T12:00Z`)) / 86400000) + 1
+        : 1;
+    }
     const searchTarget = window.DailySpaceSearch?.target();
     if (searchTarget?.focus === "trip") {
       const trip = trips.find(item => item.id === searchTarget.id);

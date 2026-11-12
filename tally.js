@@ -1,6 +1,7 @@
 (function () {
   const Core = window.DailySpaceTallyCore;
   if (!Core) return;
+  const deleteIcon = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></svg>';
 
   let state = Core.readState();
   let viewYear = new Date().getFullYear();
@@ -60,7 +61,6 @@
   const addSheet = $("tally-add-sheet");
   const addCloseBtn = $("tally-add-close");
   const addBackdrop = $("tally-add-backdrop");
-  const sheetEyebrowEl = $("tally-sheet-eyebrow");
   const sheetTitleEl = $("tally-add-title");
   const submitBtn = $("tally-submit");
   const saveAnotherBtn = $("tally-save-another");
@@ -370,13 +370,14 @@
 
   function categoryIcon(category) {
     const normalized = String(category || "").toLowerCase();
-    if (/coffee|cafe|咖啡/.test(normalized)) return "☕";
-    if (/grocery|market|超市|杂货/.test(normalized)) return "🛒";
-    if (/uber|taxi|transport|交通|打车/.test(normalized)) return "🚕";
-    if (/dining|restaurant|lunch|dinner|餐|午饭|晚饭/.test(normalized)) return "🍴";
-    if (/hotel|住宿|酒店/.test(normalized)) return "⌂";
-    if (/shop|购物/.test(normalized)) return "◈";
-    return "¥";
+    let paths = '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h4"/>';
+    if (/coffee|cafe|咖啡/.test(normalized)) paths = '<path d="M4 8h12v7a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4ZM16 9h2a3 3 0 0 1 0 6h-2M7 3v2M12 3v2M3 22h15"/>';
+    else if (/grocery|market|超市|杂货/.test(normalized)) paths = '<path d="M2 3h3l3 13h11l3-9H6"/><circle cx="9" cy="21" r="1"/><circle cx="18" cy="21" r="1"/>';
+    else if (/uber|taxi|transport|交通|打车/.test(normalized)) paths = '<path d="m5 10 2-6h10l2 6M3 17v-5l2-2h14l2 2v5ZM5 17v3M19 17v3M7 14h1M16 14h1"/>';
+    else if (/dining|restaurant|lunch|dinner|餐|午饭|晚饭/.test(normalized)) paths = '<path d="M4 3v6a3 3 0 0 0 6 0V3M7 3v18M19 3c-3 2-4 5-4 9h4M19 3v18"/>';
+    else if (/hotel|住宿|酒店/.test(normalized)) paths = '<path d="M3 19V9M21 19v-7H3M3 16h18M7 12V7h4v5M12 12V7h5a4 4 0 0 1 4 4v1"/>';
+    else if (/shop|购物/.test(normalized)) paths = '<path d="M5 7h14l2 14H3ZM8 7V5a4 4 0 0 1 8 0v2"/>';
+    return `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" focusable="false">${paths}</svg>`;
   }
 
   let recordsSignature = "";
@@ -429,7 +430,7 @@
             ${record.tripId ? `<div class="tally-record-trip" data-i18n-ignore>${escapeHtml(tripNames.get(record.tripId) || record.tripName || (isZh() ? "关联行程" : "Linked trip"))}</div>` : ""}
           </div>
           <div class="tally-record-amount">${originalMoney(record)}${converted}</div>
-          <button type="button" class="tally-record-delete" aria-label="Delete record">×</button>
+          <button type="button" class="tally-record-delete" aria-label="Delete record">${deleteIcon}</button>
         `;
         row.querySelector(".tally-record-delete").addEventListener("click", (event) => {
           event.stopPropagation();
@@ -568,7 +569,7 @@
       .map((category) => `<option value="${escapeHtml(category)}"></option>`)
       .join("");
     const active = String(activeCategory || "").trim().toLowerCase();
-    const suggestions = categories.filter((category) => category.toLowerCase() !== active).slice(0, 6);
+    const suggestions = categories.filter((category) => category.toLowerCase() !== active).slice(0, 3);
     categorySuggestionsEl.innerHTML = "";
     suggestions.forEach((category) => {
       const chip = document.createElement("button");
@@ -686,9 +687,8 @@
 
   function syncSheetMode() {
     const editing = Boolean(editingId);
-    sheetEyebrowEl.textContent = editing ? "Edit transaction" : "New transaction";
     sheetTitleEl.textContent = editing ? "Edit expense" : "Add expense";
-    submitBtn.textContent = editing ? "Save changes" : "Add transaction";
+    submitBtn.textContent = "Save";
     saveAnotherBtn.hidden = editing;
   }
 

@@ -2418,6 +2418,10 @@
     const row = document.createElement('div'); row.className = 'workspace-save-status'; row.dataset.i18nIgnore = '';
     const label = document.createElement('span'); label.setAttribute('role','status'); label.setAttribute('aria-live','polite');
     const retry = document.createElement('button'); retry.type = 'button'; retry.hidden = true; row.append(label,retry); header.after(row);
+    if (header.matches('.m-top, .today-hero')) {
+      const heading = document.createElement('div'); heading.className = 'today-heading';
+      header.before(heading); heading.append(header, row);
+    }
     let localSave = false, timer = 0;
     function schedule() { clearTimeout(timer); if (currentUserId() && isBrowserOnline() && !['conflict','auth-required'].includes(userSnapshotStatus)) timer = setTimeout(() => userSnapshotTick().then(render), 1000); }
     function render() {

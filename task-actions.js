@@ -85,10 +85,9 @@
         });
       }
     } else {
-      (
-        document.querySelector(".today-list-actions") ||
-        document.getElementById("add-form")
-      ).after(range);
+      const actions = document.querySelector(".today-list-actions");
+      if (actions) actions.prepend(range);
+      else document.getElementById("add-form").after(range);
     }
     function refresh() {
       range.hidden = api.getView().source !== "personal";

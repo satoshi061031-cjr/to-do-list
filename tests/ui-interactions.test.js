@@ -84,6 +84,24 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
     await page.locator('#m-add-task').tap(); assert.equal(await page.locator('#m-task-date').inputValue(), future);
   });
 
+  await t.test("selected calendar weekday has readable contrast in both themes", async () => {
+    const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await page.route('https://**/*', route => route.abort());
+    await page.goto(`${base}/calendar.html`, { waitUntil: 'load' });
+    for (const theme of ['light', 'dark']) {
+      await page.evaluate(theme => document.documentElement.dataset.theme = theme, theme);
+      const contrast = await page.locator('.cal-week-day.is-selected .cal-week-day-wd').evaluate(el => {
+        const luminance = color => {
+          const channels = color.match(/[\d.]+/g).slice(0, 3).map(Number).map(v => v / 255).map(v => v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4);
+          return channels[0] * .2126 + channels[1] * .7152 + channels[2] * .0722;
+        };
+        const fg = luminance(getComputedStyle(el).color), bg = luminance(getComputedStyle(el.closest('.cal-week-day')).backgroundColor);
+        return (Math.max(fg, bg) + .05) / (Math.min(fg, bg) + .05);
+      });
+      assert.ok(contrast >= 4.5, `${theme} selected weekday contrast: ${contrast}`);
+    }
+  });
+
   await t.test("Calendar task titles open editable details and completion and drawer targets remain at least 44px", async () => {
     const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
     await page.route("https://**/*", route => route.abort());
@@ -445,11 +463,59 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
     assert.ok(await page.evaluate(()=>window.DailySpaceTodo.getTasks().some(task=>task.text==='Offline desktop note survives expiry')));
   });
 
+  await t.test("Travel phone defaults to today's route, keeps management reachable and remembers explicit views", async () => {
+    const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await seedWorkspace(page);
+    await page.addInitScript(() => {
+      if (sessionStorage.getItem('travel-current-day-fixture')) return;
+      sessionStorage.setItem('travel-current-day-fixture', '1');
+      const state = JSON.parse(localStorage.getItem('travel-book-v1'));
+      const iso = delta => { const date = new Date(); date.setDate(date.getDate() + delta); return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`; };
+      Object.assign(state.trips[0], { startDate: iso(-1), endDate: iso(1), stops: [{ id: 'today-stop', day: 2, title: 'Riverside walk', lat: 35.68, lng: 139.69 }] });
+      localStorage.setItem('travel-book-v1', JSON.stringify(state));
+    });
+    await page.goto(`${base}/travel.html`, { waitUntil: 'load' });
+    assert.ok(await page.locator('#travel-companion').isVisible());
+    assert.equal(await page.locator('#travel-day-select').inputValue(), '2');
+    assert.ok((await page.locator('.travel-next-stop').textContent()).includes('Riverside walk'));
+    assert.equal(await page.locator('#travel-map.leaflet-container').count(), 0);
+    assert.equal(await page.locator('.travel-day-options').getAttribute('open'), null);
+    assert.ok((await page.locator('.travel-day-stops').boundingBox()).y < 650, 'The route precedes management on the first screen');
+    await page.locator('#travel-day-select').selectOption('3');
+    await page.locator('#travel-day-mode').click();
+    assert.equal(await page.locator('#travel-day-select').inputValue(), '3', 'Activating the current tab preserves the chosen date');
+    await page.reload();
+    assert.equal(await page.locator('#travel-day-select').inputValue(), '3');
+    await page.locator('.travel-day-options > summary').click();
+    assert.ok(await page.locator('#travel-new-open').isVisible());
+    assert.ok(await page.locator('#travel-delete-trip').isVisible());
+    assert.ok(await page.locator('#travel-share-toggle').isVisible());
+    await page.evaluate(() => { window.travelTripControl = document.getElementById('travel-trip-select'); window.DailySpaceI18n.setLocale('zh'); });
+    assert.equal(await page.locator('.travel-day-options > summary').textContent(), '行程选项');
+    await page.locator('[data-travel-view=itinerary]').click();
+    assert.equal(await page.locator('#travel-trip-select').evaluate(el => el === window.travelTripControl), true);
+    assert.ok(await page.locator('#travel-new-open').isVisible());
+    await page.reload();
+    assert.equal(await page.locator('#travel-companion').isVisible(), false);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.locator('#travel-map.leaflet-container').waitFor();
+    await page.setViewportSize({ width: 320, height: 568 });
+    assert.equal(await page.locator('#travel-companion').isVisible(), false, 'An explicit itinerary preference survives layout changes');
+    await page.locator('#travel-day-mode').click();
+    await page.locator('#travel-day-select').selectOption('2');
+    await page.reload();
+    assert.equal(await page.locator('#travel-day-select').inputValue(), '2');
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    await page.goto(`${base}/travel.html?focus=trip&id=trip-a`, { waitUntil: 'load' });
+    assert.ok(await page.locator('#travel-side-title').isVisible(), 'Explicit search navigation keeps its exact target visible');
+  });
+
   await t.test("Travel edits trips and places from itinerary, reorders, and shows bookings and personal spend in travel day mode",async()=>{
     const page=await pageFor({viewport:{width:390,height:844},isMobile:true,hasTouch:true});await seedWorkspace(page);
     await page.addInitScript(()=>{if(sessionStorage.getItem('companion-fixture'))return;sessionStorage.setItem('companion-fixture','1');const state=JSON.parse(localStorage.getItem('travel-book-v1'));state.trips[0].reservations=[{id:'hotel',kind:'hotel',title:'Tokyo hotel',day:2,startDate:'2026-11-03',confirmationCode:'ABC123'}];localStorage.setItem('travel-book-v1',JSON.stringify(state));const tally=JSON.parse(localStorage.getItem('tally-book-v1'));tally.records.push({id:'trip-lunch',tripId:'trip-a',date:'2026-11-03',amount:15,category:'Lunch'});localStorage.setItem('tally-book-v1',JSON.stringify(tally));});
     await page.route('**/api/travel/places?*',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({places:[{title:new URL(route.request().url()).searchParams.get('q'),label:'Tokyo, Japan',lat:35.68,lng:139.69}]})}));
     await page.goto(`${base}/travel.html`,{waitUntil:'load'});
+    await page.locator('[data-travel-view=itinerary]').click();
     const sheet=page.locator('.travel-tools-sheet');
     await page.locator('.travel-tools button').first().click();await sheet.locator('[name=name]').fill('Tokyo autumn');await sheet.locator('[name=startDate]').fill('2026-11-02');await sheet.locator('[name=endDate]').fill('2026-11-04');await sheet.locator('button[type=submit]').click();await sheet.waitFor({state:'hidden'});
     assert.equal(await page.locator('#travel-side-title').textContent(),'Tokyo autumn');assert.ok((await page.locator('.travel-task-status').textContent()).includes('2026-11-02'));
@@ -479,6 +545,7 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
     await captureMail(page,'travel-day-390-light.png');
     await page.evaluate(()=>document.documentElement.dataset.theme='dark');await captureMail(page,'travel-day-390-dark.png');await page.evaluate(()=>document.documentElement.dataset.theme='light');
     await page.setViewportSize({width:320,height:568});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await captureMail(page,'travel-day-320-light.png');
+    await page.locator('.travel-day-options > summary').click();
     await page.locator('#travel-companion .travel-tools button').first().click();await trapped(page,'.travel-tools-sheet [role=dialog]');
     await sheet.locator('[name=name]').fill('An unfinished trip title');
     await page.evaluate(() => window.dispatchEvent(new CustomEvent('daily-space-agent-data-updated', { detail: { domains: ['tally'] } })));
