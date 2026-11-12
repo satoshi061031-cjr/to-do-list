@@ -417,3 +417,41 @@ test('exports label Guest conflict work separately and never leak a previous sig
   assert.equal(JSON.stringify(second).includes('Alice secret'),false);
   assert.equal(c.context.document.documentElement.dataset.workspaceLocked,'true');
 });
+
+test('workbench settings sync remotely, emit their domain and retain local settings until divergent changes are resolved', async () => {
+  const c = client(); await c.sync.load();
+  const key = 'daily-space-workbench-v1';
+  c.changeCloud({ 'todo-app-v2': 'original', [key]: JSON.stringify({ name: 'From the other device' }) });
+  await c.sync.tick();
+  assert.equal(JSON.parse(c.values.get(key)).name, 'From the other device');
+  const update = c.events.findLast(event => event.type === 'daily-space-agent-data-updated');
+  assert.ok(update.detail.domains.includes('workbench')); assert.equal(update.detail.source, 'cloud-sync');
+  c.values.set(key, JSON.stringify({ name: 'Local edited desk' }));
+  c.changeCloud({ 'todo-app-v2': 'original', [key]: JSON.stringify({ name: 'Remote edited desk' }) });
+  await c.sync.tick(); assert.equal(c.sync.state().status, 'conflict');
+  assert.equal(JSON.parse(c.values.get(key)).name, 'Local edited desk');
+});
+
+test('Guest-only workbench choices participate in the cloud version choice and survive signout', async () => {
+  const c = guestClient(), key = 'daily-space-workbench-v1';
+  c.values.delete('todo-app-v2'); c.values.set(key, JSON.stringify({ name: 'Guest desk', shortcuts: ['travel'] }));
+  await c.sync.load(); assert.equal(c.sync.state().status, 'conflict');
+  assert.equal(c.sync.state().owner, ''); assert.equal(c.requests.filter(request => request.method === 'PUT').length, 0);
+  const cached = JSON.parse(c.values.get('daily-space-user-cache-v1:__guest__'));
+  assert.equal(JSON.parse(cached[key]).name, 'Guest desk');
+  await c.sync.useCloud(); assert.equal(c.values.get(key), undefined);
+  c.values.delete('daily-space-auth-v1'); await c.sync.refresh(true); c.sync.stop();
+  assert.equal(JSON.parse(c.values.get(key)).name, 'Guest desk');
+});
+
+test('adding the workbench snapshot key upgrades old baselines without manufacturing a cloud conflict', async () => {
+  const c = client(); await c.sync.load();
+  const baselineKey = 'daily-space-user-baseline-v1:alice@example.com';
+  const signature = c.values.get(baselineKey);
+  assert.ok(signature.endsWith('|daily-space-workbench-v1:0:'));
+  c.values.set(baselineKey, signature.slice(0, -'|daily-space-workbench-v1:0:'.length));
+  c.values.set('todo-app-v2', 'A local edit pending across the application upgrade');
+  await c.sync.tick();
+  assert.equal(c.sync.state().status, 'ok');
+  assert.equal(JSON.parse(c.requests.at(-1).body).payload['todo-app-v2'], 'A local edit pending across the application upgrade');
+});

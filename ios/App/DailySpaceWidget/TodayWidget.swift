@@ -97,7 +97,7 @@ private struct TodayView: View {
                 }
             } else {
                 Spacer(minLength: 0)
-                Text(text("Open Daily Space", "打开 Daily Space")).font(.system(size: 16, weight: .medium))
+                Text(text("Open dayfly", "打开 dayfly")).font(.system(size: 16, weight: .medium))
                 Text(text("Open the app to update Today.", "进入 App，更新今日待办。"))
                     .font(.system(size: 14)).foregroundStyle(Color("WidgetMuted"))
                 Spacer(minLength: 0)
@@ -129,7 +129,7 @@ private struct TodayView: View {
 struct DailySpaceTodayWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: WidgetStore.kind, provider: TodayProvider()) { entry in TodayView(entry: entry) }
-            .configurationDisplayName("Daily Space · Today")
+            .configurationDisplayName("dayfly · Today")
             .description("Today's tasks and progress. Open the app to sync changes.")
             .supportedFamilies([.systemSmall, .systemMedium])
     }

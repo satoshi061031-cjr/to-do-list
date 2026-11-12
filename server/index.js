@@ -91,7 +91,7 @@ const server = http.createServer((request, response) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`Daily Space server running at http://localhost:${PORT}`);
+  console.log(`dayfly server running at http://localhost:${PORT}`);
 });
 
 async function handleRequest(request, response) {
@@ -594,7 +594,7 @@ async function handleApi(request, response, url) {
     };
     response.setHeader(
       "Content-Disposition",
-      `attachment; filename="daily-space-export-${exportedAt.slice(0, 10)}.json"`
+      `attachment; filename="dayfly-export-${exportedAt.slice(0, 10)}.json"`
     );
     sendJson(response, body);
     return;
@@ -1604,7 +1604,7 @@ async function handleApi(request, response, url) {
       });
       const label = String(profile.name || profile.displayName || email || `${providerLabel} user`).trim();
       const redirectHeaders = {};
-      // Keep an existing Daily Space session; only mint one when connecting while signed out.
+      // Keep an existing dayfly session; only mint one when connecting while signed out.
       if (!session || !session.userId) {
         redirectHeaders["Set-Cookie"] = buildSessionCookieValue({
           userId: ownerUserId,
@@ -1651,7 +1651,7 @@ async function serveStatic(response, pathname) {
   }
   let relative = cleanPath === "/" ? "index.html" : cleanPath.replace(/^\/+/, "");
   if (relative === "stocks" || relative === "stocks.html") {
-    sendText(response, "Stock signals were removed from Daily Space.", 410);
+    sendText(response, "Stock signals were removed from dayfly.", 410);
     return;
   }
 

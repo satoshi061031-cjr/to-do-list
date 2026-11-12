@@ -236,6 +236,7 @@
   function formatWeekRangeLabel() {
     if (isPhoneCalendar()) {
       const [year, month] = selectedDate.split("-").map(Number);
+      if (window.matchMedia("(max-width: 360px)").matches && !isZhLocale()) return new Date(year, month - 1, 1).toLocaleDateString(uiLocale(), {month:"short",year:"numeric"});
       return formatMonthTitle(year, month);
     }
     const days = weekDays();
@@ -1057,7 +1058,7 @@
     if (perm === "granted") {
       calendarAlertsBtn.textContent = "Reminder alerts on";
       calendarAlertsBtn.disabled = true;
-      calendarAlertsBtn.title = "Browser will notify you for today’s timed reminders while Daily Space is open.";
+      calendarAlertsBtn.title = "Browser will notify you for today’s timed reminders while dayfly is open.";
     } else if (perm === "denied") {
       calendarAlertsBtn.textContent = "Alerts blocked in browser";
       calendarAlertsBtn.disabled = true;
@@ -1075,6 +1076,7 @@
     renderSelectedDay();
     renderUpcoming();
     syncCalendarAlertsButton();
+    window.dispatchEvent(new CustomEvent("daily-space-calendar-view-updated"));
   }
 
   const editor = document.getElementById("calendar-editor-sheet");
@@ -1132,8 +1134,13 @@
   function closeEditor(fromHistory = false, preserve = true, immediate = false) {
     if (editor.hidden || (editorMotion.closing && !immediate)) return;
     if (preserve) saveEditorDraft();
-    editorMotion.close(() => { restoreForms(); document.body.classList.remove("calendar-editor-open"); }, immediate);
-    if (!fromHistory) editorHistory.back();
+    editorMotion.close(() => {
+      restoreForms();
+      document.body.classList.remove("calendar-editor-open");
+      // Keep history aligned with the sheet's focus isolation until its exit
+      // finishes, so the next page control cannot receive input while inert.
+      if (!fromHistory) editorHistory.back();
+    }, immediate);
   }
   document.getElementById("calendar-capture").addEventListener("click", () => openEditor());
   document.getElementById("calendar-editor-close").addEventListener("click", () => closeEditor());
@@ -1270,6 +1277,7 @@
   }
 
   window.addEventListener("resize", () => {
+    if (calendarRangeLabel) calendarRangeLabel.textContent = formatWeekRangeLabel();
     if (!isMobileSidebar()) closeSidebar();
   });
 
@@ -1313,6 +1321,23 @@
     const payload = await window.DailySpaceTasks.fetchExternalEvents(dateToIso(days[0]), weekEndIso());
     googleEvents = Array.isArray(payload.events) ? payload.events : [];
   }
+
+  window.DailySpaceCalendar = {
+    getView: () => ({ selectedDate, year: calYear, month: calMonth, filter: calFilter, query: calSearchQuery }),
+    selectDate(iso) {
+      if (!ISO_DATE.test(iso || "") || dateToIso(parseIso(iso)) !== iso ||
+          document.documentElement.dataset.workspaceLocked === "true" ||
+          document.documentElement.dataset.workspaceReady === "false") return false;
+      selectDate(iso);
+      return true;
+    },
+    getDateCounts(iso) {
+      const tasks = calFilter === "reminders" ? 0 : todosDueOn(iso).filter(todo => matchesSearch(todo.text)).length;
+      const dayReminders = calFilter === "tasks" ? 0 : remindersForDate(iso).filter(item => matchesSearch(item.text)).length;
+      const events = calFilter === "tasks" ? 0 : googleEvents.filter(item => item.date === iso && matchesSearch(item.title)).length;
+      return { tasks, reminders: dayReminders, events, total: tasks + dayReminders + events };
+    },
+  };
 
   window.DailySpaceCalendarTodo = {
     getTasks: () => structuredClone(todos),

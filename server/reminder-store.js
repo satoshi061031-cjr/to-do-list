@@ -100,7 +100,7 @@ function createReminderStore(db, options = {}) {
         let sent = false;
         for (const subscription of subscriptions) {
           try {
-            await deliver(JSON.parse(subscription.payload), JSON.stringify({ title: 'Daily Space', body: job.title, tag: `reminder-${job.id}`, data: { href: job.href, jobId: job.id, token } })); sent = true;
+            await deliver(JSON.parse(subscription.payload), JSON.stringify({ title: 'dayfly', body: job.title, tag: `reminder-${job.id}`, data: { href: job.href, jobId: job.id, token } })); sent = true;
           } catch (error) {
             if ([404, 410].includes(error.statusCode)) db.prepare('DELETE FROM push_subscriptions WHERE endpoint=?').run(subscription.endpoint);
           }

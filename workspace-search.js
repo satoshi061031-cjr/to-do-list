@@ -8,7 +8,7 @@
   };
 
   const JUMPS = [
-    { id: "jump-today", label: "Today", hint: "Todo", href: "todo.html#today", aliases: ["today", "todo"] },
+    { id: "jump-today", label: "Workbench", hint: "Personal workspace", href: "todo.html#today", aliases: ["today", "todo", "workbench", "工作台", "今天"] },
     { id: "jump-calendar", label: "Calendar", hint: "Month", href: "calendar.html", aliases: ["calendar"] },
     { id: "jump-planner", label: "Projects", hint: "Boards", href: "planner.html", aliases: ["planner", "projects", "项目"] },
     { id: "jump-mail", label: "Mail", hint: "Inbox", href: "mail.html", aliases: ["mail", "inbox"] },

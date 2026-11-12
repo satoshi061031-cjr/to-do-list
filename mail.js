@@ -220,7 +220,7 @@
       window.DailySpaceAgentUi.focusComposer(seed);
       return;
     }
-    setInboxStatus("Open the Daily Space Agent to continue.", true);
+    setInboxStatus("Open the dayfly Agent to continue.", true);
   }
 
   function setAiBanner(show) {

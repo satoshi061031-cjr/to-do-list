@@ -1,12 +1,12 @@
 {
-  "name": "daily-space",
+  "name": "dayfly",
   "version": "1.0.0",
   "private": true,
-  "description": "Daily Space — quiet glass productivity for tasks, planning, calendar, mail digest, and teamwork.",
+  "description": "dayfly — a personal workbench for work, life and plans.",
   "scripts": {
     "start": "node --experimental-sqlite --disable-warning=ExperimentalWarning server/index.js",
     "dev": "node --experimental-sqlite --disable-warning=ExperimentalWarning --watch server/index.js",
-    "test": "node --experimental-sqlite --disable-warning=ExperimentalWarning --test tests/critical-path-smoke.test.js tests/e2e-critical-path.test.js tests/global-agent.test.js tests/i18n-dictionary.test.js tests/mail-booking.test.js tests/tally-core.test.js tests/travel-collaboration.test.js tests/user-snapshot-store.test.js tests/workspace-loop.test.js tests/workspace-oauth.test.js tests/agent-limiter.test.js tests/db-backup.test.js tests/snapshot-client.test.js tests/reminder-store.test.js tests/reminder-api.test.js tests/workspace-tools.test.js tests/native-widget.test.js tests/experience-core.test.js",
+    "test": "node --experimental-sqlite --disable-warning=ExperimentalWarning --test tests/critical-path-smoke.test.js tests/e2e-critical-path.test.js tests/global-agent.test.js tests/i18n-dictionary.test.js tests/mail-booking.test.js tests/tally-core.test.js tests/travel-collaboration.test.js tests/user-snapshot-store.test.js tests/workspace-loop.test.js tests/workspace-oauth.test.js tests/agent-limiter.test.js tests/db-backup.test.js tests/snapshot-client.test.js tests/reminder-store.test.js tests/reminder-api.test.js tests/workspace-tools.test.js tests/native-widget.test.js tests/experience-core.test.js tests/workbench-preferences.test.js",
     "test:e2e": "node --experimental-sqlite --disable-warning=ExperimentalWarning --test tests/e2e-critical-path.test.js",
     "cap:prepare": "node scripts/prepare-widget-assets.js && node scripts/prepare-www.js",
     "cap:sync": "npm run cap:prepare && npx cap sync",
@@ -15,7 +15,7 @@
     "cap:run:android": "npm run cap:sync && npx cap run android",
     "cap:run:ios": "npm run cap:sync && npx cap run ios",
     "db:backup": "node --experimental-sqlite --disable-warning=ExperimentalWarning scripts/backup-db.js",
-    "test:ui": "node --experimental-sqlite --disable-warning=ExperimentalWarning --test --test-concurrency=1 tests/ui-interactions.test.js tests/data-integrity-ui.test.js tests/planner-isolation.test.js tests/mail-timeout-ui.test.js",
+    "test:ui": "node --experimental-sqlite --disable-warning=ExperimentalWarning --test --test-concurrency=1 tests/ui-interactions.test.js tests/data-integrity-ui.test.js tests/planner-isolation.test.js tests/mail-timeout-ui.test.js tests/personal-workbench-ui.test.js tests/phone-widgets-ui.test.js",
     "test:widget": "node --test tests/native-widget.test.js"
   },
   "engines": {

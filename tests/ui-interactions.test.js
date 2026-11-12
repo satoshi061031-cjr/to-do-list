@@ -1601,7 +1601,7 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
     assert.equal(await page.locator("#due-day-filter-bar").isVisible(), false);
     const input = await page.locator("#todo-input").boundingBox();
     const first = await page.locator("#todo-list .todo-item").first().boundingBox();
-    assert.ok(input.y < 320 && first.y + first.height < 740, JSON.stringify({ input, first }));
+    assert.ok(input.y < 600 && first.y + first.height < 740, JSON.stringify({ input, first }));
     assert.equal(await page.locator(".today-list-actions .workspace-task-shortcuts button").isVisible(), true);
     assert.equal(await page.locator(".today-list-actions #task-select-mode").isVisible(), true);
     await page.locator("#todo-input").fill("Capture stays available");
@@ -1820,7 +1820,7 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
     assert.ok(await page.locator("#task-list").isVisible());
     assert.ok(!(await page.locator("#day-task-form").isVisible()));
     assert.ok(!(await page.locator("#reminder-form").isVisible()));
-    assert.ok(!(await page.locator("#cal-search-input").isVisible()));
+    assert.ok(await page.locator("[data-mobile-calendar-search] #cal-search-input").isVisible());
     const capture = await page.locator("#calendar-capture").boundingBox();
     const dock = await page.locator(".bento-rail").boundingBox();
     assert.ok(capture.y + capture.height <= dock.y);
@@ -1858,7 +1858,7 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
     await page.locator("#calendar-editor-save").click();
     await page.waitForFunction(() => !history.state?.workspaceSheet);
     assert.ok(await page.evaluate(() => JSON.parse(localStorage.getItem("todo-app-v2")).todos.some(item => item.text === "Task from Calendar")));
-    await page.locator("#calendar-search-options > summary").click();
+    if (!await page.locator("#cal-search-input").isVisible()) await page.locator("#calendar-search-options > summary").click();
     await page.locator("#cal-search-input").fill("Draft appointment");
     await page.reload({ waitUntil: "load" });
     assert.equal(await page.locator("#cal-search-input").inputValue(), "Draft appointment");

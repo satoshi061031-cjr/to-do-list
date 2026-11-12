@@ -139,8 +139,8 @@
       for (const job of due) {
         const tag = `${job.source}:${job.dueAt}`; if (fired[tag]) continue;
         const data = { href: job.href, source: job.source, owner: currentOwner };
-        if (reg) await reg.showNotification('Daily Space', { body: job.title, tag, data, actions: [{ action: 'snooze', title: t('10 min later', '10 分钟后') }, { action: 'tomorrow', title: t('Tomorrow', '明天') }] });
-        else { const note = new Notification('Daily Space', { body: job.title, tag }); note.onclick = () => { location.href = job.href; note.close(); }; }
+        if (reg) await reg.showNotification('dayfly', { body: job.title, tag, data, actions: [{ action: 'snooze', title: t('10 min later', '10 分钟后') }, { action: 'tomorrow', title: t('Tomorrow', '明天') }] });
+        else { const note = new Notification('dayfly', { body: job.title, tag }); note.onclick = () => { location.href = job.href; note.close(); }; }
         fired[tag] = Date.now();
       }
       for (const [key, time] of Object.entries(fired)) { if (time < Date.now() - 2 * 86400000) delete fired[key]; }

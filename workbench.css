@@ -1,0 +1,70 @@
+/* Personal workbench — roles from DESIGN.md, with one original task list. */
+.workbench-sections { display: flex; flex-direction: column; gap: var(--space-lg); min-width: 0; }
+.workbench-sections > [hidden] { display: none !important; }
+body.personal-workbench .workbench-block { display: block; min-width: 0; }
+.workbench-block h2 { margin: 0 0 var(--space-sm); color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+.workbench-block a { color: var(--text); text-decoration: none; }
+.workbench-block a:hover { color: var(--primary); }
+.workbench-agenda-link { display: block; padding-block: var(--space-sm); min-height: 44px; box-sizing: border-box; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--phone-task-weight) var(--phone-task-size)/var(--phone-task-lh) var(--font-ui); }
+.workbench-shortcuts { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 0 var(--space-md); }
+.workbench-shortcuts a { display: flex; align-items: center; justify-content: space-between; min-height: 44px; padding-block: var(--space-sm); border-bottom: 1px solid var(--quiet-line); gap: var(--space-sm); font: var(--phone-action-weight) var(--phone-action-size)/var(--phone-action-lh) var(--font-ui); }
+.workbench-shortcuts a span { color: var(--text-muted); }
+.workbench-spend-link { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); min-height: 44px; padding-block: var(--space-sm); border-bottom: 1px solid var(--quiet-line); }
+.workbench-spend-link span { color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+.workbench-spend-link strong { font: var(--phone-task-weight) var(--phone-task-size)/var(--phone-task-lh) var(--font-ui); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+body.personal-workbench .workbench-intro { margin: var(--space-xs) 0; color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); overflow-wrap: anywhere; }
+body.personal-workbench .workbench-intro[hidden] { display: none; }
+body.personal-workbench [data-page-header] h1 { overflow-wrap: anywhere; }
+body.personal-workbench .workbench-settings-toggle { display: grid; place-items: center; flex-shrink: 0; width: 44px; height: 44px; min-width: 44px; min-height: 44px; padding: 0; border: 1px solid var(--quiet-line); border-radius: var(--radius-pill); background: transparent; color: var(--text); cursor: pointer; }
+body.personal-workbench #daily-loop-pills { display: none; }
+body.personal-workbench .workbench-travel #daily-loop-travel { margin: 0; padding: 0; background: transparent; border: 0; border-radius: 0; }
+body.personal-workbench .workbench-sections .daily-loop:has(> #daily-loop-reminders[hidden]) { display: none; }
+body.personal-workbench .workbench-sections .daily-loop { margin-top: var(--space-md); }
+body.personal-workbench .workbench-sections .m-task-controls { margin-bottom: var(--space-md); }
+body.personal-workbench .workbench-block a:focus-visible, body.personal-workbench .workbench-settings-toggle:focus-visible { outline: 2px solid var(--text); outline-offset: var(--space-xs); }
+.workbench-settings-form { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.workbench-settings .workbench-settings-body { overflow-y: auto; }
+.workbench-settings .workbench-settings-body h3 { margin: var(--space-lg) 0 var(--space-sm); font: var(--phone-task-weight) var(--phone-task-size)/var(--phone-task-lh) var(--font-ui); }
+.workbench-settings .workbench-settings-error[hidden] { display: none; }
+.workbench-settings .workbench-settings-error { color: var(--danger); }
+.workbench-settings .workbench-settings-body :is(.workbench-section-option, .workbench-tool-options) label { display: flex; align-items: center; flex: 1; min-width: 0; min-height: 44px; gap: var(--space-sm); margin: 0; color: var(--text); cursor: pointer; }
+.workbench-settings .workbench-settings-body input[type=checkbox] { appearance: auto; -webkit-appearance: auto; width: var(--space-md); height: var(--space-md); min-height: 0; margin: var(--space-sm); padding: 0; flex-shrink: 0; accent-color: var(--primary); }
+.workbench-section-option { display: flex; align-items: center; gap: var(--space-xs); padding-block: var(--space-xs); border-bottom: 1px solid var(--quiet-line); }
+.workbench-section-option > button { flex-shrink: 0; }
+.workbench-section-option label span { overflow-wrap: anywhere; }
+.workbench-tool-options { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: var(--space-sm); }
+.workbench-settings .workbench-settings-footer button { min-height: 52px; }
+@media (min-width: 820px) {
+  .workbench-shortcuts { grid-template-columns: repeat(4,minmax(0,1fr)); }
+}
+@media (max-width: 360px) {
+  body.personal-workbench [data-page-header] h1 { font-size: var(--phone-title-size); line-height: var(--phone-title-lh); }
+  body.personal-workbench [data-page-header] { display: flex; flex-wrap: nowrap; }
+  body.personal-workbench [data-page-header] .page-action-cluster { flex-basis: 96px; width: 96px; max-width: 96px; flex-shrink: 0; justify-content: flex-end; }
+  body.personal-workbench [data-page-header] :is(.m-top-copy,.today-hero-copy) { flex: 1; min-width: 0; }
+}
+
+.workbench-settings { position: fixed; inset: 0; z-index: 360; display: flex; align-items: center; justify-content: center; box-sizing: border-box; padding: var(--space-md); height: var(--workspace-sheet-height,100dvh); top: var(--workspace-sheet-top,0); bottom: auto; }
+.workbench-settings[hidden] { display: none; }
+.workbench-settings-backdrop { position: absolute; inset: 0; border: 0; background: var(--modal-scrim); }
+.workbench-settings-panel { position: relative; width: min(540px,100%); min-height: 0; max-height: 100%; display: flex; flex-direction: column; overflow: hidden; border-radius: var(--radius-lg); background: var(--panel-fill); color: var(--text); box-shadow: var(--shadow-pop); }
+.workbench-settings-panel header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); padding: var(--space-md); flex-shrink: 0; }
+.workbench-settings-panel h2 { margin: 0; font: var(--phone-title-weight) var(--phone-title-size)/var(--phone-title-lh) var(--font-ui); }
+.workbench-settings-panel button { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; padding: var(--space-sm); border: 0; border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font: var(--phone-action-weight) var(--phone-action-size)/var(--phone-action-lh) var(--font-ui); cursor: pointer; }
+.workbench-settings-panel button:disabled { opacity: .45; cursor: default; }
+.workbench-settings-panel button:focus-visible, .workbench-settings-body input:focus-visible { outline: 2px solid var(--text); outline-offset: var(--space-xs); }
+.workbench-settings-body { min-height: 0; padding: 0 var(--space-md); overscroll-behavior: contain; font: var(--phone-body-weight) var(--phone-body-size)/var(--phone-body-lh) var(--font-ui); }
+.workbench-settings-body p { color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+.workbench-settings-body > label { display: grid; gap: var(--space-sm); margin: var(--space-md) 0; color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+.workbench-settings-body input { box-sizing: border-box; width: 100%; min-width: 0; min-height: 44px; padding: var(--space-sm); border: 1px solid var(--quiet-line); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font: var(--phone-body-weight) var(--phone-body-size)/var(--phone-body-lh) var(--font-ui); }
+.workbench-settings-error { margin: var(--space-sm) var(--space-md) 0; max-height: 72px; overflow: auto; flex-shrink: 0; font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+.workbench-settings-footer { display: flex; padding: var(--space-md); padding-bottom: max(var(--space-md),env(safe-area-inset-bottom,0px)); flex-shrink: 0; }
+.workbench-settings-footer .btn-primary { flex: 1; background: var(--primary); color: var(--on-primary); border-radius: var(--radius-pill); }
+.workbench-settings-footer .btn-primary:hover { background: var(--primary-hover); }
+@media (max-width: 819px) {
+  .workbench-settings { padding: 0; align-items: flex-end; }
+  .workbench-settings-panel { width: 100%; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+}
+
+.workbench-header-context { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-sm); color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+body.personal-workbench .workbench-header-context .today-progress { margin: 0; }

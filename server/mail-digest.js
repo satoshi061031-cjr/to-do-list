@@ -63,7 +63,7 @@ async function summarizeInboxMessages(messages, todayIso, options) {
     ? "Write concise, actionable Chinese (简体中文) for digest and item summaries."
     : "Write concise, actionable English for digest and item summaries.";
   const system = [
-    "You summarize an email inbox for Daily Space.",
+    "You summarize an email inbox for dayfly.",
     `Today is ${todayIso} (YYYY-MM-DD).`,
     languageLine,
     "Respond with ONLY valid JSON:",

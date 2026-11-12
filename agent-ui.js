@@ -85,7 +85,7 @@
   const mobileTodo = document.body.classList.contains("todo-mobile");
   const host = document.getElementById("todo-agent-host");
   const onMail = currentPage() === "mail";
-  const agentTitle = pageMode ? "Ask to add a task" : onMail ? "Ask about your inbox" : "Daily Space Agent";
+  const agentTitle = pageMode ? "Ask to add a task" : onMail ? "Ask about your inbox" : "dayfly Agent";
   const agentPlaceholder = pageMode
     ? "e.g. Add buy milk today…"
     : onMail
@@ -100,7 +100,7 @@
   const panel = document.createElement("div");
   panel.className = "todo-agent";
   panel.innerHTML = `
-    <button type="button" class="todo-agent-fab" aria-expanded="false" aria-controls="todo-agent-overlay" aria-label="Open Daily Space Agent">
+    <button type="button" class="todo-agent-fab" aria-expanded="false" aria-controls="todo-agent-overlay" aria-label="Open dayfly Agent">
       <img class="todo-agent-fab-ghost" src="welcome-sticker.png" width="28" height="28" alt="" aria-hidden="true" draggable="false" />
     </button>
     <div data-dialog-root class="todo-agent-overlay" id="todo-agent-overlay" hidden>
@@ -108,7 +108,7 @@
       <section class="todo-agent-panel" id="todo-agent-panel" role="dialog" aria-modal="true" aria-labelledby="todo-agent-title">
         <header class="todo-agent-header">
           <div>
-            <p class="todo-agent-kicker">Daily Space</p>
+            <p class="todo-agent-kicker">dayfly</p>
             <h2 class="todo-agent-title" id="todo-agent-title">${agentTitle}</h2>
           </div>
           <button type="button" data-dialog-close class="todo-agent-close" aria-label="Close agent">×</button>
@@ -120,7 +120,7 @@
             type="text"
             maxlength="2000"
             placeholder="${agentPlaceholder}"
-            aria-label="Message for Daily Space Agent"
+            aria-label="Message for dayfly Agent"
           />
           <button class="btn btn-primary todo-agent-send" type="submit">Send</button>
         </form>
@@ -229,7 +229,7 @@
     }
     overlay.hidden = !open;
     fab.setAttribute("aria-expanded", String(open));
-    fab.setAttribute("aria-label", open ? "Close Daily Space Agent" : "Open Daily Space Agent");
+    fab.setAttribute("aria-label", open ? "Close dayfly Agent" : "Open dayfly Agent");
     panel.classList.toggle("is-open", open);
     document.body.classList.toggle("todo-agent-open", open);
     document.body.classList.toggle("m-agent-sheet-open", mobileTodo && open);

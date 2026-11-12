@@ -3,13 +3,14 @@
   <head> <link rel="manifest" href="manifest.json">
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>Today · Agent</title>
+    <title>My workbench · dayfly</title>
     <link rel="preload" href="vendor/fonts/montserrat-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
     <script src="device-route.js"></script>
     <script src="workspace-search.js"></script>
     <script src="workspace-tasks.js"></script>
     <script src="task-fields.js"></script>
     <script src="tally-core.js"></script>
+    <script src="workbench-preferences.js"></script>
     <script src="workspace-tools-core.js"></script>
     <script src="reminder-client.js"></script>
     <script src="daily-loop.js"></script>
@@ -21,6 +22,8 @@
     <link rel="stylesheet" href="m-dock.css" />
     <link rel="stylesheet" href="mobile-typography.css" />
     <link rel="stylesheet" href="visual-refinement.css" />
+    <link rel="stylesheet" href="workbench.css" />
+    <link rel="stylesheet" href="workbench-desktop.css" />
   </head>
   <body class="todo-bento todo-agent-page">
     <button type="button" class="sidebar-trigger" id="sidebar-trigger" aria-controls="sidebar" aria-expanded="false">
@@ -52,7 +55,7 @@
           </div>
           <div class="sidebar-planner-block">
             <div class="sidebar-heading">Pages</div>
-            <a href="todo.html#today" class="sidebar-page-link is-current" aria-current="page">Todo</a>
+            <a href="todo.html#today" class="sidebar-page-link is-current" aria-current="page">Workbench</a>
             <a href="calendar.html" class="sidebar-page-link">Calendar</a>
             <a href="planner.html" class="sidebar-page-link">Projects</a>
             <a href="mail.html" class="sidebar-page-link">Mail</a>
@@ -70,7 +73,7 @@
         <div class="app bento-shell today-shell today-agent-shell">
           <header class="today-hero" data-page-header>
             <div class="today-hero-copy">
-              <h1 class="title today-title">Today</h1>
+              <h1 class="title today-title">My workbench</h1>
               <p class="daily-loop-progress today-progress" id="daily-loop-progress">Done today 0 / 0</p>
             </div>
             <div class="today-hero-actions page-action-cluster">
@@ -109,7 +112,7 @@
             <p class="app-clock-date" id="app-clock-date"></p>
           </section>
 
-          <section class="todo-agent-host" id="todo-agent-host" aria-label="Daily Space Agent"></section>
+          <section class="todo-agent-host" id="todo-agent-host" aria-label="dayfly Agent"></section>
 
           <section class="task-module app-module today-tasks" data-module-id="tasks" aria-label="To-do tasks">
               <form class="add-form add-form-notion" id="add-form" autocomplete="off">
@@ -296,7 +299,7 @@
           class="command-palette-input"
           id="todo-command-input"
           placeholder="Search tasks, trips, spend…"
-          aria-label="Search Daily Space"
+          aria-label="Search dayfly"
           autocomplete="off"
         />
         <ul class="command-palette-list" id="todo-command-list" role="listbox"></ul>
@@ -313,5 +316,7 @@
     <script src="agent-data.js"></script>
     <script src="agent-ui.js"></script>
     <script src="workspace-tools.js"></script>
+    <script src="workbench.js"></script>
+    <script src="workbench-desktop.js"></script>
   </body>
 </html>

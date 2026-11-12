@@ -1,0 +1,146 @@
+/* Phone widgets and agenda groups — existing dayfly type and theme roles. */
+.phone-workbench-overview[hidden],
+.phone-workbench-overview [hidden],
+#phone-calendar-month[hidden],
+#phone-calendar-month [hidden],
+[data-mobile-calendar-search][hidden],
+[data-mobile-calendar-search] [hidden] { display: none !important; }
+
+body.todo-mobile .phone-workbench-overview { display: block; min-width: 0; margin: 0; padding: 0; border: 0; background: transparent; box-shadow: none; }
+body.todo-mobile .phone-overview-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-sm); min-width: 0; }
+body.todo-mobile .phone-overview-tile {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-xs);
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: calc(var(--space-xl) + var(--space-lg));
+  margin: 0;
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--quiet-line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+  text-align: start;
+  box-shadow: none;
+  cursor: pointer;
+  font-family: var(--font-ui);
+}
+body.todo-mobile .phone-overview-tile:nth-child(2),
+body.todo-mobile .phone-overview-tile:nth-child(3) { background: var(--panel-fill); }
+body.todo-mobile .phone-overview-value { display: block; max-width: 100%; color: var(--text); font: var(--phone-title-weight) var(--phone-title-size)/var(--phone-title-lh) var(--font-ui); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+body.todo-mobile .phone-overview-label { color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+body.todo-mobile .phone-overview-tile:focus-visible { outline: 2px solid var(--text); outline-offset: var(--space-xs); }
+body.todo-mobile .phone-overview-tile:hover { border-color: var(--text-muted); }
+body.todo-mobile .phone-overview-tile[data-phone-overview='spend'] .phone-overview-value,
+body.todo-mobile .phone-overview-tile[data-phone-metric='spend'] .phone-overview-value { font-size: var(--phone-task-size); line-height: var(--phone-task-lh); }
+body.todo-mobile .m-todo-list { display: flex; flex-direction: column; gap: var(--space-sm); }
+body.todo-mobile #todo-list .todo-item {
+  min-height: calc(var(--space-xl) + var(--space-lg));
+  box-sizing: border-box;
+  padding: var(--space-sm);
+  gap: var(--space-sm);
+  border: 1px solid var(--quiet-line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: none;
+}
+body.todo-mobile #todo-list .todo-item:hover { background: var(--surface); }
+body.todo-mobile #todo-list .todo-item.is-leaving { min-height: 0; }
+body.todo-mobile #todo-list .todo-item.task-swipe-ready { overflow: hidden; }
+body.todo-mobile #todo-list .todo-main { min-width: 0; }
+body.todo-mobile #todo-list .todo-label { font: var(--phone-task-weight) var(--phone-task-size)/var(--phone-task-lh) var(--font-ui); }
+body.todo-mobile #todo-list .m-task-meta { gap: var(--space-sm); }
+body.todo-mobile #todo-list :is(.todo-due, .todo-category-pill, .todo-repeat-badge) { font-size: var(--phone-meta-size); line-height: var(--phone-meta-lh); }
+body.todo-mobile #todo-list .task-swipe-actions { padding-inline-end: var(--space-sm); }
+body.todo-mobile .m-task-controls { min-height: 44px; }
+body.todo-mobile .workbench-agenda { padding: var(--space-sm) var(--space-md); border: 1px solid var(--quiet-line); border-radius: var(--radius-md); background: var(--panel-fill); }
+body.todo-mobile .workbench-agenda h2 { margin-bottom: 0; }
+body.todo-mobile .workbench-agenda-link { min-height: 44px; }
+
+@media (max-width: 819px) {
+  body.calendar-page .cal-top { gap: var(--space-sm); }
+  body.calendar-page .cal-toolbar { gap: var(--space-sm); }
+  body.calendar-page .cal-toolbar .cal-range { min-height: 44px; background: var(--surface); border-radius: var(--radius-pill); }
+  body.calendar-page #calendar-range { min-width: 0; }
+  body.calendar-page #calendar-range[aria-expanded='true'] { color: var(--primary); }
+  body.calendar-page .cal-week-head { gap: var(--space-xs); padding-block: var(--space-sm); }
+  body.calendar-page .cal-week-day { min-height: calc(var(--space-xl) + var(--space-md)); border: 1px solid transparent; border-radius: var(--radius-md); }
+  body.calendar-page .cal-week-day.is-selected { border-color: var(--quiet-line); }
+  body.calendar-page .cal-week-day.is-selected .cal-week-day-wd { color: var(--text); }
+  body.calendar-page .cal-week-day.is-selected .cal-week-day-num { color: var(--on-primary); background: var(--primary); }
+  body.calendar-page #phone-calendar-month { margin: var(--space-sm) 0; padding: var(--space-sm) 0; border-bottom: 1px solid var(--quiet-line); }
+  body.calendar-page #phone-calendar-month > header,
+  body.calendar-page #phone-calendar-month .phone-calendar-month-head,
+  body.calendar-page #phone-calendar-month .phone-calendar-month-toolbar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); min-height: 44px; margin-bottom: var(--space-sm); }
+  body.calendar-page #phone-calendar-month-title { margin: 0; color: var(--text); font: var(--phone-task-weight) var(--phone-task-size)/var(--phone-task-lh) var(--font-ui); }
+  body.calendar-page :is(#phone-calendar-month-prev, #phone-calendar-month-next) { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; min-width: 44px; min-height: 44px; padding: var(--space-sm); border: 0; border-radius: var(--radius-pill); color: var(--text); background: var(--surface); font: var(--phone-action-weight) var(--phone-action-size)/var(--phone-action-lh) var(--font-ui); cursor: pointer; }
+  body.calendar-page #phone-calendar-month-grid { display: grid; grid-template-columns: repeat(7, minmax(44px, 1fr)); gap: 0; min-width: 0; }
+  body.calendar-page #phone-calendar-month-grid [data-month-date] { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; margin: 0; padding: var(--space-xs); box-sizing: border-box; border: 0; border-radius: var(--radius-sm); color: var(--text); background: transparent; font: var(--phone-body-weight) var(--phone-body-size)/var(--phone-body-lh) var(--font-ui); font-variant-numeric: tabular-nums; cursor: pointer; }
+  body.calendar-page #phone-calendar-month-grid [data-month-date][aria-selected='true'],
+  body.calendar-page #phone-calendar-month-grid [data-month-date][aria-pressed='true'],
+  body.calendar-page #phone-calendar-month-grid [data-month-date].is-selected { color: var(--on-primary); background: var(--primary); }
+  body.calendar-page #phone-calendar-month-grid [data-month-date][data-outside='true']:not([aria-selected='true']):not([aria-pressed='true']):not(.is-selected),
+  body.calendar-page #phone-calendar-month-grid [data-month-date].is-outside:not([aria-selected='true']):not([aria-pressed='true']):not(.is-selected) { color: var(--text-muted); }
+  body.calendar-page #phone-calendar-month-grid [data-month-date][aria-current='date'] { box-shadow: inset 0 0 0 1px var(--text-muted); }
+  body.calendar-page #phone-calendar-month-grid [data-month-date]:focus-visible { outline: 2px solid var(--text); outline-offset: -2px; }
+  body.calendar-page #phone-calendar-month-grid > .phone-calendar-month-row { display: contents; }
+  body.calendar-page .phone-calendar-month-weekdays { display: grid; grid-template-columns: repeat(7, minmax(44px, 1fr)); gap: 0; }
+  body.calendar-page .phone-calendar-month-weekdays > span { display: flex; align-items: center; justify-content: center; min-width: 0; min-height: var(--space-lg); color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+  body.calendar-page #phone-calendar-month-grid [data-month-date] { position: relative; }
+  body.calendar-page #phone-calendar-month-grid [data-month-date].has-items::after { content: ''; position: absolute; bottom: var(--space-xs); left: calc(50% - var(--space-xs) / 2); width: var(--space-xs); height: var(--space-xs); border-radius: var(--radius-pill); background: currentColor; }
+  body.calendar-page [data-mobile-calendar-search] { min-width: 0; margin-block: var(--space-sm) var(--space-md); }
+  body.calendar-page [data-mobile-calendar-search] .cal-search { display: flex; flex-direction: column; align-items: stretch; gap: var(--space-sm); margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+  body.calendar-page [data-mobile-calendar-search] .cal-search-input { flex: 0 0 auto; box-sizing: border-box; width: 100%; min-width: 0; min-height: 44px; padding: var(--space-sm) var(--space-md); border: 1px solid var(--quiet-line); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font: var(--phone-body-weight) var(--phone-body-size)/var(--phone-body-lh) var(--font-ui); }
+  body.calendar-page [data-mobile-calendar-search] .cal-search-input:focus-visible { outline: 2px solid var(--text); outline-offset: var(--space-xs); }
+  body.calendar-page [data-mobile-calendar-search] .cal-search-chips { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; min-width: 0; border-bottom: 1px solid var(--quiet-line); }
+  body.calendar-page [data-mobile-calendar-search] .cal-search-chip { display: flex; align-items: center; justify-content: center; min-width: 0; min-height: 44px; padding: var(--space-sm); border: 0; border-bottom: 2px solid transparent; border-radius: 0; color: var(--text-muted); background: transparent; box-shadow: none; font: var(--phone-action-weight) var(--phone-action-size)/var(--phone-action-lh) var(--font-ui); text-transform: none; }
+  body.calendar-page [data-mobile-calendar-search] .cal-search-chip.is-active { color: var(--text); border-bottom-color: var(--primary); background: transparent; }
+  body.calendar-page .cal-composer { min-width: 0; }
+  body.calendar-page .selected-day-head { margin-bottom: var(--space-md); }
+  body.calendar-page .cal-day-block { margin-top: var(--space-md); }
+  body.calendar-page .cal-day-kicker { margin: 0 0 var(--space-sm); color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+  body.calendar-page .cal-shell .cal-composer .todo-item,
+  body.calendar-page .calendar-list-item { min-height: calc(var(--space-xl) + var(--space-lg)); margin: 0; padding: var(--space-sm); box-sizing: border-box; gap: var(--space-sm); border: 1px solid var(--quiet-line); border-radius: var(--radius-md); background: var(--surface); box-shadow: none; }
+  body.calendar-page .cal-day-block[hidden],
+  body.calendar-page #task-list[hidden],
+  body.calendar-page #reminder-list[hidden] { display: none !important; }
+  body.calendar-page #task-list, body.calendar-page #reminder-list { display: flex; flex-direction: column; gap: var(--space-sm); }
+  body.calendar-page .calendar-list-item { border-inline-start: 2px solid var(--primary); }
+  body.calendar-page .calendar-item-main, body.calendar-page .calendar-task-open { min-width: 0; }
+  body.calendar-page .calendar-item-text { font: var(--phone-task-weight) var(--phone-task-size)/var(--phone-task-lh) var(--font-ui); }
+  body.calendar-page .calendar-item-sub { color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+  body.planner-page .planner-cards { gap: var(--space-sm); }
+  body.planner-page .planner-card { padding: var(--space-md); border: 1px solid var(--quiet-line); border-radius: var(--radius-md); background: var(--surface); box-shadow: none; }
+}
+
+@media (max-width: 360px) {
+  body.calendar-page #phone-calendar-month-grid, body.calendar-page .phone-calendar-month-weekdays { margin-inline: calc(var(--space-xs) - var(--space-md)); }
+  body.todo-mobile .phone-overview-tile { padding-inline: var(--space-sm); }
+}
+
+/* The overview carries the count; keep the phone header and agenda compact. */
+body.phone-widget-home .m-page-count { display: none; }
+body.phone-widget-home .workbench-sections { gap: var(--space-md); }
+body.phone-widget-home .workbench-sections .m-task-controls { margin-bottom: var(--space-sm); }
+@media (max-width: 819px) {
+  body.calendar-page #phone-calendar-month { scroll-margin-block: var(--space-md) calc(env(safe-area-inset-bottom,0px) + var(--space-xl) * 3); }
+  body.calendar-page.phone-calendar-month-open #calendar-capture { visibility: hidden; pointer-events: none; }
+  body.calendar-page.phone-calendar-month-open #week-grid { display: none; }
+  body.calendar-page .cal-range-nav { flex-shrink: 0; }
+}
+
+@media (max-width: 819px) {
+  body.calendar-page [data-mobile-calendar-search] { margin-block: 0 var(--space-sm); }
+  body.calendar-page .cal-shell .cal-composer { margin-top: 0; gap: var(--space-sm); }
+  body.calendar-page .cal-shell .selected-day-head { margin-bottom: 0; }
+  body.calendar-page .cal-shell .cal-day-block { margin-top: 0; }
+  body.calendar-page :is(.selected-day-meta, .cal-day-kicker) { text-transform: none; letter-spacing: 0; }
+}
+
+@media (max-width: 819px) {
+  body.planner-page .planner-card-avatar { display: inline-flex; align-items: center; justify-content: center; width: auto; min-width: var(--space-lg); height: var(--space-lg); padding-inline: var(--space-xs); box-sizing: border-box; border-radius: var(--radius-pill); white-space: nowrap; }
+}

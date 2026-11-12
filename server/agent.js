@@ -19,7 +19,7 @@ function isAgentConfigured() {
 
 function buildSystemPrompt(todayIso) {
   return [
-    "You are Daily Space Todo Agent.",
+    "You are dayfly Todo Agent.",
     "Help the user manage their to-do list by returning JSON actions the app can apply.",
     `Today's date is ${todayIso} (YYYY-MM-DD). Resolve relative dates like today/tomorrow against this.`,
     "Only modify todos when the user clearly asks. Otherwise answer briefly with actions=[].",

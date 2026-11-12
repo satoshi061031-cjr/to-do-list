@@ -1,12 +1,15 @@
 {
-  "name": "Daily Space",
-  "short_name": "Daily Space",
-  "description": "A personal productivity space for tasks, planning, calendars, teamwork, and daily records.",
+  "name": "dayfly",
+  "short_name": "dayfly",
+  "description": "Your personal workbench for work, life and plans — tasks, calendar, projects, expenses and travel.",
   "id": "/",
   "start_url": "/todo.html",
   "scope": "/",
   "display": "standalone",
-  "display_override": ["standalone", "minimal-ui"],
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
   "orientation": "portrait-primary",
   "background_color": "#f3f5f9",
   "theme_color": "#f3f5f9",

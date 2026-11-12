@@ -2774,6 +2774,7 @@
 
   window.DailySpaceTodo = {
     getTasks: () => structuredClone(todos),
+    showToday() { selectedCategoryKey = "__all__"; renderCategorySidebar(); focusTodayList({ focus: false }); },
     getCategories: () => categories.map(category => ({ ...category })),
     getView: () => ({ filter, day: viewDueDateFilter || todayIso(), source: todoSource, range: taskRange }),
     getVisibleTasks: () => structuredClone(visibleTodosPipeline()),

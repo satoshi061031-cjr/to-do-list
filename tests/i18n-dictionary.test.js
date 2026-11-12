@@ -50,7 +50,7 @@ const patterns = (() => {
  * symbols, numeric format hints, and an example email address.
  */
 const UNTRANSLATED_BY_DESIGN = new Set([
-  "Daily Space",
+  "dayfly",
   "¥",
   "0.00",
   "teammate@email.com",

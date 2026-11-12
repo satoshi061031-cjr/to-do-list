@@ -12,6 +12,7 @@
     "travel-shared-v1",
     "daily-space-mail-accounts-v1",
     STORAGE_THEME,
+    "daily-space-workbench-v1",
   ];
   const USER_SNAPSHOT_INTERVAL_MS = 30000;
 
@@ -540,7 +541,7 @@
       <div class="auth-modal-backdrop" data-auth-close></div>
       <section class="auth-card" role="dialog" aria-modal="true" aria-labelledby="auth-title">
         <button type="button" class="auth-close" data-auth-close data-dialog-close aria-label="Close login">×</button>
-        <p class="auth-kicker">Daily Space</p>
+        <p class="auth-kicker">dayfly</p>
         <h2 class="auth-title" id="auth-title">Sign in</h2>
         <p class="auth-copy">Sign in with Google to sync your workspace, or continue as guest to keep it on this device.</p>
         <div class="auth-provider-list">
@@ -809,8 +810,8 @@
       deleteButton.addEventListener("click", async function () {
         const confirmed = window.confirm(
           t(
-            "Delete this Daily Space account?\n\nThis removes your cloud snapshot and connected mailboxes on the server. This device will be signed out.",
-            "删除这个 Daily Space 账号？\n\n服务器上的云端备份和已连接的邮箱都会被移除，本设备将退出登录。"
+            "Delete this dayfly account?\n\nThis removes your cloud snapshot and connected mailboxes on the server. This device will be signed out.",
+            "删除这个 dayfly 账号？\n\n服务器上的云端备份和已连接的邮箱都会被移除，本设备将退出登录。"
           )
         );
         if (!confirmed) return;
@@ -1166,7 +1167,22 @@
   function readPersistedBaseline(userId) {
     if (!userId) return "";
     try {
-      return String(localStorage.getItem(`${USER_BASELINE_PREFIX}${userId}`) || "");
+      const signature = String(localStorage.getItem(`${USER_BASELINE_PREFIX}${userId}`) || "");
+      // An older baseline ends after the previous key set. Extend only an
+      // exactly length-validated signature, so user text containing separators
+      // cannot be confused with a newly introduced preferences key.
+      let cursor = 0;
+      const previousKeys = USER_SNAPSHOT_KEYS.slice(0, -1);
+      for (const [index, key] of previousKeys.entries()) {
+        const prefix = `${key}:`;
+        if (!signature.startsWith(prefix, cursor)) return signature;
+        cursor += prefix.length;
+        const end = signature.indexOf(":", cursor), size = signature.slice(cursor, end);
+        if (end < 0 || !/^\d+$/.test(size)) return signature;
+        cursor = end + 1 + Number(size);
+        if (index < previousKeys.length - 1 && signature[cursor++] !== "|") return signature;
+      }
+      return cursor === signature.length ? `${signature}|daily-space-workbench-v1:0:` : signature;
     } catch (_) {
       return "";
     }
@@ -1198,6 +1214,7 @@
         const state = JSON.parse(value);
         if (!state || typeof state !== "object") return Boolean(state);
         if (Array.isArray(state)) return state.length > 0;
+        if (key === "daily-space-workbench-v1") return Object.keys(state).length > 0;
         if (key === "teamwork-page-v1") return Object.values(state).some(item =>
           typeof item === "string" ? item.trim() : Array.isArray(item) && item.length);
         if (["todos", "categories", "reminders", "records", "settlements", "entries", "plannerEntries", "trips", "templates", "accounts"].some(name => Array.isArray(state[name]) && state[name].length)) return true;
@@ -1353,7 +1370,7 @@
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `daily-space-export-${exportedAt.slice(0, 10)}.json`;
+    link.download = `dayfly-export-${exportedAt.slice(0, 10)}.json`;
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -1369,7 +1386,8 @@
   function notifySnapshotApplied(before, after, materialized = false) {
     materialized = materialized || snapshotPageRefreshPending || snapshotPageOwner !== readWorkspaceOwner();
     const mapping = { "todo-app-v2": "todo", "calendar-app-v1": "calendar", "planner-app-v1": "planner",
-      "tally-book-v1": "tally", "teamwork-page-v1": "teamwork", "travel-book-v1": "travel", "travel-shared-v1": "travel" };
+      "tally-book-v1": "tally", "teamwork-page-v1": "teamwork", "travel-book-v1": "travel", "travel-shared-v1": "travel",
+      "daily-space-workbench-v1": "workbench" };
     Object.keys(mapping).filter(key => materialized || before[key] !== after[key]).forEach(key => snapshotPendingKeys.add(key));
     if (!materialized && snapshotEditorActive()) return;
     const domains = [...new Set([...snapshotPendingKeys].map(key => mapping[key]).filter(Boolean))];
@@ -1634,7 +1652,7 @@
     search.type = "button";
     search.className = "workspace-icon-button";
     search.dataset.workspaceSearch = "true";
-    search.setAttribute("aria-label", "Search Daily Space");
+    search.setAttribute("aria-label", "Search dayfly");
     search.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg>';
     search.addEventListener("click", () => window.DailySpaceSearchUi?.open());
     actions.prepend(search);
@@ -1903,7 +1921,7 @@
     ensureMeta("mobile-web-app-capable", "yes");
     ensureMeta("apple-mobile-web-app-capable", "yes");
     ensureMeta("apple-mobile-web-app-status-bar-style", "black-translucent");
-    ensureMeta("apple-mobile-web-app-title", "Daily Space");
+    ensureMeta("apple-mobile-web-app-title", "dayfly");
 
     const viewport = head.querySelector('meta[name="viewport"]');
     if (viewport) {
@@ -2034,7 +2052,7 @@
 
     const page = (window.location.pathname.split("/").pop() || "todo.html").toLowerCase();
     const primary = [
-      { href: "todo.html#today", label: "Todo", match: /^(todo|todo-m)\.html$/ },
+      { href: "todo.html#today", label: "Workbench", match: /^(todo|todo-m)\.html$/ },
       { href: "calendar.html", label: "Calendar", match: /^calendar\.html$/ },
       { href: "planner.html", label: "Projects", match: /^planner\.html$/ },
       { href: "mail.html", label: "Mail", match: /^mail\.html$/ },
@@ -2161,14 +2179,14 @@
         <div class="shortcuts-sheet-backdrop" data-shortcuts-close></div>
         <section class="shortcuts-sheet-panel" role="dialog" aria-modal="true" aria-labelledby="shortcuts-title">
           <button type="button" class="shortcuts-sheet-close" data-shortcuts-close data-dialog-close aria-label="Close shortcuts">×</button>
-          <p class="shortcuts-sheet-kicker">Daily Space</p>
+          <p class="shortcuts-sheet-kicker">dayfly</p>
           <h2 class="shortcuts-sheet-title" id="shortcuts-title">Keyboard shortcuts</h2>
           <p class="shortcuts-sheet-copy">Press ? anytime to open this list. Keys are ignored while typing.</p>
           <div class="shortcuts-sheet-grid">
             <div class="shortcuts-group">
               <h3 class="shortcuts-group-title">Go</h3>
               <ul class="shortcuts-list">
-                <li><kbd>g</kbd> then <kbd>t</kbd><span>Todo · Today</span></li>
+                <li><kbd>g</kbd> then <kbd>t</kbd><span>Workbench</span></li>
                 <li><kbd>g</kbd> then <kbd>c</kbd><span>Calendar</span></li>
                 <li><kbd>g</kbd> then <kbd>p</kbd><span>Planner</span></li>
                 <li><kbd>g</kbd> then <kbd>m</kbd><span>Mail</span></li>
@@ -2178,7 +2196,7 @@
               </ul>
             </div>
             <div class="shortcuts-group">
-              <h3 class="shortcuts-group-title">Todo</h3>
+              <h3 class="shortcuts-group-title">Workbench</h3>
               <ul class="shortcuts-list">
                 <li><kbd>n</kbd><span>New task</span></li>
                 <li><kbd>t</kbd><span>Focus today</span></li>

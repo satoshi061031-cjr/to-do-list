@@ -1,7 +1,7 @@
 const { existsSync } = require("node:fs");
 
 /**
- * Native shell for Daily Space.
+ * Native shell for dayfly.
  *
  * Production / device builds should set CAPACITOR_SERVER_URL to your HTTPS
  * deploy (same as MAIL_OAUTH_BASE_URL) so OAuth cookies and /api work.
@@ -17,7 +17,7 @@ const serverUrl = String(process.env.CAPACITOR_SERVER_URL || "")
 /** @type {import('@capacitor/cli').CapacitorConfig} */
 const config = {
   appId: "app.dailyspace.mobile",
-  appName: "Daily Space",
+  appName: "dayfly",
   webDir: "www",
   bundledWebRuntime: false,
   backgroundColor: "#e7e9ea",

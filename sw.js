@@ -1,4 +1,4 @@
-const CACHE_NAME = 'todo-v325';
+const CACHE_NAME = 'todo-v329';
 const SCOPE_PATH = new URL(self.registration.scope).pathname.replace(/\/$/, '');
 const withScope = (path) => `${SCOPE_PATH}${path}`;
 const urlsToCache = [
@@ -25,6 +25,14 @@ const urlsToCache = [
   '/teamwork.css',
   '/mail.css',
   '/theme.js',
+  '/workbench-preferences.js',
+  '/workbench.js',
+  '/workbench.css',
+  '/workbench-desktop.js',
+  '/workbench-desktop.css',
+  '/phone-layout.css',
+  '/phone-workbench.js',
+  '/calendar-mobile.js',
   '/native-widget.js',
   '/dialog-focus.js',
   '/task-list.js',
@@ -199,7 +207,7 @@ self.addEventListener('push', event => {
   event.waitUntil((async () => {
     let payload; try { payload = event.data.json(); } catch (_) { return; }
     if (!payload || !payload.data?.jobId || !payload.data?.token) return;
-    await self.registration.showNotification(String(payload.title || 'Daily Space'), {
+    await self.registration.showNotification(String(payload.title || 'dayfly'), {
       body: String(payload.body || '').slice(0, 160), tag: payload.tag, data: payload.data,
       icon: withScope('/android-chrome-192x192.png'), actions: reminderActions(),
     });
@@ -218,7 +226,7 @@ self.addEventListener('notificationclick', event => {
           event.notification.close(); return;
         } catch (_) {
           event.notification.close();
-          await self.registration.showNotification('Daily Space', { body: 'Could not postpone this reminder. Open the app to retry. / 未能延后提醒，请打开应用重试。', tag: event.notification.tag, data: { href: data.href } }); return;
+          await self.registration.showNotification('dayfly', { body: 'Could not postpone this reminder. Open the app to retry. / 未能延后提醒，请打开应用重试。', tag: event.notification.tag, data: { href: data.href } }); return;
         }
       }
       if (data.source && data.owner) { target.searchParams.set('localReminder', data.source); target.searchParams.set('reminderOwner', data.owner); target.searchParams.set('reminderAction', event.action); }

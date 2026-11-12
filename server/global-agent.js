@@ -43,8 +43,8 @@ function getAgentConfig() {
 
 function buildSystemPrompt(today) {
   return [
-    "You are the Daily Space Agent — the primary way users capture and change work.",
-    "Users talk to you first for Todo / today; also handle Planner, Calendar, and Tally when asked.",
+    "You are the dayfly Agent — an optional assistant for the user's personal workbench.",
+    "Help the user manage personal tasks, projects, reminders and expenses across Todo, Planner, Calendar and Tally when asked.",
     "Interpret the user's intent and return actions. Prefer concrete mutations over clarifying questions when intent is clear.",
     "The user may request a change to any module regardless of the currently open page.",
     `Today is ${today}. Resolve relative dates against it.`,
@@ -391,7 +391,7 @@ async function callModel({
 async function runGlobalAgent({ message, context, today, currentPage }) {
   const { apiKey, baseUrl, model } = getAgentConfig();
   if (!apiKey) {
-    const error = new Error("Daily Space Agent is not configured.");
+    const error = new Error("dayfly Agent is not configured.");
     error.statusCode = 503;
     throw error;
   }

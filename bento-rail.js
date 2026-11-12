@@ -1,7 +1,7 @@
 /**
  * Persistent left rail / mobile dock.
- * Desktop: Todo / Calendar / Planner / Mail / Tally + Menu, theme & language on the rail.
- * Mobile (≤819px): Today / Calendar / Tally / More. Theme & language live in the More drawer.
+ * Desktop: Workbench / Calendar / Planner / Mail / Tally + Menu, theme & language on the rail.
+ * Mobile (≤819px): Workbench / Calendar / Tally / More. Theme & language live in the More drawer.
  */
 (function () {
   const ICON = {
@@ -33,7 +33,7 @@
   }
 
   const DESKTOP_LINKS = [
-    { id: "todo", href: "todo.html#today", title: "Todo", icon: ICON.todo },
+    { id: "todo", href: "todo.html#today", title: "Workbench", icon: ICON.todo },
     { id: "calendar", href: "calendar.html", title: "Calendar", icon: ICON.calendar },
     { id: "planner", href: "planner.html", title: "Projects", icon: ICON.planner },
     { id: "mail", href: "mail.html", title: "Mail", icon: ICON.mail },
@@ -41,7 +41,7 @@
   ];
 
   const MOBILE_LINKS = [
-    { id: "todo", href: "todo.html#today", title: "Today", icon: ICON.todo },
+    { id: "todo", href: "todo.html#today", title: "Home", icon: ICON.todo },
     { id: "calendar", href: "calendar.html", title: "Calendar", icon: ICON.calendar },
     { id: "tally", href: "tally.html", title: "Tally", icon: ICON.tally },
   ];
@@ -77,18 +77,18 @@
   function readAuthLabel() {
     try {
       const parsed = JSON.parse(localStorage.getItem("daily-space-auth-v1") || "null");
-      if (!parsed || typeof parsed !== "object") return { letter: "S", title: "Daily Space" };
+      if (!parsed || typeof parsed !== "object") return { letter: "d", title: "dayfly" };
       let name = typeof parsed.label === "string" ? parsed.label.trim() : "";
       name = name.replace(/\s*\([^)]*@[^)]*\)\s*$/, "").trim();
       if (!name && typeof parsed.email === "string") {
         name = String(parsed.email).split("@")[0].trim();
       }
       const ch = name ? Array.from(name)[0] : "";
-      if (!ch) return { letter: "S", title: "Daily Space" };
+      if (!ch) return { letter: "d", title: "dayfly" };
       const letter = /[a-z]/i.test(ch) ? ch.toUpperCase() : ch;
-      return { letter, title: name || "Daily Space" };
+      return { letter, title: name || "dayfly" };
     } catch (_) {
-      return { letter: "S", title: "Daily Space" };
+      return { letter: "d", title: "dayfly" };
     }
   }
 
@@ -266,7 +266,7 @@
       rail.className = "bento-rail";
       rail.setAttribute("aria-label", "Pages");
       rail.innerHTML =
-        `<a class="bento-rail-brand" href="${todoHref()}" title="Daily Space" aria-label="Daily Space"><span data-rail-brand-letter aria-hidden="true">S</span></a>` +
+        `<a class="bento-rail-brand" href="${todoHref()}" title="dayfly" aria-label="dayfly"><span data-rail-brand-letter aria-hidden="true">d</span></a>` +
         `<div class="bento-rail-nav" data-rail-pages="${railPagesKey()}">${buildNavHtml()}</div>`;
       layout.insertBefore(rail, layout.firstChild);
     } else {

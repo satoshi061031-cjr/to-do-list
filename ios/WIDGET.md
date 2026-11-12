@@ -1,4 +1,4 @@
-# Daily Space Today widget
+# dayfly Today widget
 
 Native WidgetKit extension for iOS 15+, available in small and medium Home Screen sizes. The small widget shows today's remaining count and completion progress; medium also shows up to three upcoming open tasks. Both open `todo-m.html#today` through `dailyspace://today`.
 
@@ -18,7 +18,7 @@ The widget is read-only. Tapping opens Today; completing tasks happens in the ap
 2. For a production device build, set `CAPACITOR_SERVER_URL` to the deployed HTTPS origin containing this version of `theme.js` and `native-widget.js`, then run `npm run cap:sync` and open `ios/App/App.xcodeproj`.
 3. In **App** and **DailySpaceWidget → Signing & Capabilities**, select the same Apple development team. The repository retains the existing team setting. Register/enable the same App Group for both application identifiers and provisioning profiles. The default is `group.app.dailyspace.mobile`, supplied by the `DAILY_SPACE_APP_GROUP` build setting and both entitlements. App Groups require an Apple account with the necessary developer capabilities; a free Personal Team may not support them. This repository does not register identifiers or purchase a developer membership.
 4. If changing identifiers, keep the widget bundle ID under the App's prefix (defaults: `app.dailyspace.mobile` and `app.dailyspace.mobile.Today`), and set the same App Group in both targets/build configurations. Regenerate profiles if needed.
-5. Run the **App** scheme on an iPhone. Launch once, add a dated task for today, return to the Home Screen, long-press → **Edit / Add Widget → Daily Space**, and choose small or medium.
+5. Run the **App** scheme on an iPhone. Launch once, add a dated task for today, return to the Home Screen, long-press → **Edit / Add Widget → dayfly**, and choose small or medium.
 
 The project contains an explicit extension target, an App dependency and an Embed App Extensions build phase. `npm run cap:sync` should preserve these tracked native files; inspect the native diff when upgrading Capacitor. Widget colors and the unchanged ghost image come from `DESIGN.md` and `welcome-sticker.png`; rerun `node scripts/prepare-widget-assets.js` after design token changes.
 

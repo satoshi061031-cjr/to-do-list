@@ -35,4 +35,4 @@ This project uses `DESIGN.md` as the single source of truth for all visual decis
 
 ## Stack notes
 
-Daily Space is primarily vanilla HTML/CSS/JS (not React). Prefer existing class patterns and CSS variables over introducing a new component framework unless explicitly asked.
+dayfly is primarily vanilla HTML/CSS/JS (not React). Prefer existing class patterns and CSS variables over introducing a new component framework unless explicitly asked.

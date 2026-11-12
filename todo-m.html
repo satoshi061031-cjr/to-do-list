@@ -4,13 +4,14 @@
     <link rel="manifest" href="manifest.json" />
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>Today · Daily Space</title>
+    <title>My workbench · dayfly</title>
     <link rel="preload" href="vendor/fonts/montserrat-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
     <script src="device-route.js"></script>
     <script src="workspace-search.js"></script>
     <script src="workspace-tasks.js"></script>
     <script src="task-fields.js"></script>
     <script src="tally-core.js"></script>
+    <script src="workbench-preferences.js"></script>
     <script src="workspace-tools-core.js"></script>
     <script src="reminder-client.js"></script>
     <script src="daily-loop.js"></script>
@@ -23,6 +24,8 @@
     <link rel="stylesheet" href="todo-mobile.css" />
     <link rel="stylesheet" href="mobile-typography.css" />
     <link rel="stylesheet" href="visual-refinement.css" />
+    <link rel="stylesheet" href="workbench.css" />
+    <link rel="stylesheet" href="phone-layout.css" />
   </head>
   <body class="todo-mobile todo-loop todo-agent-page">
     <button type="button" class="sidebar-trigger" id="sidebar-trigger" aria-controls="sidebar" aria-expanded="false">
@@ -54,7 +57,7 @@
           </div>
           <div class="sidebar-planner-block">
             <div class="sidebar-heading">Pages</div>
-            <a href="todo-m.html#today" class="sidebar-page-link is-current" aria-current="page">Todo</a>
+            <a href="todo-m.html#today" class="sidebar-page-link is-current" aria-current="page">Workbench</a>
             <a href="calendar.html" class="sidebar-page-link">Calendar</a>
             <a href="planner.html" class="sidebar-page-link">Projects</a>
             <a href="mail.html" class="sidebar-page-link">Mail</a>
@@ -72,7 +75,7 @@
         <div class="app m-shell">
           <header class="m-top" id="m-top" data-page-header>
             <div class="m-top-copy">
-              <h1 class="m-greet" id="m-greet-title">Today</h1>
+              <h1 class="m-greet" id="m-greet-title">My workbench</h1>
               <p class="m-page-date" id="m-page-date"></p>
               <p class="m-page-count" id="count-text">0 tasks left</p>
             </div>
@@ -153,7 +156,7 @@
             <button type="button" id="m-filter-completed" role="tab" aria-selected="false">Completed</button>
           </div>
 
-          <section class="todo-agent-host m-agent-host" id="todo-agent-host" hidden aria-label="Daily Space Agent"></section>
+          <section class="todo-agent-host m-agent-host" id="todo-agent-host" hidden aria-label="dayfly Agent"></section>
 
           <div class="m-sr-only" id="todo-status-filters" role="tablist" aria-label="Filter tasks">
             <button type="button" class="filter-btn is-active" data-filter="active" role="tab" aria-selected="true">To do</button>
@@ -270,7 +273,7 @@
           class="command-palette-input"
           id="todo-command-input"
           placeholder="Search tasks, trips, spend…"
-          aria-label="Search Daily Space"
+          aria-label="Search dayfly"
           autocomplete="off"
         />
         <ul class="command-palette-list" id="todo-command-list" role="listbox"></ul>
@@ -339,5 +342,7 @@
     <script src="agent-ui.js"></script>
     <script src="workspace-tools.js"></script>
     <script src="todo-mobile.js"></script>
+    <script src="workbench.js"></script>
+    <script src="phone-workbench.js"></script>
   </body>
 </html>

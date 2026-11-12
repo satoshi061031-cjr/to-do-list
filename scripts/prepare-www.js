@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Copy the static Daily Space client into www/ for Capacitor.
+ * Copy the static dayfly client into www/ for Capacitor.
  */
 const fs = require("node:fs");
 const path = require("node:path");

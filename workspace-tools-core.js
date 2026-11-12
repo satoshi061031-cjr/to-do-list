@@ -1,8 +1,10 @@
 /** Templates and file transfer share one validated, merge-only data contract. */
 (function (global) {
   const Tally = global?.DailySpaceTallyCore || (typeof require === 'function' ? require('./tally-core') : null);
+  const Preferences = global?.DailySpaceWorkbenchPreferences || (typeof require === 'function' ? require('./workbench-preferences') : null);
+  const WORKBENCH_KEY = 'daily-space-workbench-v1';
   const TEMPLATE_KEY = 'task-templates-v1';
-  const KEYS = ['todo-app-v2', 'calendar-app-v1', 'planner-app-v1', 'tally-book-v1', 'travel-book-v1', TEMPLATE_KEY];
+  const KEYS = ['todo-app-v2', 'calendar-app-v1', 'planner-app-v1', 'tally-book-v1', 'travel-book-v1', TEMPLATE_KEY, WORKBENCH_KEY];
   const SNAPSHOT_KEYS = [...KEYS, 'teamwork-page-v1', 'travel-shared-v1', 'daily-space-mail-accounts-v1', 'todo-theme'];
   const uid = () => Tally.uid('workspace');
   const text = (value, max = 500) => typeof value === 'string' ? value.trim().slice(0, max) : '';
@@ -89,6 +91,7 @@
   function normalize(key, raw) {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) fail('Invalid data file.');
     if (key === 'todo-app-v2') return { todos: unique(array(raw.todos,1000).map(todo)), categories: unique(array(raw.categories,100).map(item => { if (!text(item?.name,48)) fail('Category name is required.'); return { id: identity(item.id), name: text(item.name,48) }; })), selectedCategoryKey:'__all__' };
+    if (key === WORKBENCH_KEY) return Preferences.normalize(raw);
     if (key === TEMPLATE_KEY) return { templates: unique(array(raw.templates,50).map(template)) };
     if (key === 'calendar-app-v1') return { selectedDate: date(raw.selectedDate), reminders: unique(array(raw.reminders,1000).map(item => { if (!date(item?.date) || !text(item.text)) fail('Invalid reminder.'); if ((item.startTime && !time(item.startTime)) || (item.endTime && (!time(item.endTime) || (item.startTime && item.endTime < item.startTime)))) fail('Invalid time.'); return { id:identity(item.id),date:item.date,text:text(item.text,200),startTime:time(item.startTime),endTime:time(item.endTime),priority:['high','low'].includes(item.priority)?item.priority:'medium',linkedTodoId:text(item.linkedTodoId,120)||null,remindAt:null }; })) };
     if (key === 'tally-book-v1') {
@@ -126,12 +129,16 @@
     const read = key => { const raw=storage.getItem(key); if(!raw)return null; try{return JSON.parse(raw);}catch(_){fail('Current device data is invalid. Export a backup before importing.');} };
     let incoming, ignored = 0;
     if (format === 'json') { let parsed; try{parsed=JSON.parse(source);}catch(_){fail('Invalid JSON file.');} const payload=parsed?.payload||parsed;
-      if (!payload || typeof payload!=='object'||Array.isArray(payload))fail('Use a Daily Space JSON backup.'); incoming={}; for(const [key,value] of Object.entries(payload)){if(!KEYS.includes(key)){ignored++;continue;} try{incoming[key]=typeof value==='string'?JSON.parse(value):value;}catch(_){fail('Invalid JSON data section.');}} if(!Object.keys(incoming).length)fail('No supported workspace data found.');
+      if (!payload || typeof payload!=='object'||Array.isArray(payload))fail('Use a dayfly JSON backup.'); incoming={}; for(const [key,value] of Object.entries(payload)){if(!KEYS.includes(key)){ignored++;continue;} try{incoming[key]=typeof value==='string'?JSON.parse(value):value;}catch(_){fail('Invalid JSON data section.');}} if(!Object.keys(incoming).length)fail('No supported workspace data found.');
     } else incoming=csvPayload(source,format, Tally.normalizeState(read('tally-book-v1')||{}));
     const payload={}, summary=[]; const merge=(oldItems,newItems)=>{const oldIds=new Set(oldItems.map(item=>item.id));return{items:[...oldItems,...newItems.filter(item=>!oldIds.has(item.id))],added:newItems.filter(item=>!oldIds.has(item.id)).length,skipped:newItems.filter(item=>oldIds.has(item.id)).length};};
     for(const [key,value] of Object.entries(incoming)) {
       const imported=normalize(key,value); const original=read(key); const local=original||{}; let result;
-      if(key==='todo-app-v2'){
+      if(key===WORKBENCH_KEY){
+        result=original ? Preferences.normalize(original) : imported;
+        summary.push({key,added:original?0:1,skipped:original?1:0});
+      }
+      else if(key==='todo-app-v2'){
         const categories=[...(local.categories||[])],mapping=new Map();let categoryAdded=0;
         for(const item of imported.categories){let current=categories.find(category=>category.id===item.id||category.name.toLowerCase()===item.name.toLowerCase());if(!current){current=item;categories.push(item);categoryAdded++;}mapping.set(item.id,current.id);}
         const records=merge(local.todos||[],imported.todos.map(task=>({...task,categoryId:mapping.get(task.categoryId)||task.categoryId})));result={...local,todos:records.items,categories,selectedCategoryKey:local.selectedCategoryKey||'__all__'}; summary.push({key,added:records.added,skipped:records.skipped,categoriesAdded:categoryAdded});

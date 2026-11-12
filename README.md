@@ -1,6 +1,6 @@
-# Daily Space
+# dayfly
 
-Quiet glass productivity workspace for personal focus — tasks, planner, calendar, tally, light invite/assign, mail digest, and an optional AI agent.
+A personal workbench for work, life and plans. Start with today's tasks and arrangements, then open projects, mail, expenses or travel when you need them. dayfly keeps its quiet glass surfaces, original ghost assistant and optional collaboration tools.
 
 Live app: start at `/todo.html` (PWA start URL). Welcome screen: `/` or `/index.html`.
 
@@ -8,17 +8,32 @@ Live app: start at `/todo.html` (PWA start URL). Welcome screen: `/` or `/index.
 
 | Surface | Role |
 |---|---|
-| **Todo** | Daily Loop hub — due today, overdue, assigned, today’s reminders. Phone Today is a single list plus add field. |
+| **Workbench** | Your daily home on the existing Todo route — personal tasks, reminders and linked trips, with quick task capture on phone and desktop |
 | **Calendar** | Desktop week grid; phone day agenda and task/reminder sheet with drafts and Back-to-close |
 | **Projects / Planner** | Personal and team boards; phone status columns; direct links to cards |
 | **Teamwork** | Private notes on-device + light invite so you can assign from Planner |
 | **Tally** | Today’s spend and recent records; optional quick entry/insights, More tools, expense editor drafts |
 | **Mail** | Open inbox rows → message reader → add to Today; collapsed digest, explicit batch selection, booking/PDF import |
-| **Agent** | Optional helper for Todo/today and other modules (needs LLM key) |
+| **Travel** | Itinerary, bookings and private trip expenses; phone opens Travel day by default unless a view was already chosen |
+| **Agent** | Original ghost assistant for tasks, reminders, projects and expenses (online AI needs an LLM key) |
+
+The phone dock keeps **Home (工作台) / Calendar / Tally / More**, including its swipe-to-switch interaction. The desktop rail starts with Workbench, followed by the existing tools. Personal projects remain available alongside optional team boards, and collaboration stays under More. Existing task, calendar, expense and trip links keep their routes and data.
 
 **Sign-in flow:** Menu → Sign in with Google for cloud sync, Gmail, and calendar, or Continue as guest for device-local use. The welcome page and account dialog offer the same two choices. Outlook and WeChat cannot start a new sign-in; existing account data and linked mailboxes are retained.
 
 Guest mode works locally with `localStorage`; mail, cloud sync, and workspace invites need a signed-in session.
+
+## Your personal home
+
+Open the **Customize workbench** sliders beside Search to name your space, set your display name, show/hide home sections and change their order with the up/down buttons. Tasks always remain available. Choose up to four common tool links; the phone dock retains Calendar and Tally and supports the existing swipe gesture.
+
+The default home shows the next timed arrangement today, the original task list, common tools, today's personal spending and an active-trip summary. Desktop groups task progress, the next arrangement, one task to focus on and spending/common links in a compact widget grid above the original task list, using the existing fonts and theme colors. It reads the existing stores without loading an inbox or map. Google users sync home settings with their account; Guest settings stay on-device. Settings also enter JSON backup/export, and failed device saves retain the open form for retry. Back closes the editor and keeps its draft until the page is left; switching accounts clears the draft.
+
+## Phone overview and calendar
+
+Phone Workbench has compact tiles for today’s tasks, reminders, personal projects and private spending. Tap today’s tasks to return the original list to today; the other tiles open their existing tools. The same home preferences control optional tiles, with the existing fonts, theme colors, ghost and sliding dock retained.
+
+In phone Calendar, tap the month label to open a month picker, choose any date or use its month arrows, and continue in the original day agenda. Search and All/Tasks/Reminders stay visible on phone; desktop keeps its existing filter disclosure. Task details, completion targets, draft capture and Back-to-close keep their normal behavior.
 
 ## Reliability
 
@@ -29,15 +44,15 @@ Guest mode works locally with `localStorage`; mail, cloud sync, and workspace in
 - **Smoke:** `npm test` covers today task → calendar-visible due date → mail-shaped `todo_add`, plus account delete/export helpers.
 - **Browser interactions:** `npm run test:ui` checks desktop and phone controls, modal focus, Mail selection/retry/account isolation and duplicate task prevention. Set `CHROMIUM_PATH` if Chromium is installed outside `/usr/bin/chromium`.
 
-All pages share a compact title, workspace search, notifications and page tools. Workspace search opens the matching task, dated reminder, expense month/editor, project board/card or trip. Linked reminders/cards appear once, and missing targets leave the page usable. Calendar filters, Tally month/view and editor drafts use session preferences scoped to the current Google account or Guest. On phone, Travel offers Itinerary / Map views.
+All pages share a compact title, workspace search, notifications and page tools. Workspace search opens the matching task, dated reminder, expense month/editor, project board/card or trip. Linked reminders/cards appear once, and missing targets leave the page usable. Calendar filters, Tally month/view and editor drafts use session preferences scoped to the current Google account or Guest. On phone, Travel offers Travel day / Itinerary / Map views.
 
 ## Install as PWA
 
-- **Chrome / Edge (desktop):** open the app → browser menu → **Install Daily Space** (or the install icon in the address bar).
+- **Chrome / Edge (desktop):** open the app → browser menu → **Install dayfly** (or the install icon in the address bar).
 - **Safari (iPhone/iPad):** Share → **Add to Home Screen**.
 - **Android Chrome:** menu → **Install app** / **Add to Home screen**.
 
-Start URL is `/todo.html` (Daily Loop). Account → install tip appears when you are not already in standalone mode.
+Start URL is `/todo.html` (Workbench), with its existing phone layout. Account → install tip appears when you are not already in standalone mode.
 
 ## Run locally
 
@@ -52,7 +67,7 @@ Requires **Node 22+** (uses built-in `node:sqlite` for local/dev data when Supab
 
 ## Persistent workspaces (Supabase)
 
-Daily Space keeps `localStorage` as a fast offline cache and stores signed-in users’ snapshots in Supabase Postgres.
+dayfly keeps `localStorage` as a fast offline cache and stores signed-in users’ snapshots in Supabase Postgres.
 
 1. Create a Supabase project.
 2. Run `supabase/migrations/001_user_snapshots.sql`, then `supabase/migrations/005_snapshot_revisions.sql` in the SQL Editor. For an existing project, apply `005` **before** deploying the revision-aware server. It preserves existing snapshots and grants the atomic write function only to `service_role`.
@@ -122,11 +137,11 @@ Use **Select** above the task list to select individual tasks or the visible lis
 
 Today’s **Templates** shortcut offers a focused day, weekly review and travel checklist. Choose a start date to create fresh tasks; checklist items start unchecked and template task dates remain relative to that date. Batch-select tasks and use **Date & category → Save as template** to keep their notes, checklists, category names, times and relative dates. Custom templates can be edited/deleted, template applications and deletions have Undo, and template editor drafts remain scoped to the current identity. Templates are included in the existing Google personal snapshot sync; Guest keeps them local.
 
-**Import & backup** is available beside Today’s selection controls, in Tally More and in the account dialog. Download a device JSON backup, or choose a Daily Space JSON backup (including the existing account-export format), task CSV or expense CSV. Files are read locally, limited to 1 MB, and previewed before **Merge import**. Existing IDs retain this device’s version; new project cards/columns and trip stops/bookings merge inside their existing parent. Re-importing an unchanged CSV does not add duplicate records, while identical distinct CSV rows remain separate. Task categories with the same name are reused. Preview becomes invalid if this device’s affected data changes before import. Validation failures leave data untouched; failed local storage writes roll back applied sections.
+**Import & backup** is available beside Today’s selection controls, in Tally More and in the account dialog. Download a device JSON backup, or choose a dayfly JSON backup (including the existing account-export format), task CSV or expense CSV. Files are read locally, limited to 1 MB, and previewed before **Merge import**. Existing IDs retain this device’s version; new project cards/columns and trip stops/bookings merge inside their existing parent. Re-importing an unchanged CSV does not add duplicate records, while identical distinct CSV rows remain separate. Task categories with the same name are reused. Preview becomes invalid if this device’s affected data changes before import. Validation failures leave data untouched; failed local storage writes roll back applied sections.
 
 Supported JSON sections are Todo, Calendar, Projects, Tally, personal Travel and templates. Account credentials, mailbox connections, shared-trip mappings/permissions, theme and retired Teamwork drafts are excluded from portable backups/import. Importing while signed in uses the existing personal sync and conflict handling; Guest never uploads data. Keep a device backup before transferring data. Shared Tally participant IDs remain local ledger identities, not cloud trip membership.
 
-CSV uses UTF-8, an optional BOM, a header row, standard quoted values and ISO `YYYY-MM-DD` dates. Task columns: `id` (optional), `text`, `dueDate`, `dueTime`, `completed`, `category`, `notes`. Expense columns: `id` (optional), `date`, `amount`, `currency`, `fxRate`, `category`, `note`, `scope`, `paidById`, `splitAmongIds` (IDs separated by `|`), `tripId`, `tripName`. Chinese task/expense/date/category/note column names are also recognized. Foreign amounts require a valid exchange rate to the current base currency. Shared expense CSV needs existing participant IDs; use a JSON backup for a complete shared ledger. Imports into a nonempty ledger require matching base currencies. Tally CSV exports now include IDs, split and trip fields; spreadsheet formula-like text is escaped and a `_format` column lets Daily Space restore the original text on re-import.
+CSV uses UTF-8, an optional BOM, a header row, standard quoted values and ISO `YYYY-MM-DD` dates. Task columns: `id` (optional), `text`, `dueDate`, `dueTime`, `completed`, `category`, `notes`. Expense columns: `id` (optional), `date`, `amount`, `currency`, `fxRate`, `category`, `note`, `scope`, `paidById`, `splitAmongIds` (IDs separated by `|`), `tripId`, `tripName`. Chinese task/expense/date/category/note column names are also recognized. Foreign amounts require a valid exchange rate to the current base currency. Shared expense CSV needs existing participant IDs; use a JSON backup for a complete shared ledger. Imports into a nonempty ledger require matching base currencies. Tally CSV exports now include IDs, split and trip fields; spreadsheet formula-like text is escaped and a `_format` column lets dayfly restore the original text on re-import.
 
 Travel’s **Trip expenses** disclosure shows all linked expenses in your own Tally ledger, a selected-day total, category totals, saved-rate currency conversion and an optional trip budget. **Add trip expense** opens Tally with the trip and selected day prefilled, and record links open the matching expense month/editor. The expense Trip selector can relink/unlink an entry; deleted trips retain their saved label and existing expenses. A personal trip promoted to a shared trip still includes its previously linked expenses through the existing mapping. Budget amounts retain their currency and are not reinterpreted when the ledger base currency changes. Other trip members cannot read your ledger. Shared expense splits continue to be handled by Tally’s local ledger, independently of trip collaboration.
 

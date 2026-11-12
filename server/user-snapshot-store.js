@@ -9,6 +9,7 @@ const MAX_SNAPSHOT_BYTES = 1024 * 1024;
 const ALLOWED_SNAPSHOT_KEYS = new Set([
   "todo-app-v2",
   "task-templates-v1",
+  "daily-space-workbench-v1",
   "planner-app-v1",
   "calendar-app-v1",
   "tally-book-v1",

@@ -306,7 +306,7 @@
     bodyParts.push(String(reminder.text || "").trim());
     return showDesktopNotification(
       `daily-space-reminder-${reminder.id}`,
-      "Daily Space reminder",
+      "dayfly reminder",
       bodyParts.filter(Boolean).join(" · "),
       "calendar.html"
     );
@@ -318,7 +318,7 @@
     bodyParts.push(String(todo.text || "").trim());
     return showDesktopNotification(
       `daily-space-todo-${todo.id}`,
-      "Daily Space task due",
+      "dayfly task due",
       bodyParts.filter(Boolean).join(" · "),
       "todo.html#today"
     );
@@ -455,11 +455,11 @@
       palette.hidden = true;
       palette.setAttribute("role", "dialog");
       palette.setAttribute("aria-modal", "true");
-      palette.setAttribute("aria-label", "Search Daily Space");
+      palette.setAttribute("aria-label", "Search dayfly");
       palette.innerHTML = `
         <div class="command-palette-backdrop" data-search-close="true"></div>
         <div class="command-palette-panel">
-          <input type="search" class="command-palette-input" id="daily-space-search-input" placeholder="Search tasks, trips, spend…" aria-label="Search Daily Space" autocomplete="off" />
+          <input type="search" class="command-palette-input" id="daily-space-search-input" placeholder="Search tasks, trips, spend…" aria-label="Search dayfly" autocomplete="off" />
           <ul class="command-palette-list" id="daily-space-search-list" role="listbox"></ul>
           <p class="command-palette-empty" id="daily-space-search-empty" hidden>No matches.</p>
         </div>

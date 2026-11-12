@@ -65,7 +65,7 @@ async function waitForServer(baseUrl, attempts = 40) {
   throw new Error("Server did not become ready in time.");
 }
 
-test("e2e critical path: welcome Daily Loop + guest today→calendar→mail task + account gates", async (t) => {
+test("e2e critical path: welcome personal workbench + guest today→calendar→mail task + account gates", async (t) => {
   const port = 3100 + Math.floor(Math.random() * 200);
   const baseUrl = `http://127.0.0.1:${port}`;
   const dbPath = path.join(os.tmpdir(), `daily-space-e2e-${process.pid}-${Date.now()}.sqlite`);
@@ -110,7 +110,7 @@ test("e2e critical path: welcome Daily Loop + guest today→calendar→mail task
   const welcome = await fetch(`${baseUrl}/index.html`);
   assert.equal(welcome.status, 200);
   const welcomeHtml = await welcome.text();
-  assert.match(welcomeHtml, /Daily Loop/i);
+  assert.match(welcomeHtml, /Your work, life and plans, together\./i);
   assert.match(welcomeHtml, /Continue as guest/);
   assert.match(welcomeHtml, /data-welcome-provider="google"/);
   assert.doesNotMatch(welcomeHtml, /Outlook|outlook|WeChat|wechat/);

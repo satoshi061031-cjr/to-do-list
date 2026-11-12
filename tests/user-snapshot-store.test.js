@@ -233,3 +233,8 @@ test("legacy migration never overwrites a concurrent cloud creation", async () =
   assert.equal(snapshot.revision, 3);
   assert.equal(snapshot.payload["todo-theme"], "dark");
 });
+
+test('snapshot storage retains personal workbench configuration and still excludes unsupported credentials', () => {
+  const key = 'daily-space-workbench-v1', config = JSON.stringify({ version: 1, name: 'My workbench', hidden: ['travel'] });
+  assert.deepEqual(sanitizeSnapshotPayload({ [key]: config, 'daily-space-auth-v1': 'secret' }), { [key]: config });
+});

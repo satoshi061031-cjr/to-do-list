@@ -1767,7 +1767,7 @@
       if (plannerBoardEmptyCopyEl) {
         plannerBoardEmptyCopyEl.textContent = isTeamMode()
           ? "Ask the agent to set up a shared board, or create columns in Teamwork."
-          : "Ask the Daily Space agent to set up Planned, In Progress, Done, and On Hold.";
+          : "Ask the dayfly agent to set up Planned, In Progress, Done, and On Hold.";
       }
     }
 
