@@ -1,4 +1,4 @@
-const CACHE_NAME = 'todo-v329';
+const CACHE_NAME = 'todo-v331';
 const SCOPE_PATH = new URL(self.registration.scope).pathname.replace(/\/$/, '');
 const withScope = (path) => `${SCOPE_PATH}${path}`;
 const urlsToCache = [
@@ -27,6 +27,8 @@ const urlsToCache = [
   '/theme.js',
   '/workbench-preferences.js',
   '/workbench.js',
+  '/workbench-tools.js',
+  '/workbench-tools.css',
   '/workbench.css',
   '/workbench-desktop.js',
   '/workbench-desktop.css',
@@ -35,6 +37,13 @@ const urlsToCache = [
   '/calendar-mobile.js',
   '/native-widget.js',
   '/dialog-focus.js',
+  '/interaction-surfaces.js',
+  '/interaction-surfaces.css',
+  '/layout-motion.js',
+  '/interaction-feedback.js',
+  '/interaction-feedback.css',
+  '/workspace-command.js',
+  '/workspace-command.css',
   '/task-list.js',
   '/quick-task.js',
   '/task-actions.js',
@@ -44,6 +53,19 @@ const urlsToCache = [
   '/daily-loop.js',
   '/task-fields.js',
   '/workspace-tools-core.js',
+  '/task-views-core.js',
+  '/task-planning.js',
+  '/task-planning.css',
+  '/focus-core.js',
+  '/focus-workbench.js',
+  '/focus-workbench.css',
+  '/notes-core.js',
+  '/notes-workbench.js',
+  '/notes-workbench.css',
+  '/record-history-core.js',
+  '/record-history.js',
+  '/record-history.css',
+  '/agent-sources.js',
   '/workspace-tools.js',
   '/trip-expenses.js',
   '/task-details.js',

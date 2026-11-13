@@ -2,9 +2,14 @@
 (function (global) {
   const Tally = global?.DailySpaceTallyCore || (typeof require === 'function' ? require('./tally-core') : null);
   const Preferences = global?.DailySpaceWorkbenchPreferences || (typeof require === 'function' ? require('./workbench-preferences') : null);
+  const TaskFields = global?.DailySpaceTaskFields || (typeof require === 'function' ? require('./task-fields') : null);
+  const Views = global?.DailySpaceTaskViewsCore || (typeof require === 'function' ? require('./task-views-core') : null);
+  const Focus = global?.DailySpaceFocusCore || (typeof require === 'function' ? require('./focus-core') : null);
+  const Notes = global?.DailySpaceNotesCore || (typeof require === 'function' ? require('./notes-core') : null);
+  const History = global?.DailySpaceHistoryCore || (typeof require === 'function' ? require('./record-history-core') : null);
   const WORKBENCH_KEY = 'daily-space-workbench-v1';
   const TEMPLATE_KEY = 'task-templates-v1';
-  const KEYS = ['todo-app-v2', 'calendar-app-v1', 'planner-app-v1', 'tally-book-v1', 'travel-book-v1', TEMPLATE_KEY, WORKBENCH_KEY];
+  const KEYS = ['todo-app-v2', 'calendar-app-v1', 'planner-app-v1', 'tally-book-v1', 'travel-book-v1', TEMPLATE_KEY, WORKBENCH_KEY, Views.KEY, Focus.KEY, Notes.KEY, History.KEY];
   const SNAPSHOT_KEYS = [...KEYS, 'teamwork-page-v1', 'travel-shared-v1', 'daily-space-mail-accounts-v1', 'todo-theme'];
   const uid = () => Tally.uid('workspace');
   const text = (value, max = 500) => typeof value === 'string' ? value.trim().slice(0, max) : '';
@@ -23,7 +28,7 @@
   function todo(item) {
     if (!text(item?.text)) fail('Task text is required.');
     if (item.dueDate && !date(item.dueDate)) fail('Invalid date.'); if (item.dueTime && !time(item.dueTime)) fail('Invalid time.');
-    return { id: identity(item.id), text: text(item.text), completed: completion(item.completed), dueDate: date(item.dueDate), dueTime: time(item.dueTime), categoryId: text(item.categoryId, 120) || null,
+    return { ...TaskFields.fields(item), id: identity(item.id), text: text(item.text), completed: completion(item.completed), dueDate: date(item.dueDate), dueTime: time(item.dueTime), categoryId: text(item.categoryId, 120) || null,
       notes: text(item.notes, 10000), subtasks: checklist(item.subtasks), repeat: ['daily','weekly','monthly'].includes(item.repeat) ? item.repeat : null,
       sourceMailId: text(item.sourceMailId, 120) || null, sourceMailUrl: /^https:\/\/mail\.google\.com\//.test(item.sourceMailUrl || '') ? text(item.sourceMailUrl, 2000) : null,
       sourcePlannerId: text(item.sourcePlannerId, 120) || null, sourceReminderId: text(item.sourceReminderId, 120) || null, externalEventId: text(item.externalEventId, 120) || null,
@@ -80,6 +85,15 @@
       let value;
       if (kind === 'todo') value = { text: pick('text','title','标题','任务'), dueDate: pick('dueDate','date','日期') || null, dueTime: pick('dueTime','time','时间') || null, completed: /^(true|1|yes|已完成)$/i.test(pick('completed','完成')), notes: pick('notes','备注'), categoryName: pick('category','分类') };
       else value = { date: pick('date','日期'), amount: pick('amount','金额'), currency: pick('currency','币种') || current.baseCurrency, fxRate: pick('fxRate','汇率') || '', category: pick('category','分类'), note: pick('note','备注'), scope: pick('scope','类型') || 'personal', paidById: pick('paidById'), splitAmongIds: pick('splitAmongIds').split('|').filter(Boolean), tripId: pick('tripId') || null, tripName: pick('tripName') };
+      // Keep the old canonical shape for CSVs without new columns, preserving
+      // their stable import IDs across this upgrade.
+      if (kind === 'tally' && pick('recurringBillId')) Object.assign(value,{recurringBillId:pick('recurringBillId'),recurringDate:pick('recurringDate')||null});
+      if (kind === 'todo') {
+        if (pick('priority')) value.priority=pick('priority');
+        if (pick('inbox')) value.inbox=/^(true|1|yes)$/i.test(pick('inbox'));
+        if (pick('sourceUrl')) value.sourceUrl=pick('sourceUrl');
+        for (const key of ['createdAt','completedAt']) if (pick(key)) value[key]=Number(pick(key));
+      }
       const canonical = JSON.stringify(value); const occurrence = seen.get(canonical) || 0; seen.set(canonical,occurrence+1); return { ...value, id: text(row.id,120) || csvId(value,occurrence) };
     });
     if (kind === 'todo') {
@@ -92,13 +106,38 @@
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) fail('Invalid data file.');
     if (key === 'todo-app-v2') return { todos: unique(array(raw.todos,1000).map(todo)), categories: unique(array(raw.categories,100).map(item => { if (!text(item?.name,48)) fail('Category name is required.'); return { id: identity(item.id), name: text(item.name,48) }; })), selectedCategoryKey:'__all__' };
     if (key === WORKBENCH_KEY) return Preferences.normalize(raw);
+    if (key === Views.KEY) {
+      const records = unique(array(raw.views,30)); const normalized = Views.normalize(raw);
+      if (normalized.views.length !== records.length) fail('Invalid saved view.');
+      return normalized;
+    }
+    if (key === Notes.KEY) {
+      const records = unique(array(raw.notes,Notes.MAX_NOTES)); const normalized = Notes.normalize(raw);
+      if (normalized.notes.length !== records.length || new TextEncoder().encode(JSON.stringify(normalized)).length > Notes.MAX_BYTES) fail('Invalid or oversized notes.');
+      return normalized;
+    }
+    if (key === Focus.KEY) {
+      const records = unique(array(raw.sessions,Focus.MAX_SESSIONS)); const normalized = Focus.normalize(raw);
+      if (normalized.sessions.length !== records.length || (raw.active && !normalized.active)) fail('Invalid focus sessions.');
+      // A restored backup cannot know how long its old device was unattended.
+      if (normalized.active) normalized.active.resumedAt = null;
+      return normalized;
+    }
+    if (key === History.KEY) {
+      const records = unique(array(raw.entries,History.MAX_ENTRIES)); const normalized = History.normalize(raw);
+      if (normalized.entries.length !== records.length) fail('Invalid or oversized record history.');
+      return normalized;
+    }
     if (key === TEMPLATE_KEY) return { templates: unique(array(raw.templates,50).map(template)) };
     if (key === 'calendar-app-v1') return { selectedDate: date(raw.selectedDate), reminders: unique(array(raw.reminders,1000).map(item => { if (!date(item?.date) || !text(item.text)) fail('Invalid reminder.'); if ((item.startTime && !time(item.startTime)) || (item.endTime && (!time(item.endTime) || (item.startTime && item.endTime < item.startTime)))) fail('Invalid time.'); return { id:identity(item.id),date:item.date,text:text(item.text,200),startTime:time(item.startTime),endTime:time(item.endTime),priority:['high','low'].includes(item.priority)?item.priority:'medium',linkedTodoId:text(item.linkedTodoId,120)||null,remindAt:null }; })) };
     if (key === 'tally-book-v1') {
       const validCurrency = value => typeof value === 'string' && (/^[A-Za-z]{3}$/.test(value.trim()) || ['¥','$','€','£','₩','₹','HK$','S$'].includes(value.trim()));
       if ((raw.baseCurrency && !validCurrency(raw.baseCurrency)) || (raw.currency && !raw.baseCurrency && !validCurrency(raw.currency))) fail('Invalid currency.');
       array(raw.people,24).forEach(person=>{identity(person.id);if(!text(person.name,60))fail('Invalid person.');});
+      const budgetRows=unique(array(raw.categoryBudgets,2400)),billRows=unique(array(raw.recurringBills,100));
+      for (const item of [...budgetRows,...billRows]) { identity(item.id); if(item.currency&&!validCurrency(item.currency))fail('Invalid currency.'); }
       const state = Tally.normalizeState({ ...raw, records: [] });
+      if(state.categoryBudgets.length!==budgetRows.length||state.recurringBills.length!==billRows.length||state.recurringBills.some((item,index)=>item.id!==billRows[index].id))fail('Invalid or duplicate budget or bill.');
       if (array(raw.people,24).length && new Set(raw.people.map(person=>person.id)).size !== raw.people.length) fail('Duplicate people in file.');
       state.records = unique(array(raw.records,Infinity).map(item => {
         if (!date(item?.date) || !Number.isFinite(Number(item.amount)) || Number(item.amount)<=0 || Number(item.amount)>1e12 || !text(item.category,40)) fail('Invalid expense.');
@@ -128,10 +167,21 @@
     if (new TextEncoder().encode(source).length > 1024*1024) fail('File is too large (maximum 1 MB).');
     const read = key => { const raw=storage.getItem(key); if(!raw)return null; try{return JSON.parse(raw);}catch(_){fail('Current device data is invalid. Export a backup before importing.');} };
     let incoming, ignored = 0;
-    if (format === 'json') { let parsed; try{parsed=JSON.parse(source);}catch(_){fail('Invalid JSON file.');} const payload=parsed?.payload||parsed;
+    if (format === 'json') { let parsed; try{parsed=JSON.parse(source);}catch(_){fail('Invalid JSON file.');}
+      const payload=parsed?.payload||(parsed?.source==='daily-space'&&parsed.local&&typeof parsed.local==='object'?parsed.local:parsed);
       if (!payload || typeof payload!=='object'||Array.isArray(payload))fail('Use a dayfly JSON backup.'); incoming={}; for(const [key,value] of Object.entries(payload)){if(!KEYS.includes(key)){ignored++;continue;} try{incoming[key]=typeof value==='string'?JSON.parse(value):value;}catch(_){fail('Invalid JSON data section.');}} if(!Object.keys(incoming).length)fail('No supported workspace data found.');
     } else incoming=csvPayload(source,format, Tally.normalizeState(read('tally-book-v1')||{}));
     const payload={}, summary=[]; const merge=(oldItems,newItems)=>{const oldIds=new Set(oldItems.map(item=>item.id));return{items:[...oldItems,...newItems.filter(item=>!oldIds.has(item.id))],added:newItems.filter(item=>!oldIds.has(item.id)).length,skipped:newItems.filter(item=>oldIds.has(item.id)).length};};
+    // Saved view sections may precede tasks in a JSON file. Resolve imported
+    // category identities up front, using the same merge rule as the tasks.
+    const categoryRemap=new Map();
+    if(incoming['todo-app-v2']) {
+      const categories=[...(read('todo-app-v2')?.categories||[])];
+      for(const item of normalize('todo-app-v2',incoming['todo-app-v2']).categories) {
+        let current=categories.find(category=>category.id===item.id||category.name.toLowerCase()===item.name.toLowerCase());
+        if(!current){current=item;categories.push(item);}categoryRemap.set(item.id,current.id);
+      }
+    }
     for(const [key,value] of Object.entries(incoming)) {
       const imported=normalize(key,value); const original=read(key); const local=original||{}; let result;
       if(key===WORKBENCH_KEY){
@@ -141,7 +191,9 @@
       else if(key==='todo-app-v2'){
         const categories=[...(local.categories||[])],mapping=new Map();let categoryAdded=0;
         for(const item of imported.categories){let current=categories.find(category=>category.id===item.id||category.name.toLowerCase()===item.name.toLowerCase());if(!current){current=item;categories.push(item);categoryAdded++;}mapping.set(item.id,current.id);}
-        const records=merge(local.todos||[],imported.todos.map(task=>({...task,categoryId:mapping.get(task.categoryId)||task.categoryId})));result={...local,todos:records.items,categories,selectedCategoryKey:local.selectedCategoryKey||'__all__'}; summary.push({key,added:records.added,skipped:records.skipped,categoriesAdded:categoryAdded});
+        const records=merge(local.todos||[],imported.todos.map(task=>({...task,categoryId:mapping.get(task.categoryId)||task.categoryId})));
+        const pinned=new Map();for(const task of records.items){if(task.completed||!date(task.todayPinDate))continue;const count=(pinned.get(task.todayPinDate)||0)+1;if(count>3)fail('Merged tasks exceed Today Top 3. Remove a daily pin before importing.');pinned.set(task.todayPinDate,count);}
+        result={...local,todos:records.items,categories,selectedCategoryKey:local.selectedCategoryKey||'__all__'}; summary.push({key,added:records.added,skipped:records.skipped,categoriesAdded:categoryAdded});
       }
       else if(key==='planner-app-v1'){
         const records=merge(local.planners||[],imported.planners),boards={...local.boards};let added=records.added,skipped=records.skipped;
@@ -150,7 +202,7 @@
       }
       else if(key==='tally-book-v1'){
         const old=Tally.normalizeState(local);
-        const hasLocalHistory=old.records.length||old.settlements.length||Object.keys(old.tripBudgets).length;
+        const hasLocalHistory=old.records.length||old.settlements.length||Object.keys(old.tripBudgets).length||old.categoryBudgets.length||old.recurringBills.length;
         if(hasLocalHistory&&old.baseCurrency!==imported.baseCurrency)fail('The backup and current ledger use different base currencies.');
         const base=hasLocalHistory?old:imported;
         const idMap=id=>id===imported.selfPersonId?base.selfPersonId:id;
@@ -158,8 +210,30 @@
         if(people.items.length>24)fail('Too many people after merge.');
         const records=merge(old.records,imported.records.map(record=>({...record,paidById:idMap(record.paidById),splitAmongIds:record.splitAmongIds.map(idMap)})));
         const settlements=merge(old.settlements,imported.settlements.map(item=>({...item,fromId:idMap(item.fromId),toId:idMap(item.toId)})));
-        result={...base,people:people.items,records:records.items,tripBudgets:{...imported.tripBudgets,...old.tripBudgets},settlements:settlements.items};
-        summary.push({key,...records,items:undefined});
+        const budgetKey=item=>`${item.month}:${item.currency}:${item.category.toLowerCase()}`;
+        const oldBudgetKeys=new Set(old.categoryBudgets.map(budgetKey));
+        const budgets=merge(old.categoryBudgets,imported.categoryBudgets.filter(item=>!oldBudgetKeys.has(budgetKey(item))));
+        budgets.skipped+=imported.categoryBudgets.filter(item=>oldBudgetKeys.has(budgetKey(item))).length;
+        const bills=merge(old.recurringBills,imported.recurringBills);
+        if(budgets.items.length>2400||bills.items.length>100)fail('Too many budgets or bills after merge.');
+        result=Tally.normalizeState({...base,people:people.items,records:records.items,tripBudgets:{...imported.tripBudgets,...old.tripBudgets},settlements:settlements.items,categoryBudgets:budgets.items,recurringBills:bills.items});
+        summary.push({key,added:records.added+budgets.added+bills.added,skipped:records.skipped+budgets.skipped+bills.skipped});
+      }
+      else if ([Views.KEY, Notes.KEY, Focus.KEY, History.KEY].includes(key)) {
+        const core = { [Views.KEY]:Views, [Notes.KEY]:Notes, [Focus.KEY]:Focus, [History.KEY]:History }[key];
+        const field = { [Views.KEY]:'views', [Notes.KEY]:'notes', [Focus.KEY]:'sessions', [History.KEY]:'entries' }[key];
+        const existing = core.normalize(local);
+        const importedItems=key===Views.KEY?imported.views.map(view=>({...view,categoryId:categoryRemap.get(view.categoryId)||view.categoryId})):imported[field];
+        const records = merge(existing[field],importedItems);
+        if (key === Views.KEY && records.items.length > 30) fail('Too many saved views after merge.');
+        if (key === Notes.KEY && records.items.length > Notes.MAX_NOTES) fail('Too many notes after merge.');
+        if (key === Focus.KEY && records.items.length > Focus.MAX_SESSIONS) fail('Too many focus sessions after merge.');
+        if (key === History.KEY && records.items.length > History.MAX_ENTRIES) fail('Too many history versions after merge.');
+        result=core.normalize({...imported,...existing,[field]:records.items});
+        if (key === Focus.KEY) result=Focus.normalize({...result,active:existing.active||imported.active});
+        if (key === History.KEY && result.entries.length !== records.items.length) fail('Merged history exceeds the storage limit.');
+        if (key === Notes.KEY && new TextEncoder().encode(JSON.stringify(result)).length > Notes.MAX_BYTES) fail('Notes exceed the storage limit.');
+        summary.push({key,added:records.added,skipped:records.skipped});
       }
       else if(key==='travel-book-v1'){
         const records=merge(local.trips||[],imported.trips);let added=records.added,skipped=records.skipped;
@@ -177,6 +251,7 @@
     const full=Object.fromEntries(SNAPSHOT_KEYS.map(key=>[key,plan.payload[key]??storage.getItem(key)]).filter(([,value])=>value!==null));
     if(new TextEncoder().encode(JSON.stringify(full)).length>1024*1024)fail('Merged workspace exceeds the 1 MB sync limit.');
     const written=[];try{for(const [key,value] of Object.entries(plan.payload)){storage.setItem(key,value);written.push(key);}}catch(error){for(const key of written.reverse()){if(plan.baseline[key]===null)storage.removeItem(key);else storage.setItem(key,plan.baseline[key]);}throw error;}
+    if (global?.DailySpaceHistory) for (const [key,value] of Object.entries(plan.payload)) global.DailySpaceHistory.capture(key,plan.baseline[key],value);
   }
   function backup(storage) { return { format:'daily-space',version:1,exportedAt:new Date().toISOString(),payload:Object.fromEntries(KEYS.map(key=>[key,storage.getItem(key)]).filter(([,value])=>value!==null)) }; }
   const api={TEMPLATE_KEY,KEYS,uid,date,time,addDays,template,fromTasks,instantiate,parseCsv,csvCell,prepare,apply,backup};

@@ -1,0 +1,25 @@
+/* Record recovery uses the existing workspace sheet and DESIGN.md tokens. */
+.record-history-panel { width: min(700px, 100%); }
+.record-history-filters { display: flex; flex-wrap: wrap; gap: var(--space-sm); padding: 0 var(--space-md) var(--space-sm); }
+.record-history-filters :is(input, select) { min-width: 0; min-height: 44px; box-sizing: border-box; border: 1px solid var(--quiet-line); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); padding: var(--space-sm); font: var(--phone-body-weight) var(--phone-body-size)/var(--phone-body-lh) var(--font-ui); }
+.record-history-filters input { flex: 1 1 100%; }
+.record-history-filters select { flex: 1; width: 0; }
+.record-history-body { overflow: auto; min-height: 0; padding: 0 var(--space-md) var(--space-md); overscroll-behavior: contain; }
+.record-history-help, .record-history-empty { color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+.record-history-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); padding: var(--space-sm) 0; border-bottom: 1px solid var(--quiet-line); }
+.record-history-row > div { min-width: 0; }
+.record-history-row strong { overflow-wrap: anywhere; font: var(--phone-task-weight) var(--phone-task-size)/var(--phone-task-lh) var(--font-ui); }
+.record-history-row p { margin: var(--space-xs) 0 0; color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+.record-history-row button { flex: 0 0 auto; }
+.record-history-preview { padding-top: var(--space-md); }
+.record-history-preview h3 { margin: 0; font: var(--phone-task-weight) var(--phone-task-size)/var(--phone-task-lh) var(--font-ui); }
+.record-history-preview p { color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+.record-history-preview-content { max-height: 35dvh; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; margin: var(--space-sm) 0; padding: var(--space-sm); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+.record-history-preview-content :is(p, h4) { margin: var(--space-sm) 0; }
+.record-history-preview-content a { display: inline-flex; align-items: center; min-height: 44px; color: var(--primary); }
+.record-history-preview button { margin-inline-end: var(--space-sm); margin-block-end: var(--space-sm); }
+.record-history-panel > .workspace-tool-status { margin: 0; padding: 0 var(--space-md) var(--space-md); }
+@media (max-width: 640px) {
+  .record-history-panel { width: 100%; padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .record-history-filters select { max-width: 100%; }
+}

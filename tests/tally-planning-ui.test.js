@@ -1,0 +1,111 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { spawn } = require('node:child_process');
+const { chromium } = require('playwright-core');
+
+test('personal Tally budgets and explicit recurring bill confirmation work on a narrow phone', { timeout: 60_000 }, async t => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'dayfly-bills-'));
+  const port = 51000 + Math.floor(Math.random() * 1500), base = `http://127.0.0.1:${port}`;
+  const server = spawn(process.execPath, ['--experimental-sqlite', '--disable-warning=ExperimentalWarning', 'server/index.js'], { cwd: path.resolve(__dirname, '..'), env: { ...process.env, PORT: String(port), DAILY_SPACE_DB_PATH: path.join(directory, 'test.sqlite'), SUPABASE_URL: '', SUPABASE_SERVICE_ROLE_KEY: '', GROQ_API_KEY: '', OPENAI_API_KEY: '' }, stdio: 'ignore' });
+  t.after(async () => { if (server.exitCode === null) await new Promise(resolve => { server.once('exit', resolve); server.kill(); }); fs.rmSync(directory, { recursive: true, force: true }); });
+  let ready = false;
+  for (let count = 0; count < 60; count++) { try { if ((await fetch(`${base}/api/health`)).ok) { ready = true; break; } } catch (_) {} await new Promise(resolve => setTimeout(resolve, 100)); }
+  assert.ok(ready);
+  const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || '/usr/bin/chromium', args: process.env.CHROMIUM_NO_SANDBOX === '1' ? ['--no-sandbox'] : [] });
+  t.after(() => browser.close());
+  const context = await browser.newContext({ viewport: { width: 320, height: 700 }, isMobile: true, hasTouch: true, serviceWorkers: 'block' });
+  t.after(() => context.close());
+  const page = await context.newPage(), errors = [];
+  page.setDefaultTimeout(6000); page.on('pageerror', error => errors.push(error.message));
+  await page.route('https://**/*', route => route.abort());
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem('bill-fixture')) return;
+    sessionStorage.setItem('bill-fixture', '1'); sessionStorage.setItem('daily-space-guest-save-dismissed-v1', '1');
+    localStorage.setItem('daily-space-language-v1', 'en');
+    localStorage.setItem('tally-book-v1', JSON.stringify({ baseCurrency: 'CNY', records: [] }));
+  });
+  await page.goto(`${base}/tally.html`, { waitUntil: 'load' });
+  const planning = page.locator('#tally-planning');
+  await planning.locator(':scope > summary').click();
+  const budget = page.locator('#tally-category-budget-form');
+  await budget.locator('[name=category]').fill('Food'); await budget.locator('[name=amount]').fill('300'); await budget.locator('[type=submit]').click();
+  assert.equal(await planning.locator('[data-category-budget-id]').count(), 1);
+  await page.reload(); await planning.locator(':scope > summary').click();
+  assert.equal(await planning.locator('[data-category-budget-id]').count(), 1, 'Budget survives reload');
+  await page.locator('.tally-bill-editor > summary').click();
+  const bill = page.locator('#tally-recurring-form');
+  await bill.locator('[name=name]').fill('Music subscription'); await bill.locator('[name=amount]').fill('10'); await bill.locator('[name=nextDate]').fill('2026-01-31'); await bill.locator('[name=currency]').fill('USD'); await bill.locator('[name=fxRate]').fill('7');
+  await bill.locator('[type=submit]').click();
+  let stored = await page.evaluate(() => JSON.parse(localStorage.getItem('tally-book-v1')));
+  assert.equal(stored.records.length, 0, 'Saving a bill never silently creates a record');
+  assert.equal(stored.recurringBills.length, 1);
+  const row = planning.locator('[data-recurring-bill-id]');
+  await row.getByRole('button', { name: 'Confirm expense', exact: true }).click();
+  stored = await page.evaluate(() => JSON.parse(localStorage.getItem('tally-book-v1')));
+  assert.equal(stored.records.length, 1); assert.equal(stored.records[0].currency, 'USD'); assert.equal(stored.records[0].fxRate, 7); assert.equal(stored.records[0].date, '2026-01-31');
+  assert.equal(stored.recurringBills[0].nextDate, '2026-02-28');
+  await page.reload(); await planning.locator(':scope > summary').click();
+  stored = await page.evaluate(() => JSON.parse(localStorage.getItem('tally-book-v1')));
+  assert.equal(stored.records.length, 1, 'Reload does not reconfirm a pending occurrence');
+  await row.getByRole('button', { name: 'Skip once', exact: true }).click();
+  stored = await page.evaluate(() => JSON.parse(localStorage.getItem('tally-book-v1')));
+  assert.equal(stored.records.length, 1); assert.equal(stored.recurringBills[0].nextDate, '2026-03-31');
+  await row.getByRole('button', { name: 'Edit', exact: true }).click();
+  await bill.locator('[name=amount]').fill('12'); await bill.locator('[type=submit]').click();
+  stored = await page.evaluate(() => JSON.parse(localStorage.getItem('tally-book-v1')));
+  assert.equal(stored.recurringBills[0].amount, 12); assert.equal(stored.recurringBills[0].anchorDay, 31);
+  await budget.locator('[name=category]').fill('Transport'); await budget.locator('[name=amount]').fill('90');
+  await page.evaluate(() => { const original = Storage.prototype.setItem; window.restoreTallyWrites = () => { Storage.prototype.setItem = original; }; Storage.prototype.setItem = function(key, value) { if (key === 'tally-book-v1') throw new DOMException('Full', 'QuotaExceededError'); return original.call(this, key, value); }; });
+  await budget.locator('[type=submit]').click();
+  assert.equal(await budget.locator('[name=category]').inputValue(), 'Transport');
+  assert.match(await planning.locator('[role=status]').textContent(), /Could not save/);
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('tally-book-v1')).categoryBudgets.length), 1);
+  await page.evaluate(() => window.restoreTallyWrites()); await budget.locator('[type=submit]').click();
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('tally-book-v1')).categoryBudgets.length), 2);
+  await row.getByRole('button', { name: 'Delete bill', exact: true }).click();
+  stored = await page.evaluate(() => JSON.parse(localStorage.getItem('tally-book-v1')));
+  assert.equal(stored.recurringBills.length, 0); assert.equal(stored.records.length, 1, 'Deleting a bill preserves confirmed expenses');
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Planning forms fit a 320px phone');
+  assert.deepEqual(errors, []);
+
+  await t.test('account changes clear financial planning drafts and reject stale bill actions', async () => {
+    const accountContext = await browser.newContext({ viewport: { width: 1280, height: 900 }, serviceWorkers: 'block' });
+    t.after(() => accountContext.close());
+    const accountPage = await accountContext.newPage(); accountPage.setDefaultTimeout(6000);
+    let user = { provider: 'Google', email: 'alice@example.com', label: 'Alice', userId: 'alice@example.com' };
+    const accountLedger = name => ({ baseCurrency: 'CNY', categoryBudgets: [{ id: `${name}-budget`, month: '2026-11', category: name, amount: 100 }], recurringBills: [{ id: `${name}-bill`, name: `${name} subscription`, amount: 10, currency: 'CNY', nextDate: '2026-01-31', interval: 'monthly' }], records: [] });
+    const clouds = new Map(['Alice', 'Bob'].map(name => [`${name.toLowerCase()}@example.com`, { payload: { 'tally-book-v1': JSON.stringify(accountLedger(name)) }, revision: 1, updatedAt: '2026-11-13T00:00:00.000Z' }]));
+    await accountPage.addInitScript(user => { localStorage.setItem('daily-space-language-v1', 'en'); localStorage.setItem('daily-space-auth-v1', JSON.stringify(user)); }, user);
+    await accountPage.route('https://**/*', route => route.abort());
+    await accountPage.route('**/api/**', route => {
+      const request = route.request(), pathname = new URL(request.url()).pathname;
+      const json = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
+      if (pathname === '/api/auth/me') return json({ user });
+      if (pathname === '/api/user/snapshot') {
+        let cloud = clouds.get(user.email);
+        if (request.method() === 'PUT') { cloud = { payload: request.postDataJSON().payload, revision: cloud.revision + 1, updatedAt: new Date().toISOString() }; clouds.set(user.email, cloud); }
+        return json({ ok: true, ...cloud });
+      }
+      return json({ notifications: [], tasks: [], workspaces: [], accounts: [] });
+    });
+    await accountPage.goto(`${base}/tally.html`, { waitUntil: 'load' });
+    await accountPage.waitForFunction(() => window.DailySpaceTallyCore.readState().recurringBills[0]?.name === 'Alice subscription');
+    await accountPage.locator('#tally-planning > summary').click();
+    await accountPage.evaluate(() => { window.staleBillAction = [...document.querySelectorAll('[data-recurring-bill-id] button')].find(button => button.textContent === 'Confirm expense'); });
+    await accountPage.locator('.tally-bill-editor > summary').click();
+    await accountPage.locator('#tally-recurring-form [name=name]').fill('Alice unfinished bill');
+    user = { provider: 'Google', email: 'bob@example.com', label: 'Bob', userId: 'bob@example.com' };
+    await accountPage.evaluate(user => { localStorage.setItem('daily-space-auth-v1', JSON.stringify(user)); window.dispatchEvent(new CustomEvent('daily-space-auth-updated')); }, user);
+    await accountPage.waitForFunction(() => window.DailySpaceTallyCore.readState().recurringBills[0]?.name === 'Bob subscription' && document.documentElement.dataset.workspaceReady !== 'false');
+    assert.equal(await accountPage.locator('#tally-planning').getAttribute('open'), null);
+    await accountPage.evaluate(() => window.staleBillAction?.click());
+    assert.equal(await accountPage.evaluate(() => window.DailySpaceTallyCore.readState().records.length), 0, 'Detached Alice confirmation cannot mutate Bob ledger');
+    await accountPage.locator('#tally-planning > summary').click();
+    await accountPage.locator('.tally-bill-editor > summary').click();
+    assert.equal(await accountPage.locator('#tally-recurring-form [name=name]').inputValue(), '', 'Unsaved bill draft is cleared at account boundary');
+    assert.equal(JSON.parse(clouds.get('alice@example.com').payload['tally-book-v1']).records.length, 0);
+  });
+});

@@ -1,5 +1,76 @@
 /* Compact, mobile-first Tally Book */
 
+.tally-planning {
+  margin-block: var(--space-lg);
+  border-block: 1px solid var(--border);
+  color: var(--text);
+  scroll-margin-block-start: var(--space-xl);
+}
+
+.tally-planning > summary,
+.tally-bill-editor > summary {
+  min-height: 44px;
+  padding-block: var(--space-sm);
+  cursor: pointer;
+  font-size: var(--phone-action-size, var(--type-body-size));
+  font-weight: var(--phone-action-weight, 600);
+}
+
+.tally-planning-body {
+  display: grid;
+  gap: var(--space-md);
+  padding-block: var(--space-md);
+}
+
+.tally-planning-body[hidden],
+.tally-plan-form label[hidden] { display: none; }
+
+.tally-planning h2 {
+  margin: 0;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+}
+
+.tally-planning p { margin: 0; overflow-wrap: anywhere; }
+.tally-plan-list { display: grid; gap: var(--space-sm); }
+.tally-plan-row { display: grid; gap: var(--space-sm); padding-block: var(--space-sm); border-bottom: 1px solid var(--border); }
+.tally-plan-row > div { min-width: 0; }
+.tally-plan-row strong { font-size: var(--phone-task-size, var(--type-body-size)); font-weight: 500; overflow-wrap: anywhere; }
+.tally-plan-row p,
+.tally-planning-status { font-size: var(--phone-meta-size, var(--type-body-size)); color: var(--text-muted); line-height: var(--phone-meta-lh, var(--type-body-lh)); }
+.tally-planning .is-over,
+.tally-planning-status.is-error { color: var(--danger); }
+.tally-planning-status:empty { display: none; }
+.tally-plan-actions { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
+.tally-plan-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-md); align-items: end; }
+.tally-plan-form label { display: grid; gap: var(--space-sm); min-width: 0; font-size: var(--phone-meta-size, var(--type-body-size)); color: var(--text-muted); }
+.tally-plan-form input,
+.tally-plan-form select,
+.tally-planning button {
+  min-width: 0;
+  min-height: 44px;
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  background: var(--panel);
+  font-family: var(--font-ui);
+  font-size: var(--phone-body-size, var(--type-body-size));
+}
+.tally-plan-form input,
+.tally-plan-form select { width: 100%; }
+.tally-plan-form input[type="checkbox"] { width: 44px; justify-self: start; accent-color: var(--accent); }
+.tally-planning button { cursor: pointer; }
+.tally-planning button:hover { background: var(--accent-soft); }
+.tally-planning :is(input,select,button,summary):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tally-bill-editor { margin-block-start: var(--space-sm); }
+.tally-bill-editor[open] > summary { margin-block-end: var(--space-md); }
+
+@media (max-width: 480px) {
+  .tally-plan-form { grid-template-columns: minmax(0, 1fr); }
+  .tally-plan-actions > button { flex: 1 1 auto; }
+}
+
 .tally-page .layout {
   max-width: min(1120px, 100%);
 }

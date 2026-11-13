@@ -18,13 +18,47 @@
       list.lastElementChild.querySelector('[data-subtask-text]').focus(); form.dispatchEvent(new Event('input', { bubbles: true }));
     }); add.dataset.subtaskAdd = '';
     const source = element('a', '', 'task-source-link'); source.hidden = true; source.setAttribute('data-i18n-ignore', '');
+    const planning = element('div', '', 'task-planning-fields'); planning.dataset.i18nIgnore = '';
+    const priorityLabel = element('label'), priority = element('select'); priority.dataset.taskPriority = '';
+    const inboxLabel = element('label', '', 'task-inbox-option'), inbox = element('input'); inbox.type = 'checkbox'; inbox.dataset.taskInbox = '';
+    const inboxText = element('span'); inboxLabel.append(inbox, inboxText);
+    const sourceLabel = element('label'), sourceInput = element('input'); sourceInput.type = 'url'; sourceInput.maxLength = 2000; sourceInput.placeholder = 'https://'; sourceInput.pattern = 'https?://.*'; sourceInput.dataset.taskSourceUrl = '';
+    const pin = button('', () => {
+      const api = window.DailySpaceTodo;
+      const task = api?.getTasks().find(item => item.id === currentId);
+      if (!task) return;
+      const now = new Date(), today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+      const wasPinned = task.todayPinDate === today;
+      if (!api.pinTask(currentId, !wasPinned)) pinStatus.textContent = localized('Choose up to three unfinished tasks for today.', '今天最多选择三件未完成的重点任务。');
+      else { pinStatus.textContent = localized('Today’s priorities updated.', '已更新今日重点。'); if (!wasPinned) inbox.checked = false; }
+      refreshPlanning();
+    }); pin.dataset.taskPin = '';
+    const pinStatus = element('p', '', 'task-planning-status'); pinStatus.setAttribute('role', 'status');
+    planning.append(priorityLabel, inboxLabel, sourceLabel, pin, pinStatus);
     const postpone = element('div', '', 'task-snooze-actions');
     let currentId = null, currentLink = null;
     window.addEventListener('daily-space-locale-changed', () => { if (currentLink) source.textContent = `${localized(currentLink.label, currentLink.zh)} ›`; });
     for (const [minutes, en, zh] of [[10, 'Remind in 10 min', '10 分钟后提醒'], ['tomorrow', 'Remind tomorrow', '明天提醒']]) {
       postpone.append(button(t(en, zh), async () => { if (currentId) await window.DailySpaceReminders?.defer('todo', currentId, minutes); }));
     }
-    section.append(noteLabel, list, add); anchor.after(section, source, postpone);
+    section.append(noteLabel, list, add); anchor.after(planning, section, source, postpone);
+    function refreshPlanning() {
+      const selected = priority.value;
+      priorityLabel.replaceChildren(document.createTextNode(localized('Priority', '优先级')), priority);
+      priority.replaceChildren(...[['normal','Normal','普通'],['high','Important','重要'],['low','Low','低']].map(([value,en,zh]) => new Option(localized(en,zh),value)));
+      priority.value = selected || 'normal';
+      inboxText.textContent = localized('Keep in Inbox to organize later', '放入收集箱，稍后整理');
+      sourceLabel.replaceChildren(document.createTextNode(localized('Source link (optional)', '来源链接（可选）')), sourceInput);
+      const task = window.DailySpaceTodo?.getTasks().find(item => item.id === currentId);
+      const now = new Date(), today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+      pin.hidden = !task || task.completed || !window.DailySpaceTodo?.pinTask;
+      const pinned = task?.todayPinDate === today;
+      pin.textContent = pinned ? localized('Remove from Today Top 3', '移出今日重点') : localized('Add to Today Top 3', '设为今日重点');
+      pin.setAttribute('aria-pressed', String(pinned));
+    }
+    window.addEventListener('daily-space-locale-changed', refreshPlanning);
+    window.addEventListener('daily-space-agent-data-updated', refreshPlanning);
+    refreshPlanning();
     function row(item) {
       const node = element('div', '', 'task-subtask-row'); node.dataset.subtaskId = item.id;
       const label = element('label', '', 'task-subtask-check'); const check = element('input'); check.type = 'checkbox'; check.checked = item.completed; check.setAttribute('aria-label', t('Complete subtask', '完成子任务')); label.append(check);
@@ -34,10 +68,11 @@
       node.append(label, input, remove); list.append(node);
     }
     return {
-      value: () => ({ notes: notes.value, subtasks: [...list.children].map(node => ({ id: node.dataset.subtaskId, text: node.querySelector('[data-subtask-text]').value.trim(), completed: node.querySelector('[type=checkbox]').checked })).filter(item => item.text) }),
+      value: () => ({ priority: priority.value, inbox: inbox.checked, sourceUrl: sourceInput.value, notes: notes.value, subtasks: [...list.children].map(node => ({ id: node.dataset.subtaskId, text: node.querySelector('[data-subtask-text]').value.trim(), completed: node.querySelector('[type=checkbox]').checked })).filter(item => item.text) }),
       fill(value, task = value) {
         const fields = window.DailySpaceTaskFields.fields(value || {}); notes.value = fields.notes; list.replaceChildren(); fields.subtasks.forEach(row);
         section.open = Boolean(fields.notes || fields.subtasks.length); currentId = task?.id || null; postpone.hidden = !currentId || task?.completed;
+        priority.value = fields.priority; inbox.checked = fields.inbox; sourceInput.value = fields.sourceUrl || ''; pinStatus.textContent = ''; refreshPlanning();
         const link = window.DailySpaceTaskFields.source(task || {}); currentLink = link; source.hidden = !link;
         if (link) { source.textContent = `${localized(link.label, link.zh)} ›`; source.href = link.href; if (link.href.startsWith('https:')) { source.target = '_blank'; source.rel = 'noopener noreferrer'; } else { source.removeAttribute('target'); } }
       },
@@ -62,7 +97,15 @@
       const motion = window.DailySpaceDialogHistory.motion(root);
       const form = root.querySelector('form'); const controls = form.elements;
       const extras = mount(form, root.querySelector('.task-desktop-options'));
-      let taskId = null, draftKey = '', composing = false;
+      let taskId = null, draftKey = '', composing = false, baseTask = null;
+      const draftStatus = root.querySelector('.task-draft-status'); draftStatus.setAttribute('role', 'status');
+      const conflictActions = element('div', '', 'task-conflict-actions'); conflictActions.hidden = true;
+      const loadLatest = button(localized('Load latest', '加载最新'), () => {
+        if (!api.getTasks().some(task => task.id === taskId)) { draftStatus.textContent = localized('This task was removed. Your draft is still here.', '此任务已删除，草稿已保留。'); return; }
+        localStorage.removeItem(draftKey); open(taskId, false);
+      }); loadLatest.dataset.taskConflictLatest = '';
+      const keepEdits = button(localized('Keep my edits', '保留我的修改'), () => submit(true)); keepEdits.dataset.taskConflictKeep = '';
+      conflictActions.append(loadLatest, keepEdits); draftStatus.after(conflictActions);
       const restoreCalendarFocus = () => {
         if (!calendar) return;
         requestAnimationFrame(() => (document.querySelector(`#task-list [data-id="${CSS.escape(taskId || '')}"] .calendar-task-open`) || document.getElementById('calendar-capture'))?.focus({ preventScroll: true }));
@@ -75,7 +118,7 @@
         api.removeTask(taskId);
       }, 'task-desktop-delete');
       root.querySelector('.task-desktop-body').append(remove);
-      const read = () => ({ text: controls.text.value, dueDate: controls.dueDate.value, dueTime: controls.dueTime.value, categoryId: controls.categoryId.value || null, repeat: controls.repeat.value || null, ...extras.value() });
+      const read = () => ({ text: controls.text.value, dueDate: controls.dueDate.value, dueTime: controls.dueTime.value, categoryId: controls.categoryId.value || null, repeat: controls.repeat.value || null, ...extras.value(), _baseTask: baseTask });
       const stash = () => { if (!root.hidden && !motion.closing && draftKey) localStorage.setItem(draftKey, JSON.stringify(read())); };
       const historyController = window.DailySpaceDialogHistory.create('task-details', { isOpen: () => !root.hidden&&!motion.closing, restore: data => open(data.id, false), close: () => close(true) });
       window.DailySpaceDialogHistory.fitViewport(root);
@@ -84,21 +127,27 @@
         if (push && !historyController.push({ id })) return;
         taskId = id; draftKey = `daily-space-task-draft:${window.DailySpaceView.owner()}:${id}`;
         let draft; try { draft = JSON.parse(localStorage.getItem(draftKey) || 'null'); } catch (_) {}
+        baseTask = structuredClone(draft?._baseTask || task);
         const value = draft || task;
         controls.text.value = value.text || ''; controls.dueDate.value = value.dueDate || ''; controls.dueTime.value = value.dueTime || ''; controls.repeat.value = value.repeat || '';
         controls.categoryId.replaceChildren(new Option(localized('No category', '无分类'), ''));
         controls.categoryId.dataset.i18nIgnore = ''; api.getCategories().forEach(category => controls.categoryId.add(new Option(category.name, category.id))); controls.categoryId.value = value.categoryId || '';
-        extras.fill(value, task); root.querySelector('[role=status]').textContent = draft ? t('Draft restored', '已恢复草稿') : '';
+        extras.fill(value, task); draftStatus.textContent = draft ? localized('Draft restored', '已恢复草稿') : ''; conflictActions.hidden = true;
         motion.open(); controls.text.focus({ preventScroll: true });
       }
       function close(fromHistory = false) { if (root.hidden || motion.closing) return; stash(); motion.close(restoreCalendarFocus); if (!fromHistory) historyController.back(); }
       root.querySelectorAll('[data-dialog-close]').forEach(node => node.addEventListener('click', () => close()));
       form.addEventListener('input', stash); form.addEventListener('change', stash); window.addEventListener('pagehide', stash);
       form.addEventListener('compositionstart', () => { composing = true; }); form.addEventListener('compositionend', () => { composing = false; stash(); });
-      form.addEventListener('submit', event => { event.preventDefault(); if (motion.closing || composing || !form.reportValidity()) return;
-        if (!api.saveTask(read(), taskId)) { root.querySelector('[role=status]').textContent = t('This task is no longer available.', '这条任务已不存在。'); return; }
+      function submit(force = false) {
+        if (motion.closing || composing || !form.reportValidity()) return;
+        if (!api.saveTask({ ...read(), _forceTaskChanges: force }, taskId)) {
+          const conflict = api.getSaveError?.() === 'conflict'; conflictActions.hidden = !conflict;
+          draftStatus.textContent = conflict ? localized('This task changed in another tab. Load its latest version or keep the fields you edited.', '此任务已在其他标签页修改。可加载最新版本，或保留你修改过的字段。') : api.getSaveError?.() === 'storage' ? localized('Could not save. Your draft is still here.', '未能保存，草稿已保留。') : localized('This task is no longer available. Your draft is still here.', '这条任务已不存在，草稿已保留。'); stash(); return;
+        }
         localStorage.removeItem(draftKey); motion.close(restoreCalendarFocus); historyController.back();
-      });
+      }
+      form.addEventListener('submit', event => { event.preventDefault(); submit(); });
       window.addEventListener('daily-space-auth-updated', () => { motion.close(null, true); draftKey = ''; });
       window.DailySpaceTaskDetails.open = open;
     }

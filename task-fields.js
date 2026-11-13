@@ -1,8 +1,24 @@
 /** Shared task detail fields: keep every editor and recurrence compatible. */
 (function () {
+  const validDate = value => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return null;
+    const parsed = new Date(`${value}T12:00:00Z`);
+    return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value ? value : null;
+  };
+  function sourceUrl(value) {
+    try { const url = new URL(String(value || '').slice(0, 2000)); return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password ? url.href : null; }
+    catch (_) { return null; }
+  }
   function fields(value = {}) {
     const seen = new Set();
     return {
+      inbox: value.inbox === true,
+      priority: ['low', 'high'].includes(value.priority) ? value.priority : 'normal',
+      todayPinDate: validDate(value.todayPinDate),
+      todayPinOrder: Number.isInteger(value.todayPinOrder) && value.todayPinOrder >= 0 ? Math.min(value.todayPinOrder, 2) : 0,
+      createdAt: Number.isSafeInteger(value.createdAt) && value.createdAt > 0 && value.createdAt <= 8640000000000000 ? value.createdAt : null,
+      completedAt: value.completed && Number.isSafeInteger(value.completedAt) && value.completedAt > 0 && value.completedAt <= 8640000000000000 ? value.completedAt : null,
+      sourceUrl: sourceUrl(value.sourceUrl),
       notes: String(value.notes || '').slice(0, 10000),
       subtasks: (Array.isArray(value.subtasks) ? value.subtasks : []).slice(0, 100).filter(item =>
         item && typeof item.id === 'string' && !seen.has(item.id) && seen.add(item.id)
@@ -19,7 +35,27 @@
     };
   }
   function recurrence(value) {
-    return { notes: fields(value).notes, subtasks: fields(value).subtasks.map(item => ({ ...item, id: crypto.randomUUID(), completed: false })), remindAt: null };
+    return { notes: fields(value).notes, subtasks: fields(value).subtasks.map(item => ({ ...item, id: crypto.randomUUID(), completed: false })), priority: fields(value).priority, inbox: false, todayPinDate: null, todayPinOrder: 0, createdAt: Date.now(), completedAt: null, sourceUrl: fields(value).sourceUrl, remindAt: null };
+  }
+  function editable(value = {}) {
+    return { ...fields(value), text: String(value.text || '').trim().slice(0, 500), dueDate: validDate(value.dueDate),
+      dueTime: /^([01]\d|2[0-3]):[0-5]\d$/.test(value.dueTime || '') ? value.dueTime : null,
+      categoryId: typeof value.categoryId === 'string' && value.categoryId ? value.categoryId : null,
+      repeat: ['daily', 'weekly', 'monthly'].includes(value.repeat) ? value.repeat : null };
+  }
+  function mergeDraft(current, draft = {}) {
+    const keys = ['text', 'dueDate', 'dueTime', 'categoryId', 'repeat', 'notes', 'subtasks', 'inbox', 'priority', 'sourceUrl'];
+    const candidate = editable(draft), latest = editable(current || {});
+    const base = draft._baseTask && draft._baseTask.id === current?.id ? editable(draft._baseTask) : null;
+    const patch = {}, conflicts = [];
+    for (const key of keys) {
+      if (!Object.hasOwn(draft, key)) continue;
+      const desired = JSON.stringify(candidate[key]), prior = base && JSON.stringify(base[key]);
+      if (base && desired === prior) continue;
+      if (base && JSON.stringify(latest[key]) !== prior && JSON.stringify(latest[key]) !== desired) conflicts.push(key);
+      patch[key] = candidate[key];
+    }
+    return { patch, conflicts: draft._forceTaskChanges === true ? [] : conflicts };
   }
   function source(value) {
     if (value.sourceTripId) return { href: `travel.html?focus=trip&id=${encodeURIComponent(value.sourceTripId)}`, label: 'Travel', zh: '来源旅行' };
@@ -32,7 +68,10 @@
       } catch (_) {}
       return { href: `planner.html?focus=card&id=${encodeURIComponent(value.sourcePlannerId)}&board=${encodeURIComponent(board)}`, label: 'Project card', zh: '来源项目卡片' };
     }
+    if (fields(value).sourceUrl) return { href: fields(value).sourceUrl, label: 'Original link', zh: '原始链接' };
     return null;
   }
-  window.DailySpaceTaskFields = { fields, recurrence, source };
+  const api = { fields, recurrence, source, validDate, sourceUrl, mergeDraft };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  if (typeof window !== 'undefined') window.DailySpaceTaskFields = api;
 })();

@@ -58,6 +58,22 @@ test("personal travel snapshots are accepted for cloud sync", () => {
   assert.equal(payload.unexpected, undefined);
 });
 
+test('reconciling legacy project completion does not invent a completion date', () => {
+  const seed = () => new Map([
+    ['todo-app-v2',JSON.stringify({todos:[{id:'linked',text:'Old work',completed:false,dueDate:'2026-01-01',sourcePlannerId:'card'}],categories:[]})],
+    ['planner-app-v1',JSON.stringify({planners:[{id:'project',name:'Project'}],boards:{project:{columns:[{id:'done',title:'Done',status:'done'}],entries:[{id:'card',title:'Old work',completed:true,columnId:'done',dueDate:'2026-01-01',linkedTodoId:'linked'}]}}})]
+  ]);
+  const initial=loadScript('workspace-tasks.js',{values:seed()});initial.window.DailySpaceTasks.syncLinkedWork({silent:true});
+  const legacy=JSON.parse(initial.values.get('todo-app-v2')).todos[0];
+  assert.equal(legacy.completed,true);assert.equal(legacy.completedAt,null);
+  const explicit=loadScript('workspace-tasks.js',{values:seed()});const before=Date.now();explicit.window.DailySpaceTasks.syncLinkedWork({from:'planner',silent:true});
+  const completed=JSON.parse(explicit.values.get('todo-app-v2')).todos[0];
+  assert.ok(completed.completedAt>=before&&completed.completedAt<=Date.now());
+  const hydration=loadScript('workspace-tasks.js',{values:seed(),window:{DailySpaceSnapshotApplying:true,dispatchEvent(){}}});
+  hydration.window.DailySpaceTasks.syncLinkedWork({from:'planner',silent:true});
+  assert.equal(JSON.parse(hydration.values.get('todo-app-v2')).todos[0].completedAt,null);
+});
+
 test("completing a weekly task creates the next occurrence", () => {
   const { window, values } = loadScript("agent-data.js");
   const api = window.DailySpaceAgentData;

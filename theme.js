@@ -13,6 +13,10 @@
     "daily-space-mail-accounts-v1",
     STORAGE_THEME,
     "daily-space-workbench-v1",
+    "dayfly-task-views-v1",
+    "dayfly-focus-v1",
+    "dayfly-notes-v1",
+    "dayfly-history-v1",
   ];
   const USER_SNAPSHOT_INTERVAL_MS = 30000;
 
@@ -1168,21 +1172,22 @@
     if (!userId) return "";
     try {
       const signature = String(localStorage.getItem(`${USER_BASELINE_PREFIX}${userId}`) || "");
-      // An older baseline ends after the previous key set. Extend only an
-      // exactly length-validated signature, so user text containing separators
-      // cannot be confused with a newly introduced preferences key.
+      // New personal stores extend the signature. Validate the complete older
+      // prefix by its lengths; task text can itself contain colons and pipes.
       let cursor = 0;
-      const previousKeys = USER_SNAPSHOT_KEYS.slice(0, -1);
-      for (const [index, key] of previousKeys.entries()) {
+      if (!signature) return signature;
+      for (const [index, key] of USER_SNAPSHOT_KEYS.entries()) {
         const prefix = `${key}:`;
         if (!signature.startsWith(prefix, cursor)) return signature;
         cursor += prefix.length;
         const end = signature.indexOf(":", cursor), size = signature.slice(cursor, end);
         if (end < 0 || !/^\d+$/.test(size)) return signature;
         cursor = end + 1 + Number(size);
-        if (index < previousKeys.length - 1 && signature[cursor++] !== "|") return signature;
+        if (!Number.isSafeInteger(cursor) || cursor > signature.length) return signature;
+        if (cursor === signature.length) return signature + USER_SNAPSHOT_KEYS.slice(index + 1).map(next => `|${next}:0:`).join("");
+        if (signature[cursor++] !== "|") return signature;
       }
-      return cursor === signature.length ? `${signature}|daily-space-workbench-v1:0:` : signature;
+      return signature;
     } catch (_) {
       return "";
     }
@@ -1217,7 +1222,8 @@
         if (key === "daily-space-workbench-v1") return Object.keys(state).length > 0;
         if (key === "teamwork-page-v1") return Object.values(state).some(item =>
           typeof item === "string" ? item.trim() : Array.isArray(item) && item.length);
-        if (["todos", "categories", "reminders", "records", "settlements", "entries", "plannerEntries", "trips", "templates", "accounts"].some(name => Array.isArray(state[name]) && state[name].length)) return true;
+        if (state.active && key === "dayfly-focus-v1") return true;
+        if (["todos", "categories", "reminders", "records", "settlements", "entries", "plannerEntries", "trips", "templates", "accounts", "notes", "sessions", "views", "categoryBudgets", "recurringBills"].some(name => Array.isArray(state[name]) && state[name].length)) return true;
         return Object.values(state.boards || {}).some(board => Array.isArray(board?.entries) && board.entries.length);
       } catch (_) { return true; } // Preserve legacy/plain-text data rather than assume it is empty.
     });
@@ -1387,7 +1393,8 @@
     materialized = materialized || snapshotPageRefreshPending || snapshotPageOwner !== readWorkspaceOwner();
     const mapping = { "todo-app-v2": "todo", "calendar-app-v1": "calendar", "planner-app-v1": "planner",
       "tally-book-v1": "tally", "teamwork-page-v1": "teamwork", "travel-book-v1": "travel", "travel-shared-v1": "travel",
-      "daily-space-workbench-v1": "workbench" };
+      "daily-space-workbench-v1": "workbench", "dayfly-task-views-v1": "task-views",
+      "dayfly-focus-v1": "focus", "dayfly-notes-v1": "notes", "dayfly-history-v1": "history" };
     Object.keys(mapping).filter(key => materialized || before[key] !== after[key]).forEach(key => snapshotPendingKeys.add(key));
     if (!materialized && snapshotEditorActive()) return;
     const domains = [...new Set([...snapshotPendingKeys].map(key => mapping[key]).filter(Boolean))];
@@ -1396,9 +1403,12 @@
       snapshotPageOwner = readWorkspaceOwner(); snapshotPageRefreshPending = false; snapshotRendering = true;
       emitUserSnapshotUpdate();
     }
+    const wasApplying = window.DailySpaceSnapshotApplying;
+    window.DailySpaceSnapshotApplying = true;
     try {
       if (domains.length) window.dispatchEvent(new CustomEvent("daily-space-agent-data-updated", { detail: { domains, source: "cloud-sync" } }));
     } finally {
+      window.DailySpaceSnapshotApplying = wasApplying;
       if (materialized) { snapshotRendering = false; emitUserSnapshotUpdate(); }
     }
   }

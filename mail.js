@@ -31,6 +31,7 @@
   const digestRest = document.getElementById("mail-digest-rest");
   const digestFull = document.getElementById("mail-digest-full");
   const detailSheet = document.getElementById("mail-detail-sheet");
+  if (detailSheet) window.DailySpaceDialogHistory?.attachGesture?.(detailSheet);
   const detailTitle = document.getElementById("mail-detail-title");
   const detailFrom = document.getElementById("mail-detail-from");
   const detailTime = document.getElementById("mail-detail-time");

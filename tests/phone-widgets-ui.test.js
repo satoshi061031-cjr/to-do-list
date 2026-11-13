@@ -71,10 +71,18 @@ test('phone overview and calendar widgets preserve real personal workflows', { t
     await page.screenshot({ path: path.join(process.env.UI_CAPTURE_DIR, name), animations: 'disabled', style: '#sidebar-hint{visibility:hidden}' });
   }
   const value = (page, id) => page.locator(`[data-phone-overview=${id}] .phone-overview-value`);
+  async function expandOverview(page) {
+    const toggle=page.locator('[data-phone-overview-toggle]');
+    if(await toggle.count() && await toggle.getAttribute('aria-expanded')!=='true') await toggle.click();
+    await page.locator('.phone-overview-grid').waitFor({state:'visible'});
+  }
 
   await t.test('phone overview counts the existing tasks, appointments, projects and converted private spending', async () => {
     const page = await pageFor(); await page.goto(`${base}/todo-m.html`, { waitUntil: 'load' });
     await page.locator('.phone-workbench-overview').waitFor({ state: 'visible' });
+    assert.equal(await page.locator('.phone-overview-grid').isVisible(),false,'Phone overview defaults to a compact summary');
+    assert.ok(await page.locator('[data-phone-summary=tasks]').isVisible());
+    await expandOverview(page);
     assert.equal(await value(page, 'tasks').textContent(), '3', 'Two personal tasks plus one linked reminder are pending today');
     assert.equal(await value(page, 'schedule').textContent(), '1');
     assert.equal(await value(page, 'projects').textContent(), '2');
@@ -90,6 +98,7 @@ test('phone overview and calendar widgets preserve real personal workflows', { t
 
   await t.test('the tasks tile returns to today without copying the list, respects hidden sections and keeps full touch targets', async () => {
     const page = await pageFor(); await page.goto(`${base}/todo-m.html`, { waitUntil: 'load' });
+    await expandOverview(page);
     await page.evaluate(({ day }) => { window.DailySpaceTodo.selectDueDay(day); window.DailySpaceTodo.setFilter('completed'); window.DailySpaceTodo.setRange('week'); location.hash = '#assigned'; }, { day: NEXT_MONTH });
     await page.waitForFunction(() => window.DailySpaceTodo.getView().source === 'assigned');
     await page.locator('[data-phone-overview=tasks]').click();

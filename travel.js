@@ -380,6 +380,7 @@
   }
 
   function saveState() {
+    const historyBefore = localStorage.getItem(STORAGE_KEY);
     const personalActiveId = String(activeTripId || "").startsWith(SHARED_PREFIX)
       ? trips[0]?.id || null
       : activeTripId;
@@ -387,6 +388,7 @@
       STORAGE_KEY,
       JSON.stringify({ version: 5, trips, activeTripId: personalActiveId })
     );
+    window.DailySpaceHistory?.capture(STORAGE_KEY, historyBefore, localStorage.getItem(STORAGE_KEY));
     localStorage.setItem(
       SHARED_STORAGE_KEY,
       JSON.stringify({

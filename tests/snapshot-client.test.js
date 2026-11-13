@@ -444,14 +444,35 @@ test('Guest-only workbench choices participate in the cloud version choice and s
   assert.equal(JSON.parse(c.values.get(key)).name, 'Guest desk');
 });
 
-test('adding the workbench snapshot key upgrades old baselines without manufacturing a cloud conflict', async () => {
+test('adding personal workspace keys upgrades old baselines without manufacturing a cloud conflict', async () => {
   const c = client(); await c.sync.load();
   const baselineKey = 'daily-space-user-baseline-v1:alice@example.com';
   const signature = c.values.get(baselineKey);
-  assert.ok(signature.endsWith('|daily-space-workbench-v1:0:'));
-  c.values.set(baselineKey, signature.slice(0, -'|daily-space-workbench-v1:0:'.length));
+  const addedKeys = ['daily-space-workbench-v1','dayfly-task-views-v1','dayfly-focus-v1','dayfly-notes-v1','dayfly-history-v1'];
+  const suffix = addedKeys.map(key => `|${key}:0:`).join('');
+  assert.ok(signature.endsWith(suffix));
+  c.values.set(baselineKey, signature.slice(0, -suffix.length));
   c.values.set('todo-app-v2', 'A local edit pending across the application upgrade');
   await c.sync.tick();
   assert.equal(c.sync.state().status, 'ok');
   assert.equal(JSON.parse(c.requests.at(-1).body).payload['todo-app-v2'], 'A local edit pending across the application upgrade');
+});
+
+test('personal view, focus, note and history stores sync and clear together on signout', async () => {
+  const c=client();await c.sync.load();
+  const payload={
+    'todo-app-v2':'original',
+    'dayfly-task-views-v1':JSON.stringify({views:[{id:'view',name:'My work'}]}),
+    'dayfly-focus-v1':JSON.stringify({sessions:[{id:'session'}]}),
+    'dayfly-notes-v1':JSON.stringify({notes:[{id:'note',title:'Private'}]}),
+    'dayfly-history-v1':JSON.stringify({entries:[{id:'version'}]})
+  };
+  c.changeCloud(payload);await c.sync.tick();
+  for(const [key,value] of Object.entries(payload))assert.equal(c.values.get(key),value);
+  const domains=c.events.findLast(event=>event.type==='daily-space-agent-data-updated').detail.domains;
+  for(const domain of ['task-views','focus','notes','history'])assert.ok(domains.includes(domain));
+  c.values.delete('daily-space-auth-v1');await c.sync.refresh(true);c.sync.stop();
+  for(const key of Object.keys(payload).filter(key=>key.startsWith('dayfly-')))assert.equal(c.values.get(key),undefined);
+  const cached=JSON.parse(c.values.get('daily-space-user-cache-v1:alice@example.com'));
+  assert.equal(cached['dayfly-notes-v1'],payload['dayfly-notes-v1']);
 });

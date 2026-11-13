@@ -24,6 +24,7 @@
     empty.className = "m-task-empty";
     document.getElementById("todo-list").after(empty);
     let taskId = null;
+    let baseTask = null;
     let draftKey = "";
     let composing = false;
     let closingHistory = false;
@@ -32,6 +33,15 @@
     let returnScroll = 0;
 
     const t = (en, zh) => window.DailySpaceI18n?.t(en, zh) || en;
+    const conflictActions = document.createElement('div'); conflictActions.className = 'task-conflict-actions'; conflictActions.hidden = true;
+    const loadLatest = document.createElement('button'); loadLatest.type = 'button'; loadLatest.dataset.taskConflictLatest = '';
+    const keepEdits = document.createElement('button'); keepEdits.type = 'button'; keepEdits.dataset.taskConflictKeep = '';
+    conflictActions.append(loadLatest, keepEdits); status.after(conflictActions);
+    loadLatest.addEventListener('click', () => {
+      if (!api.getTasks().some(task => task.id === taskId)) { showStatus('This task was removed. Your draft is still here.', '此任务已删除，草稿已保留。'); return; }
+      clearDraft(); open(taskId, false);
+    });
+    keepEdits.addEventListener('click', () => submitTask(true));
     const locale = () => window.DailySpaceI18n?.localeTag() || "en";
     function isoLocal(value) {
       return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
@@ -54,7 +64,7 @@
     }
     function snapshot() {
       return { ...extraFields.value(), text: title.value, dueDate: date.value, dueTime: time.value,
-        categoryId: category.value || null, repeat: repeat.value || null };
+        categoryId: category.value || null, repeat: repeat.value || null, _baseTask: baseTask };
     }
     function storeDraft() {
       if (!root.hidden && !motion.closing && draftKey) {
@@ -104,6 +114,7 @@
       draftKey = `daily-space-phone-draft-v1:${owner()}:${taskId || "new"}`;
       const storedDraft = readDraft(draftKey);
       const draft = taskId || hasNewDraftContent(storedDraft) ? storedDraft : null;
+      baseTask = structuredClone(draft?._baseTask || task);
       if (storedDraft && !draft) clearDraft();
       fill(draft || task, task);
       details.open = false;
@@ -111,6 +122,7 @@
       save.textContent = taskId ? t("Save changes", "保存更改") : t("Add task", "添加任务");
       remove.hidden = !taskId;
       status.textContent = draft ? t("Draft restored", "已恢复草稿") : "";
+      conflictActions.hidden = true; loadLatest.textContent = t('Load latest', '加载最新'); keepEdits.textContent = t('Keep my edits', '保留我的修改');
       returnScroll = scrollY;
       motion.open();
       document.body.classList.add("m-task-editor-open");
@@ -164,11 +176,16 @@
     title.addEventListener("keydown", event => {
       if (event.key === "Enter" && (composing || event.isComposing || event.keyCode === 229)) event.preventDefault();
     });
-    form.addEventListener("submit", event => {
-      event.preventDefault();
+    function submitTask(force = false) {
       if (motion.closing || composing || !title.value.trim() || !form.reportValidity()) return;
-      const saved = api.saveTask(snapshot(), taskId);
-      if (!saved) { showStatus("This task is no longer available.", "这条任务已不存在。"); return; }
+      const saved = api.saveTask({ ...snapshot(), _forceTaskChanges: force }, taskId);
+      if (!saved) {
+        const conflict = api.getSaveError?.() === 'conflict'; conflictActions.hidden = !conflict;
+        if (conflict) showStatus('This task changed in another tab. Load its latest version or keep the fields you edited.', '此任务已在其他标签页修改。可加载最新版本，或保留你修改过的字段。');
+        else if (api.getSaveError?.() === 'storage') showStatus('Could not save. Your draft is still here.', '未能保存，草稿已保留。');
+        else showStatus('This task is no longer available. Your draft is still here.', '这条任务已不存在，草稿已保留。');
+        storeDraft(); return;
+      }
       clearDraft();
       if (taskId) close({ preserve: false });
       else {
@@ -177,7 +194,8 @@
           saved.dueDate === today() ? "已添加，可以继续输入下一条。" : "已添加到所选日期。");
         title.focus({ preventScroll: true });
       }
-    });
+    }
+    form.addEventListener("submit", event => { event.preventDefault(); submitTask(); });
     window.addEventListener("popstate", () => {
       if (closingHistory || !root.hidden || history.state?.mobileTaskSheet) {
         changingEditorHistory = true;
@@ -204,10 +222,11 @@
       document.getElementById("m-filter-completed").setAttribute("aria-selected", String(done));
       const tasks = api.getVisibleTasks();
       empty.hidden = tasks.length > 0 || view.source !== "personal";
-      empty.textContent = view.range === "week" ? t("No tasks in the next 7 days.", "近期 7 天没有任务。") : done ? t("No completed tasks yet.", "还没有已完成的任务。") : t("A clear day. Add your first task.", "今天很清爽，添加第一条任务吧。");
+      const planning = api.getPlanningView?.().mode || "tasks";
+      empty.textContent = planning === "inbox" ? t("Your inbox is clear. Capture an idea or link above.", "收集箱已清空，可在上方记录想法或链接。") : planning === "top" ? t("Choose up to three priorities from task details.", "在任务详情中选出今天最重要的三件事。") : view.range === "week" ? t("No tasks in the next 7 days.", "近期 7 天没有任务。") : done ? t("No completed tasks yet.", "还没有已完成的任务。") : t("A clear day. Add your first task.", "今天很清爽，添加第一条任务吧。");
     }
-    document.getElementById("m-filter-active").addEventListener("click", () => api.setFilter("active"));
-    document.getElementById("m-filter-completed").addEventListener("click", () => api.setFilter("completed"));
+    document.getElementById("m-filter-active").addEventListener("click", () => api.setPlanningView({ ...api.getPlanningView(), mode: "tasks", filter: "active" }));
+    document.getElementById("m-filter-completed").addEventListener("click", () => api.setPlanningView({ ...api.getPlanningView(), mode: "tasks", filter: "completed" }));
     window.addEventListener("daily-space-todo-view-updated", renderChrome);
     window.addEventListener("daily-space-locale-changed", renderChrome);
     // The shared greeting is for desktop; the phone keeps its stable Today title.

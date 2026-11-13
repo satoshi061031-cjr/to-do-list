@@ -61,6 +61,33 @@ body.personal-workbench .workbench-block a:focus-visible, body.personal-workbenc
 .workbench-settings-footer { display: flex; padding: var(--space-md); padding-bottom: max(var(--space-md),env(safe-area-inset-bottom,0px)); flex-shrink: 0; }
 .workbench-settings-footer .btn-primary { flex: 1; background: var(--primary); color: var(--on-primary); border-radius: var(--radius-pill); }
 .workbench-settings-footer .btn-primary:hover { background: var(--primary-hover); }
+
+/* A fixed-height glance first; detailed tiles remain an explicit choice. */
+body.todo-mobile .phone-overview-summary { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.7fr) 44px; align-items: stretch; gap: var(--space-sm); min-width: 0; padding: var(--space-sm); border: 1px solid var(--quiet-line); border-radius: var(--radius-md); background: var(--panel-fill); }
+body.todo-mobile .phone-overview-summary.has-no-agenda { grid-template-columns: minmax(0,1fr) 44px; }
+body.todo-mobile .phone-overview-summary :is(button,a) { display: flex; flex-direction: column; justify-content: center; align-items: flex-start; box-sizing: border-box; min-width: 44px; min-height: 52px; max-width: 100%; padding: var(--space-xs); border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); text-decoration: none; cursor: pointer; }
+body.todo-mobile .phone-overview-summary .phone-summary-tasks { flex-direction: row; justify-content: flex-start; align-items: center; gap: var(--space-sm); }
+body.todo-mobile .phone-summary-tasks > strong { flex-shrink: 0; font: var(--phone-title-weight) var(--phone-title-size)/var(--phone-title-lh) var(--font-ui); font-variant-numeric: tabular-nums; }
+body.todo-mobile .phone-summary-tasks > span { color: var(--text-muted); }
+body.todo-mobile .phone-summary-next > :is(span,strong) { display: block; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: inherit; }
+body.todo-mobile .phone-summary-next > span { color: var(--text-muted); }
+body.todo-mobile .phone-summary-next > strong { color: var(--text); font-weight: var(--phone-task-weight); }
+body.todo-mobile .phone-overview-summary .phone-overview-toggle { align-items: center; justify-content: center; padding: var(--space-xs); }
+body.todo-mobile .phone-overview-toggle[aria-expanded=true] svg { transform: rotate(180deg); }
+body.todo-mobile .phone-overview-summary :is(button,a):focus-visible { outline: 2px solid var(--text); outline-offset: var(--space-xs); }
+body.todo-mobile .phone-workbench-overview[data-expanded=true] .phone-overview-grid { margin-top: var(--space-sm); }
+body.todo-mobile .phone-overview-error { margin: var(--space-sm) 0 0; color: var(--danger); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+body.todo-mobile.phone-widget-home [data-workbench-section=agenda] { display: none; }
+
+/* Short phones keep the first task clear of the unchanged primary action. */
+@media (max-width: 360px) and (max-height: 640px) {
+  body.todo-mobile.phone-widget-home .m-shell { gap: var(--space-sm); padding-top: calc(env(safe-area-inset-top,0px) + var(--space-sm)); }
+  body.todo-mobile.phone-widget-home .m-top { padding-top: 0; }
+  body.todo-mobile.phone-widget-home .workbench-intro { display: none; }
+  body.todo-mobile.phone-widget-home .workspace-save-status[hidden] { display: none; }
+  body.todo-mobile.phone-widget-home .phone-overview-summary { gap: var(--space-xs); padding: var(--space-xs); }
+  body.todo-mobile.phone-widget-home .phone-overview-summary :is(button,a) { min-height: 44px; }
+}
 @media (max-width: 819px) {
   .workbench-settings { padding: 0; align-items: flex-end; }
   .workbench-settings-panel { width: 100%; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
@@ -68,3 +95,21 @@ body.personal-workbench .workbench-block a:focus-visible, body.personal-workbenc
 
 .workbench-header-context { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-sm); color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
 body.personal-workbench .workbench-header-context .today-progress { margin: 0; }
+
+.workbench-context-bar { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-sm); margin-block: var(--space-xs); color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+.workbench-context-bar[hidden] { display: none; }
+.workbench-context-bar select, .workbench-settings-body select { box-sizing: border-box; min-width: 0; max-width: 100%; min-height: 44px; padding: var(--space-sm); border: 1px solid var(--quiet-line); border-radius: var(--radius-sm); color: var(--text); background: var(--surface); font: var(--phone-body-weight) var(--phone-body-size)/var(--phone-body-lh) var(--font-ui); }
+.workbench-context-bar select:focus-visible, .workbench-settings-body select:focus-visible { outline: 2px solid var(--text); outline-offset: var(--space-xs); }
+.workbench-settings-body > details { margin-block: var(--space-md); padding-block: var(--space-sm); border-block-start: 1px solid var(--quiet-line); }
+.workbench-settings-body > details > summary { display: flex; align-items: center; min-height: 44px; cursor: pointer; color: var(--text); font: var(--phone-task-weight) var(--phone-task-size)/var(--phone-task-lh) var(--font-ui); }
+.workbench-settings-body > details > summary::before { content: '＋'; margin-inline-end: var(--space-sm); }
+.workbench-settings-body > details[open] > summary::before { content: '−'; }
+.workbench-bookmark-row { min-width: 0; margin-block: var(--space-md); padding: var(--space-sm); border: 1px solid var(--quiet-line); border-radius: var(--radius-md); }
+.workbench-bookmark-row legend { max-width: 100%; padding-inline: var(--space-xs); color: var(--text-muted); overflow-wrap: anywhere; font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+.workbench-bookmark-row > label, .workbench-widget-settings > label { display: grid; gap: var(--space-xs); margin-block: var(--space-sm); min-width: 0; color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+.workbench-bookmark-row > .workbench-bookmark-enabled { display: flex; align-items: center; min-height: 44px; color: var(--text); }
+.workbench-bookmark-actions, .workbench-context-actions { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
+.workbench-widget-settings .workbench-section-option > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.workbench-shortcuts .workbench-external-copy { display: flex; flex-direction: column; min-width: 0; color: var(--text); }
+.workbench-external-copy strong { overflow-wrap: anywhere; font: inherit; }
+.workbench-external-copy small { color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }

@@ -31,9 +31,33 @@ The default home shows the next timed arrangement today, the original task list,
 
 ## Phone overview and calendar
 
-Phone Workbench has compact tiles for today’s tasks, reminders, personal projects and private spending. Tap today’s tasks to return the original list to today; the other tiles open their existing tools. The same home preferences control optional tiles, with the existing fonts, theme colors, ghost and sliding dock retained.
+Phone Workbench defaults to a compact today/next-arrangement summary. Expand the overview to see the original task, reminder, personal-project and private-spending tiles; the choice is saved with your home preferences. Tap today’s tasks to return the original list to today; the other tiles open their existing tools. The same home preferences control optional tiles, with the existing fonts, theme colors, ghost and sliding dock retained.
 
 In phone Calendar, tap the month label to open a month picker, choose any date or use its month arrows, and continue in the original day agenda. Search and All/Tasks/Reminders stay visible on phone; desktop keeps its existing filter disclosure. Task details, completion targets, draft capture and Back-to-close keep their normal behavior.
+
+## Capture, choose and focus
+
+Workbench's **Today / Inbox / Top 3** switches reuse the same task records. Inbox captures a thought, task or URL without requiring a date or category. Arrange it for today, tomorrow, another date or an undated task when ready. Existing undated tasks remain ordinary tasks. Task details now include **Priority**, an optional source URL and **Today Top 3**; choose up to three unfinished tasks for the local day and change their order explicitly. **Filter** groups source, status, date range, category, priority and saved views; a saved Today view follows the current day rather than yesterday's date.
+
+The task toolbar's **Tools** contains **Focus**, **Weekly review**, **Notes**, **History & recycle bin** and **Templates**. Phone keeps only the New task action above the dock. Focus supports 25 minutes, 50 minutes or free timing, pause/resume and reload recovery. A session belongs to its original task. Ending it can explicitly complete the task; reaching the timer limit records the session without completing the task. Background elapsed time uses timestamps, not an assumption that browser timer callbacks run every second. Sessions cap at 12 hours and the latest 200 are retained. Weekly review uses recorded completion timestamps and focus time, including intervals crossing midnight; legacy completed tasks without a recorded completion time are not assigned a guessed date.
+
+Notes are private plain-text records with tags, a source URL and links to tasks, project cards or trips. Related items show notes linking back to them. A saved note can create a task while keeping its relationship. Search finds notes and external bookmarks. The editor preserves account-scoped drafts and asks which version to use if the saved note changed. Explicitly select up to five saved notes to include in Agent context; **Ask Agent** opens a draft prompt without sending it. Configured online Agent responses can cite supplied records using verified internal links. Model output cannot supply arbitrary source URLs, and an AI summary does not save or change records by itself.
+
+**Customize workbench** also accepts external websites, groups, tags and a local text/emoji icon. Save work, life or travel layouts and switch back to the original default. Desktop widget order and the wider card are configurable; phone keeps ordinary controls and the existing dock. Website URLs must use HTTP(S) without embedded credentials.
+
+Tally's optional **Budgets & bills**, also available from More, sets category amounts for each month in the ledger's base currency. Monthly/yearly recurring bills retain their original day across shorter months. A due bill must be **confirmed** or **skipped**; it never creates an expense silently. Confirmations keep an occurrence identity to prevent duplicate entry, including after export/import. Editing, pausing or deleting a bill keeps previously confirmed expenses. Normal expense capture still accepts an amount alone.
+
+History automatically saves complete prior task, note and personal-trip records when they change or are deleted. Preview a version and restore only that item; unrelated records stay intact and the replaced version remains available. A changed record after preview requires a new preview. History keeps up to 200 versions within 150 KiB; records over 40 KiB are skipped with a notice. Notes are limited to 100 records within 180,000 UTF-8 bytes. Restore checks these limits before writing. History is an additional recovery aid alongside JSON/CSV exports and server database backups.
+
+Saved views, focus, notes and history participate in the existing account snapshot sync, Guest isolation and portable JSON backup. Imports retain this device's existing IDs; imported categories are also remapped in saved views. Restoring a backup pauses an imported active timer, while a current device timer stays active. Imports exceeding bounded collections are rejected before writing instead of silently discarding existing records. Online providers, physical-device background execution and push delivery still require their existing production configuration and device checks.
+
+## Interaction surfaces and commands
+
+Today uses one view bar, with individually clearable chips for non-default filters. All status and All dates are separate choices; Today explicitly resets to today. Tools and Filter open an anchored desktop popover or a phone bottom sheet, keeping the task list in place. A temporary menu hands off to its editor with one Back action. Mobile sheets have a common handle: only its explicit region accepts drag-to-close, a cancelled drag snaps back, and closing follows the existing draft/history path. Nested dialogs, keyboard viewport changes, account isolation and explicit close buttons remain supported.
+
+Top 3 and deliberate widget/section moves use short position transitions without delaying saves. Background sync and ordinary filtering stay quiet, and reduced motion keeps instantaneous updates with keyboard focus intact. Inline feedback distinguishes successful device saves, errors and informational sync state; it retains drafts and the existing Undo behavior.
+
+The same workspace search now groups **Pages / Records / Actions**, with account-scoped recent identifiers. Actions open the existing task, Inbox, expense, focus, note or filter entry surface; they do not create records automatically. Cross-page commands wait for the correct account and page controller to be ready. Arrow keys, Enter, IME composition, Escape and Ctrl/⌘ K work in the original search surface.
 
 ## Reliability
 

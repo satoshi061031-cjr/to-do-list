@@ -17,6 +17,7 @@
   let composing = false;
   let savingExpense = false;
   let continuingEntry = false;
+  let planningUI = null;
 
   const $ = (id) => document.getElementById(id);
   const monthTitleEl = $("tally-month-title");
@@ -316,13 +317,13 @@
     todayTotalEl.textContent = baseMoney(spentToday);
     budgetInput.value = String(state.budget);
     currencyInput.value = state.baseCurrency;
-    const currencyLocked = Boolean(state.records.length || state.settlements.length || Object.keys(state.tripBudgets).length);
+    const currencyLocked = Boolean(state.records.length || state.settlements.length || Object.keys(state.tripBudgets).length || state.categoryBudgets.length || state.recurringBills.length);
     currencyInput.readOnly = currencyLocked;
     currencyInput.setAttribute("aria-describedby", "tally-currency-note");
     currencyNote.hidden = !currencyLocked;
     currencyNote.textContent = currencyLocked ? (isZh()
-      ? "账本已有记录、结算或行程预算，基础币种已锁定；可为单笔支出选择其他币种。"
-      : "Base currency is locked while this ledger has records, settlements or trip budgets. Add expenses in another currency instead.") : "";
+      ? "账本已有记录、结算或预算/账单，基础币种已锁定；可为单笔支出选择其他币种。"
+      : "Base currency is locked while this ledger has records, settlements, budgets or bills. Add expenses in another currency instead.") : "";
     progressBar.style.width = `${viewMode === "personal" ? percent : 0}%`;
     progressBar.classList.toggle("is-over", viewMode === "personal" && overBudget);
     budgetNoteEl.textContent = overBudget
@@ -552,6 +553,154 @@
     renderMonth();
     renderRecords();
     renderSettlement();
+    planningUI?.render();
+  }
+
+  /** Optional personal-ledger planning; normal capture remains amount-first. */
+  function mountPlanning() {
+    const tr = (en, zh) => isZh() ? zh : en;
+    const node = (tag, text = "", className = "") => { const el = document.createElement(tag); el.textContent = text; if (className) el.className = className; return el; };
+    const copy = (tag, en, zh, cls) => { const el = node(tag, tr(en, zh), cls); el.dataset.planEn = en; el.dataset.planZh = zh; return el; };
+    const action = (en, zh, run) => { const el = copy("button", en, zh); el.type = "button"; el.addEventListener("click", run); return el; };
+    const field = (en, zh, input) => { const label = node("label"); label.append(copy("span", en, zh), input); return label; };
+    const input = (name, type = "text", maxLength) => { const el = node("input"); el.name = name; el.type = type; if (maxLength) el.maxLength = maxLength; return el; };
+    const root = node("details", "", "tally-planning"); root.id = "tally-planning"; root.dataset.i18nIgnore = "";
+    const summary = copy("summary", "Budgets & bills", "分类预算与周期账单");
+    const body = node("div", "", "tally-planning-body"), status = node("p", "", "tally-planning-status"); status.setAttribute("role", "status");
+    const budgetHeading = node("h2"), budgetHelp = copy("p", "Category limits use your personal expenses and saved exchange rates for the selected month.", "分类额度按所选月份的个人支出和已保存汇率计算。", "tally-card-note");
+    const budgetList = node("div", "", "tally-plan-list"), allocation = node("p", "", "tally-card-note");
+    const budgetForm = node("form", "", "tally-plan-form"); budgetForm.id = "tally-category-budget-form";
+    const budgetCategory = input("category", "text", 40); budgetCategory.required = true; budgetCategory.setAttribute("list", "tally-category-options");
+    const budgetAmount = input("amount", "number"); budgetAmount.required = true; budgetAmount.min = "0.01"; budgetAmount.max = "1000000000000"; budgetAmount.step = "0.01"; budgetAmount.inputMode = "decimal";
+    const budgetSave = copy("button", "Save category limit", "保存分类额度"); budgetSave.type = "submit";
+    budgetForm.append(field("Category", "分类", budgetCategory), field("Limit in base currency", "基础币种额度", budgetAmount), budgetSave);
+    const billHeading = copy("h2", "Recurring bills", "周期账单"), billHelp = copy("p", "Bills stay pending until you confirm an expense. Skipping advances only that occurrence.", "到期后需手动确认才会记账；跳过仅略过本次。", "tally-card-note");
+    const billList = node("div", "", "tally-plan-list"), billEditor = node("details", "", "tally-bill-editor");
+    const billEditorSummary = copy("summary", "Add or edit a bill", "添加或编辑账单");
+    const billForm = node("form", "", "tally-plan-form"); billForm.id = "tally-recurring-form";
+    const billName = input("name", "text", 60); billName.required = true;
+    const billAmount = input("amount", "number"); billAmount.required = true; billAmount.min = "0.01"; billAmount.max = "1000000000000"; billAmount.step = "0.01"; billAmount.inputMode = "decimal";
+    const billDate = input("nextDate", "date"); billDate.required = true; billDate.min = "1900-01-01"; billDate.max = "9999-12-31";
+    const billInterval = node("select"); billInterval.name = "interval";
+    for (const [value, en, zh] of [["monthly", "Monthly", "每月"], ["yearly", "Yearly", "每年"]]) { const option = copy("option", en, zh); option.value = value; billInterval.append(option); }
+    const billCategory = input("category", "text", 40); billCategory.setAttribute("list", "tally-category-options");
+    const billCurrency = input("currency", "text", 3); billCurrency.required = true; billCurrency.pattern = "[A-Za-z]{3}"; billCurrency.setAttribute("list", "tally-currency-options"); billCurrency.autocapitalize = "characters";
+    const billFx = input("fxRate", "number"); billFx.min = "0.000001"; billFx.max = "1000000"; billFx.step = "any"; billFx.inputMode = "decimal";
+    const billNote = input("note", "text", 120), billEnabled = input("enabled", "checkbox"); billEnabled.checked = true;
+    const fxLabel = field("Saved rate to base currency", "保存的基础币种汇率", billFx);
+    const billSave = copy("button", "Save bill", "保存账单"); billSave.type = "submit";
+    let editingBillId = null, editingBudgetId = null, editorOwner = viewOwner, busy = false, ime = false;
+    const resetBill = () => { editingBillId = null; billForm.reset(); billDate.value = todayIso(); billCurrency.value = state.baseCurrency; billFx.value = "1"; billEnabled.checked = true; syncBillFx(); };
+    const billCancel = action("Clear editor", "清空编辑", () => { resetBill(); persistDraft(); });
+    billForm.append(field("Bill name", "账单名称", billName), field("Amount", "金额", billAmount), field("Next due date", "下次到期", billDate), field("Repeats", "重复周期", billInterval), field("Category (optional)", "分类（可选）", billCategory), field("Currency", "币种", billCurrency), fxLabel, field("Note (optional)", "备注（可选）", billNote), field("Enabled", "启用", billEnabled), billSave, billCancel);
+    billEditor.append(billEditorSummary, billForm);
+    body.append(budgetHeading, budgetHelp, allocation, budgetList, budgetForm, billHeading, billHelp, billList, billEditor, status); root.append(summary, body);
+    $("tally-quick-options").after(root);
+    const more = action("Budgets & bills", "分类预算与周期账单", () => { $("tally-tools").open = false; root.open = true; root.scrollIntoView({ block: "start", behavior: "auto" }); summary.focus({ preventScroll: true }); });
+    $("tally-tools").querySelector(".workspace-menu-panel").append(more);
+    function ready(expectedOwner = editorOwner) {
+      return expectedOwner === window.DailySpaceView.owner() && expectedOwner === viewOwner && document.documentElement.dataset.workspaceReady !== "false" && document.documentElement.dataset.workspaceLocked !== "true" && !localStorage.getItem("daily-space-snapshot-recovery-v1");
+    }
+    function message(en, zh, error = false) { status.textContent = tr(en, zh); status.classList.toggle("is-error", error); }
+    function commit(transform, expectedOwner = editorOwner) {
+      if (busy || !ready(expectedOwner)) { message("Your workspace changed. Reopen this page before saving.", "工作台已变更，请重新打开本页后保存。", true); return false; }
+      const previous = Core.readState(); busy = true;
+      try { state = transform(previous); saveState(); render(); return true; }
+      catch (_) { state = previous; message("Could not save. Your form is still here; check device storage and retry.", "保存失败，表单已保留；请检查本机存储后重试。", true); return false; }
+      finally { busy = false; }
+    }
+    function syncBillFx() { const foreign = billCurrency.value.toUpperCase() !== state.baseCurrency; fxLabel.hidden = !foreign; billFx.required = foreign; if (!foreign) billFx.value = "1"; }
+    function persistDraft() {
+      if (!ready()) return;
+      window.DailySpaceView.write("tally", { planningDraft: { editingBillId, editingBudgetId, billOpen: billEditor.open, bill: Object.fromEntries(new FormData(billForm)), enabled: billEnabled.checked, budget: { category: budgetCategory.value, amount: budgetAmount.value } } });
+    }
+    function restoreDraft() {
+      const draft = window.DailySpaceView.read("tally").planningDraft;
+      resetBill(); budgetForm.reset();
+      if (!draft || typeof draft !== "object") return;
+      const existing = draft.editingBillId && state.recurringBills.find(item => item.id === draft.editingBillId);
+      editingBillId = existing ? existing.id : null;
+      editingBudgetId = state.categoryBudgets.some(item => item.id === draft.editingBudgetId) ? draft.editingBudgetId : null;
+      if (!draft.editingBillId || existing) for (const key of ["name", "amount", "nextDate", "interval", "category", "currency", "fxRate", "note"]) if (typeof draft.bill?.[key] === "string") billForm.elements[key].value = draft.bill[key];
+      billEnabled.checked = draft.enabled !== false; billEditor.open = Boolean(draft.billOpen);
+      budgetCategory.value = typeof draft.budget?.category === "string" ? draft.budget.category.slice(0, 40) : ""; budgetAmount.value = draft.budget?.amount || ""; syncBillFx();
+    }
+    function editBill(id) {
+      const bill = state.recurringBills.find(item => item.id === id); if (!bill || !ready()) return;
+      editingBillId = id; billEditor.open = true;
+      for (const key of ["name", "amount", "nextDate", "interval", "category", "currency", "fxRate", "note"]) billForm.elements[key].value = bill[key];
+      billEnabled.checked = bill.enabled; syncBillFx(); persistDraft(); billName.focus();
+    }
+    budgetForm.addEventListener("submit", event => {
+      event.preventDefault(); if (ime || event.isComposing || !budgetForm.reportValidity()) return;
+      const category = budgetCategory.value.trim(), month = monthKey(viewYear, viewMonth), amount = Number(budgetAmount.value);
+      if (!category) return;
+      if (commit(current => {
+        const existing = current.categoryBudgets.find(item => item.id === editingBudgetId && item.month === month && item.currency === current.baseCurrency) || current.categoryBudgets.find(item => item.month === month && item.currency === current.baseCurrency && item.category.toLocaleLowerCase() === category.toLocaleLowerCase());
+        if (current.categoryBudgets.some(item => item.id !== existing?.id && item.month === month && item.currency === current.baseCurrency && item.category.toLocaleLowerCase() === category.toLocaleLowerCase())) throw new Error("duplicate category");
+        const budget = Core.normalizeCategoryBudget({ id: existing?.id, month, category, amount, currency: current.baseCurrency }, current.baseCurrency);
+        if (!budget || (!existing && current.categoryBudgets.length >= 2400)) throw new Error("budget");
+        return { ...current, categoryBudgets: existing ? current.categoryBudgets.map(item => item.id === existing.id ? budget : item) : [...current.categoryBudgets, budget] };
+      })) { editingBudgetId = null; budgetForm.reset(); persistDraft(); message("Category limit saved.", "分类额度已保存。"); }
+    });
+    billForm.addEventListener("submit", event => {
+      event.preventDefault(); if (ime || event.isComposing || !billForm.reportValidity()) return;
+      const values = Object.fromEntries(new FormData(billForm));
+      if (commit(current => {
+        const old = current.recurringBills.find(item => item.id === editingBillId);
+        const retainAnchor = old && old.nextDate === values.nextDate && old.interval === values.interval;
+        return Core.saveRecurringBill(current, { ...values, id: editingBillId || undefined, currency: values.currency.toUpperCase(), enabled: billEnabled.checked, anchorDay: retainAnchor ? old.anchorDay : undefined, anchorMonth: retainAnchor ? old.anchorMonth : undefined });
+      })) { resetBill(); billEditor.open = false; persistDraft(); message("Bill saved. It will only be recorded after confirmation.", "账单已保存，手动确认后才会记账。"); }
+    });
+    for (const form of [budgetForm, billForm]) {
+      form.addEventListener("input", persistDraft); form.addEventListener("change", persistDraft);
+      form.addEventListener("compositionstart", () => { ime = true; }); form.addEventListener("compositionend", () => { ime = false; });
+      form.addEventListener("keydown", event => { if (event.key === "Enter" && (ime || event.isComposing || event.keyCode === 229)) event.preventDefault(); });
+    }
+    billCurrency.addEventListener("input", syncBillFx); billEditor.addEventListener("toggle", persistDraft);
+    window.addEventListener("pagehide", persistDraft);
+    restoreDraft();
+    return { render() {
+      if (editorOwner !== window.DailySpaceView.owner()) { editorOwner = window.DailySpaceView.owner(); resetBill(); editingBudgetId = null; budgetForm.reset(); billEditor.open = false; root.open = false; status.textContent = ""; }
+      if (!editingBillId && !billName.value && !billAmount.value) { billCurrency.value = state.baseCurrency; syncBillFx(); }
+      root.querySelectorAll("[data-plan-en]").forEach(el => { el.textContent = isZh() ? el.dataset.planZh : el.dataset.planEn; });
+      more.textContent = tr("Budgets & bills", "分类预算与周期账单");
+      body.hidden = !ready();
+      const month = monthKey(viewYear, viewMonth), ownerAtRender = editorOwner;
+      const dueCount = state.recurringBills.filter(bill => bill.enabled && bill.nextDate <= todayIso()).length;
+      summary.textContent = `${tr("Budgets & bills", "分类预算与周期账单")}${dueCount ? tr(` · ${dueCount} pending`, ` · ${dueCount} 项待确认`) : ""}`;
+      budgetHeading.textContent = `${tr("Category limits", "分类额度")} · ${month} · ${state.baseCurrency}`;
+      const budgets = Core.categoryBudgetProgress(state, month);
+      const allocated = budgets.reduce((sum, item) => sum + item.amount, 0);
+      allocation.textContent = `${tr("Allocated", "已分配")} ${baseMoney(allocated)} / ${tr("monthly budget", "月预算")} ${baseMoney(state.budget)}${allocated > state.budget ? tr(" · limits exceed your monthly budget", " · 分类额度超过月预算") : ""}`;
+      budgetList.replaceChildren();
+      if (!budgets.length) budgetList.append(copy("p", "No category limits for this month.", "这个月还没有设置分类额度。", "tally-card-note"));
+      budgets.forEach(budget => {
+        const row = node("div", "", "tally-plan-row"); row.dataset.categoryBudgetId = budget.id;
+        const description = node("div"), title = node("strong", budget.category), value = node("p", `${baseMoney(budget.spent)} / ${baseMoney(budget.amount)} · ${budget.remaining < 0 ? tr("Over", "超出") : tr("Remaining", "剩余")} ${baseMoney(Math.abs(budget.remaining))}`);
+        value.classList.toggle("is-over", budget.remaining < 0); description.append(title, value);
+        const buttons = node("div", "", "tally-plan-actions");
+        buttons.append(action("Edit", "编辑", () => { if (!ready(ownerAtRender)) return; editingBudgetId = budget.id; budgetCategory.value = budget.category; budgetAmount.value = budget.amount; persistDraft(); budgetAmount.focus(); }), action("Remove", "移除", () => { if (commit(current => ({ ...current, categoryBudgets: current.categoryBudgets.filter(item => item.id !== budget.id) }), ownerAtRender)) { if (editingBudgetId === budget.id) { editingBudgetId = null; budgetForm.reset(); persistDraft(); } message("Category limit removed.", "分类额度已移除。"); } }));
+        row.append(description, buttons); budgetList.append(row);
+      });
+      billList.replaceChildren();
+      if (!state.recurringBills.length) billList.append(copy("p", "No recurring bills yet.", "还没有周期账单。", "tally-card-note"));
+      [...state.recurringBills].sort((a, b) => Number(b.enabled) - Number(a.enabled) || a.nextDate.localeCompare(b.nextDate)).forEach(bill => {
+        const row = node("div", "", "tally-plan-row"); row.dataset.recurringBillId = bill.id;
+        const info = node("div"), heading = node("strong", bill.name);
+        const due = bill.enabled && bill.nextDate <= todayIso();
+        info.append(heading, node("p", `${Core.formatAmount(state, bill.amount, bill.currency)} · ${bill.nextDate} · ${bill.enabled ? (due ? tr("Pending confirmation", "待确认") : tr("Upcoming", "未到期")) : tr("Paused", "已暂停")}`));
+        if (bill.currency !== state.baseCurrency) info.append(node("p", `${tr("Saved rate", "保存汇率")} ${bill.fxRate} · ${baseMoney(bill.amount * bill.fxRate)}`));
+        const buttons = node("div", "", "tally-plan-actions");
+        const handle = confirm => {
+          let result;
+          if (commit(current => { result = confirm ? Core.confirmRecurringBill(current, bill.id, bill.nextDate, todayIso()) : Core.skipRecurringBill(current, bill.id, bill.nextDate, todayIso()); return result.state; }, ownerAtRender)) message(result?.record ? "Expense confirmed; the next occurrence is ready." : confirm ? "This occurrence was already handled or changed." : "This occurrence was skipped.", result?.record ? "已确认记账，下次账单已安排。" : confirm ? "本次账单已处理或发生变更。" : "已跳过本次账单。");
+        };
+        if (due) buttons.append(action("Confirm expense", "确认记账", () => handle(true)), action("Skip once", "跳过本次", () => handle(false)));
+        buttons.append(action("Edit", "编辑", () => editBill(bill.id)), action("Delete bill", "删除账单", () => { if (commit(current => ({ ...current, recurringBills: current.recurringBills.filter(item => item.id !== bill.id) }), ownerAtRender)) { if (editingBillId === bill.id) resetBill(); persistDraft(); message("Bill removed. Recorded expenses are kept.", "账单已删除，已确认的消费记录会保留。"); } }));
+        row.append(info, buttons); billList.append(row);
+      });
+    } };
   }
 
   function knownCategories() {
@@ -812,6 +961,7 @@
     if (!Number.isFinite(fxRate) || !(fxRate > 0)) return;
     const nextRecord = Core.normalizeRecord(
       {
+        ...state.records.find(record => record.id === editingId),
         id: editingId || Core.uid("expense"),
         date: dateInput.value || todayIso(),
         amount,
@@ -897,7 +1047,7 @@
   exportBtn?.addEventListener("click", () => {
     document.getElementById("tally-tools").open = false;
     const rows = [
-      ["id", "date", "amount", "currency", "fxRate", "category", "note", "scope", "paidById", "splitAmongIds", "tripId", "tripName", "_format"],
+      ["id", "date", "amount", "currency", "fxRate", "category", "note", "scope", "paidById", "splitAmongIds", "tripId", "tripName", "recurringBillId", "recurringDate", "_format"],
       ...state.records.map((record) => [
         record.id,
         record.date || "",
@@ -911,6 +1061,8 @@
         record.splitAmongIds.join("|"),
         record.tripId || "",
         record.tripName || "",
+        record.recurringBillId || "",
+        record.recurringDate || "",
         "daily-space-csv-v1",
       ]),
     ];
@@ -1033,8 +1185,19 @@
     if (previousCurrency !== state.baseCurrency && !addSheet.hidden && !sheetMotion.closing) refreshFxRate();
   });
   window.addEventListener("daily-space-locale-changed", render);
+  window.addEventListener("daily-space-user-sync-updated", event => {
+    // Cloud data can arrive before its ready flag; refresh guarded planning only
+    // after the account snapshot is usable, including the first signed-in load.
+    if (event.detail?.workspaceReady === true && viewOwner === window.DailySpaceView.owner()) {
+      state = Core.readState(); render();
+    } else planningUI?.render();
+  });
+  window.addEventListener("storage", event => {
+    if (event.key === Core.STORAGE_KEY && viewOwner === window.DailySpaceView.owner()) { state = Core.readState(); render(); }
+  });
 
   restoreView();
+  planningUI = mountPlanning();
   if (!window.matchMedia("(max-width: 819px)").matches) document.getElementById("tally-insights").open = true;
   if (tripFilter) {
     const filter = document.createElement("button"); filter.type = "button"; filter.className = "tally-trip-filter";

@@ -1,0 +1,20 @@
+/* Search remains a single shared surface, using DESIGN.md typography and space. */
+body .workspace-command { top:var(--workspace-sheet-top,0); bottom:auto; height:var(--workspace-sheet-height,100dvh); box-sizing:border-box; padding:var(--space-md); z-index:460; }
+body .workspace-command .command-palette-panel { display:flex;flex-direction:column;min-height:0;max-height:100%;overflow:hidden;width:min(40rem,100%);padding:var(--space-sm);background:var(--panel-fill);color:var(--text); }
+.workspace-command-header { display:flex;align-items:center;gap:var(--space-sm);flex-shrink:0; }
+.workspace-command .command-palette-input { min-width:0;min-height:44px;flex:1;padding:var(--space-sm);font:var(--phone-body-weight) var(--phone-body-size)/var(--phone-body-lh) var(--font-ui); }
+.workspace-command-close { display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;min-width:44px;min-height:44px;padding:var(--space-sm);border:0;border-radius:var(--radius-sm);background:transparent;color:var(--text);font:var(--phone-action-weight) var(--phone-action-size)/var(--phone-action-lh) var(--font-ui);cursor:pointer; }
+.workspace-command .command-palette-list { overflow:auto;overscroll-behavior:contain;min-height:0;max-height:none;scroll-padding:var(--space-sm);margin:0;padding:0; }
+.workspace-command-group { list-style:none;padding:var(--space-md) var(--space-sm) var(--space-xs);color:var(--text-muted);font:var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+.workspace-command .command-palette-item { display:flex;align-items:center;gap:var(--space-sm);min-height:44px;padding:var(--space-sm);border-radius:var(--radius-sm);cursor:pointer; }
+.workspace-command-copy { display:flex;flex:1;flex-direction:column;min-width:0;gap:var(--space-xs); }
+.workspace-command .command-palette-label { overflow-wrap:anywhere;font:var(--phone-task-weight) var(--phone-task-size)/var(--phone-task-lh) var(--font-ui); }
+.workspace-command .command-palette-hint,.workspace-command-kind,.workspace-command-help,.workspace-command-status { color:var(--text-muted);font:var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+.workspace-command .command-palette-hint { overflow-wrap:anywhere; }
+.workspace-command-kind { flex-shrink:0; }
+.workspace-command-help,.workspace-command-status { flex-shrink:0;margin:var(--space-sm); }
+.workspace-command-suggestions { display:flex;flex-shrink:0;flex-wrap:wrap;gap:var(--space-sm);padding:var(--space-sm); }
+.workspace-command-suggestions[hidden] { display:none; }
+.workspace-command-suggestions button { min-height:44px;padding:var(--space-sm);border:1px solid var(--quiet-line);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font:var(--phone-action-weight) var(--phone-action-size)/var(--phone-action-lh) var(--font-ui);cursor:pointer; }
+.workspace-command :is(input,button):focus-visible { outline:2px solid var(--primary);outline-offset:var(--space-xs); }
+@media(max-width:819px){body .workspace-command{align-items:flex-start;padding-top:max(var(--space-sm),env(safe-area-inset-top,0px));padding-bottom:max(var(--space-sm),env(safe-area-inset-bottom,0px));}.workspace-command-kind{display:none;}}

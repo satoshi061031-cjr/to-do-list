@@ -1,0 +1,25 @@
+/* DESIGN.md palette/type tokens; anchored on desktop, thumb-reachable on phone. */
+.interaction-surface { position: fixed; inset: 0; z-index: 355; pointer-events: none; }
+.interaction-surface[hidden], .interaction-surface [hidden] { display: none !important; }
+.interaction-surface-backdrop { display: none; position: absolute; inset: 0; width: 100%; height: 100%; border: 0; padding: 0; background: var(--modal-scrim); }
+.interaction-surface-panel { position: fixed; display: flex; flex-direction: column; width: min(32rem,calc(100vw - var(--space-md)*2)); min-width: 0; overflow: hidden; pointer-events: auto; border: 1px solid var(--quiet-line); border-radius: var(--radius-md); background: var(--panel-fill); color: var(--text); box-shadow: var(--shadow-pop); }
+.interaction-surface-panel > header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); padding: var(--space-sm) var(--space-md); flex-shrink: 0; }
+.interaction-surface-panel h2 { margin: 0; font: var(--phone-task-weight) var(--phone-task-size)/var(--phone-task-lh) var(--font-ui); }
+.interaction-surface-close { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; padding: var(--space-sm); border: 0; border-radius: var(--radius-pill); color: var(--text-muted); background: transparent; font: var(--phone-action-weight) var(--phone-action-size)/var(--phone-action-lh) var(--font-ui); cursor: pointer; }
+.interaction-surface-body { min-height: 0; padding: 0 var(--space-md) var(--space-md); overflow-y: auto; overscroll-behavior: contain; }
+.interaction-surface button:focus-visible, .interaction-surface input:focus-visible, .interaction-surface select:focus-visible { outline: 2px solid var(--primary); outline-offset: var(--space-xs); }
+.interaction-surface.is-sheet { display: flex; align-items: flex-end; justify-content: center; top: var(--workspace-sheet-top,0); bottom: auto; height: var(--workspace-sheet-height,100dvh); pointer-events: auto; }
+.interaction-surface.is-sheet > .interaction-surface-backdrop { display: block; }
+.interaction-surface.is-sheet > .interaction-surface-panel { position: relative; top: auto !important; left: auto !important; width: min(100%,36rem); max-height: 100%; border-radius: var(--radius-lg) var(--radius-lg) 0 0; border-bottom: 0; }
+.interaction-surface.is-sheet .interaction-surface-body { padding-bottom: max(var(--space-md),env(safe-area-inset-bottom,0px)); }
+.workspace-sheet-handle { display: none; }
+@media (max-width: 819px) {
+  .workspace-sheet-handle { display: flex; align-items: center; justify-content: center; flex: 0 0 44px; height: 44px; width: 100%; margin: 0; border: 0; padding: 0; touch-action: none; user-select: none; cursor: grab; }
+  .workspace-sheet-handle::after { content: ''; display: block; width: var(--space-xl); height: var(--space-xs); border-radius: var(--radius-pill); background: color-mix(in srgb,var(--text-muted) 35%,transparent); }
+  .workspace-sheet-handle.m-sheet-handle { background: transparent; border-radius: 0; }
+}
+body.todo-mobile .workspace-sheet-handle, body.has-mobile-dock .workspace-sheet-handle { display: flex; align-items: center; justify-content: center; flex: 0 0 44px; height: 44px; width: 100%; margin: 0; border: 0; padding: 0; background: transparent; touch-action: none; user-select: none; cursor: grab; }
+body.todo-mobile .workspace-sheet-handle::after, body.has-mobile-dock .workspace-sheet-handle::after { content: ''; width: var(--space-xl); height: var(--space-xs); border-radius: var(--radius-pill); background: color-mix(in srgb,var(--text-muted) 35%,transparent); }
+.workspace-sheet-dragging [data-sheet-panel] { animation: none !important; transition: none !important; }
+.workspace-sheet-snap [data-sheet-panel] { transition: translate 160ms ease-out; }
+@media (prefers-reduced-motion: reduce) { .workspace-sheet-snap [data-sheet-panel] { transition: none; } }

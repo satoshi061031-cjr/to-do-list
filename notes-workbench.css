@@ -1,0 +1,46 @@
+/* Notes reuse DESIGN.md surface, spacing and phone text roles. */
+.notes-launch { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); margin-block: var(--space-sm); }
+.notes-launch button, .notes-related button { min-width: 44px; min-height: 44px; padding: var(--space-sm); border: 1px solid var(--quiet-line); border-radius: var(--radius-sm); background: transparent; color: var(--text); font: var(--phone-action-weight) var(--phone-action-size)/var(--phone-action-lh) var(--font-ui); cursor: pointer; }
+.notes-launch button:focus-visible, .notes-related button:focus-visible { outline: 2px solid var(--text); outline-offset: var(--space-xs); }
+.notes-sheet { position: fixed; inset: 0; z-index: 370; display: flex; justify-content: center; align-items: center; box-sizing: border-box; padding: var(--space-md); height: var(--workspace-sheet-height,100dvh); top: var(--workspace-sheet-top,0); bottom: auto; }
+.notes-sheet[hidden], .notes-sheet [hidden], .notes-related[hidden] { display: none !important; }
+.notes-backdrop { position: absolute; inset: 0; border: 0; background: var(--modal-scrim); }
+.notes-panel { position: relative; display: flex; flex-direction: column; width: min(620px,100%); max-height: 100%; min-height: 0; overflow: hidden; border-radius: var(--radius-lg); background: var(--panel-fill); color: var(--text); box-shadow: var(--shadow-pop); }
+.notes-panel header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); padding: var(--space-md); flex-shrink: 0; }
+.notes-panel h2 { margin: 0; font: var(--phone-title-weight) var(--phone-title-size)/var(--phone-title-lh) var(--font-ui); }
+.notes-panel button, .notes-panel .notes-button-link { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; padding: var(--space-sm); border: 1px solid var(--quiet-line); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font: var(--phone-action-weight) var(--phone-action-size)/var(--phone-action-lh) var(--font-ui); text-decoration: none; cursor: pointer; }
+.notes-panel button:disabled { opacity: .45; cursor: default; }
+.notes-panel :is(button,input,textarea,select,a):focus-visible { outline: 2px solid var(--text); outline-offset: var(--space-xs); }
+.notes-body { overflow-y: auto; min-height: 0; padding: 0 var(--space-md) var(--space-md); overscroll-behavior: contain; font: var(--phone-body-weight) var(--phone-body-size)/var(--phone-body-lh) var(--font-ui); }
+.notes-body > label, .notes-edit-fields > label { display: grid; gap: var(--space-sm); margin-block: var(--space-md); color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+.notes-body :is(input:not([type=checkbox]),textarea,select) { box-sizing: border-box; width: 100%; min-width: 0; min-height: 44px; padding: var(--space-sm); border: 1px solid var(--quiet-line); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font: var(--phone-body-weight) var(--phone-body-size)/var(--phone-body-lh) var(--font-ui); }
+.notes-body textarea { resize: vertical; min-height: 180px; }
+.notes-controls, .notes-footer, .notes-link-picker, .notes-note-actions { display: flex; flex-wrap: wrap; gap: var(--space-sm); align-items: center; }
+.notes-controls > input { flex: 1; }
+.notes-list { display: grid; padding: 0; margin: var(--space-md) 0 0; list-style: none; gap: var(--space-sm); }
+.notes-list li { min-width: 0; }
+.notes-list .notes-list-open { display: grid; justify-content: stretch; text-align: start; width: 100%; gap: var(--space-xs); padding: var(--space-md); }
+.notes-list-open strong, .notes-list-open span { overflow-wrap: anywhere; }
+.notes-list-open strong { font: var(--phone-task-weight) var(--phone-task-size)/var(--phone-task-lh) var(--font-ui); }
+.notes-list-open span, .notes-helper, .notes-related p { color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+.notes-form { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.notes-editor-body { overflow-y: auto; min-height: 0; }
+.notes-footer { padding: var(--space-md); padding-bottom: max(var(--space-md),env(safe-area-inset-bottom,0px)); border-top: 1px solid var(--quiet-line); flex-shrink: 0; }
+.notes-footer .notes-primary { flex: 1; background: var(--primary); color: var(--on-primary); border-color: transparent; border-radius: var(--radius-pill); }
+.notes-status { padding-inline: var(--space-md); margin: var(--space-sm) 0; color: var(--danger); max-height: 72px; overflow-y: auto; font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+.notes-link-picker select { flex: 1; min-width: 0; width: auto; }
+.notes-links { list-style: none; padding: 0; margin: var(--space-sm) 0; }
+.notes-links li { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); padding-block: var(--space-xs); }
+.notes-links a { color: var(--primary); overflow-wrap: anywhere; }
+.notes-panel .notes-context-toggle { display: flex; align-items: center; min-height: 44px; gap: var(--space-sm); }
+.notes-context-toggle input { appearance: auto; width: var(--space-md); height: var(--space-md); accent-color: var(--primary); }
+.notes-related { padding-block: var(--space-sm); border-top: 1px solid var(--quiet-line); }
+.notes-related h3 { margin: var(--space-sm) 0; color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+.notes-related-list { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
+.notes-conflict { padding: var(--space-sm); border: 1px solid var(--quiet-line); border-radius: var(--radius-sm); background: var(--surface); }
+.notes-conflict pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; color: var(--text); max-height: 180px; overflow-y: auto; }
+@media (max-width: 819px) {
+  .notes-sheet { padding: 0; align-items: flex-end; }
+  .notes-panel { width: 100%; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+  .notes-note-actions > * { flex: 1; }
+}

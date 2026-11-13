@@ -112,7 +112,9 @@
   }
 
   function write(key, value) {
-    localStorage.setItem(key, JSON.stringify(value));
+    const before = localStorage.getItem(key), after = JSON.stringify(value);
+    localStorage.setItem(key, after);
+    window.DailySpaceHistory?.capture(key, before, after);
   }
 
   function has(object, key) {
@@ -465,6 +467,8 @@
             dueTime,
             categoryId: category ? category.id : null,
             ...window.DailySpaceTaskFields?.fields(action),
+            createdAt: Date.now(),
+            completedAt: null,
             sourceMailId: sourceMailId || null,
             repeat: normalizeRepeat(action.repeat),
           });
@@ -493,9 +497,10 @@
                 });
               }
             }
+            if (!item.completed) item.completedAt = Date.now();
             item.completed = true;
           }
-          if (action.type === "todo_uncomplete") item.completed = false;
+          if (action.type === "todo_uncomplete") { item.completed = false; item.completedAt = null; }
           if (action.type === "todo_delete") todo.todos = todo.todos.filter((value) => value.id !== item.id);
           if (action.type === "todo_update") {
             if (clean(action.text, 500)) item.text = clean(action.text, 500);

@@ -15,6 +15,7 @@
       if (wanted.has(id) || row.leaving) continue;
       if (row.node.contains(document.activeElement)) focus = { removed: true, index: [...container.children].indexOf(row.node) };
       if (id === completedId && !window.matchMedia("(prefers-reduced-motion: reduce)").matches && row.node.animate) {
+        window.DailySpaceLayoutMotion?.cancelNode(row.node);
         row.node.classList.add("completed", "is-leaving");
         const check = row.node.querySelector(".todo-check");
         if (check) check.checked = true;
@@ -29,6 +30,7 @@
           if (state.rows.get(id) === row) { row.node.remove(); state.rows.delete(id); }
         }).catch(() => { /* Reopening the task cancels its departure. */ });
       } else {
+        window.DailySpaceLayoutMotion?.cancelNode(row.node);
         row.node.remove();
         state.rows.delete(id);
       }
@@ -45,6 +47,7 @@
         row?.leaving?.cancel();
         const node = create(item);
         if (previous) {
+          window.DailySpaceLayoutMotion?.cancelNode(previous);
           previous.replaceWith(node);
         } else if (state.initialized) {
           node.classList.add("is-entering");

@@ -1,0 +1,9 @@
+/* Inline state stays next to its action, using the existing semantic tokens. */
+:is(.notes-status, .focus-sheet-status, .workspace-tool-status, .task-planning-status)[data-feedback] {
+  font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui);
+  overflow-wrap: anywhere;
+}
+:is(.notes-status, .focus-sheet-status, .workspace-tool-status, .task-planning-status)[data-feedback='success'] { color: var(--success); }
+:is(.notes-status, .focus-sheet-status, .workspace-tool-status, .task-planning-status)[data-feedback='error'] { color: var(--danger); }
+:is(.notes-status, .focus-sheet-status, .workspace-tool-status, .task-planning-status):is([data-feedback='info'], [data-feedback='pending'], [data-feedback='warning']) { color: var(--text-muted); }
+:is(.notes-status, .workspace-tool-status, .task-planning-status):empty { display: none; }

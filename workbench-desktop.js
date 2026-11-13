@@ -8,6 +8,7 @@
     const t = (en, zh) => window.DailySpaceI18n?.t(en, zh) || en;
     const owner = () => window.DailySpaceView.owner();
     const media = matchMedia('(min-width: 820px)');
+    const compact = matchMedia('(min-width: 1100px) and (max-height: 820px)');
     const node = (tag, cls = '', text = '') => { const el = document.createElement(tag); el.className = cls; el.textContent = text; return el; };
     const root = node('section', 'workbench-desktop-overview'); root.hidden = true; root.dataset.i18nIgnore = '';
     const grid = node('div', 'workbench-overview-grid'); root.append(grid);
@@ -26,6 +27,8 @@
     const band = node('section','overview-detail-band'), spendLink = node('a','overview-spend-link'), spendLabel = node('span'), spendAmount = node('strong'), quickLinks = node('div','overview-quick-links');
     spendLink.href = 'tally.html'; spendLink.append(spendLabel,spendAmount); band.append(spendLink,quickLinks);
     grid.append(taskCard,agendaCard,focusCard,band);
+    const widgetNodes = {tasks:taskCard,agenda:agendaCard,focus:focusCard,detail:band};
+    for (const [id,card] of Object.entries(widgetNodes)) card.dataset.overviewWidget = id;
     const tools = {planner:['Projects','项目','planner.html'],mail:['Mail','邮箱','mail.html'],tally:['Tally','记账','tally.html'],travel:['Travel','旅行','travel.html'],calendar:['Calendar','日历','calendar.html']};
     let focusId = null, renderOwner = '', linksSignature = '', queued = false;
     focusOpen.addEventListener('click', () => {
@@ -39,10 +42,16 @@
       if (root.hidden) { focusId = null; renderOwner = ''; focusTitle.textContent = ''; spendAmount.textContent = ''; return; }
       renderOwner = owner();
       const config = Preferences.read(), tasks = api.getTasks(), stats = window.DailySpaceLoop.getTodayStats();
+      const customLayout = config.desktopLayout ? Preferences.desktopLayout(config.desktopLayout) : null;
+      root.dataset.customLayout = String(Boolean(customLayout));
+      if (customLayout) customLayout.order.forEach((id,index) => {
+        const card = widgetNodes[id]; if (grid.children[index] !== card) grid.insertBefore(card,grid.children[index] || null);
+        card.dataset.wideWidget = String(id === customLayout.wide);
+      });
       taskTitle.textContent = t('Today at a glance','今天概览');
       taskCount.textContent = String(stats.dueTodayOpen);
       taskCaption.textContent = t('tasks left today','项今日待办');
-      const labels = [t('Completed','已完成'),t('Due today','今日到期'),t('Overdue','逾期')];
+      const labels = compact.matches ? [t('Done','已完成'),t('Due','到期'),t('Overdue','逾期')] : [t('Completed','已完成'),t('Due today','今日到期'),t('Overdue','逾期')];
       [stats.dueTodayDone,stats.dueTodayTotal,stats.overdueOpen].forEach((value,index) => { metrics[index].value.textContent = String(value); metrics[index].label.textContent = labels[index]; });
       const percentage = stats.dueTodayTotal ? Math.round(stats.dueTodayDone / stats.dueTodayTotal * 100) : 0;
       fill.style.width = `${percentage}%`; progress.setAttribute('aria-valuenow',String(percentage)); progress.setAttribute('aria-label',t('Today’s task progress','今日任务进度')); progress.setAttribute('aria-valuetext',`${stats.dueTodayDone} / ${stats.dueTodayTotal}`);
@@ -54,7 +63,11 @@
       agendaTime.textContent = next?.time || ''; if (next) agendaTime.dateTime = `${stats.today}T${next.time}`;
       agendaLink.textContent = next?.text || t('Open calendar','打开日历'); agendaLink.href = next?.href || 'calendar.html';
       agendaNote.textContent = next ? new Date().toLocaleDateString(window.DailySpaceI18n?.localeTag() || 'en-US',{weekday:'long',month:'short',day:'numeric'}) : t('No more timed arrangements today.','今天没有更多定时安排。');
-      const candidate = tasks.filter(task => !task.completed && (!task.dueDate || task.dueDate <= stats.today)).sort((a,b) => (a.dueDate || stats.today).localeCompare(b.dueDate || stats.today) || (a.dueTime || '99:99').localeCompare(b.dueTime || '99:99'))[0];
+      const priority = {high:0,normal:1,low:2};
+      const candidate = tasks.filter(task => !task.completed && !task.inbox && (task.todayPinDate === stats.today || !task.dueDate || task.dueDate <= stats.today)).sort((a,b) =>
+        Number(b.todayPinDate === stats.today) - Number(a.todayPinDate === stats.today) ||
+        (a.todayPinDate === stats.today && b.todayPinDate === stats.today ? (a.todayPinOrder || 0) - (b.todayPinOrder || 0) : 0) ||
+        (priority[a.priority] ?? 1) - (priority[b.priority] ?? 1) || (a.dueDate || stats.today).localeCompare(b.dueDate || stats.today) || (a.dueTime || '99:99').localeCompare(b.dueTime || '99:99'))[0];
       focusId = candidate?.id || null; focusKicker.textContent = t('One thing at a time','一次专注一件事');
       focusTitle.textContent = candidate?.text || t('A little room for what matters','给重要的事留一点空间');
       focusMeta.textContent = candidate ? [candidate.dueDate && candidate.dueDate < stats.today ? t('Overdue','逾期') : t('Your next step','下一步'),candidate.dueTime].filter(Boolean).join(' · ') : t('Add a task when you’re ready.','准备好了，就记录下一件事。');
@@ -62,11 +75,13 @@
       const state = window.DailySpaceTallyCore.readState();
       const amount = state.records.filter(record => record.date === stats.today && record.scope !== 'shared').reduce((sum,record) => sum + window.DailySpaceTallyCore.baseAmount(record),0);
       spendLabel.textContent = t('Today’s spending','今日支出'); spendAmount.textContent = window.DailySpaceTallyCore.formatAmount(state,amount,state.baseCurrency);
-      const signature = JSON.stringify([config.shortcuts,window.DailySpaceI18n?.locale()]);
+      const external = Preferences.getBookmarks(config);
+      const signature = JSON.stringify([config.shortcuts,external,window.DailySpaceI18n?.locale()]);
       if (signature !== linksSignature) {
-        linksSignature = signature; quickLinks.replaceChildren(...config.shortcuts.map(id => { const tool = tools[id], link = node('a','',t(tool[0],tool[1])); link.href = tool[2]; return link; }));
+        linksSignature = signature; quickLinks.replaceChildren(...config.shortcuts.map(id => { const tool = tools[id], link = node('a','',t(tool[0],tool[1])); link.href = tool[2]; return link; }),
+          ...external.map(item => { const link = node('a','overview-external-link',`${item.icon ? `${item.icon} ` : ''}${item.title} ↗`); link.href = item.url; link.target = '_blank'; link.rel = 'noopener noreferrer'; link.dataset.bookmarkId = item.id; link.title = [item.group,...item.tags].filter(Boolean).join(' · '); return link; }));
       }
-      agendaCard.hidden = config.hidden.includes('agenda'); spendLink.hidden = config.hidden.includes('spend'); quickLinks.hidden = config.hidden.includes('shortcuts') || !config.shortcuts.length;
+      agendaCard.hidden = config.hidden.includes('agenda'); spendLink.hidden = config.hidden.includes('spend'); quickLinks.hidden = config.hidden.includes('shortcuts') || (!config.shortcuts.length && !external.length);
       band.hidden = spendLink.hidden && quickLinks.hidden;
       root.dataset.showAgenda = String(!agendaCard.hidden); root.dataset.showSpend = String(!spendLink.hidden); root.dataset.showShortcuts = String(!quickLinks.hidden);
       // Card order follows the saved auxiliary section order; the action list stays below the overview.
@@ -76,6 +91,7 @@
     function schedule() { if (queued) return; queued = true; queueMicrotask(() => { queued = false; render(); }); }
     for (const event of ['daily-space-workbench-updated','daily-space-agent-data-updated','daily-space-todo-view-updated','daily-space-user-sync-updated','daily-space-auth-updated','daily-space-locale-changed','storage']) window.addEventListener(event,schedule);
     media.addEventListener('change',schedule); document.addEventListener('visibilitychange',() => { if (!document.hidden) schedule(); });
+    compact.addEventListener('change',schedule);
     setInterval(() => { if (!document.hidden) schedule(); },60000);
     render();
   }

@@ -471,6 +471,7 @@
     const list = palette.querySelector(".command-palette-list");
     const empty = palette.querySelector(".command-palette-empty");
     if (!input || !list) return;
+    if (window.DailySpaceCommand?.mount) { window.DailySpaceCommand.mount({ palette, input, list, empty }); return; }
     let activeIndex = 0;
     let items = [];
 

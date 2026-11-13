@@ -1,0 +1,71 @@
+/* Existing DESIGN.md tokens keep planning controls quiet and touchable. */
+.task-planning { margin-bottom: var(--space-md); color: var(--text); min-width: 0; }
+.task-planning[hidden], .task-planning [hidden], .task-planning-fields [hidden] { display: none !important; }
+.task-planning-tabs { display: flex; flex-wrap: wrap; gap: var(--space-xs); padding-block: var(--space-xs); }
+.task-planning :is(button,summary), .task-triage-actions :is(button,summary), .task-planning-fields button { min-height: 44px; box-sizing: border-box; border: 1px solid var(--quiet-line); border-radius: var(--radius-sm); padding: var(--space-sm); background: var(--surface); color: var(--text); font: var(--phone-action-weight) var(--phone-action-size)/var(--phone-action-lh) var(--font-ui); cursor: pointer; }
+.task-planning-tabs button { flex: 1; white-space: nowrap; border-color: transparent; background: transparent; }
+.task-planning-tabs button[aria-pressed=true] { background: var(--surface); border-color: var(--quiet-line); color: var(--primary); }
+.task-planning :is(input,select), .task-planning-fields :is(input,select), .task-triage-actions input { box-sizing: border-box; min-height: 44px; min-width: 0; width: 100%; padding: var(--space-sm); border: 1px solid var(--quiet-line); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font: var(--phone-body-weight) var(--phone-body-size)/var(--phone-body-lh) var(--font-ui); }
+.task-planning :is(button,input,select,summary):focus-visible, .task-triage-actions :is(button,input,summary):focus-visible, .task-planning-fields :is(button,input,select):focus-visible { outline: 2px solid var(--primary); outline-offset: var(--space-xs); }
+.task-inbox-capture { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: var(--space-sm); margin-block: var(--space-sm); }
+.task-inbox-capture > button { background: var(--primary); color: var(--on-primary); }
+.task-planning-help { grid-column: 1/-1; margin: 0; color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+.task-planning-options > summary { border: 0; padding-inline: 0; background: transparent; color: var(--text-muted); }
+.task-planning-filters { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: var(--space-sm); padding-block: var(--space-sm); }
+.task-planning-filters label, .task-planning-fields > label { display: grid; min-width: 0; gap: var(--space-xs); color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+.task-planning-filters label:has([data-task-view-name]) { grid-column: 1/-1; }
+.task-planning-status { margin: var(--space-xs) 0; color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+.task-planning-status:empty { display: none; }
+.task-conflict-actions { display: flex; flex-wrap: wrap; gap: var(--space-sm); margin-block: var(--space-sm); }
+.task-conflict-actions[hidden] { display: none !important; }
+.task-conflict-actions button { min-height: 44px; padding: var(--space-sm); border: 1px solid var(--quiet-line); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font: var(--phone-action-weight) var(--phone-action-size)/var(--phone-action-lh) var(--font-ui); }
+.task-planning-fields { display: grid; gap: var(--space-sm); margin-block: var(--space-md); }
+.task-planning-fields .task-inbox-option { display: flex; align-items: center; min-height: 44px; gap: var(--space-sm); color: var(--text); }
+.task-planning-fields .task-inbox-option input { width: var(--space-md); height: var(--space-md); min-height: 0; appearance: auto; accent-color: var(--primary); }
+.task-planning-fields [data-task-pin] { justify-self: start; }
+.task-planning-badge { color: var(--primary); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+.task-triage-actions { display: flex; flex: 1 1 100%; flex-wrap: wrap; gap: var(--space-sm); grid-column: 1/-1; width: 100%; padding-top: var(--space-sm); }
+.task-triage-actions > details { width: 100%; }
+.task-triage-actions summary { display: inline-flex; align-items: center; }
+.task-triage-options { display: flex; flex-wrap: wrap; gap: var(--space-sm); padding-block: var(--space-sm); align-items: end; }
+.task-triage-options label { flex: 1 1 160px; color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+.task-planning button:disabled, .task-triage-actions button:disabled { opacity: .5; cursor: default; }
+body.todo-mobile #todo-list .todo-item:has(.task-triage-actions) { flex-wrap: wrap; }
+@media (max-width: 360px) { .task-planning-tabs button { padding-inline: var(--space-xs); } .task-planning-filters { grid-template-columns: minmax(0,1fr); } }
+
+/* A single view bar; the original controls live in the shared Filter surface. */
+body.has-consolidated-filters .task-planning.task-planning-unified { display: block; margin-bottom: var(--space-sm); }
+.task-planning-bar { display: flex; align-items: center; gap: var(--space-sm); min-width: 0; }
+.task-planning-bar .task-planning-tabs { flex: 1; min-width: 0; flex-wrap: nowrap; }
+.task-planning-bar .task-planning-tabs button { flex: 1; min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+.task-planning-bar .task-planning-options { flex: 0 0 auto; }
+.task-planning-bar .task-planning-options > summary { display: flex; align-items: center; justify-content: center; min-width: 44px; padding-inline: var(--space-sm); color: var(--text-muted); list-style: none; border: 1px solid var(--quiet-line); border-radius: var(--radius-sm); }
+.task-planning-bar .task-planning-options > summary::-webkit-details-marker { display: none; }
+.task-filter-legacy-toolbar, .task-filter-legacy-day, .task-filter-legacy-date, .task-filter-legacy-status { display: none !important; }
+.task-filter-content, .task-filter-personal { display: grid; min-width: 0; gap: var(--space-md); }
+.task-filter-personal { border: 0; padding: 0; margin: 0; }
+.task-filter-personal > legend { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.task-filter-group { display: grid; min-width: 0; gap: var(--space-sm); }
+.task-filter-group h3 { margin: 0; color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+.task-filter-content :is(button,input,select) { box-sizing: border-box; min-width: 0; min-height: 44px; border: 1px solid var(--quiet-line); border-radius: var(--radius-sm); padding: var(--space-sm); color: var(--text); background: var(--surface); font: var(--phone-action-weight) var(--phone-action-size)/var(--phone-action-lh) var(--font-ui); }
+.task-filter-content :is(input,select) { width: 100%; font: var(--phone-body-weight) var(--phone-body-size)/var(--phone-body-lh) var(--font-ui); }
+.task-filter-content button { cursor: pointer; }
+.task-filter-content :is(button,input,select):focus-visible { outline: 2px solid var(--primary); outline-offset: var(--space-xs); }
+.task-filter-content label { display: grid; min-width: 0; gap: var(--space-xs); color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+.task-filter-content .task-planning-filters { padding: 0; }
+.task-filter-content .task-planning-filters > :is(label,button) { grid-column: 1 / -1; }
+.task-filter-content :is(.filters,.todo-source-switch,.m-task-tabs,.task-range) { display: flex; flex-wrap: wrap; gap: var(--space-sm); margin: 0; padding: 0; border: 0; }
+.task-filter-content :is(.filters,.todo-source-switch,.m-task-tabs,.task-range) > button { flex: 1; min-width: 44px; margin: 0; }
+.task-filter-content :is(.filter-btn,.todo-source-btn).is-active, .task-filter-content [aria-pressed=true], .task-filter-content [aria-selected=true] { color: var(--on-primary); background: var(--primary); border-color: var(--primary); }
+.task-filter-content .m-task-tabs > button { box-shadow: none; border: 1px solid var(--quiet-line); border-radius: var(--radius-sm); }
+.task-filter-content .m-task-tabs > button::after { display: none; }
+.task-filter-date-controls { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: var(--space-sm); }
+.task-filter-date-controls > :is(.task-range,label) { grid-column: 1 / -1; }
+.task-filter-date-controls .task-range { flex-wrap: nowrap; }
+.task-filter-content [hidden], .task-filter-chips[hidden] { display: none !important; }
+.task-filter-content :disabled { opacity: .55; cursor: default; }
+.task-filter-chips { display: flex; flex-wrap: wrap; gap: var(--space-xs); padding-top: var(--space-xs); }
+.task-filter-chips button { max-width: 100%; min-height: 44px; padding: var(--space-xs) var(--space-sm); border-radius: var(--radius-pill); overflow-wrap: anywhere; color: var(--text-muted); background: transparent; font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+body.has-consolidated-filters .m-task-controls { justify-content: flex-end; }
+body.todo-mobile:not(.m-show-completed) .task-filter-content #clear-completed { display: none !important; }
+@media (max-width: 360px) { .task-planning-bar { gap: var(--space-xs); } .task-planning-bar .task-planning-tabs button { padding-inline: var(--space-xs); } }

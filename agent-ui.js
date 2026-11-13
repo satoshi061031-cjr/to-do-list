@@ -165,6 +165,8 @@
     return;
   }
 
+  window.DailySpaceDialogHistory.attachGesture?.(overlay, sheet);
+
   let busy = false;
   let configured = null;
   let identity = owner(), generation = 0, activeRequest = null;
@@ -224,6 +226,14 @@
   function setOpen(open, fromHistory = false) {
     const wasOpen = !overlay.hidden;
     if (open && !wasOpen && !fromHistory && !agentHistory.push({})) return false;
+    if (!open && wasOpen && activeRequest) {
+      const cancelled = activeRequest;
+      generation++; statusVersion++;
+      activeRequest = null; busy = false;
+      cancelled.controller.abort(); statusController?.abort(); statusController = null;
+      if (cancelled.bubble) cancelled.bubble.textContent = t('Cancelled. Your message is ready to retry.', '已取消，消息已保留，可重新发送。');
+      restoreInput(cancelled.message); applyConfiguredUi();
+    }
     if (host instanceof HTMLElement) {
       host.hidden = !open;
     }
@@ -279,7 +289,7 @@
   async function sendMessage(raw) {
     const message = String(raw || '').trim();
     if (!message || busy) return;
-    const request = { owner: owner(), generation, controller: new AbortController() };
+    const request = { owner: owner(), generation, controller: new AbortController(), message };
     activeRequest = request; busy = true; applyConfiguredUi();
     input.value = '';
     let timer, thinking, mayFallback = true;
@@ -288,6 +298,7 @@
       if (!isCurrent(request)) return;
       appendMessage('user', message);
       thinking = appendMessage('assistant', t('Working…', '处理中…'));
+      request.bubble = thinking;
       if (configured !== true) {
         const parsed = localTodoActions(message, api.todayIso());
         const applied = parsed.actions.length ? applyConfirmed(parsed.actions, request) : [];
@@ -301,9 +312,12 @@
         return;
       }
       timer = setTimeout(() => request.controller.abort(), AGENT_REQUEST_TIMEOUT_MS);
+      const context = api.getSnapshot();
+      context.notes = window.DailySpaceNotes?.selectedContext?.() || [];
+      context.references = (window.DailySpaceAgentSources?.references(context) || []).map(item => item.key);
       const response = await fetch('/api/agent', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message, context: api.getSnapshot(), today: api.todayIso(), currentPage: currentPage() }),
+        body: JSON.stringify({ message, context, today: api.todayIso(), currentPage: currentPage() }),
         signal: request.controller.signal,
       });
       const data = await response.json();
@@ -317,6 +331,17 @@
       if (applied === null) { thinking.textContent = t('Cancelled. No changes were applied.', '已取消，未执行任何修改。'); restoreInput(message); return; }
       const count = applied.filter(action => action && action.ok !== false).length;
       thinking.textContent = (data.reply.trim() || t('Done.', '已完成。')) + (applied.length ? `\n\n${t('Applied', '已执行')} ${count} ${t('change(s).', '项改动。')}` : '');
+      const sources = window.DailySpaceAgentSources?.resolve(context, data.sources) || [];
+      if (sources.length) {
+        const list = document.createElement('ul'); list.className = 'agent-source-links';
+        list.setAttribute('aria-label', t('Sources', '参考记录'));
+        for (const source of sources) {
+          const item = document.createElement('li'), link = document.createElement('a');
+          link.href = source.href; link.textContent = source.label;
+          item.append(link); list.append(item);
+        }
+        thinking.append(list);
+      }
     } catch (error) {
       if (!isCurrent(request)) return;
       connection = 'error';

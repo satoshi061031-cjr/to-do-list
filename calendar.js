@@ -428,7 +428,10 @@
     delete payload.illustrationsByCategory;
     delete payload.illustrationData;
     todoStore = payload;
-    localStorage.setItem(STORAGE_TODO_APP, JSON.stringify(payload));
+    const beforeRaw = localStorage.getItem(STORAGE_TODO_APP);
+    const afterRaw = JSON.stringify(payload);
+    localStorage.setItem(STORAGE_TODO_APP, afterRaw);
+    window.DailySpaceHistory?.capture(STORAGE_TODO_APP, beforeRaw, afterRaw);
     window.dispatchEvent(
       new CustomEvent("daily-space-agent-data-updated", { detail: { domains: ["todo"] } })
     );
@@ -474,14 +477,10 @@
   }
 
   function saveCalendarState() {
-    localStorage.setItem(
-      STORAGE_CALENDAR,
-      JSON.stringify({
-        version: 1,
-        selectedDate,
-        reminders,
-      })
-    );
+    const beforeRaw = localStorage.getItem(STORAGE_CALENDAR);
+    const afterRaw = JSON.stringify({ version: 1, selectedDate, reminders });
+    localStorage.setItem(STORAGE_CALENDAR, afterRaw);
+    window.DailySpaceHistory?.capture(STORAGE_CALENDAR, beforeRaw, afterRaw);
     window.dispatchEvent(
       new CustomEvent("daily-space-agent-data-updated", { detail: { domains: ["calendar"] } })
     );
@@ -609,6 +608,7 @@
     if (!todo) return;
     const completing = !todo.completed;
     todo.completed = completing;
+    todo.completedAt = completing ? Date.now() : null;
     if (completing && (todo.repeat === "daily" || todo.repeat === "weekly" || todo.repeat === "monthly")) {
       const next = new Date(parseIso(todo.dueDate || todayIso()));
       if (todo.repeat === "daily") next.setDate(next.getDate() + 1);
@@ -619,6 +619,9 @@
         ...window.DailySpaceTaskFields?.recurrence(todo),
         sourceMailId: null,
         sourceMailUrl: null,
+        sourceTripId: null,
+        sourceTripName: null,
+        sourceTripDate: null,
         id: id(),
         completed: false,
         dueDate: dateToIso(next),
@@ -882,6 +885,7 @@
     const trimmed = String(text || "").trim().slice(0, 500);
     if (!trimmed) return;
     todos.unshift({
+      ...window.DailySpaceTaskFields.fields({ createdAt: Date.now() }),
       id: id(),
       text: trimmed,
       completed: false,
@@ -1339,25 +1343,26 @@
     },
   };
 
+  let calendarTaskSaveError = "";
   window.DailySpaceCalendarTodo = {
     getTasks: () => structuredClone(todos),
     getCategories: () => structuredClone(categories),
+    getSaveError: () => calendarTaskSaveError,
     removeTask,
     saveTask(draft, taskId) {
+      calendarTaskSaveError = "";
+      if (window.DailySpaceWorkbenchPreferences?.ready() === false || document.documentElement.dataset.workspaceLocked === "true" || document.documentElement.dataset.workspaceReady === "false") { calendarTaskSaveError = "locked"; return null; }
       loadTodoState();
       const task = todos.find(item => item.id === taskId);
-      if (!task || !String(draft.text || "").trim()) return null;
-      const dueDate = ISO_DATE.test(draft.dueDate || "") ? draft.dueDate : null;
-      const dueTime = normalizeTime(draft.dueTime);
-      const reminderChanged = task.dueDate !== dueDate || task.dueTime !== dueTime;
-      Object.assign(task, window.DailySpaceTaskFields.fields({ ...task, notes: draft.notes, subtasks: draft.subtasks }), {
-        text: String(draft.text).trim().slice(0, 500), dueDate, dueTime,
-        categoryId: categoryExists(draft.categoryId) ? draft.categoryId : null,
-        repeat: ["daily", "weekly", "monthly"].includes(draft.repeat) ? draft.repeat : null,
-        remindAt: reminderChanged ? null : task.remindAt,
-      });
+      if (!task) { calendarTaskSaveError = "missing"; return null; }
+      const merged = window.DailySpaceTaskFields.mergeDraft(task, draft);
+      if (merged.conflicts.length) { calendarTaskSaveError = "conflict"; return null; }
+      if (!(merged.patch.text ?? task.text)) { calendarTaskSaveError = "invalid"; return null; }
+      if ((Object.hasOwn(merged.patch, "dueDate") && task.dueDate !== merged.patch.dueDate) || (Object.hasOwn(merged.patch, "dueTime") && task.dueTime !== merged.patch.dueTime)) task.remindAt = null;
+      if (Object.hasOwn(merged.patch, "categoryId") && !categoryExists(merged.patch.categoryId)) merged.patch.categoryId = null;
+      Object.assign(task, merged.patch);
       const saved = structuredClone(task);
-      saveTodoState();
+      try { saveTodoState(); } catch (_) { loadTodoState(); calendarTaskSaveError = "storage"; return null; }
       window.DailySpaceTasks?.syncLinkedWork({ from: "todo", silent: true });
       loadTodoState(); render();
       return saved;

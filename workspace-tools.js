@@ -17,6 +17,19 @@
       'File is too large (maximum 1 MB).':'文件过大，最大支持 1 MB。','Merged workspace exceeds the 1 MB sync limit.':'合并后的工作区超过 1 MB 同步容量。',
       'Invalid CSV quoting.':'CSV 引号格式不正确。','Unclosed CSV quote.':'CSV 引号未闭合。','Duplicate CSV column.':'CSV 存在重复列。',
       'CSV needs a header and 1–1000 rows.':'CSV 需包含表头和 1 至 1000 行数据。',
+      'Invalid saved view.':'保存视图的数据无效。','Invalid focus sessions.':'专注记录的数据无效。',
+      'Invalid or oversized notes.':'笔记数据无效或超过容量。','Invalid or oversized record history.':'历史记录无效或超过容量。',
+      'Invalid or duplicate budget or bill.':'预算或账单的数据无效，或存在重复项。',
+      'Too many budgets or bills after merge.':'合并后的预算或账单数量超过上限，请先导出并整理现有记录。',
+      'Too many saved views after merge.':'合并后的保存视图超过 30 个，请先整理现有视图。',
+      'Too many notes after merge.':'合并后的笔记超过 100 篇，请先导出并整理旧笔记。',
+      'Too many focus sessions after merge.':'合并后的专注记录超过 200 条，请先导出并整理旧记录。',
+      'Too many history versions after merge.':'合并后的历史版本超过 200 条，请先导出并整理旧记录。',
+      'Merged history exceeds the storage limit.':'合并后的历史记录超过容量，请先导出并整理旧记录。',
+      'Notes exceed the storage limit.':'笔记超过容量，请先导出或缩短旧笔记。',
+      'Keep at most 100 notes. Export older notes before adding more.':'最多保留 100 篇笔记，请先导出旧笔记再添加。',
+      'Notes are full. Export or shorten older notes before saving.':'笔记容量已满，请先导出或缩短旧笔记再保存。',
+      'Merged tasks exceed Today Top 3. Remove a daily pin before importing.':'合并后同一天的重点超过 3 项，请先移出部分重点任务再导入。',
     };
     const row=message.match(/^CSV row (\d+) has the wrong number of columns\.$/);if(row)return t(message,`CSV 第 ${row[1]} 行的列数不正确。`);
     return t(message,translations[message]||message);
@@ -28,7 +41,7 @@
   function download(value, filename, type='application/json') { const url=URL.createObjectURL(new Blob([value],{type}));const link=node('a');link.href=url;link.download=filename;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000); }
   function boot() {
     let mode = '', fileGeneration = 0, pending = null, pendingOwner = '', selection = [], editingTemplateId = null;
-    const root=node('div','','workspace-tool-sheet'); root.hidden=true;root.dataset.dialogRoot='';root.dataset.i18nIgnore='';
+    const root=node('div','','workspace-tool-sheet'); root.id='workspace-tools-sheet'; root.hidden=true;root.dataset.dialogRoot='';root.dataset.i18nIgnore='';
     const backdrop=action('',()=>close());backdrop.className='workspace-tool-backdrop';backdrop.dataset.dialogClose='';backdrop.setAttribute('aria-label',t('Close','关闭'));
     const panel=node('section','','workspace-tool-panel');panel.setAttribute('role','dialog');panel.setAttribute('aria-modal','true');panel.setAttribute('aria-labelledby','workspace-tool-title');
     const header=node('header');const title=node('h2');title.id='workspace-tool-title';const dismiss=action('×',()=>close());dismiss.dataset.dialogClose='';dismiss.setAttribute('aria-label',t('Close','关闭'));header.append(title,dismiss);
@@ -74,18 +87,18 @@
       title.textContent=t('Import & backup','导入与备份');const label=node('label',t('File format','文件格式'));const format=node('select');format.id='workspace-import-format';for(const [key,en,zh]of[['json','dayfly JSON backup','dayfly JSON 备份'],['todo','Task CSV','待办 CSV'],['tally','Expense CSV','记账 CSV']])format.add(new Option(t(en,zh),key));label.append(format);
       const fileLabel=node('label',t('Choose a file','选择文件'));const file=node('input');file.type='file';file.accept='.json,.csv,application/json,text/csv';file.id='workspace-import-file';fileLabel.append(file);
       const preview=node('div','','workspace-import-preview');preview.id='workspace-import-preview';const commit=action(t('Merge import','合并导入'),()=>{
-        try{if(motion.closing||!pending||pendingOwner!==window.DailySpaceView.owner())return;Core.apply(pending,localStorage);const domains=Object.keys(pending.payload).map(key=>({'todo-app-v2':'todo','calendar-app-v1':'calendar','planner-app-v1':'planner','tally-book-v1':'tally','travel-book-v1':'travel','task-templates-v1':'templates','daily-space-workbench-v1':'workbench'}[key]));
+        try{if(motion.closing||!pending||pendingOwner!==window.DailySpaceView.owner())return;Core.apply(pending,localStorage);const domains=Object.keys(pending.payload).map(key=>({'todo-app-v2':'todo','calendar-app-v1':'calendar','planner-app-v1':'planner','tally-book-v1':'tally','travel-book-v1':'travel','task-templates-v1':'templates','daily-space-workbench-v1':'workbench','dayfly-task-views-v1':'task-views','dayfly-focus-v1':'focus','dayfly-notes-v1':'notes','dayfly-history-v1':'history'}[key]));
           const linked=window.DailySpaceTasks?.syncLinkedWork({silent:true});emit(linked?.changed?[...new Set([...domains,'todo','calendar','planner'])]:domains);status.textContent=t('Imported. Existing records were kept.','导入完成，已保留现有记录。');pending=null;commit.disabled=true;
         }catch(error){status.textContent=errorText(error);pending=null;commit.disabled=true;}
       });commit.id='workspace-import-apply';commit.className='btn btn-primary';commit.disabled=true;
       async function inspect(){const ticket=++fileGeneration;pending=null;commit.disabled=true;preview.replaceChildren();status.textContent='';const selected=file.files[0];if(!selected)return; if(selected.size>1024*1024){status.textContent=t('File is too large (maximum 1 MB).','文件过大，最大支持 1 MB。');return;}
         try{const source=await selected.text();if(ticket!==fileGeneration||root.hidden||pendingOwner!==window.DailySpaceView.owner())return;pending=Core.prepare(source,format.value,localStorage);
-          const names={'todo-app-v2':t('Tasks','待办'),'calendar-app-v1':t('Reminders','提醒'),'planner-app-v1':t('Project items','项目条目'),'tally-book-v1':t('Expenses','费用'),'travel-book-v1':t('Trip items','行程条目'),'task-templates-v1':t('Templates','模板'),'daily-space-workbench-v1':t('Workbench settings','工作台设置')};
+          const names={'todo-app-v2':t('Tasks','待办'),'calendar-app-v1':t('Reminders','提醒'),'planner-app-v1':t('Project items','项目条目'),'tally-book-v1':t('Expenses','费用'),'travel-book-v1':t('Trip items','行程条目'),'task-templates-v1':t('Templates','模板'),'daily-space-workbench-v1':t('Workbench settings','工作台设置'),'dayfly-task-views-v1':t('Saved views','保存的视图'),'dayfly-focus-v1':t('Focus sessions','专注记录'),'dayfly-notes-v1':t('Notes','笔记'),'dayfly-history-v1':t('Record history','记录历史')};
           preview.append(node('p',selected.name));for(const row of pending.summary)preview.append(node('p',`${names[row.key]} · +${row.added} ${t('new','新增')} · ${row.skipped} ${t('existing kept','条现有记录保留')}${row.categoriesAdded?` · +${row.categoriesAdded} ${t('categories','分类')}`:''}`));if(pending.ignored)preview.append(node('p',t('Account settings and unsupported sections are excluded.','账号设置及不支持的数据段未导入。')));commit.disabled=!Object.keys(pending.payload).some(key=>pending.payload[key]!==pending.baseline[key]);
         }catch(error){status.textContent=t('Cannot import this file:','无法导入此文件：')+' '+errorText(error);}
       }
       file.addEventListener('change',inspect);format.addEventListener('change',()=>{file.accept=format.value==='json'?'.json,application/json':'.csv,text/csv';inspect();});
-      const help=node('details');help.append(node('summary',t('Supported formats','支持的格式')),node('p',t('JSON restores tasks, calendar, projects, expenses, personal trips, templates and workbench settings. Existing records and workbench settings keep this device’s version. Account access and shared-trip permissions are excluded.','JSON 可导入待办、日历、项目、记账、个人旅行、模板和工作台设置。现有记录和工作台设置保留本机版本；不会导入账号访问权限或共享行程权限。')),node('p',t('Task CSV: text,dueDate,dueTime,category,notes. Expense CSV: date,amount,currency,fxRate,category,note. Dates use YYYY-MM-DD; foreign currency needs a rate to the current base currency.','待办 CSV：text,dueDate,dueTime,category,notes。记账 CSV：date,amount,currency,fxRate,category,note。日期使用 YYYY-MM-DD；外币需提供兑账本本位币汇率。')));
+      const help=node('details');help.append(node('summary',t('Supported formats','支持的格式')),node('p',t('JSON restores tasks, calendar, projects, expenses, personal trips, templates, workbench settings, saved views, notes, focus and record history. Existing records and workbench settings keep this device’s version. Account access and shared-trip permissions are excluded.','JSON 可导入待办、日历、项目、记账、个人旅行、模板、工作台设置、保存视图、笔记、专注和记录历史。现有记录和工作台设置保留本机版本；不会导入账号访问权限或共享行程权限。')),node('p',t('Task CSV: text,dueDate,dueTime,category,notes. Expense CSV: date,amount,currency,fxRate,category,note. Dates use YYYY-MM-DD; foreign currency needs a rate to the current base currency.','待办 CSV：text,dueDate,dueTime,category,notes。记账 CSV：date,amount,currency,fxRate,category,note。日期使用 YYYY-MM-DD；外币需提供兑账本本位币汇率。')));
       const sample=action(t('Download CSV example','下载 CSV 示例'),()=>download(format.value==='tally'?'date,amount,currency,fxRate,category,note\n2026-10-14,32,JPY,1,Coffee,Example\n':'text,dueDate,dueTime,category,notes\nReview notes,2026-10-14,14:00,Work,Example\n',format.value==='tally'?'expenses-example.csv':'tasks-example.csv','text/csv;charset=utf-8'));help.append(sample);
       body.append(label,fileLabel,preview,help);footer.append(action(t('Download device backup','下载本机备份'),()=>download(JSON.stringify(Core.backup(localStorage),null,2),'dayfly-backup.json')),commit);
     }

@@ -25,7 +25,9 @@
   }
 
   function writeJson(key, value) {
-    localStorage.setItem(key, JSON.stringify(value));
+    const before = localStorage.getItem(key), after = JSON.stringify(value);
+    localStorage.setItem(key, after);
+    window.DailySpaceHistory?.capture(key, before, after);
   }
 
   function validDate(value) {
@@ -55,6 +57,7 @@
     if (Array.isArray(tally.records) && tally.records.length) return true;
     const travel = readJson(STORAGE_TRAVEL, {});
     if (Array.isArray(travel.trips) && travel.trips.some((item) => item && hasText(item.name))) return true;
+    if (Array.isArray(readJson('dayfly-notes-v1', {}).notes) && readJson('dayfly-notes-v1', {}).notes.length) return true;
     return false;
   }
 
@@ -87,11 +90,16 @@
   }
 
   function syncCompletion(from, todo, entry, board) {
+    const wasCompleted = Boolean(todo.completed);
     if (from === "todo") entry.completed = Boolean(todo.completed);
     else if (from === "planner") todo.completed = Boolean(entry.completed);
     else if (todo.completed || entry.completed) {
       todo.completed = true;
       entry.completed = true;
+    }
+    if (Boolean(todo.completed) !== wasCompleted) {
+      const recorded = Number.isSafeInteger(entry.completedAt) && entry.completedAt > 0 && entry.completedAt <= Date.now() ? entry.completedAt : null;
+      todo.completedAt = !todo.completed ? null : from === 'planner' && !window.DailySpaceSnapshotApplying ? Date.now() : recorded;
     }
     const doneId = doneColumnId(board);
     const plannedId = plannedColumnId(board);
@@ -131,6 +139,7 @@
         if (!todo && trip.linkedTodoId) return;
         if (!todo) {
           todo = {
+            ...window.DailySpaceTaskFields?.fields({ createdAt: Date.now() }),
             id: uid(), text: name, completed: false, dueDate: date,
             dueTime: null, categoryId: null, repeat: null,
             sourceTripId: trip.id,
@@ -183,6 +192,7 @@
         );
         if (!todo) {
           todo = {
+            ...window.DailySpaceTaskFields?.fields({ createdAt: Date.now() }),
             id: uid(),
             text: String(reminder.text).trim().slice(0, 500),
             completed: false,
@@ -245,6 +255,7 @@
           );
           if (!todo) {
             todo = {
+              ...window.DailySpaceTaskFields?.fields({ createdAt: Date.now() }),
               id: uid(),
               text: String(entry.title).trim().slice(0, 500),
               completed: Boolean(entry.completed),
@@ -255,6 +266,7 @@
               sourcePlannerId: entry.id,
               repeat: null,
             };
+            if (entry.completed && from === 'planner' && !window.DailySpaceSnapshotApplying) todo.completedAt = Date.now();
             todos.unshift(todo);
             changed = true;
           }

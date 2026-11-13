@@ -151,12 +151,16 @@
   /** @type {"all" | "active" | "completed" | "today"} */
   let filter = document.body.classList.contains("todo-mobile") ? "active" : "today";
   let taskRange = "day";
+  let planningMode = "tasks";
+  let planningPriority = "all";
+  let lastTaskSaveError = "";
 
   /** @type {"personal" | "assigned"} */
   let todoSource = "personal";
   let viewOwner = window.DailySpaceView?.owner() || "guest";
   let viewReady = false;
   let cancelViewScrollRestore = () => {};
+  let pendingTodoLocationSync = false;
 
   function viewScrollContainer() {
     const main = document.querySelector(".main-area");
@@ -173,7 +177,7 @@
     if (!viewReady) return;
     const value = {
       filter, range: taskRange, day: viewDueDateFilter, dayIsToday: viewDueDateFilter === todayIso(),
-      source: todoSource, category: selectedCategoryKey,
+      source: todoSource, category: selectedCategoryKey, planningMode, planningPriority,
       ...(Number.isFinite(scroll) ? { scroll: Math.max(0, scroll) } : {}),
     };
     if (owner === window.DailySpaceView?.owner()) {
@@ -202,6 +206,8 @@
   function applyTodoView(saved) {
     filter = isMobileTodoPage() ? "active" : "today";
     taskRange = "day";
+    planningMode = ["inbox", "top"].includes(saved?.planningMode) ? saved.planningMode : "tasks";
+    planningPriority = ["low", "normal", "high"].includes(saved?.planningPriority) ? saved.planningPriority : "all";
     todoSource = "personal";
     resetViewDayFilter();
     if (saved) {
@@ -397,7 +403,11 @@
       categories,
       selectedCategoryKey,
     };
-    localStorage.setItem(STORAGE_APP, JSON.stringify(payload));
+    const beforeRaw = localStorage.getItem(STORAGE_APP);
+    const afterRaw = JSON.stringify(payload);
+    localStorage.setItem(STORAGE_APP, afterRaw);
+    if (localStorage.getItem(STORAGE_APP) !== afterRaw) throw new Error("Tasks could not be saved on this device.");
+    window.DailySpaceHistory?.capture(STORAGE_APP, beforeRaw, afterRaw);
     if (localStorage.getItem(STORAGE_LEGACY)) {
       localStorage.removeItem(STORAGE_LEGACY);
     }
@@ -719,6 +729,7 @@
   }
 
   function setSelectedCategory(next) {
+    if (!refreshLatestTasks()) return;
     cancelViewScrollRestore();
     selectedCategoryKey = next;
     if (next === "__all__") resetViewDayFilter();
@@ -730,6 +741,7 @@
 
   function removeCategory(catId, e) {
     e.stopPropagation();
+    if (!refreshLatestTasks()) return;
     const index = categories.findIndex((c) => c.id === catId);
     if (index === -1) return;
     const removed = categories[index];
@@ -745,7 +757,7 @@
     renderCategorySidebar();
     render();
     offerUndo("Category deleted", () => {
-      categories.splice(Math.min(index, categories.length), 0, removed);
+      if (!categories.some(category => category.id === removed.id)) categories.splice(Math.min(index, categories.length), 0, removed);
       const reattach = new Set(detached);
       todos = todos.map((t) => (reattach.has(t.id) ? { ...t, categoryId: catId } : t));
       if (wasSelected) selectedCategoryKey = catId;
@@ -904,6 +916,7 @@
   });
 
   function addCategoryNamed(name) {
+    if (!refreshLatestTasks()) return;
     const trimmed = name.trim();
     if (!trimmed) return;
     const cat = { id: id(), name: trimmed.slice(0, 48) };
@@ -944,12 +957,14 @@
   function dueDayFilterApplies() {
     if (taskRange === "week") return false;
     if (!viewDueDateFilter) return false;
-    if (isMobileTodoPage()) return true;
-    return selectedCategoryKey !== "__all__";
+    return true;
   }
 
   function visibleTodosPipeline() {
     let list = todos.filter(todoMatchesCategory);
+    if (planningMode === "inbox") return list.filter(task => task.inbox && !task.completed && (planningPriority === "all" || task.priority === planningPriority));
+    if (planningMode === "top") return list.filter(task => !task.completed && task.todayPinDate === todayIso() && (planningPriority === "all" || task.priority === planningPriority)).sort((a,b) => a.todayPinOrder - b.todayPinOrder);
+    list = list.filter(task => !task.inbox);
     if (taskRange === "week") {
       const end = new Date(`${todayIso()}T12:00:00`); end.setDate(end.getDate() + 6);
       const last = `${end.getFullYear()}-${String(end.getMonth()+1).padStart(2,"0")}-${String(end.getDate()).padStart(2,"0")}`;
@@ -966,12 +981,15 @@
     } else if (filter === "completed") {
       list = list.filter((t) => t.completed);
     }
-    return list;
+    if (planningPriority !== "all") list = list.filter(task => (task.priority || "normal") === planningPriority);
+    const rank = { high: 0, normal: 1, low: 2 };
+    return taskRange === "week" ? list : list.sort((a,b) => (rank[a.priority || "normal"] - rank[b.priority || "normal"]));
   }
 
   function todosInCategoryAndDayScope() {
+    if (planningMode !== "tasks") return visibleTodosPipeline();
     if (taskRange === "week") return visibleTodosPipeline();
-    let list = todos.filter(todoMatchesCategory);
+    let list = todos.filter(task => !task.inbox && todoMatchesCategory(task) && (planningPriority === "all" || (task.priority || "normal") === planningPriority));
     if (dueDayFilterApplies()) list = list.filter(todoMatchesSelectedDay);
     return list;
   }
@@ -1183,6 +1201,11 @@
     }
 
     main.appendChild(label);
+    if (todo.priority === "high" || todo.todayPinDate === todayIso()) {
+      const badge = document.createElement("span"); badge.className = "task-planning-badge"; badge.dataset.i18nIgnore = "";
+      badge.textContent = todo.todayPinDate === todayIso() ? (window.DailySpaceI18n?.t("Today Top 3", "今日重点") || "Today Top 3") : (window.DailySpaceI18n?.t("Important", "重要") || "Important");
+      main.append(badge);
+    }
     if (todo.sourceTripId) {
       const tag = document.createElement("span");
       tag.className = "todo-travel-tag";
@@ -1432,6 +1455,11 @@
   }
 
   function syncTodoHash() {
+    // A temporary surface owns its own history entry. Changing that entry's
+    // fragment would turn closing it into a second navigation action.
+    const sheet = history.state?.workspaceSheet;
+    if (sheet?.transient && sheet.owner === window.DailySpaceView?.owner()) { pendingTodoLocationSync = true; return; }
+    pendingTodoLocationSync = false;
     let hash = "";
     if (todoSource === "assigned") hash = "#assigned";
     else if (filter === "today" || (isMobileTodoPage() && filter !== "completed")) hash = "#today";
@@ -1445,6 +1473,7 @@
   function focusTodayList(opts) {
     cancelViewScrollRestore();
     taskRange = "day";
+    resetViewDayFilter();
     const seed = opts && typeof opts.seed === "string" ? opts.seed.trim() : "";
     if (todoSource !== "personal") setTodoSource("personal");
     if (isMobileTodoPage()) {
@@ -1827,7 +1856,7 @@
   function renderTodoRows(target, rows, options, completedId) {
     window.DailySpaceTaskList.render(target, rows, {
       signature: todo => JSON.stringify({
-        todo, options: options(todo), source: todoSource, locale: uiLocale(), day: todayIso(),
+        todo, options: options(todo), source: todoSource, locale: uiLocale(), day: todayIso(), planningMode,
         category: categoryLabelById(todo.categoryId),
       }),
       create: todo => createTodoListItemEl(todo, options(todo)),
@@ -1847,6 +1876,7 @@
     if (todoSource === "assigned") {
       renderAssigned();
       renderDailyLoop();
+      window.dispatchEvent(new CustomEvent("daily-space-todo-view-updated"));
       return;
     }
 
@@ -1881,6 +1911,9 @@
     const showEmpty = visible.length === 0 && !loopCoversEmpty;
     emptyEl.classList.toggle("is-visible", showEmpty);
     if (showEmpty) {
+      if (planningMode !== "tasks") {
+        emptyEl.textContent = planningMode === "inbox" ? (window.DailySpaceI18n?.t("Your inbox is clear. Capture an idea or link above.", "收集箱已清空，可在上方记录想法或链接。") || "Your inbox is clear.") : (window.DailySpaceI18n?.t("Choose up to three priorities from task details.", "在任务详情中选出今天最重要的三件事。") || "Choose up to three priorities from task details.");
+      } else
       if (viewDueDateFilter && (isMobileTodoPage() || selectedCategoryKey !== "__all__")) {
         if (filter === "completed") {
           emptyEl.textContent = "No completed tasks.";
@@ -1920,7 +1953,8 @@
     window.dispatchEvent(new CustomEvent("daily-space-todo-view-updated"));
   }
 
-  function add(text, dueDate, categoryIdOverride, dueTime = null) {
+  function add(text, dueDate, categoryIdOverride, dueTime = null, skipRefresh = false) {
+    if (!skipRefresh && !refreshLatestTasks()) return null;
     const trimmed = text.trim();
     if (!trimmed) return null;
     let categoryId = null;
@@ -1933,6 +1967,7 @@
     }
 
     const item = {
+      ...window.DailySpaceTaskFields.fields({ createdAt: Date.now() }),
       id: id(),
       text: trimmed,
       completed: false,
@@ -1946,7 +1981,9 @@
     if (item.dueTime && window.DailySpaceTasks && typeof window.DailySpaceTasks.pushExternalEvent === "function") {
       window.DailySpaceTasks.pushExternalEvent(item).then((event) => {
         if (!event || !event.id) return;
-        item.externalEventId = event.id;
+        if (!refreshLatestTasks()) return;
+        const current = todos.find(task => task.id === item.id); if (!current) return;
+        current.externalEventId = event.id;
         saveAll();
       });
     }
@@ -1979,6 +2016,7 @@
   }
 
   function applyAgentActions(actions) {
+    if (!refreshLatestTasks()) return [];
     const applied = [];
     if (!Array.isArray(actions)) return applied;
     for (const action of actions) {
@@ -1991,7 +2029,7 @@
             const cat = ensureCategoryByName(action.categoryName);
             categoryId = cat ? cat.id : null;
           }
-          const item = add(String(action.text || ""), action.dueDate || null, categoryId);
+          const item = add(String(action.text || ""), action.dueDate || null, categoryId, null, true);
           if (item) {
             if (action.repeat) {
               item.repeat = normalizeRepeat(action.repeat);
@@ -2014,6 +2052,7 @@
         if (type === "complete") {
           if (!target.completed) {
             target.completed = true;
+            target.completedAt = Date.now();
             spawnRepeatFrom(target);
             applied.push({ type, id: target.id, text: target.text });
           } else {
@@ -2024,6 +2063,7 @@
         if (type === "uncomplete") {
           if (target.completed) {
             target.completed = false;
+            target.completedAt = null;
             applied.push({ type, id: target.id, text: target.text });
           } else {
             applied.push({ type, id: target.id, text: target.text, skipped: true });
@@ -2084,22 +2124,21 @@
   }
 
   function saveMobileTask(draft, taskId) {
-    const text = String(draft.text || "").trim().slice(0, 500);
-    if (!text) return null;
+    lastTaskSaveError = "";
+    if (!refreshLatestTasks()) { lastTaskSaveError = "locked"; return null; }
     let task = taskId ? todos.find(item => item.id === taskId) : null;
-    if (taskId && !task) return null;
-    if (!task) { task = { id: id(), completed: false }; todos.unshift(task); }
-    if (task.dueDate !== (draft.dueDate || null) || (task.dueTime || null) !== normalizeTime(draft.dueTime)) task.remindAt = null;
-    Object.assign(task, {
-      ...(Object.hasOwn(draft, "notes") ? { notes: String(draft.notes || "").slice(0, 10000) } : {}),
-      ...(Object.hasOwn(draft, "subtasks") ? { subtasks: window.DailySpaceTaskFields.fields(draft).subtasks } : {}),
-      text,
-      dueDate: ISO_DATE.test(draft.dueDate || "") ? draft.dueDate : null,
-      dueTime: normalizeTime(draft.dueTime),
-      categoryId: categoryExists(draft.categoryId) ? draft.categoryId : null,
-      repeat: ["daily", "weekly", "monthly"].includes(draft.repeat) ? draft.repeat : null,
-    });
-    saveAll(); renderCategorySidebar(); render();
+    if (taskId && !task) { lastTaskSaveError = "missing"; return null; }
+    const merged = window.DailySpaceTaskFields.mergeDraft(task, draft);
+    if (merged.conflicts.length) { lastTaskSaveError = "conflict"; return null; }
+    const text = merged.patch.text ?? task?.text;
+    if (!text) { lastTaskSaveError = "invalid"; return null; }
+    const before = structuredClone(todos);
+    if (!task) { task = { ...window.DailySpaceTaskFields.fields({ createdAt: Date.now() }), id: id(), completed: false }; todos.unshift(task); }
+    if ((Object.hasOwn(merged.patch, "dueDate") && task.dueDate !== merged.patch.dueDate) || (Object.hasOwn(merged.patch, "dueTime") && task.dueTime !== merged.patch.dueTime)) task.remindAt = null;
+    if (Object.hasOwn(merged.patch, "categoryId") && !categoryExists(merged.patch.categoryId)) merged.patch.categoryId = null;
+    Object.assign(task, merged.patch);
+    try { saveAll(); } catch (_) { todos = before; lastTaskSaveError = "storage"; render(); return null; }
+    renderCategorySidebar(); render();
     return { ...task };
   }
 
@@ -2109,6 +2148,7 @@
   };
 
   function setTodoRepeat(todoId, value) {
+    if (!refreshLatestTasks()) return;
     const item = todos.find((todo) => todo.id === todoId);
     if (!item) return;
     item.repeat = normalizeRepeat(value);
@@ -2133,10 +2173,12 @@
   }
 
   function toggle(todoId) {
+    if (!refreshLatestTasks()) return;
     const t = todos.find((x) => x.id === todoId);
     if (!t) return;
     const completing = !t.completed;
     t.completed = completing;
+    t.completedAt = completing ? Date.now() : null;
     if (completing) spawnRepeatFrom(t);
     saveAll({ completedId: completing ? todoId : null });
     renderCategorySidebar();
@@ -2144,6 +2186,7 @@
   }
 
   function renameTodo(todoId, text) {
+    if (!refreshLatestTasks()) return;
     const t = todos.find((x) => x.id === todoId);
     if (!t) return;
     const next = String(text || "").trim().slice(0, 500);
@@ -2155,6 +2198,7 @@
   }
 
   function reorderTodo(dragId, dropId) {
+    if (!refreshLatestTasks()) return;
     if (!dragId || !dropId || dragId === dropId) return;
     const from = todos.findIndex((t) => t.id === dragId);
     const to = todos.findIndex((t) => t.id === dropId);
@@ -2168,6 +2212,7 @@
   function offerUndo(message, restore) {
     if (!window.DailySpaceUndo) return;
     window.DailySpaceUndo.offer(message, () => {
+      if (!refreshLatestTasks()) return;
       restore();
       saveAll();
       renderCategorySidebar();
@@ -2176,6 +2221,7 @@
   }
 
   function remove(todoId) {
+    if (!refreshLatestTasks()) return;
     const index = todos.findIndex((x) => x.id === todoId);
     if (index === -1) return;
     const removed = todos[index];
@@ -2184,12 +2230,13 @@
     renderCategorySidebar();
     render();
     offerUndo("Task deleted", () => {
-      todos.splice(Math.min(index, todos.length), 0, removed);
+      if (!todos.some(task => task.id === removed.id)) todos.splice(Math.min(index, todos.length), 0, removed);
     });
   }
 
   /** Remove completed tasks in the current sidebar category scope. */
   function clearCompletedInScope() {
+    if (!refreshLatestTasks()) return;
     const drop = new Set(todosInCategoryAndDayScope().filter((t) => t.completed).map((t) => t.id));
     if (!drop.size) return;
     const restore = todos
@@ -2201,7 +2248,7 @@
     render();
     offerUndo("Completed tasks cleared", () => {
       restore.forEach((entry) => {
-        todos.splice(Math.min(entry.index, todos.length), 0, entry.todo);
+        if (!todos.some(task => task.id === entry.todo.id)) todos.splice(Math.min(entry.index, todos.length), 0, entry.todo);
       });
     });
   }
@@ -2248,6 +2295,14 @@
     bootstrap({ persist: false });
     renderCategorySidebar();
     render({ completedId: event.detail?.completedId });
+  });
+
+  window.addEventListener("storage", event => {
+    if (![STORAGE_APP, "planner-app-v1", "calendar-app-v1", "travel-book-v1"].includes(event.key) || !planningReady()) return;
+    const selected = selectedCategoryKey;
+    bootstrap({ persist: false });
+    selectedCategoryKey = selected === "__all__" || categoryExists(selected) ? selected : "__all__";
+    renderCategorySidebar(); render();
   });
 
   window.addEventListener("daily-space-locale-changed", () => {
@@ -2310,6 +2365,7 @@
 
   window.addEventListener("hashchange", () => {
     if (window.DailySpaceMobileTodo?.isChangingHistory()) return;
+    if (window.DailySpaceDialogHistory?.isChangingHistory?.()) return;
     if (window.location.hash === "#assigned") {
       setTodoSource("assigned");
       return;
@@ -2317,6 +2373,9 @@
     if (window.location.hash === "#today" || window.location.hash === "") {
       focusTodayList();
     }
+  });
+  window.addEventListener("popstate", () => {
+    if (pendingTodoLocationSync && !history.state?.workspaceSheet?.transient) queueMicrotask(() => syncTodoHash());
   });
 
   form.addEventListener("submit", (e) => {
@@ -2644,7 +2703,7 @@
   clearBtn.addEventListener("click", clearCompletedInScope);
 
   filterBtns.forEach((btn) => {
-    btn.addEventListener("click", () => setFilter(/** @type {any} */ (btn.dataset.filter)));
+    btn.addEventListener("click", () => { planningMode = "tasks"; setFilter(/** @type {any} */ (btn.dataset.filter)); });
   });
 
   sourceBtns.forEach((btn) => {
@@ -2717,6 +2776,7 @@
   }
 
   function selectDueDay(iso) {
+    planningMode = "tasks";
     cancelViewScrollRestore();
     taskRange = "day";
     const day = iso && ISO_DATE.test(iso) ? iso : todayIso();
@@ -2749,6 +2809,7 @@
     taskRange = "day";
     const task = todos.find(item => item.id === id);
     if (!task) return false;
+    planningMode = task.inbox && !task.completed ? "inbox" : "tasks";
     setTodoSource("personal");
     selectedCategoryKey = "__all__";
     renderCategorySidebar();
@@ -2772,11 +2833,89 @@
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => requestAnimationFrame(focusSearchTask), { once: true });
   else requestAnimationFrame(focusSearchTask);
 
+  function planningReady() {
+    return window.DailySpaceWorkbenchPreferences?.ready() !== false && document.documentElement.dataset.workspaceLocked !== "true" && document.documentElement.dataset.workspaceReady !== "false" && (window.DailySpaceView?.owner() || "guest") === viewOwner;
+  }
+  function refreshLatestTasks() {
+    if (!planningReady()) return false;
+    const state = loadState(); todos = state.todos; categories = state.categories;
+    if (selectedCategoryKey !== "__all__" && !categoryExists(selectedCategoryKey)) selectedCategoryKey = "__all__";
+    return true;
+  }
+  function planningChange(change) {
+    if (!refreshLatestTasks()) return false;
+    const before = structuredClone(todos);
+    try {
+      const result = change();
+      if (!result) return false;
+      saveAll(); renderCategorySidebar(); render();
+      return result;
+    } catch (_) { todos = before; render(); return false; }
+  }
+  function setPlanningView(value = {}) {
+    if (!planningReady()) return false;
+    cancelViewScrollRestore();
+    planningMode = ["inbox", "top"].includes(value.mode) ? value.mode : "tasks";
+    planningPriority = ["low", "normal", "high"].includes(value.priority) ? value.priority : "all";
+    const previousSource = todoSource;
+    todoSource = value.source === "assigned" ? "assigned" : "personal";
+    if (todoSource === "assigned") planningMode = "tasks";
+    if (Object.hasOwn(value, "categoryId")) selectedCategoryKey = categoryExists(value.categoryId) ? value.categoryId : "__all__";
+    if (Object.hasOwn(value, "day")) viewDueDateFilter = window.DailySpaceTaskFields.validDate(value.day);
+    taskRange = value.range === "week" ? "week" : "day";
+    if (["all", "active", "completed", "today"].includes(value.filter)) filter = value.filter;
+    if (planningMode !== "tasks") filter = "active";
+    renderCategorySidebar(); publishViewDay(); render();
+    syncTodoHash();
+    if (todoSource === "assigned" && previousSource !== todoSource) loadAssignedTasks();
+    return true;
+  }
+  function captureTask(text, options = {}) {
+    const value = String(text || "").trim().slice(0, 500);
+    if (!value) return null;
+    return planningChange(() => {
+      const sourceUrl = window.DailySpaceTaskFields.sourceUrl(options.sourceUrl || value);
+      const task = { ...window.DailySpaceTaskFields.fields({ inbox: true, createdAt: Date.now(), sourceUrl }), id: id(), text: value, completed: false, dueDate: null, dueTime: null, categoryId: null, repeat: null };
+      todos.unshift(task);
+      return { ...task };
+    });
+  }
+  function pinTask(todoId, pin = true) {
+    return planningChange(() => {
+      const task = todos.find(item => item.id === todoId);
+      if (!task || task.completed) return false;
+      const pinned = todos.filter(item => !item.completed && item.todayPinDate === todayIso() && item.id !== todoId).sort((a,b) => a.todayPinOrder - b.todayPinOrder);
+      if (pin && pinned.length >= 3) return false;
+      task.todayPinDate = pin ? todayIso() : null; task.todayPinOrder = pin ? pinned.length : 0;
+      if (pin) task.inbox = false;
+      pinned.forEach((item,index) => { item.todayPinOrder = index; });
+      return true;
+    });
+  }
+  function movePinnedTask(todoId, delta) {
+    return planningChange(() => {
+      const pinned = todos.filter(item => !item.completed && item.todayPinDate === todayIso()).sort((a,b) => a.todayPinOrder - b.todayPinOrder);
+      const from = pinned.findIndex(item => item.id === todoId), to = from + (delta < 0 ? -1 : 1);
+      if (from < 0 || to < 0 || to >= pinned.length) return false;
+      [pinned[from], pinned[to]] = [pinned[to], pinned[from]];
+      pinned.forEach((item,index) => { item.todayPinOrder = index; }); return true;
+    });
+  }
+
   window.DailySpaceTodo = {
     getTasks: () => structuredClone(todos),
-    showToday() { selectedCategoryKey = "__all__"; renderCategorySidebar(); focusTodayList({ focus: false }); },
+    showToday() { planningMode = "tasks"; planningPriority = "all"; selectedCategoryKey = "__all__"; renderCategorySidebar(); focusTodayList({ focus: false }); },
     getCategories: () => categories.map(category => ({ ...category })),
-    getView: () => ({ filter, day: viewDueDateFilter || todayIso(), source: todoSource, range: taskRange }),
+    getView: () => ({ filter, day: viewDueDateFilter || todayIso(), source: todoSource, range: taskRange, categoryId: selectedCategoryKey === "__all__" ? null : selectedCategoryKey }),
+    getPlanningView: () => ({ mode: planningMode, priority: planningPriority, filter, day: viewDueDateFilter, range: taskRange, categoryId: selectedCategoryKey === "__all__" ? null : selectedCategoryKey, source: todoSource }),
+    syncViewLocation() { if (planningReady()) syncTodoHash(); },
+    setPlanningView,
+    applySavedView: setPlanningView,
+    captureTask,
+    pinTask,
+    movePinnedTask,
+    setPriority(todoId, priority) { return planningChange(() => { const task = todos.find(item => item.id === todoId); if (!task || !["low", "normal", "high"].includes(priority)) return false; task.priority = priority; return true; }); },
+    triageTask(todoId, day = null) { return planningChange(() => { const task = todos.find(item => item.id === todoId); if (!task || (day && !window.DailySpaceTaskFields.validDate(day))) return false; task.inbox = false; task.dueDate = day || null; task.remindAt = null; return true; }); },
     getVisibleTasks: () => structuredClone(visibleTodosPipeline()),
     setRange(value) {
       cancelViewScrollRestore();
@@ -2784,11 +2923,13 @@
       if (filter === "today") setFilter("active"); else render();
     },
     saveTask: saveMobileTask,
+    getSaveError: () => lastTaskSaveError,
     removeTask: remove,
     createTasks(drafts) {
+      if (!refreshLatestTasks()) return [];
       const created = drafts.filter(draft => String(draft.text || "").trim()).map(draft => {
         const category = draft.categoryName ? ensureCategoryByName(draft.categoryName) : null;
-        return { id: id(), text: String(draft.text).trim().slice(0, 500), completed: false,
+        return { ...window.DailySpaceTaskFields.fields({ ...draft, createdAt: Date.now() }), id: id(), text: String(draft.text).trim().slice(0, 500), completed: false,
           dueDate: ISO_DATE.test(draft.dueDate || "") ? draft.dueDate : null, dueTime: normalizeTime(draft.dueTime),
           categoryId: category?.id || null, repeat: null, notes: String(draft.notes || "").slice(0, 10000),
           subtasks: window.DailySpaceTaskFields.fields(draft).subtasks, remindAt: null };
@@ -2800,14 +2941,15 @@
       return created;
     },
     batchTasks(ids, action, value) {
+      if (!refreshLatestTasks()) return;
       const selected = new Set(ids);
       const before = structuredClone(todos.filter(task => selected.has(task.id)));
       const completing = action === "complete" ? before.filter(task => !task.completed) : [];
       const oldIds = new Set(todos.map(task => task.id));
       for (const task of [...todos]) {
         if (!selected.has(task.id)) continue;
-        if (action === "complete" && !task.completed) { task.completed = true; spawnRepeatFrom(task); }
-        if (action === "date" && ISO_DATE.test(value || "")) { task.dueDate = value; task.remindAt = null; }
+        if (action === "complete" && !task.completed) { task.completed = true; task.completedAt = Date.now(); spawnRepeatFrom(task); }
+        if (action === "date" && ISO_DATE.test(value || "")) { task.dueDate = value; task.inbox = false; task.remindAt = null; }
         if (action === "category" && (value === null || categoryExists(value))) task.categoryId = value;
       }
       const spawned = new Set(todos.filter(task => !oldIds.has(task.id)).map(task => task.id));
@@ -2817,8 +2959,8 @@
         todos = todos.filter(task => !spawned.has(task.id));
         before.forEach(original => {
           const task = todos.find(item => item.id === original.id); if (!task) return;
-          if (action === "complete") task.completed = original.completed;
-          if (action === "date") { task.dueDate = original.dueDate; task.remindAt = original.remindAt; }
+          if (action === "complete") { task.completed = original.completed; task.completedAt = original.completedAt; }
+          if (action === "date") { task.dueDate = original.dueDate; task.inbox = original.inbox; task.remindAt = original.remindAt; }
           if (action === "category") task.categoryId = original.categoryId;
         });
       });

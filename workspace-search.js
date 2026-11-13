@@ -1,10 +1,14 @@
 (function () {
+  const RECENT_PREFIX = 'dayfly-command-recent:';
+  const owner = () => String(window.DailySpaceView?.owner?.() || 'guest').trim().toLowerCase();
+  const t = (en, zh) => window.DailySpaceI18n?.t(en, zh) || en;
   const KEYS = {
     todo: "todo-app-v2",
     planner: "planner-app-v1",
     calendar: "calendar-app-v1",
     tally: "tally-book-v1",
     travel: "travel-book-v1",
+    notes: "dayfly-notes-v1",
   };
 
   const JUMPS = [
@@ -16,6 +20,32 @@
     { id: "jump-travel", label: "Travel", hint: "Trips", href: "travel.html", aliases: ["travel", "trip"] },
     { id: "jump-teamwork", label: "Teamwork", hint: "Notes", href: "teamwork.html", aliases: ["teamwork"] },
   ];
+  const PAGE_ZH = {
+    'jump-today':['工作台','个人工作空间'],'jump-calendar':['日历','日程'],
+    'jump-planner':['项目','看板'],'jump-mail':['邮箱','收件箱'],
+    'jump-tally':['记账','消费记录'],'jump-travel':['旅行','行程'],'jump-teamwork':['协作','团队工具'],
+  };
+  function pages(){return JUMPS.map(item=>({...item,label:t(item.label,PAGE_ZH[item.id]?.[0]||item.label),hint:t(item.hint,PAGE_ZH[item.id]?.[1]||item.hint),aliases:[...item.aliases,...(PAGE_ZH[item.id]||[])],kind:'jump',group:'pages'}));}
+  const ACTIONS = [
+    { id:'action:new-task', command:'new-task', en:'Add task', zh:'新建任务', hintEn:'Open task entry', hintZh:'打开任务录入', page:'todo.html', aliases:['new','add','create','task','新建','添加','待办','任务'] },
+    { id:'action:capture-inbox', command:'capture-inbox', en:'Capture to Inbox', zh:'记录到收集箱', hintEn:'Save an idea or link later', hintZh:'先记录想法或链接', page:'todo.html', aliases:['capture','inbox','idea','link','收集箱','记录','想法','链接'] },
+    { id:'action:add-expense', command:'add-expense', en:'Add expense', zh:'记一笔消费', hintEn:'Open expense entry', hintZh:'打开消费录入', page:'tally.html', aliases:['add','new','expense','spend','money','记账','消费','支出'] },
+    { id:'action:start-focus', command:'start-focus', en:'Start focus', zh:'开始专注', hintEn:'Choose a task and timer', hintZh:'选择任务和计时方式', page:'todo.html', aliases:['start','focus','timer','pomodoro','专注','计时','番茄'] },
+    { id:'action:notes', command:'notes', en:'Open notes', zh:'打开笔记', hintEn:'Your private notebook', hintZh:'查看私人笔记', page:'todo.html', aliases:['note','notes','write','笔记','资料'] },
+    { id:'action:filters', command:'filters', en:'Filter tasks', zh:'筛选任务', hintEn:'Date, status and saved views', hintZh:'日期、状态和保存视图', page:'todo.html', aliases:['filter','views','priority','筛选','视图','优先级'] },
+  ];
+
+  function ready() {
+    if (typeof window.DailySpaceWorkbenchPreferences?.ready === 'function') return window.DailySpaceWorkbenchPreferences.ready();
+    if (typeof document !== 'undefined' && (document.documentElement?.dataset?.workspaceLocked === 'true' || document.documentElement?.dataset?.workspaceReady === 'false')) return false;
+    return true;
+  }
+
+  function actions() {
+    if (!ready()) return [];
+    return ACTIONS.map(item => ({ id:item.id, command:item.command, label:t(item.en,item.zh), hint:t(item.hintEn,item.hintZh),
+      href:`${item.page}?command=${encodeURIComponent(item.command)}`, aliases:item.aliases, kind:'action', group:'actions' }));
+  }
 
   function read(key) {
     try {
@@ -42,7 +72,7 @@
   function target() {
     const params = new URLSearchParams(window.location.search);
     const focus = params.get("focus") || "";
-    if (!["todo", "reminder", "expense", "card", "trip"].includes(focus)) return null;
+    if (!["todo", "reminder", "expense", "card", "trip", "note"].includes(focus)) return null;
     return { focus, id: (params.get("id") || "").slice(0, 200), board: (params.get("board") || "").slice(0, 200) };
   }
 
@@ -66,6 +96,7 @@
   }
 
   function collectEntries() {
+    if (!ready()) return [];
     const entries = [];
     const todo = read(KEYS.todo);
     const calendar = read(KEYS.calendar);
@@ -140,6 +171,18 @@
         hay: hay(trip.name, trip.destination, trip.startDate, trip.endDate),
       });
     });
+    const notes = window.DailySpaceWorkbenchPreferences?.ready() === true ? read(KEYS.notes).notes : [];
+    (Array.isArray(notes) ? notes : []).forEach(note => {
+      if (!note || typeof note.id !== 'string' || typeof note.title !== 'string') return;
+      entries.push({ id: `note:${note.id}`, label: note.title, hint: 'Notes',
+        href: targetHref('todo.html', 'note', note.id),
+        hay: hay(note.title, note.body, ...(Array.isArray(note.tags) ? note.tags : []), note.sourceUrl),
+      });
+    });
+    for (const bookmark of window.DailySpaceWorkbenchPreferences?.searchBookmarks?.('') || []) {
+      entries.push({ id:`bookmark:${bookmark.id}`,label:bookmark.title,hint:bookmark.group||'Website',href:bookmark.url,
+        external:true,hay:hay(bookmark.title,bookmark.url,bookmark.group,...bookmark.tags) });
+    }
     return entries;
   }
 
@@ -153,13 +196,38 @@
   function searchWorkspace(query, limit) {
     const capped = Math.max(1, Math.min(20, Number(limit) || 12));
     const q = String(query || "").trim();
-    const jumps = JUMPS.filter((item) => matches(item, q)).map((item) => ({ ...item, kind: "jump" }));
-    if (!q) return jumps.slice(0, capped);
+    const jumps = pages().filter((item) => matches(item, q));
+    const commands = actions().filter(item => matches(item,q));
+    if (!q) return [...jumps,...commands].slice(0,capped);
     const content = collectEntries()
       .filter((item) => matches(item, q))
       .slice(0, capped)
-      .map((item) => ({ ...item, kind: "item" }));
-    return [...jumps, ...content].slice(0, capped);
+      .map((item) => ({ ...item, kind: "item", group:'records' }));
+    return [...jumps, ...content, ...commands].slice(0, capped);
+  }
+
+  function resolve(id) {
+    if (!ready() || typeof id !== 'string') return null;
+    const page=pages().find(item=>item.id===id);if(page)return page;
+    const action=actions().find(item=>item.id===id);if(action)return action;
+    const record=collectEntries().find(item=>item.id===id);return record?{...record,kind:'item',group:'records'}:null;
+  }
+  function recent(limit=5) {
+    if(!ready())return[];
+    try {
+      const ids=JSON.parse(sessionStorage.getItem(RECENT_PREFIX+owner())||'null');
+      if(!Array.isArray(ids))return[];
+      return [...new Set(ids.filter(id=>typeof id==='string'))].slice(0,8).map(resolve).filter(Boolean).slice(0,Math.max(0,Math.min(8,Number(limit)||5)));
+    } catch(_){return[];}
+  }
+  function remember(entry) {
+    const current=resolve(typeof entry==='string'?entry:entry?.id);if(!current)return false;
+    try {
+      // Store identities only. Renames/deletions and account boundaries are
+      // reflected by resolving each entry from its current private store.
+      sessionStorage.setItem(RECENT_PREFIX+owner(),JSON.stringify([current.id,...recent(8).map(item=>item.id).filter(id=>id!==current.id)].slice(0,8)));
+      return true;
+    }catch(_){return false;}
   }
 
   window.DailySpaceSearch = {
@@ -169,5 +237,10 @@
     highlight,
     missing,
     JUMPS,
+    ready,
+    actions,
+    resolve,
+    recent,
+    remember,
   };
 })();

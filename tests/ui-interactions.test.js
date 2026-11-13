@@ -60,11 +60,35 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
     }
   }
 
+  async function openTaskFilters(page) {
+    const trigger=page.locator('[data-task-filters-open]');
+    if(await trigger.count()) {
+      if(!await page.locator('[data-surface-key="task-filters"]').isVisible()) await trigger.click();
+      await page.locator('[data-surface-key="task-filters"]').waitFor({state:'visible'});
+    }
+  }
+  async function closeTaskFilters(page) {
+    await page.evaluate(()=>window.DailySpaceTaskPlanning?.closeFilters());
+    const surface=page.locator('[data-surface-key="task-filters"]');
+    if(await surface.count()) await surface.waitFor({state:'hidden'});
+  }
+  async function clickTaskFilter(page, selector) {
+    await openTaskFilters(page); await page.locator(selector).click(); await closeTaskFilters(page);
+  }
+  async function openWorkbenchTools(page) {
+    const trigger=page.locator('[data-workbench-tools-trigger]');
+    if(await trigger.getAttribute('aria-expanded')!=='true') await trigger.click();
+    await page.locator('#workbench-tools-content').waitFor({state:'visible'});
+  }
+  async function openTemplates(page) {
+    await openWorkbenchTools(page); await page.getByRole('button',{name:'Templates',exact:true}).click();
+  }
   async function selectTaskRange(page, value) {
-    const button = page.locator(`[data-task-range="${value}"]`);
-    const disclosure = button.locator("xpath=ancestor::details[1]");
-    if (await disclosure.count() && !await button.isVisible()) await disclosure.locator("summary").click();
-    await button.click();
+    await openTaskFilters(page);
+    const button=page.locator(`[data-task-range="${value}"]`);
+    const disclosure=button.locator('xpath=ancestor::details[1]');
+    if(await disclosure.count() && !await button.isVisible()) await disclosure.locator('summary').click();
+    await button.click(); await closeTaskFilters(page);
   }
 
   await t.test("save feedback keeps task positions stable and the day range returns to the chosen date", async () => {
@@ -78,7 +102,7 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
     assert.ok((await page.locator('.workspace-save-status').textContent()).includes('Saved on this device'));
     assert.ok(Math.abs((await page.locator('#todo-list [data-id="b"]').boundingBox()).y - before.y) < 1, 'First save does not push down the task list');
     const future = await page.evaluate(() => { const date = new Date(); date.setDate(date.getDate() + 3); return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`; });
-    await page.locator('#m-task-view-toggle').tap(); await page.locator('#m-task-view-date').fill(future); await page.locator('#m-task-view-date').dispatchEvent('change');
+    await openTaskFilters(page); await page.locator('#m-task-view-date').fill(future); await page.locator('#m-task-view-date').dispatchEvent('change');
     await selectTaskRange(page, 'week'); await selectTaskRange(page, 'day');
     assert.equal(await page.evaluate(() => window.DailySpaceTodo.getView().day), future);
     await page.locator('#m-add-task').tap(); assert.equal(await page.locator('#m-task-date').inputValue(), future);
@@ -245,11 +269,12 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
       const day = new Date(); day.setDate(day.getDate() + offset);
       return `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
     }));
-    await page.locator("#m-task-view-toggle").click();
+    await openTaskFilters(page);
     await page.locator("#m-task-view-date").fill(days[1]);
     await page.locator("#m-task-view-date").dispatchEvent("change");
-    await page.locator("#m-task-view-toggle").click(); await page.keyboard.press("Escape");
-    assert.equal(await page.locator("#m-task-view-picker").evaluate(node => node.open), false);
+    await page.keyboard.press("Escape");
+    await page.locator('[data-surface-key="task-filters"]').waitFor({state:"hidden"});
+    assert.equal(await page.locator('[data-task-filters-open]').getAttribute("aria-expanded"), "false");
     assert.equal(await page.evaluate(() => window.DailySpaceTodo.getView().day), days[1], "Escape closes the date choices without resetting the selected day");
     await page.locator("#m-add-task").click();
     assert.equal(await page.locator("#m-task-date").inputValue(), days[1]);
@@ -325,7 +350,9 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
     await page.route("https://**/*", route => route.abort());
     await page.route("**/api/user/snapshot", route => route.fulfill({ contentType: "application/json", body: JSON.stringify({ payload: {}, revision: 0 }) }));
     await page.goto(`${base}/todo-m.html`, { waitUntil: "load" });
-    await selectTaskRange(page, "week"); await page.locator("#m-filter-completed").click();
+    await selectTaskRange(page, "week"); await clickTaskFilter(page,"#m-filter-completed");
+    assert.equal(await page.evaluate(() => window.DailySpaceTodo.getView().range), "week", "Changing status and closing Filter preserves the date range");
+    assert.equal(await page.evaluate(() => window.DailySpaceTodo.getView().filter), "completed");
     await page.locator("#m-add-task").click(); await page.locator("#m-task-title").fill("Guest private draft");
     await page.evaluate(() => {
       localStorage.setItem("daily-space-auth-v1", JSON.stringify({ provider: "Google", label: "Reader A", email: "reader-a@example.test" }));
@@ -829,7 +856,7 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
     const data = await status.json(); assert.equal(data.modelVerified,false); assert.equal(data.connection, data.configured ? 'unverified' : 'unconfigured');
   });
 
-  await t.test("late Agent replies do not steal focus after Back closes the dialog", async () => {
+  await t.test("Back cancels a pending Agent reply and retains the message without stealing focus", async () => {
     const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
     await page.route("**/api/agent/status", route => route.fulfill({ contentType: "application/json", body: JSON.stringify({ configured: true }) }));
     let answer, markRequested;
@@ -843,7 +870,9 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
     await page.waitForFunction(() => document.body.dataset.agentConfigured === "1");
     await page.locator(".todo-agent-input").fill("A question"); await page.locator(".todo-agent-send").click(); await requested;
     await page.goBack(); await page.locator("#todo-agent-overlay").waitFor({ state: "hidden" });
-    await answer(); await page.waitForFunction(() => document.querySelector("#todo-agent-messages").textContent.includes("Finished later"));
+    await answer(); await page.waitForFunction(() => document.querySelector("#todo-agent-messages").textContent.includes("Cancelled"));
+    assert.equal(await page.locator('#todo-agent-messages').textContent().then(text => text.includes('Finished later')), false);
+    assert.equal(await page.locator('.todo-agent-input').inputValue(), 'A question');
     assert.equal(await page.locator("[data-workspace-agent]").evaluate(node => node === document.activeElement), true);
     assert.equal(await page.locator("#todo-agent-overlay").isVisible(), false);
   });
@@ -901,7 +930,7 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
     await page.goto(`${base}/todo.html`, { waitUntil: "load" });
     assert.equal(await page.evaluate(() => scrollY), 0, "Opening Today keeps the page title in view");
     assert.equal(await page.locator("#todo-input").evaluate(node => node === document.activeElement), false, "The composer only takes focus after user action");
-    await page.locator('.filter-btn[data-filter="active"]').click();
+    await clickTaskFilter(page,'.filter-btn[data-filter="active"]');
     await page.locator('#todo-list [data-id="c"]').evaluate(node => { window.unchanged = node; });
     await page.locator('#todo-list [data-id="a"] .todo-check').click();
     await page.locator('#todo-list [data-id="a"]').waitFor({ state: "detached" });
@@ -1054,9 +1083,11 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
     await page.locator(".undo-bar-action").click();
     assert.equal(await page.locator('#todo-list [data-id="b"]').count(), 1);
     await page.locator('#todo-list [data-id="b"] .todo-check').click();
+    await openTaskFilters(page);
     assert.ok(!(await page.locator("#clear-completed").isVisible()));
     await page.locator("#m-filter-completed").click();
     assert.ok(await page.locator("#clear-completed").isVisible());
+    await closeTaskFilters(page);
     assert.equal(await page.locator('#todo-list [data-id="b"]').count(), 1);
     await page.goto(`${base}/calendar.html`, { waitUntil: "load" });
     await page.goto(`${base}/todo-m.html`, { waitUntil: "load" });
@@ -1210,10 +1241,14 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
     for (const width of [360, 390, 768]) {
       const page = await pageFor({ viewport: { width, height: 844 }, isMobile: true, hasTouch: true });
       await page.goto(`${base}/todo-m.html`, { waitUntil: "load" });
-      for (const selector of ["#todo-list .todo-check-target", "#m-filter-active", "#m-add-task"]) {
+      for (const selector of ["#todo-list .todo-check-target", "#m-add-task"]) {
         const rect = await page.locator(selector).first().boundingBox();
         assert.ok(rect.width >= 44 && rect.height >= 44, `${selector} at ${width}px`);
       }
+      await openTaskFilters(page);
+      const filterRect=await page.locator('#m-filter-active').boundingBox();
+      assert.ok(filterRect.width>=44&&filterRect.height>=44,`Status filter at ${width}px`);
+      await closeTaskFilters(page);
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `${width}px overflow`);
       assert.equal(await page.locator('#todo-list [contenteditable="true"]').count(), 0);
       await page.locator("#m-add-task").click();
@@ -1244,7 +1279,7 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
   await t.test("reduced-motion preference removes task entry and completion animations", async () => {
     const page = await pageFor({ reducedMotion: "reduce" });
     await page.goto(`${base}/todo.html`, { waitUntil: "load" });
-    await page.locator('.filter-btn[data-filter="active"]').click();
+    await clickTaskFilter(page,'.filter-btn[data-filter="active"]');
     await page.locator("#todo-input").fill("Quiet task");
     await page.locator("#todo-input").press("Enter");
     const task = page.locator("#todo-list .todo-item").filter({ hasText: "Quiet task" });
@@ -1602,7 +1637,10 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
     const input = await page.locator("#todo-input").boundingBox();
     const first = await page.locator("#todo-list .todo-item").first().boundingBox();
     assert.ok(input.y < 600 && first.y + first.height < 740, JSON.stringify({ input, first }));
-    assert.equal(await page.locator(".today-list-actions .workspace-task-shortcuts button").isVisible(), true);
+    await openWorkbenchTools(page);
+    assert.ok(await page.getByRole("button",{name:"Templates",exact:true}).isVisible());
+    await page.keyboard.press("Escape");
+    await page.locator("#workbench-tools-content").waitFor({state:"hidden"});
     assert.equal(await page.locator(".today-list-actions #task-select-mode").isVisible(), true);
     await page.locator("#todo-input").fill("Capture stays available");
     await page.locator("#add-form").evaluate(form => form.requestSubmit());
@@ -2372,31 +2410,32 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
     const page=await pageFor({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
     await page.goto(`${base}/todo-m.html`,{waitUntil:'load'});
     assert.equal(await page.locator('.task-selection-head .workspace-task-shortcuts').count(),0);
-    assert.equal(await page.locator('.m-add-bar .workspace-task-shortcuts button').count(),1);
-    await page.locator('.workspace-task-shortcuts button').first().click();
+    assert.equal(await page.locator('.m-add-bar .workspace-task-shortcuts button').count(),0,'Templates is secondary inside Tools');
+    assert.equal(await page.locator('.m-add-bar #m-add-task').count(),1,'Only New task stays in the bottom action area');
+    await openTemplates(page);
     await page.locator('[data-template-id=builtin-review]').click();
     assert.equal(await page.locator('[data-template-id=builtin-review]').getAttribute('aria-pressed'),'true');
     assert.equal(await page.locator('[data-template-id=builtin-focus]').getAttribute('aria-pressed'),'false');
-    assert.equal(await page.locator('.workspace-tool-footer button').count(),1);
-    await page.locator('.workspace-tool-body input[type=date]').fill('2026-12-31');
-    await trapped(page,'.workspace-tool-panel');
+    assert.equal(await page.locator('#workspace-tools-sheet .workspace-tool-footer button').count(),1);
+    await page.locator('#workspace-tools-sheet .workspace-tool-body input[type=date]').fill('2026-12-31');
+    await trapped(page,'#workspace-tools-sheet .workspace-tool-panel');
     await captureMail(page,'templates-390-light.png');
-    await page.locator('.workspace-tool-footer .btn-primary').click();
+    await page.locator('#workspace-tools-sheet .workspace-tool-footer .btn-primary').click();
     const created=await page.evaluate(()=>window.DailySpaceTodo.getTasks().find(task=>task.text==='Review the week'));
     assert.equal(created.dueDate,'2026-12-31');assert.equal(created.subtasks.length,3);assert.equal(created.subtasks.every(task=>!task.completed),true);
     await page.locator('#undo-bar button').click();assert.equal(await page.evaluate(()=>window.DailySpaceTodo.getTasks().length),3);
     await page.evaluate(()=>window.DailySpaceTodo.selectDueDay(new Date().toISOString().slice(0,10)));
     await page.locator('#task-select-mode').click();await page.locator('#task-select-all').click();await page.locator('.task-batch-options summary').click();await page.locator('[data-save-template]').click();
     await page.locator('[data-template-name]').fill('Morning routine');
-    await page.goBack();await page.locator('.workspace-tool-sheet').waitFor({state:'hidden'});
+    await page.goBack();await page.locator('#workspace-tools-sheet').waitFor({state:'hidden'});
     await page.locator('[data-save-template]').click();assert.equal(await page.locator('[data-template-name]').inputValue(),'Morning routine');
-    await page.locator('.workspace-tool-footer .btn-primary').click();
+    await page.locator('#workspace-tools-sheet .workspace-tool-footer .btn-primary').click();
     const templates=await page.evaluate(()=>JSON.parse(localStorage.getItem('task-templates-v1')).templates);assert.equal(templates.length,1);assert.equal(templates[0].items.length,3);
-    await page.locator(`[data-template-id="${templates[0].id}"]`).click();await page.locator('.workspace-tool-footer .btn-primary').click();
+    await page.locator(`[data-template-id="${templates[0].id}"]`).click();await page.locator('#workspace-tools-sheet .workspace-tool-footer .btn-primary').click();
     assert.equal(await page.evaluate(()=>window.DailySpaceTodo.getTasks().length),6);
-    await page.locator('.workspace-task-shortcuts button').first().click();
+    await openTemplates(page);
     await page.locator(`[data-template-id="${templates[0].id}"]`).locator('..').locator('button').last().click();
-    await page.locator('.workspace-tool-sheet').waitFor({state:'hidden'});assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('task-templates-v1')).templates.length),0);
+    await page.locator('#workspace-tools-sheet').waitFor({state:'hidden'});assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('task-templates-v1')).templates.length),0);
     await page.locator('#undo-bar button').click();assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('task-templates-v1')).templates.length),1);
     await page.evaluate(()=>{window.DailySpaceUndo.offer('Private undo',()=>{window.wrongIdentityUndo=true;});window.dispatchEvent(new Event('daily-space-auth-updated'));});
     assert.equal(await page.locator('#undo-bar').isVisible(),false);assert.equal(await page.evaluate(()=>window.wrongIdentityUndo),undefined);
@@ -2415,9 +2454,9 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
     await page.locator('#workspace-import-file').setInputFiles(file);await page.locator('#workspace-import-preview').getByText(/existing kept/).waitFor();assert.equal(await page.locator('#workspace-import-apply').isDisabled(),true);
     const another={...file,buffer:Buffer.from('text,dueDate\nAnother task,2026-10-14')};await page.locator('#workspace-import-file').setInputFiles(another);await page.locator('#workspace-import-apply:not([disabled])').waitFor();
     await page.evaluate(()=>window.DailySpaceTodo.saveTask({text:'Edited while previewing',dueDate:new Date().toISOString().slice(0,10)},'a'));
-    await page.locator('#workspace-import-apply').click();assert.ok((await page.locator('.workspace-tool-status').textContent()).includes('changed'));assert.equal(await page.evaluate(()=>window.DailySpaceTodo.getTasks().some(task=>task.text==='Another task')),false);
-    await page.locator('#workspace-import-file').setInputFiles({...file,buffer:Buffer.from('text,dueDate\nBad date,2026-02-30')});await page.locator('.workspace-tool-status').getByText(/Invalid date/).waitFor();assert.equal(await page.locator('#workspace-import-apply').isDisabled(),true);assert.deepEqual(remote,[]);
-    await page.setViewportSize({width:320,height:420});const save=await page.locator('#workspace-import-apply').boundingBox();assert.ok(save.y+save.height<=420);await trapped(page,'.workspace-tool-panel');
+    await page.locator('#workspace-import-apply').click();assert.ok((await page.locator('#workspace-tools-sheet .workspace-tool-status').textContent()).includes('changed'));assert.equal(await page.evaluate(()=>window.DailySpaceTodo.getTasks().some(task=>task.text==='Another task')),false);
+    await page.locator('#workspace-import-file').setInputFiles({...file,buffer:Buffer.from('text,dueDate\nBad date,2026-02-30')});await page.locator('#workspace-tools-sheet .workspace-tool-status').getByText(/Invalid date/).waitFor();assert.equal(await page.locator('#workspace-import-apply').isDisabled(),true);assert.deepEqual(remote,[]);
+    await page.setViewportSize({width:320,height:420});const save=await page.locator('#workspace-import-apply').boundingBox();assert.ok(save.y+save.height<=420);await trapped(page,'#workspace-tools-sheet .workspace-tool-panel');
   });
 
   await t.test("travel costs use saved exchange rates, persist budget and link capture back to the trip", async () => {
