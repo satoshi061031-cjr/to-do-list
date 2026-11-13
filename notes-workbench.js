@@ -2,6 +2,8 @@
 (function () {
   function boot() {
     const Core = window.DailySpaceNotesCore;
+    const standalone = document.body.classList.contains('notes-page');
+    const Tasks = window.DailySpaceTodo || window.DailySpacePageTasks;
     if (!Core || !window.DailySpaceDialogHistory) return;
     const t = (en, zh) => window.DailySpaceI18n?.t(en, zh) || en;
     const owner = () => String(window.DailySpaceView?.owner() || 'guest').toLowerCase();
@@ -53,13 +55,24 @@
     const closeButton = action('×', () => close()); closeButton.dataset.dialogClose = ''; closeButton.setAttribute('aria-label', t('Close notes', '关闭笔记'));
     header.append(heading, closeButton);
     const content = node('div', '', 'notes-body'), status = node('p', '', 'notes-status'); status.setAttribute('role', 'status');
-    panel.append(header, content, status); root.append(backdrop, panel); document.body.append(root);
-    const motion = window.DailySpaceDialogHistory.motion(root);
-    const historyController = window.DailySpaceDialogHistory.create('notes', { isOpen: () => !root.hidden && !motion.closing,
+    panel.append(header, content, status); root.append(backdrop, panel);
+    (standalone ? document.getElementById('notes-page-content') : document.body).append(root);
+    if (standalone) { delete root.dataset.dialogRoot; delete closeButton.dataset.dialogClose; panel.setAttribute('role', 'region'); panel.removeAttribute('aria-modal'); }
+    const motion = standalone ? { closing: false, open() { root.hidden = false; }, close(done) { root.hidden = true; done?.(); } } : window.DailySpaceDialogHistory.motion(root);
+    const historyController = standalone ? {
+      push(data) {
+        const url = new URL(location.href); url.search = '';
+        if (data.mode !== 'list') { if (data.id) url.searchParams.set('id', data.id); else url.searchParams.set('new', '1'); }
+        const sameView = history.state?.notesPage?.mode === data.mode;
+        history[sameView ? 'replaceState' : 'pushState']({ ...history.state, notesPage: data }, '', url);
+        return true;
+      }, back() { open(null, { list: true }); },
+    } : window.DailySpaceDialogHistory.create('notes', { isOpen: () => !root.hidden && !motion.closing,
       restore: data => open(data.id || null, { list: data.mode === 'list', push: false }), close: () => close(true) });
-    window.DailySpaceDialogHistory.fitViewport(root);
+    if (!standalone) window.DailySpaceDialogHistory.fitViewport(root);
     let activeOwner = '', activeId = null, workingId = '', baseline = '', form = null, draftKey = '', mode = 'list', formLinks = [], composing = false, trigger = null, query = '';
-    let relationQueued = false;
+    let relationQueued = false, pageOwner = null, listSignature = '';
+    const listVersion = () => JSON.stringify([owner(), read().notes, t('Notes', '笔记')]);
     const draftName = id => `dayfly-note-draft:${owner()}:${id || 'new'}`;
     const active = () => !root.hidden && !motion.closing && ready() && owner() === activeOwner;
     function message(value, tone = value && typeof value === 'object' && value.message ? 'error' : 'info') {
@@ -76,13 +89,14 @@
     }
     function close(fromHistory = false, immediate = false) {
       if (!root.hidden && !motion.closing) stash();
+      if (standalone && !fromHistory) { open(null, { list: true }); return; }
       motion.close(() => { if (trigger?.isConnected) trigger.focus({ preventScroll: true }); }, immediate);
       if (!fromHistory) historyController.back();
     }
     function open(id = null, options = {}) {
       if (!ready()) return false;
       if (!root.hidden && owner() === activeOwner) stash();
-      activeOwner = owner(); trigger = document.activeElement; status.textContent = '';
+      activeOwner = owner(); if (standalone) pageOwner = activeOwner; trigger = document.activeElement; status.textContent = '';
       const nextMode = options.list ? 'list' : 'edit';
       if (options.push !== false && !historyController.push({ mode: nextMode, id })) return false;
       motion.open();
@@ -91,7 +105,8 @@
       return true;
     }
     function showList() {
-      mode = 'list'; form = null; activeId = null; draftKey = ''; heading.textContent = t('Notes', '笔记'); content.replaceChildren();
+      listSignature = listVersion();
+      mode = 'list'; root.dataset.noteView = mode; form = null; activeId = null; draftKey = ''; heading.textContent = t('Notes', '笔记'); content.replaceChildren();
       panel.querySelector('.notes-footer')?.remove();
       content.className = 'notes-body';
       const controls = node('div', '', 'notes-controls'), search = node('input'); search.type = 'search'; search.placeholder = t('Search notes or tags', '搜索笔记或标签'); search.setAttribute('aria-label', search.placeholder); search.value = query;
@@ -108,12 +123,12 @@
       };
       search.addEventListener('input', () => { query = search.value; render(); });
       const create = action(t('New note', '新建笔记'), () => open()); create.dataset.noteNew = '';
-      controls.append(search, create); content.append(controls, list); render(); search.focus({ preventScroll: true });
+      controls.append(search, create); content.append(controls, list); render(); if (!standalone) search.focus({ preventScroll: true });
     }
     function showEditor(id, initialLink) {
       const state = read(), stored = id ? state.notes.find(note => note.id === id) : null;
       if (id && !stored) { showList(); message(t('This note is no longer available.', '这篇笔记已不存在。')); return; }
-      mode = 'edit'; activeId = id; draftKey = draftName(id); baseline = JSON.stringify(stored);
+      mode = 'edit'; root.dataset.noteView = mode; activeId = id; draftKey = draftName(id); baseline = JSON.stringify(stored);
       let draft = null; try { draft = parse(draftKey); } catch (_) {}
       const value = draft || stored || { title: '', body: '', tags: [], links: initialLink ? [initialLink] : [] };
       workingId = stored?.id || Core.normalizeNote({ ...value, title: value.title || 'draft' })?.id || crypto.randomUUID();
@@ -220,16 +235,17 @@
     }
     function createTask() {
       const note = saveEditor(); if (!note) return;
-      if (!window.DailySpaceTodo?.saveTask) { location.href = `todo.html?focus=note&id=${encodeURIComponent(note.id)}`; return; }
+      if (!Tasks?.saveTask) { location.href = `todo.html?focus=note&id=${encodeURIComponent(note.id)}`; return; }
       try {
-        const tasks = window.DailySpaceTodo.getTasks();
+        const tasks = Tasks.getTasks();
         const existing = note.links.find(link => link.type === 'todo' && tasks.some(task => task.id === link.id));
         if (existing) { message(t('This note already links to a task. Open it from Related items.', '这篇笔记已有任务，请从关联条目打开。')); return; }
-        const noteUrl = new URL(`todo.html?focus=note&id=${encodeURIComponent(note.id)}`, location.href).href;
+        const noteUrl = new URL(`notes.html?id=${encodeURIComponent(note.id)}`, location.href).href;
         // A previous task save can have succeeded while its note link failed.
         // Recover that relation on retry instead of creating another task.
-        const task = tasks.find(item => item.sourceUrl === noteUrl || String(item.notes || '').includes(noteUrl)) ||
-          window.DailySpaceTodo.saveTask({ text: note.title, notes: `${note.body.slice(0, 9500)}\n\n${t('Source note', '来源笔记')}: ${noteUrl}`, sourceUrl: noteUrl, inbox: true, dueDate: null, dueTime: null, categoryId: null, repeat: null });
+        const legacyUrl = new URL(`todo.html?focus=note&id=${encodeURIComponent(note.id)}`, location.href).href;
+        const task = tasks.find(item => [noteUrl, legacyUrl].some(url => item.sourceUrl === url || String(item.notes || '').includes(url))) ||
+          Tasks.saveTask({ text: note.title, notes: `${note.body.slice(0, 9500)}\n\n${t('Source note', '来源笔记')}: ${noteUrl}`, sourceUrl: noteUrl, inbox: true, dueDate: null, dueTime: null, categoryId: null, repeat: null });
         if (!task?.id) throw new Error(t('The task could not be created.', '任务未能创建。'));
         const next = write(Core.upsert(read(), { ...note, links: [...note.links, { type: 'todo', id: task.id }] }));
         const updated = next.notes.find(item => item.id === note.id);
@@ -276,27 +292,42 @@
     const api = { ready, open, list: () => read().notes, forEntity: (entity, id) => Core.forEntity(read(), typeof entity === 'string' ? { type: entity, id } : entity),
       context: selectedContext, selectedContext, select: selectNote, read, save: input => { const next = write(Core.upsert(read(), input)); return next.notes.find(note => note.id === input.id); } };
     window.DailySpaceNotes = api;
-    const mainAnchor = document.querySelector('.workspace-task-shortcuts, .today-list-actions, .m-task-controls');
-    const launch = node('div', '', 'notes-launch'), launcher = action(t('Notes', '笔记'), () => open(null, { list: true })); launcher.dataset.notesOpen = ''; launch.append(launcher);
-    if (mainAnchor) mainAnchor.append(launch);
-    else if (document.querySelector('main [data-page-header]')) document.querySelector('main [data-page-header]').after(launch);
-    else if (document.querySelector('[data-page-header]')) document.querySelector('[data-page-header]').after(launch);
     function refresh() {
-      launcher.disabled = !ready();
+      if (standalone) { document.getElementById('toolbox-title').textContent = t('Notes', '笔记'); document.getElementById('toolbox-description').textContent = t('Ideas and references, connected to your work.', '记录想法与资料，连接日常工作。'); document.title = `${t('Notes', '笔记')} · dayfly`; }
       if (!root.hidden && (!ready() || owner() !== activeOwner)) { draftKey = ''; form = null; close(true, true); }
-      if (active() && mode === 'list') { try { showList(); } catch (error) { message(error); } }
+      if (standalone && pageOwner && owner() !== pageOwner) { history.replaceState({ ...history.state, notesPage: { mode: 'list' } }, '', 'notes.html'); pageOwner = owner(); }
+      if (standalone && root.hidden && ready()) openFromUrl();
+      if (active() && mode === 'list') {
+        try {
+          if (listSignature !== listVersion()) {
+            const focused = document.activeElement, search = content.querySelector('input[type=search]');
+            const selection = focused === search ? [search.selectionStart, search.selectionEnd] : null;
+            const noteId = focused?.dataset.noteId, creating = focused?.hasAttribute('data-note-new');
+            showList();
+            if (selection) { const next = content.querySelector('input[type=search]'); next.focus({ preventScroll: true }); next.setSelectionRange(...selection); }
+            else if (noteId) content.querySelector(`[data-note-id="${CSS.escape(noteId)}"]`)?.focus({ preventScroll: true });
+            else if (creating) content.querySelector('[data-note-new]')?.focus({ preventScroll: true });
+          }
+        } catch (error) { message(error); }
+      }
       queueRelations();
     }
-    for (const event of ['daily-space-notes-updated', 'daily-space-agent-data-updated', 'daily-space-user-sync-updated', 'daily-space-travel-view-updated', 'storage', 'popstate']) window.addEventListener(event, refresh);
+    for (const event of ['daily-space-notes-updated', 'daily-space-agent-data-updated', 'daily-space-user-sync-updated', 'daily-space-travel-view-updated', 'storage']) window.addEventListener(event, refresh);
     window.addEventListener('daily-space-auth-updated', () => { draftKey = ''; form = null; activeOwner = ''; close(true, true); refresh(); });
-    window.addEventListener('daily-space-locale-changed', () => { launcher.textContent = t('Notes', '笔记'); if (!root.hidden) close(); queueRelations(); });
+    window.addEventListener('daily-space-locale-changed', () => { if (!root.hidden) { if (standalone) { stash(); refresh(); openFromUrl(); } else close(); } queueRelations(); });
     window.addEventListener('pagehide', stash);
     new MutationObserver(queueRelations).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['hidden', 'class'] });
+    function openFromUrl() {
+      const params = new URLSearchParams(location.search);
+      open(params.get('id'), { list: !params.has('id') && !params.has('new'), push: false });
+    }
+    window.addEventListener('popstate', () => { if (standalone) openFromUrl(); else refresh(); });
+    if (standalone) { const params = new URLSearchParams(location.search); history.replaceState({ ...history.state, notesPage: { mode: params.has('id') || params.has('new') ? 'edit' : 'list', id: params.get('id') } }, '', location.href); }
     refresh();
     const target = new URLSearchParams(location.search);
     let targetOpened = false;
     function openTarget() {
-      if (targetOpened || target.get('focus') !== 'note' || !ready()) return;
+      if (standalone || targetOpened || target.get('focus') !== 'note' || !ready()) return;
       targetOpened = true; open((target.get('id') || '').slice(0, 120));
     }
     openTarget(); window.addEventListener('daily-space-user-sync-updated', openTarget);

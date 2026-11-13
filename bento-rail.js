@@ -15,6 +15,8 @@
       '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 7 9-7"/></svg>',
     tally:
       '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 19V5M4 19h16"/><path d="M8 16v-4M12 16V8M16 16v-6"/></svg>',
+    tools:
+      '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>',
     menu:
       '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h16M4 12h10M4 17h14"/><circle cx="18" cy="12" r="1.5" fill="currentColor" stroke="none"/></svg>',
   };
@@ -38,6 +40,7 @@
     { id: "planner", href: "planner.html", title: "Projects", icon: ICON.planner },
     { id: "mail", href: "mail.html", title: "Mail", icon: ICON.mail },
     { id: "tally", href: "tally.html", title: "Tally book", icon: ICON.tally },
+    { id: "tools", href: "tools.html", title: "Toolbox", icon: ICON.tools },
   ];
 
   const MOBILE_LINKS = [
@@ -57,12 +60,13 @@
   function railPagesKey() {
     return `${isNarrow() ? "m" : "d"}:${navLinks()
       .map((item) => item.id)
-      .join(",")}|v4`;
+      .join(",")}|v5`;
   }
 
   function pageId() {
     const path = (location.pathname || "").toLowerCase();
     const file = path.split("/").pop() || "";
+    if (/^(tools|notes|review)\.html$/.test(file)) return "tools";
     if (file.includes("calendar")) return "calendar";
     if (file.includes("planner")) return "planner";
     if (file.includes("mail")) return "mail";
@@ -201,7 +205,7 @@
     const trigger = document.getElementById("sidebar-trigger");
     const menuBtn = document.getElementById("bento-menu-toggle");
     if (trigger) trigger.setAttribute("aria-expanded", expanded);
-    if (menuBtn) menuBtn.setAttribute("aria-expanded", expanded);
+    if (menuBtn instanceof HTMLButtonElement) menuBtn.setAttribute("aria-expanded", expanded);
   }
 
   function setSidebarOpen(open) {
@@ -246,7 +250,7 @@
       })
       .join("");
     const title = menuTitle();
-    const menuBtn =
+    const menuBtn = isNarrow() ? `<a href="tools.html" class="bento-rail-link" id="bento-menu-toggle" data-rail-page="tools" title="More">${ICON.menu}<span class="bento-rail-sr">More</span></a>` :
       `<button type="button" class="bento-rail-link" id="bento-menu-toggle" aria-controls="sidebar" aria-expanded="false" title="${title}">` +
       ICON.menu +
       `<span class="bento-rail-sr">${title}</span></button>`;
@@ -546,7 +550,7 @@
     wireDockGesture(rail.querySelector(".bento-rail-nav"));
 
     const menuBtn = document.getElementById("bento-menu-toggle");
-    if (menuBtn && !menuBtn.dataset.railWired) {
+    if (menuBtn instanceof HTMLButtonElement && !menuBtn.dataset.railWired) {
       menuBtn.dataset.railWired = "1";
       menuBtn.addEventListener("click", (event) => {
         event.preventDefault();
@@ -611,7 +615,7 @@
       wireDockGesture(nav);
     }
     const menuBtn = document.getElementById("bento-menu-toggle");
-    if (menuBtn && !menuBtn.dataset.railWired) {
+    if (menuBtn instanceof HTMLButtonElement && !menuBtn.dataset.railWired) {
       menuBtn.dataset.railWired = "1";
       menuBtn.addEventListener("click", (event) => {
         event.preventDefault();

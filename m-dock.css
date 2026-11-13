@@ -244,3 +244,8 @@
     display: none;
   }
 }
+
+@media (min-width: 820px) {
+  .bento-rail-link[data-rail-page=tools] { flex-direction: column; gap: var(--space-xs); min-height: 60px; }
+  .bento-rail-link[data-rail-page=tools] .bento-rail-sr { position: static; width: auto; height: auto; clip: auto; clip-path: none; overflow: visible; white-space: nowrap; font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+}

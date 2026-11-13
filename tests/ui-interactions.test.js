@@ -75,14 +75,8 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
   async function clickTaskFilter(page, selector) {
     await openTaskFilters(page); await page.locator(selector).click(); await closeTaskFilters(page);
   }
-  async function openWorkbenchTools(page) {
-    const trigger=page.locator('[data-workbench-tools-trigger]');
-    if(await trigger.getAttribute('aria-expanded')!=='true') await trigger.click();
-    await page.locator('#workbench-tools-content').waitFor({state:'visible'});
-  }
-  async function openTemplates(page) {
-    await openWorkbenchTools(page); await page.getByRole('button',{name:'Templates',exact:true}).click();
-  }
+  // Template workflow regressions use the existing API; Toolbox and creation entry clicks have dedicated route tests.
+  async function openTemplates(page) { await page.evaluate(() => window.DailySpaceWorkspaceTools.openTemplates()); }
   async function selectTaskRange(page, value) {
     await openTaskFilters(page);
     const button=page.locator(`[data-task-range="${value}"]`);
@@ -155,10 +149,11 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
     assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('todo-app-v2')).todos.find(task => task.id === 'a').completed), true);
     for (const width of [390,320]) {
       await page.setViewportSize({width,height:844}); await page.locator('#bento-menu-toggle').tap();
-      const links = page.locator('#sidebar .sidebar-page-link:visible, #sidebar .sidebar-more-summary:visible');
+      await page.waitForURL('**/tools.html');
+      const links = page.locator('.toolbox-card');
       assert.ok(await links.count());
       for (const link of await links.all()) { const box = await link.boundingBox(); assert.ok(box.height >= 44 && box.width >= 44, `${await link.textContent()}: ${JSON.stringify(box)}`); }
-      await page.keyboard.press('Escape');
+      await page.goBack();await page.waitForURL('**/calendar.html');
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     }
   });
@@ -169,12 +164,12 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
     await page.goto(`${base}/todo-m.html`, { waitUntil: "load" });
     const initialBackground = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
     await page.locator("#bento-menu-toggle").tap();
-    const toggle = page.locator("#sidebar-chrome #theme-toggle");
+    const toggle = page.locator("[data-toolbox-theme]");
     await toggle.tap();
     await page.waitForFunction(() => document.documentElement.dataset.theme === "dark");
     assert.equal(await page.evaluate(() => localStorage.getItem("todo-theme")), "dark");
     assert.equal(await toggle.getAttribute("aria-pressed"), "true");
-    assert.equal(await toggle.locator(".theme-toggle-label").textContent(), "Light");
+    assert.equal(await toggle.textContent(), "Dark appearance");
     assert.notEqual(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), initialBackground);
     await toggle.tap();
     assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), "light");
@@ -187,7 +182,7 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
       assert.equal(await page.locator("#theme-toggle").count(), 1, file);
       await page.locator("#bento-menu-toggle").tap();
       assert.equal(await toggle.getAttribute("aria-pressed"), "true", file);
-      assert.equal(await toggle.locator(".theme-toggle-label").textContent(), "Light", file);
+      assert.equal(await toggle.textContent(), "Dark appearance", file);
       await toggle.tap();
       assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), "light", file);
       await toggle.tap();
@@ -197,7 +192,7 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
     assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), "dark");
     await page.locator("#bento-menu-toggle").tap();
     assert.equal(await toggle.getAttribute("aria-pressed"), "true");
-    assert.equal(await toggle.locator(".theme-toggle-label").textContent(), "Light");
+    assert.equal(await toggle.textContent(), "Dark appearance");
     await page.keyboard.press("Escape");
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto(`${base}/todo.html?device=desktop`, { waitUntil: "load" });
@@ -206,8 +201,7 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
     await desktopToggle.click();
     assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), "light");
     await page.setViewportSize({ width: 390, height: 844 });
-    await toggle.waitFor({ state: "attached" });
-    await page.locator("#bento-menu-toggle").tap();
+        await page.locator("#bento-menu-toggle").tap();
     await toggle.tap();
     assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), "dark");
   });
@@ -895,7 +889,7 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
     assert.equal(signins.length, 0, "Guest must not start OAuth");
     assert.equal(await page.locator("[data-guest-signin]").count(), 1);
     await page.locator("#bento-menu-toggle").click();
-    await page.locator(".sidebar-auth-entry").click();
+    await page.locator("[data-toolbox-account]").click();
     await page.locator(".auth-modal").waitFor({ state: "visible" });
     assert.equal(await page.locator(".auth-modal [data-provider]").count(), 1);
     assert.equal(await page.locator(".auth-modal [data-provider]").getAttribute("data-provider"), "google");
@@ -904,11 +898,11 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
     assert.equal(await page.evaluate(() => localStorage.getItem("todo-app-v2")), saved);
     assert.equal(signins.length, 0);
     assert.equal(await page.evaluate(() => localStorage.getItem("daily-space-auth-v1")), null);
-    await page.locator(".sidebar-auth-entry").click();
+    await page.locator("[data-toolbox-account]").click();
     await page.locator('[data-provider="google"]').click();
     await page.waitForURL(/oauth-test=1/);
     assert.equal(signins.length, 1, "Google must still start OAuth");
-    assert.ok(signins[0].returnTo.includes("todo-m.html"));
+    assert.ok(signins[0].returnTo.includes("tools.html"));
     assert.equal(await page.evaluate(() => localStorage.getItem("todo-app-v2")), saved);
     await page.goto(`${base}/mail.html`, { waitUntil: "load" });
     assert.equal(await page.locator('[data-quick-provider="outlook"]').count(), 0);
@@ -1211,13 +1205,14 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
     assert.ok(page.url().includes("todo-m.html"), "vertical movement must not change page");
     const more = await dockCenter(page, "#bento-menu-toggle");
     await touchDock(page, from, more);
-    assert.equal(await page.locator("#bento-menu-toggle").getAttribute("aria-expanded"), "true");
-    assert.ok(await page.locator("#sidebar").isVisible());
-    await page.keyboard.press("Escape");
+    await page.waitForURL("**/tools.html");
+    assert.equal(await page.locator("#bento-menu-toggle").getAttribute("aria-current"), "page");
+    await page.goBack();
     await page.waitForFunction(() => document.querySelector('[data-rail-page="todo"]').hasAttribute("data-dock-active"));
     await page.locator("#bento-menu-toggle").focus();
     await page.keyboard.press("Enter");
-    assert.equal(await page.locator("#bento-menu-toggle").getAttribute("aria-expanded"), "true");
+    await page.waitForURL("**/tools.html");
+    assert.equal(await page.locator("#bento-menu-toggle").getAttribute("aria-current"), "page");
   });
 
   await t.test("dock gestures work with reduced motion and after resizing", async () => {
@@ -1593,9 +1588,8 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
       await page.keyboard.press("Escape");
       await page.locator("#todo-agent-overlay").waitFor({ state: "hidden" });
       await page.locator("#bento-menu-toggle").click();
-      await page.waitForFunction(() => document.body.classList.contains("sidebar-drawer-open"));
-      await page.keyboard.press("Escape");
-      await page.waitForFunction(() => !document.body.classList.contains("sidebar-drawer-open"));
+      await page.waitForURL("**/tools.html");await page.locator("[data-tool=notes]").waitFor();
+      await page.goBack();await page.waitForURL(/todo-m.html/);
     }
   });
 
@@ -1637,10 +1631,8 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
     const input = await page.locator("#todo-input").boundingBox();
     const first = await page.locator("#todo-list .todo-item").first().boundingBox();
     assert.ok(input.y < 600 && first.y + first.height < 740, JSON.stringify({ input, first }));
-    await openWorkbenchTools(page);
-    assert.ok(await page.getByRole("button",{name:"Templates",exact:true}).isVisible());
-    await page.keyboard.press("Escape");
-    await page.locator("#workbench-tools-content").waitFor({state:"hidden"});
+    assert.ok(await page.locator("#add-form").getByRole("button",{name:"Templates",exact:true}).isVisible());
+    assert.equal(await page.locator("[data-workbench-tools-trigger]").count(),0);
     assert.equal(await page.locator(".today-list-actions #task-select-mode").isVisible(), true);
     await page.locator("#todo-input").fill("Capture stays available");
     await page.locator("#add-form").evaluate(form => form.requestSubmit());
@@ -2445,7 +2437,7 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
   await t.test("file preview merges CSV safely, re-imports once and rejects stale or malformed data", async () => {
     const page=await pageFor({viewport:{width:390,height:844},isMobile:true,hasTouch:true});const remote=[];page.on('request',request=>{if(request.url().includes('/api/user/snapshot')&&request.method()==='PUT')remote.push(request.url());});
     await page.goto(`${base}/todo-m.html`,{waitUntil:'load'});
-    await page.locator('#bento-menu-toggle').click();await page.locator('.sidebar-auth-entry').click();await page.locator('.auth-data-tools').click();
+    await page.evaluate(()=>window.DailySpaceWorkspaceTools.open());
     await page.locator('#workspace-import-format').selectOption('todo');
     const file={name:'tasks.csv',mimeType:'text/csv',buffer:Buffer.from('text,dueDate,dueTime,category,notes\n"A new, useful task",2026-10-14,14:00,Work,"Two lines\nwith detail"')};
     await page.locator('#workspace-import-file').setInputFiles(file);await page.locator('#workspace-import-apply:not([disabled])').waitFor();

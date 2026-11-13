@@ -2067,9 +2067,11 @@
       { href: "planner.html", label: "Projects", match: /^planner\.html$/ },
       { href: "mail.html", label: "Mail", match: /^mail\.html$/ },
       { href: "tally.html", label: "Tally book", match: /^tally\.html$/ },
+      { href: "tools.html", label: "Toolbox", match: /^tools\.html$/ },
     ];
     const secondary = [
-      { href: "travel.html", label: "Travel", match: /^travel\.html$/ },
+      { href: "notes.html", label: "Notebook", match: /^notes\.html$/ },
+      { href: "review.html", label: "Weekly review", match: /^review\.html$/ },      { href: "travel.html", label: "Travel", match: /^travel\.html$/ },
       { href: "teamwork.html", label: "Teamwork", match: /^teamwork\.html$/ },
     ];
 

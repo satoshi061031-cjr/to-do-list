@@ -66,7 +66,7 @@ test('grouped search commands preserve records, safe entry flows and owner bound
  });
  await t.test('recent items re-resolve current records and workspace lock removes private results immediately',async()=>{
   const page=await pageFor();const root=await search(page,'Garden notes');await root.locator('[data-command-id="note:note-command"]').click();
-  await page.waitForURL('**/todo.html?focus=note&id=note-command');await page.locator('#notes-sheet').waitFor({state:'visible'});await page.goBack();await page.locator('#notes-sheet').waitFor({state:'hidden'});
+  await page.waitForURL('**/notes.html?focus=note&id=note-command');await page.locator('#notes-sheet').waitFor({state:'visible'});await page.goBack();await page.locator('#notes-sheet').waitFor({state:'hidden'});
   const recent=await search(page);assert.ok(await recent.locator('[data-command-group=recent][data-command-id="note:note-command"]').isVisible());
   await page.evaluate(()=>{const state=JSON.parse(localStorage.getItem('dayfly-notes-v1'));state.notes=[];localStorage.setItem('dayfly-notes-v1',JSON.stringify(state));window.dispatchEvent(new CustomEvent('daily-space-notes-updated'));});
   assert.equal(await recent.locator('[data-command-id="note:note-command"]').count(),0);

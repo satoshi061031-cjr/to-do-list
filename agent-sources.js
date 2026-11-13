@@ -16,7 +16,7 @@
       for (const item of value?.entries || []) add('card', item.id, item.title, 'planner.html', 'card', { board });
     }
     for (const item of context?.tally?.records || []) add('expense', item.id, `${item.date} · ${item.category} · ${item.amount}`, 'tally.html', 'expense');
-    for (const item of context?.notes || []) add('note', item.id, item.title, 'todo.html', 'note');
+    for (const item of context?.notes || []) add('note', item.id, item.title, 'notes.html', 'note');
     for (const item of context?.travel?.trips || []) add('trip', item.id, item.name, 'travel.html', 'trip');
     return result;
   }

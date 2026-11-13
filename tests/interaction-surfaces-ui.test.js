@@ -18,10 +18,10 @@ test('responsive surfaces and explicit sheet handles preserve navigation and dra
     const context=await browser.newContext({viewport:{width,height},isMobile:width<820,hasTouch:width<820,reducedMotion,serviceWorkers:'block'});t.after(()=>context.close());
     const page=await context.newPage();page.setDefaultTimeout(6000);page.on('pageerror',error=>errors.push(error.message));await page.route('https://**/*',route=>route.abort());
     await page.addInitScript(()=>{sessionStorage.setItem('daily-space-guest-save-dismissed-v1','1');localStorage.setItem('daily-space-language-v1','en');const now=new Date(),day=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;localStorage.setItem('todo-app-v2',JSON.stringify({categories:[],todos:[{id:'surface-task',text:'Keep reading this task',dueDate:day,completed:false}]}));});
-    await page.goto(`${base}/${width<820?'todo-m.html':'todo.html'}`,{waitUntil:'load'});await page.waitForFunction(()=>window.DailySpaceWorkbenchTools&&window.DailySpaceWorkbenchPreferences.ready());return page;
+    await page.goto(`${base}/${width<820?'todo-m.html':'todo.html'}`,{waitUntil:'load'});await page.waitForFunction(()=>window.DailySpaceFocus&&window.DailySpaceWorkbenchPreferences.ready());return page;
   }
-  const tools=page=>page.locator('[data-surface-key="workbench-tools"]');
-  async function openTools(page){await page.locator('[data-workbench-tools-trigger]').click();await tools(page).waitFor({state:'visible'});}
+  const tools=page=>page.locator('[data-surface-key="task-filters"]');
+  async function openTools(page){await page.locator('[data-task-filters-open]').click();await tools(page).waitFor({state:'visible'});}
   async function settle(panel){await panel.evaluate(node=>Promise.all(node.getAnimations().map(animation=>animation.finished.catch(()=>{}))));}
   async function drag(page,handle,distance){const box=await handle.boundingBox(),x=box.x+box.width/2,y=box.y+box.height/2;await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(x,y+distance,{steps:8});await page.mouse.up();}
 
@@ -31,32 +31,31 @@ test('responsive surfaces and explicit sheet handles preserve navigation and dra
     const after=await first.boundingBox(),box=await tools(page).locator('.interaction-surface-panel').boundingBox();
     assert.equal(after.y,before.y);assert.ok(box.x>=0&&box.x+box.width<=1280&&box.y>=0&&box.y+box.height<=768,JSON.stringify(box));
     assert.equal(await tools(page).locator('[role=dialog]').getAttribute('aria-modal'),'false');assert.equal(await page.evaluate(()=>history.length),length);
-    assert.equal(await page.locator('#workbench-tools-content [data-workbench-templates]').count(),1);
-    await page.keyboard.press('Escape');await tools(page).waitFor({state:'hidden'});assert.ok(await page.locator('[data-workbench-tools-trigger]').evaluate(node=>node===document.activeElement));
+    await page.keyboard.press('Escape');await tools(page).waitFor({state:'hidden'});assert.ok(await page.locator('[data-task-filters-open]').evaluate(node=>node===document.activeElement));
     await openTools(page);await page.locator('[data-page-header] h1').click();await tools(page).waitFor({state:'hidden'});
   });
-  await t.test('phone template action replaces its transient menu and one Back returns to the page',async()=>{
-    const page=await pageFor(320,680),before=await page.evaluate(()=>history.length),row=await page.locator('#todo-list .todo-item').first().boundingBox();
+  await t.test('phone templates are available in task creation and Back preserves the editor',async()=>{
+    const page=await pageFor(320,680),row=await page.locator('#todo-list .todo-item').first().boundingBox();
     assert.equal(await page.locator('.m-add-bar .workspace-task-shortcuts button').count(),0);
-    await openTools(page);assert.equal(await tools(page).locator('[role=dialog]').getAttribute('aria-modal'),'true');assert.equal(await page.evaluate(()=>history.length),before+1);
-    await page.locator('#workbench-tools-content [data-workbench-templates]').click();await page.locator('#workspace-tools-sheet').waitFor({state:'visible'});await tools(page).waitFor({state:'hidden'});
-    assert.equal(await page.evaluate(()=>history.length),before+1,'The menu is replaced rather than stacked under the editor');
-    await page.goBack();await page.locator('#workspace-tools-sheet').waitFor({state:'hidden'});await page.waitForFunction(()=>document.activeElement===document.querySelector('[data-workbench-tools-trigger]'));
-    assert.equal(await tools(page).isVisible(),false);assert.equal((await page.locator('#todo-list .todo-item').first().boundingBox()).y,row.y);
+    await page.locator('#m-add-task').click();await page.locator('#m-task-title').fill('Keep this task draft');
+    await page.locator('#m-task-editor [data-task-templates] button').click();await page.locator('#workspace-tools-sheet').waitFor({state:'visible'});
+    await page.goBack();await page.locator('#workspace-tools-sheet').waitFor({state:'hidden'});assert.equal(await page.locator('#m-task-title').inputValue(),'Keep this task draft');
+    await page.goBack();await page.locator('#m-task-editor').waitFor({state:'hidden'});
+    assert.equal((await page.locator('#todo-list .todo-item').first().boundingBox()).y,row.y);
   });
   await t.test('small or cancelled handle movement keeps the editor; intentional drag preserves its draft',async()=>{
-    const page=await pageFor();await openTools(page);await page.locator('#workbench-tools-content [data-notes-open]').click();const sheet=page.locator('#notes-sheet');await sheet.waitFor({state:'visible'});
+    const page=await pageFor();await page.locator('[data-workspace-agent]').focus();await page.evaluate(()=>window.DailySpaceNotes.open(null,{list:true}));const sheet=page.locator('#notes-sheet');await sheet.waitFor({state:'visible'});
     await sheet.locator('[data-note-new]').click();await sheet.locator('[name=title]').fill('A draft kept through dragging');await sheet.locator('[name=body]').fill('Do not save or discard this automatically.');await settle(sheet.locator('.notes-panel'));
     const handle=sheet.locator('[data-sheet-drag-handle]');assert.equal(await handle.count(),1);const bounds=await handle.boundingBox();assert.ok(bounds.height>=44);
     await drag(page,handle,24);assert.ok(await sheet.isVisible());assert.equal(await sheet.locator('[name=title]').inputValue(),'A draft kept through dragging');
     await handle.dispatchEvent('pointerdown',{pointerId:37,isPrimary:true,button:0,clientX:100,clientY:100});await handle.dispatchEvent('pointermove',{pointerId:37,isPrimary:true,clientX:100,clientY:230});await handle.dispatchEvent('pointercancel',{pointerId:37,isPrimary:true});
     assert.ok(await sheet.isVisible());assert.equal(await sheet.locator('.notes-panel').evaluate(node=>node.style.translate),'');
     await settle(sheet.locator('.notes-panel'));
-    await drag(page,handle,150);await sheet.waitFor({state:'hidden'});await page.waitForFunction(()=>document.activeElement===document.querySelector('[data-workbench-tools-trigger]'));
-    await openTools(page);await page.locator('#workbench-tools-content [data-notes-open]').click();await sheet.locator('[data-note-new]').click();assert.equal(await sheet.locator('[name=title]').inputValue(),'A draft kept through dragging');
+    await drag(page,handle,150);await sheet.waitFor({state:'hidden'});await page.waitForFunction(()=>document.activeElement===document.querySelector('[data-workspace-agent]'));
+    await page.locator('[data-workspace-agent]').focus();await page.evaluate(()=>window.DailySpaceNotes.open(null,{list:true}));await sheet.locator('[data-note-new]').click();assert.equal(await sheet.locator('[name=title]').inputValue(),'A draft kept through dragging');
   });
   await t.test('an underlying handle cannot dismiss a newer nested modal',async()=>{
-    const page=await pageFor();await openTools(page);await page.locator('#workbench-tools-content [data-notes-open]').click();const notes=page.locator('#notes-sheet');await notes.waitFor({state:'visible'});
+    const page=await pageFor();await page.locator('[data-workspace-agent]').focus();await page.evaluate(()=>window.DailySpaceNotes.open(null,{list:true}));const notes=page.locator('#notes-sheet');await notes.waitFor({state:'visible'});
     const background=notes.locator('[data-sheet-drag-handle]');await background.dispatchEvent('pointerdown',{pointerId:41,isPrimary:true,button:0,clientX:100,clientY:100});await background.dispatchEvent('pointermove',{pointerId:41,isPrimary:true,clientX:100,clientY:120});
     await page.evaluate(()=>window.DailySpaceHistory.open());const historySheet=page.locator('#record-history-sheet');await historySheet.waitFor({state:'visible'});await settle(historySheet.locator('.record-history-panel'));
     await background.dispatchEvent('pointerup',{pointerId:41,isPrimary:true,clientX:100,clientY:350});
@@ -66,7 +65,7 @@ test('responsive surfaces and explicit sheet handles preserve navigation and dra
   });
   await t.test('a locked workspace closes menu contents and refuses stale actions',async()=>{
     const page=await pageFor();await openTools(page);await page.evaluate(()=>{document.documentElement.dataset.workspaceLocked='true';document.documentElement.dataset.workspaceReady='false';window.dispatchEvent(new CustomEvent('daily-space-user-sync-updated'));});
-    await tools(page).waitFor({state:'hidden'});await page.evaluate(()=>document.querySelector('#workbench-tools-content [data-notes-open]').click());assert.equal(await page.locator('#notes-sheet').isVisible(),false);
+    await tools(page).waitFor({state:'hidden'});await page.evaluate(()=>window.DailySpaceNotes.open(null,{list:true}));assert.equal(await page.locator('#notes-sheet').isVisible(),false);
   });
   await t.test('custom Agent role roots drag their visual panel through the original close path',async()=>{
     const page=await pageFor();await page.locator('[data-workspace-agent]').click();const overlay=page.locator('#todo-agent-overlay');await overlay.waitFor({state:'visible'});
@@ -85,7 +84,7 @@ test('responsive surfaces and explicit sheet handles preserve navigation and dra
     assert.equal(await input.inputValue(),'Keep this unsaved view');assert.ok(await filter.isVisible());
   });
   await t.test('reduced motion retains phone handle dismissal without a closing animation',async()=>{
-    const page=await pageFor(390,640,'reduce');await openTools(page);await page.locator('#workbench-tools-content [data-focus-open]').click();const sheet=page.locator('#focus-sheet');await sheet.waitFor({state:'visible'});await drag(page,sheet.locator('[data-sheet-drag-handle]'),150);await sheet.waitFor({state:'hidden'});assert.equal(await sheet.evaluate(node=>node.classList.contains('is-closing')),false);
+    const page=await pageFor(390,640,'reduce');await page.evaluate(()=>window.DailySpaceFocus.open());const sheet=page.locator('#focus-sheet');await sheet.waitFor({state:'visible'});await drag(page,sheet.locator('[data-sheet-drag-handle]'),150);await sheet.waitFor({state:'hidden'});assert.equal(await sheet.evaluate(node=>node.classList.contains('is-closing')),false);
   });
   assert.deepEqual(errors,[]);
 });

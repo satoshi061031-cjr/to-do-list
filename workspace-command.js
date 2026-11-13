@@ -2,7 +2,7 @@
 (function () {
   const INTENT_PREFIX = 'dayfly-command-intent:';
   const INTENT_TTL = 5 * 60 * 1000;
-  const COMMANDS = new Set(['new-task','capture-inbox','add-expense','start-focus','notes','filters']);
+  const COMMANDS = new Set(['new-task','capture-inbox','add-expense','start-focus','notes','filters','templates']);
   const t = (en, zh) => window.DailySpaceI18n?.t(en, zh) || en;
   const owner = () => String(window.DailySpaceView?.owner?.() || 'guest').trim().toLowerCase();
   const ready = () => window.DailySpaceSearch?.ready?.() === true;
@@ -17,7 +17,9 @@
       if (!trigger || trigger.disabled || page() !== 'tally.html') return false;
       trigger.click(); return true;
     }
+    if (command === 'notes') { if (page() !== 'notes.html' || !window.DailySpaceNotes?.open) return false; return window.DailySpaceNotes.open(null, { list: true }) !== false; }
     if (!onTodo() || !window.DailySpaceTodo) return false;
+    if (command === 'templates') { if (!window.DailySpaceWorkspaceTools?.openTemplates) return false; window.DailySpaceWorkspaceTools.openTemplates(); return true; }
     if (command === 'new-task') {
       if (document.body.classList.contains('todo-mobile')) {
         if (!window.DailySpaceMobileTodo?.openNew) return false;
@@ -39,7 +41,6 @@
       return true;
     }
     if (command === 'start-focus') { if (!window.DailySpaceFocus?.open) return false; window.DailySpaceFocus.open(); return true; }
-    if (command === 'notes') { if (!window.DailySpaceNotes?.open) return false; return window.DailySpaceNotes.open(null,{list:true}) !== false; }
     if (command === 'filters') {
       if (window.DailySpaceTaskPlanning?.openFilters) { window.DailySpaceTaskPlanning.openFilters(); return true; }
       const options=document.querySelector('.task-planning-options');if(!options)return false;
@@ -58,8 +59,8 @@
     let intent;
     try { intent=JSON.parse(sessionStorage.getItem(INTENT_PREFIX+owner())||'null'); } catch(_){removeIntent();cleanIntentUrl();return;}
     if(!intent||intent.owner!==owner()||intent.command!==command||!Number.isFinite(intent.at)||Date.now()-intent.at<0||Date.now()-intent.at>INTENT_TTL){removeIntent();cleanIntentUrl();return;}
-    const target=command==='add-expense'?'tally.html':'todo.html';
-    if((target==='todo.html'&&!onTodo())||(target==='tally.html'&&page()!==target))return;
+    const target=command==='add-expense'?'tally.html':command==='notes'?'notes.html':'todo.html';
+    if(target==='todo.html'?!onTodo():page()!==target)return;
     consuming=true;
     const original=location.href;cleanIntentUrl();
     try {
@@ -72,8 +73,9 @@
     if(typeof entry?.href!=='string')return false;
     if(entry.external){
       try {const url=new URL(entry.href);if(!['http:','https:'].includes(url.protocol)||url.username||url.password)return false;}catch(_){return false;}
-    }else if(!/^(todo(?:-m)?|calendar|planner|mail|tally|travel|teamwork)\.html(?:[?#].*)?$/.test(entry.href))return false;
-    location.assign(entry.href);return true;
+    }else if(!/^(todo(?:-m)?|calendar|planner|mail|tally|travel|teamwork|tools|notes|review)\.html(?:[?#].*)?$/.test(entry.href))return false;
+    const href = !entry.external && /^todo\.html(?:[?#]|$)/.test(entry.href) && window.matchMedia('(max-width: 819px)').matches ? entry.href.replace(/^todo\.html/, 'todo-m.html') : entry.href;
+    location.assign(href);return true;
   }
   function execute(entry) {
     if(!ready())return false;

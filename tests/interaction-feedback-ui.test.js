@@ -19,9 +19,7 @@ test('inline note feedback distinguishes successful local saves from retryable f
   const page=await context.newPage();page.setDefaultTimeout(6000);const errors=[];page.on('pageerror',error=>errors.push(error.message));
   await page.route('https://**/*',route=>route.abort());
   await page.addInitScript(()=>{localStorage.setItem('daily-space-language-v1','en');sessionStorage.setItem('daily-space-guest-save-dismissed-v1','1');});
-  await page.goto(`${base}/todo-m.html`,{waitUntil:'load'});
-  await page.locator('[data-workbench-tools-trigger]').click();
-  await page.locator('[data-notes-open]').click();
+  await page.goto(`${base}/notes.html`,{waitUntil:'load'});
   const sheet=page.locator('#notes-sheet');await sheet.waitFor({state:'visible'});
   await sheet.locator('[data-note-new]').click();
   await sheet.locator('[name=title]').fill('Feedback check');await sheet.locator('[name=body]').fill('Saved text');

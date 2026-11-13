@@ -7,11 +7,8 @@ const { spawn } = require('node:child_process');
 const { chromium } = require('playwright-core');
 
 
-async function openWorkbenchTools(page) {
-  const trigger = page.locator('[data-workbench-tools-trigger]');
-  if (await trigger.getAttribute('aria-expanded') !== 'true') await trigger.click();
-  await page.locator('#workbench-tools-content').waitFor({ state: 'visible' });
-}
+// Contextual editor regression tests; standalone navigation is covered in workbench-tools-ui.
+async function focusContextOpener(page) { await page.locator('[data-workspace-agent]').focus(); }
 
 
 test('selected note context and safe Agent citations through the real browser UI', { timeout: 90000 }, async t => {
@@ -64,8 +61,8 @@ test('selected note context and safe Agent citations through the real browser UI
     return { page, requests };
   }
   async function notes(page) {
-    await openWorkbenchTools(page);
-    await page.locator('[data-notes-open]').click();
+    await focusContextOpener(page);
+    await page.evaluate(() => window.DailySpaceNotes.open(null, { list: true }));
     await page.locator('#notes-sheet').waitFor({ state: 'visible' });
   }
   async function selectNoteAndOpenAgent(page, withPrivateDraft = false) {
@@ -109,7 +106,7 @@ test('selected note context and safe Agent citations through the real browser UI
     assert.equal(payload.context.references.includes('note:unselected-note'), false);
     assert.equal(JSON.stringify(payload.context.notes).includes('UNSELECTED'), false); assert.equal(JSON.stringify(payload.context.notes).includes('UNSAVED'), false);
     const links = await page.locator('.agent-source-links a').evaluateAll(nodes => nodes.map(node => ({ text: node.textContent, href: node.getAttribute('href') })));
-    assert.deepEqual(links, [{ text: 'Kyoto reference', href: 'todo.html?focus=note&id=chosen-note' }, { text: 'Review travel plans', href: 'todo.html?focus=todo&id=original-task' }]);
+    assert.deepEqual(links, [{ text: 'Kyoto reference', href: 'notes.html?focus=note&id=chosen-note' }, { text: 'Review travel plans', href: 'todo.html?focus=todo&id=original-task' }]);
     assert.equal(await page.locator('#todo-agent-messages img').count(), 0, 'Suggested prose stays text');
     assert.equal(await page.locator('.agent-source-links a[href^="https:"], .agent-source-links a[href^="javascript:"]').count(), 0);
     assert.deepEqual(await page.evaluate(() => window.DailySpaceTodo.getTasks()), before, 'Suggested draft does not create or change a task');

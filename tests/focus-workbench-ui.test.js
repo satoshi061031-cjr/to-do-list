@@ -7,11 +7,8 @@ const { spawn } = require('node:child_process');
 const { chromium } = require('playwright-core');
 
 
-async function openWorkbenchTools(page) {
-  const trigger = page.locator('[data-workbench-tools-trigger]');
-  if (await trigger.getAttribute('aria-expanded') !== 'true') await trigger.click();
-  await page.locator('#workbench-tools-content').waitFor({ state: 'visible' });
-}
+// Contextual editor regression tests; standalone navigation is covered in workbench-tools-ui.
+async function focusContextOpener(page) { await page.locator('[data-workspace-agent]').focus(); }
 
 
 test('task focus and recorded weekly review on phone and desktop', { timeout: 120000 }, async t => {
@@ -49,9 +46,9 @@ test('task focus and recorded weekly review on phone and desktop', { timeout: 12
     return page;
   }
   async function openTools(page) {
-    await openWorkbenchTools(page);
+    await focusContextOpener(page);
   }
-  async function open(page) { await openTools(page); await page.locator('[data-focus-open]').click(); const sheet = page.locator('#focus-sheet'); await sheet.waitFor({ state: 'visible' }); return sheet; }
+  async function open(page) { await openTools(page); await page.evaluate(() => window.DailySpaceFocus.open()); const sheet = page.locator('#focus-sheet'); await sheet.waitFor({ state: 'visible' }); return sheet; }
   async function raw(page) { return page.evaluate(() => JSON.parse(localStorage.getItem('dayfly-focus-v1') || 'null')); }
 
   await t.test('phone starts, pauses, reloads and finishes one task-linked session without paused time', async () => {
@@ -84,7 +81,7 @@ test('task focus and recorded weekly review on phone and desktop', { timeout: 12
   });
 
   await t.test('review uses recorded completions, reschedules overdue tasks, and has working week navigation', async () => {
-    const page = await pageFor(); await openTools(page); await page.locator('[data-focus-review]').click(); const sheet = page.locator('#focus-sheet'); await sheet.waitFor({ state: 'visible' });
+    const page = await pageFor(); await openTools(page); await page.evaluate(() => window.DailySpaceFocus.openReview()); const sheet = page.locator('#focus-sheet'); await sheet.waitFor({ state: 'visible' });
     assert.equal(await sheet.locator('[data-review-metric=completed]').textContent(), '1');
     assert.ok((await sheet.locator('[data-review-completed]').textContent()).includes('Recorded completion'));
     assert.equal((await sheet.locator('[data-review-completed]').textContent()).includes('Legacy completion'), false);

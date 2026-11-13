@@ -7,11 +7,8 @@ const { spawn } = require('node:child_process');
 const { chromium } = require('playwright-core');
 
 
-async function openWorkbenchTools(page) {
-  const trigger = page.locator('[data-workbench-tools-trigger]');
-  if (await trigger.getAttribute('aria-expanded') !== 'true') await trigger.click();
-  await page.locator('#workbench-tools-content').waitFor({ state: 'visible' });
-}
+// Contextual editor regression tests; standalone navigation is covered in workbench-tools-ui.
+async function focusContextOpener(page) { await page.locator('[data-workspace-agent]').focus(); }
 
 
 test('record recovery on phone preserves newer data, catches conflicts and closes on identity change', { timeout: 90_000 }, async t => {
@@ -42,7 +39,7 @@ test('record recovery on phone preserves newer data, catches conflicts and close
   const state = () => page.evaluate(() => JSON.parse(localStorage.getItem('todo-app-v2')));
   const edit = text => page.evaluate(text => { const item = window.DailySpaceTodo.getTasks().find(task => task.id === 'history-task'); return window.DailySpaceTodo.saveTask({ ...item, text }, item.id); }, text);
   const sheet = page.locator('#record-history-sheet');
-  const open = async () => { await openWorkbenchTools(page); await page.locator('[data-history-open]').first().click(); await sheet.waitFor({ state: 'visible' }); };
+  const open = async () => { await focusContextOpener(page); await page.evaluate(() => window.DailySpaceHistory.open()); await sheet.waitFor({ state: 'visible' }); };
   const previewOriginal = async () => { const row = sheet.locator('.record-history-row').filter({ has: page.locator('strong', { hasText: /^Original title$/ }) }).first(); await row.locator('[data-history-preview]').click(); await sheet.locator('.record-history-preview').waitFor({ state: 'visible' }); };
 
   await t.test('restores a prior version while keeping the current version available', async () => {

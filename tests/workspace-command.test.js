@@ -19,7 +19,9 @@ test('search groups existing exact record routes, public pages and explicit entr
  assert.equal(records[0].href,'todo.html?focus=todo&id=a%20%26%2F%3F');
  const action=c.api.search('add expense',20)[0];assert.equal(action.kind,'action');assert.equal(action.group,'actions');assert.equal(action.command,'add-expense');
  assert.equal(c.api.search('Calendar',20)[0].group,'pages');
- assert.equal(c.api.actions().length,6);
+ assert.equal(c.api.actions().length,7);
+ assert.equal(c.api.resolve('jump-tools').href,'tools.html');assert.equal(c.api.resolve('jump-review').href,'review.html');assert.equal(c.api.resolve('action:notes').href,'notes.html?command=notes');
+ assert.equal(records.find(item=>item.id==='note:note').href,'notes.html?focus=note&id=note');
  assert.equal(c.values.get('tally-book-v1'),undefined,'Searching an entry action never records an expense');
 });
 test('recent commands store identities only, resolve current titles and prune deleted records',()=>{

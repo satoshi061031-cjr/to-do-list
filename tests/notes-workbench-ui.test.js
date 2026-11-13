@@ -7,11 +7,8 @@ const { spawn } = require('node:child_process');
 const { chromium } = require('playwright-core');
 
 
-async function openWorkbenchTools(page) {
-  const trigger = page.locator('[data-workbench-tools-trigger]');
-  if (await trigger.getAttribute('aria-expanded') !== 'true') await trigger.click();
-  await page.locator('#workbench-tools-content').waitFor({ state: 'visible' });
-}
+// Contextual editor regression tests; standalone navigation is covered in workbench-tools-ui.
+async function focusContextOpener(page) { await page.locator('[data-workspace-agent]').focus(); }
 
 
 test('private notes capture, relations and explicit Agent context on phone', { timeout: 90000 }, async t => {
@@ -45,8 +42,8 @@ test('private notes capture, relations and explicit Agent context on phone', { t
   await load();
   const sheet = page.locator('#notes-sheet');
   async function openNotes() {
-    await openWorkbenchTools(page);
-    await page.locator('[data-notes-open]').click();
+    await focusContextOpener(page);
+    await page.evaluate(() => window.DailySpaceNotes.open(null, { list: true }));
   }
   await t.test('new-note drafts survive Back and saved text stays safe with related source', async () => {
     await openNotes(); await sheet.locator('[data-note-new]').click();
@@ -79,7 +76,7 @@ test('private notes capture, relations and explicit Agent context on phone', { t
     await sheet.getByRole('button', { name: 'Create task', exact: true }).click();
     const snapshot = await page.evaluate(() => ({ notes: JSON.parse(localStorage.getItem('dayfly-notes-v1')).notes, tasks: window.DailySpaceTodo.getTasks() }));
     const task = snapshot.tasks.find(item => item.text === 'Kyoto ideas'); assert.ok(task);
-    assert.ok(task.notes.includes('focus=note')); assert.ok(snapshot.notes[0].links.some(link => link.type === 'todo' && link.id === task.id));
+    assert.ok(task.notes.includes('notes.html?id=')); assert.ok(snapshot.notes[0].links.some(link => link.type === 'todo' && link.id === task.id));
     await sheet.getByRole('button', { name: 'Create task', exact: true }).click();
     assert.equal(await page.evaluate(() => window.DailySpaceTodo.getTasks().filter(item => item.text === 'Kyoto ideas').length), 1);
     const entries = await page.evaluate(() => window.DailySpaceSearch.search('garden'));

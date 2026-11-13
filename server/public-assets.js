@@ -1,6 +1,13 @@
 // Only these client files may be served over HTTP or bundled for Capacitor.
 module.exports = [
   "index.html",
+  "tools.html",
+  "notes.html",
+  "review.html",
+  "toolbox-page.css",
+  "toolbox-page.js",
+  "toolbox-tasks.js",
+
   "todo.html",
   "todo-m.html",
   "planner.html",

@@ -12,6 +12,9 @@
   };
 
   const JUMPS = [
+    { id: "jump-tools", label: "Toolbox", hint: "All your tools", href: "tools.html", aliases: ["tool", "tools", "toolbox", "工具", "工具箱"] },
+    { id: "jump-notes", label: "Notes", hint: "Private notebook", href: "notes.html", aliases: ["notes", "笔记"] },
+    { id: "jump-review", label: "Weekly review", hint: "Recorded progress", href: "review.html", aliases: ["review", "复盘"] },
     { id: "jump-today", label: "Workbench", hint: "Personal workspace", href: "todo.html#today", aliases: ["today", "todo", "workbench", "工作台", "今天"] },
     { id: "jump-calendar", label: "Calendar", hint: "Month", href: "calendar.html", aliases: ["calendar"] },
     { id: "jump-planner", label: "Projects", hint: "Boards", href: "planner.html", aliases: ["planner", "projects", "项目"] },
@@ -21,6 +24,7 @@
     { id: "jump-teamwork", label: "Teamwork", hint: "Notes", href: "teamwork.html", aliases: ["teamwork"] },
   ];
   const PAGE_ZH = {
+    'jump-tools':['工具箱','全部工具'],'jump-notes':['笔记','私人笔记'],'jump-review':['每周复盘','查看实际进展'],
     'jump-today':['工作台','个人工作空间'],'jump-calendar':['日历','日程'],
     'jump-planner':['项目','看板'],'jump-mail':['邮箱','收件箱'],
     'jump-tally':['记账','消费记录'],'jump-travel':['旅行','行程'],'jump-teamwork':['协作','团队工具'],
@@ -31,7 +35,8 @@
     { id:'action:capture-inbox', command:'capture-inbox', en:'Capture to Inbox', zh:'记录到收集箱', hintEn:'Save an idea or link later', hintZh:'先记录想法或链接', page:'todo.html', aliases:['capture','inbox','idea','link','收集箱','记录','想法','链接'] },
     { id:'action:add-expense', command:'add-expense', en:'Add expense', zh:'记一笔消费', hintEn:'Open expense entry', hintZh:'打开消费录入', page:'tally.html', aliases:['add','new','expense','spend','money','记账','消费','支出'] },
     { id:'action:start-focus', command:'start-focus', en:'Start focus', zh:'开始专注', hintEn:'Choose a task and timer', hintZh:'选择任务和计时方式', page:'todo.html', aliases:['start','focus','timer','pomodoro','专注','计时','番茄'] },
-    { id:'action:notes', command:'notes', en:'Open notes', zh:'打开笔记', hintEn:'Your private notebook', hintZh:'查看私人笔记', page:'todo.html', aliases:['note','notes','write','笔记','资料'] },
+    { id:'action:notes', command:'notes', en:'Open notes', zh:'打开笔记', hintEn:'Your private notebook', hintZh:'查看私人笔记', page:'notes.html', aliases:['note','notes','write','笔记','资料'] },
+    { id:'action:templates', command:'templates', en:'Task templates', zh:'任务模板', hintEn:'Start from a saved template', hintZh:'从已保存的模板新建任务', page:'todo.html', aliases:['template','templates','模板'] },
     { id:'action:filters', command:'filters', en:'Filter tasks', zh:'筛选任务', hintEn:'Date, status and saved views', hintZh:'日期、状态和保存视图', page:'todo.html', aliases:['filter','views','priority','筛选','视图','优先级'] },
   ];
 
@@ -175,7 +180,7 @@
     (Array.isArray(notes) ? notes : []).forEach(note => {
       if (!note || typeof note.id !== 'string' || typeof note.title !== 'string') return;
       entries.push({ id: `note:${note.id}`, label: note.title, hint: 'Notes',
-        href: targetHref('todo.html', 'note', note.id),
+        href: targetHref('notes.html', 'note', note.id),
         hay: hay(note.title, note.body, ...(Array.isArray(note.tags) ? note.tags : []), note.sourceUrl),
       });
     });

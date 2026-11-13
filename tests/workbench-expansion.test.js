@@ -63,7 +63,7 @@ test('Agent citations resolve only known records into encoded internal links', (
   const context={todo:{todos:[{id:'task &/?',text:'Plan'}]},notes:[{id:'private',title:'Selected note'}]};
   const normalized=normalizeGlobalResult({reply:'Read these',actions:[],sources:['todo:task','note:private','https://evil.example','note:missing','note:private']});
   const resolved=Sources.resolve(context,normalized.sources);
-  assert.deepEqual(resolved,[{key:'note:private',label:'Selected note',href:'todo.html?focus=note&id=private'}]);
+  assert.deepEqual(resolved,[{key:'note:private',label:'Selected note',href:'notes.html?focus=note&id=private'}]);
   assert.ok(Sources.references(context)[0].href.includes('task%20%26%2F%3F'));
   const encoded=normalizeGlobalResult({reply:'Plan',actions:[],sources:['todo:task &/?']});
   assert.equal(Sources.resolve(context,encoded.sources)[0].href,'todo.html?focus=todo&id=task%20%26%2F%3F');
