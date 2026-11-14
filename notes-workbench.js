@@ -72,6 +72,20 @@
     if (!standalone) window.DailySpaceDialogHistory.fitViewport(root);
     let activeOwner = '', activeId = null, workingId = '', baseline = '', form = null, draftKey = '', mode = 'list', formLinks = [], composing = false, trigger = null, query = '';
     let relationQueued = false, pageOwner = null, listSignature = '';
+    let listReturn = null;
+    function rememberList(id) {
+      const scroll = [];
+      for (let parent = panel; parent; parent = parent.parentElement) scroll.push([parent, parent.scrollTop, parent.scrollLeft]);
+      listReturn = { owner: owner(), id, scroll, x: scrollX, y: scrollY };
+    }
+    function restoreList(id) {
+      if (listReturn?.owner === owner()) {
+        for (const [parent, top, left] of listReturn.scroll) if (parent.isConnected) { parent.scrollTop = top; parent.scrollLeft = left; }
+        window.scrollTo({ left: listReturn.x, top: listReturn.y, behavior: 'instant' });
+        id = listReturn.id || id;
+      }
+      (id && content.querySelector(`[data-note-id="${CSS.escape(id)}"]`) || content.querySelector('[data-note-new]'))?.focus({ preventScroll: true });
+    }
     const listVersion = () => JSON.stringify([owner(), read().notes, t('Notes', '笔记')]);
     const draftName = id => `dayfly-note-draft:${owner()}:${id || 'new'}`;
     const active = () => !root.hidden && !motion.closing && ready() && owner() === activeOwner;
@@ -95,16 +109,55 @@
     }
     function open(id = null, options = {}) {
       if (!ready()) return false;
-      if (!root.hidden && owner() === activeOwner) stash();
-      activeOwner = owner(); if (standalone) pageOwner = activeOwner; trigger = document.activeElement; status.textContent = '';
+      const layout = window.DailySpaceLayoutMotion;
+      const paintedTitle = layout?.captureTitle(standalone && !root.hidden ? mode === 'list' ? id ? content.querySelector(`[data-note-id="${CSS.escape(id)}"] strong`) : content.querySelector('[data-note-new]') : activeId ? form?.elements.title : heading : null);
+      const interrupted = layout?.captureSurface(panel);
+      const paintedOpacity = Number(getComputedStyle(content).opacity);
+      layout?.cancel(panel);
       const nextMode = options.list ? 'list' : 'edit';
+      const enteringEditor = standalone && !root.hidden && mode === 'list' && nextMode === 'edit';
+      const returning = standalone && !root.hidden && mode === 'edit' && nextMode === 'list';
+      const source = standalone && !root.hidden ? mode === 'list'
+        ? id ? content.querySelector(`[data-note-id="${CSS.escape(id)}"] strong`) : content.querySelector('[data-note-new]')
+        : activeId ? form?.elements.title : heading : null;
+      const titleSnapshot = paintedTitle || layout?.captureTitle(source);
+      const previousId = activeId;
+      const fromSurface = returning || interrupted?.interrupted ? interrupted : enteringEditor ? layout?.captureSurface(id ? source?.closest('.notes-list-open') : source) : null;
+      if (enteringEditor) rememberList(id);
+      if (!root.hidden && owner() === activeOwner) stash();
+      let retired = null, retiredBounds = null;
+      if (returning && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        retiredBounds = content.getBoundingClientRect();
+        retired = node('div', '', 'notes-panel continuity-retiring'); retired.setAttribute('aria-hidden', 'true'); retired.inert = true;
+        retired.style.opacity = String(paintedOpacity);
+        const body = node('div', '', content.className); body.append(...content.childNodes); retired.append(body);
+        for (const item of retired.querySelectorAll('*')) { item.removeAttribute('id'); item.removeAttribute('name'); for (const key of Object.keys(item.dataset)) delete item.dataset[key]; }
+      }
+      activeOwner = owner(); if (standalone) pageOwner = activeOwner; trigger = document.activeElement; status.textContent = '';
       if (options.push !== false && !historyController.push({ mode: nextMode, id })) return false;
       motion.open();
       try { if (nextMode === 'list') showList(); else showEditor(id, options.link); }
       catch (error) { content.replaceChildren(); message(error); }
+      if (standalone) {
+        if (enteringEditor && mode === 'edit') panel.scrollIntoView({ block: 'start', behavior: 'instant' });
+        const returnId = listReturn?.id || previousId;
+        const destination = nextMode === 'list' ? returnId ? content.querySelector(`[data-note-id="${CSS.escape(returnId)}"]`) : content.querySelector('[data-note-new]') : null;
+        const target = nextMode === 'list' ? destination?.querySelector('strong') || destination : id ? form?.elements.title : heading;
+        if (retired) {
+          const bounds = root.getBoundingClientRect();
+          Object.assign(retired.style, { left: `${retiredBounds.left - bounds.left}px`, top: `${retiredBounds.top - bounds.top}px`, width: `${retiredBounds.width}px`, height: `${retiredBounds.height}px` }); root.append(retired);
+        }
+        const timing = layout?.surfaceTiming('panel', returning);
+        if (fromSurface && (enteringEditor || returning && destination)) {
+          layout?.morphSurface(panel, { host: root, from: fromSurface, to: returning ? layout.captureSurface(destination) : undefined, returning, above: returning, keepFill: returning, contents: returning ? [] : undefined, retiring: retired ? [retired] : [] });
+        } else retired?.remove();
+        layout?.carryTitle(titleSnapshot, target, { container: panel, returning, ...timing });
+      }
       return true;
     }
     function showList() {
+      window.DailySpaceLayoutMotion?.cancel(panel);
+      const leavingEditor = mode === 'edit', previousId = activeId;
       listSignature = listVersion();
       mode = 'list'; root.dataset.noteView = mode; form = null; activeId = null; draftKey = ''; heading.textContent = t('Notes', '笔记'); content.replaceChildren();
       panel.querySelector('.notes-footer')?.remove();
@@ -124,8 +177,10 @@
       search.addEventListener('input', () => { query = search.value; render(); });
       const create = action(t('New note', '新建笔记'), () => open()); create.dataset.noteNew = '';
       controls.append(search, create); content.append(controls, list); render(); if (!standalone) search.focus({ preventScroll: true });
+      if (standalone && leavingEditor) restoreList(previousId);
     }
     function showEditor(id, initialLink) {
+      window.DailySpaceLayoutMotion?.cancel(panel);
       const state = read(), stored = id ? state.notes.find(note => note.id === id) : null;
       if (id && !stored) { showList(); message(t('This note is no longer available.', '这篇笔记已不存在。')); return; }
       mode = 'edit'; root.dataset.noteView = mode; activeId = id; draftKey = draftName(id); baseline = JSON.stringify(stored);
@@ -136,7 +191,7 @@
       formLinks = Core.links(value.links);
       heading.textContent = stored ? t('Note', '笔记') : t('New note', '新建笔记');
       content.replaceChildren(); content.className = 'notes-body notes-editor-body';
-      const back = action(t('All notes', '全部笔记'), () => { stash(); historyController.push({ mode: 'list' }); showList(); });
+      const back = action(t('All notes', '全部笔记'), () => { if (standalone) open(null, { list: true }); else { stash(); historyController.push({ mode: 'list' }); showList(); } });
       form = node('form', '', 'notes-form'); form.id = 'notes-form'; form.autocomplete = 'off';
       const fields = node('div', '', 'notes-edit-fields');
       function field(name, label, tag = 'input') {
@@ -313,7 +368,7 @@
       queueRelations();
     }
     for (const event of ['daily-space-notes-updated', 'daily-space-agent-data-updated', 'daily-space-user-sync-updated', 'daily-space-travel-view-updated', 'storage']) window.addEventListener(event, refresh);
-    window.addEventListener('daily-space-auth-updated', () => { draftKey = ''; form = null; activeOwner = ''; close(true, true); refresh(); });
+    window.addEventListener('daily-space-auth-updated', () => { window.DailySpaceLayoutMotion?.cancel(panel); listReturn = null; draftKey = ''; form = null; activeOwner = ''; close(true, true); refresh(); });
     window.addEventListener('daily-space-locale-changed', () => { if (!root.hidden) { if (standalone) { stash(); refresh(); openFromUrl(); } else close(); } queueRelations(); });
     window.addEventListener('pagehide', stash);
     new MutationObserver(queueRelations).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['hidden', 'class'] });

@@ -48,7 +48,7 @@
         const card = widgetNodes[id]; if (grid.children[index] !== card) grid.insertBefore(card,grid.children[index] || null);
         card.dataset.wideWidget = String(id === customLayout.wide);
       });
-      taskTitle.textContent = t('Today at a glance','今天概览');
+      taskTitle.textContent = t('Today','今日');
       taskCount.textContent = String(stats.dueTodayOpen);
       taskCaption.textContent = t('tasks left today','项今日待办');
       const labels = compact.matches ? [t('Done','已完成'),t('Due','到期'),t('Overdue','逾期')] : [t('Completed','已完成'),t('Due today','今日到期'),t('Overdue','逾期')];
@@ -62,15 +62,17 @@
       agendaTitle.textContent = t('Next today','接下来的安排'); agendaTime.hidden = !next;
       agendaTime.textContent = next?.time || ''; if (next) agendaTime.dateTime = `${stats.today}T${next.time}`;
       agendaLink.textContent = next?.text || t('Open calendar','打开日历'); agendaLink.href = next?.href || 'calendar.html';
+      agendaNote.hidden = true;
       agendaNote.textContent = next ? new Date().toLocaleDateString(window.DailySpaceI18n?.localeTag() || 'en-US',{weekday:'long',month:'short',day:'numeric'}) : t('No more timed arrangements today.','今天没有更多定时安排。');
       const priority = {high:0,normal:1,low:2};
       const candidate = tasks.filter(task => !task.completed && !task.inbox && (task.todayPinDate === stats.today || !task.dueDate || task.dueDate <= stats.today)).sort((a,b) =>
         Number(b.todayPinDate === stats.today) - Number(a.todayPinDate === stats.today) ||
         (a.todayPinDate === stats.today && b.todayPinDate === stats.today ? (a.todayPinOrder || 0) - (b.todayPinOrder || 0) : 0) ||
         (priority[a.priority] ?? 1) - (priority[b.priority] ?? 1) || (a.dueDate || stats.today).localeCompare(b.dueDate || stats.today) || (a.dueTime || '99:99').localeCompare(b.dueTime || '99:99'))[0];
-      focusId = candidate?.id || null; focusKicker.textContent = t('One thing at a time','一次专注一件事');
-      focusTitle.textContent = candidate?.text || t('A little room for what matters','给重要的事留一点空间');
-      focusMeta.textContent = candidate ? [candidate.dueDate && candidate.dueDate < stats.today ? t('Overdue','逾期') : t('Your next step','下一步'),candidate.dueTime].filter(Boolean).join(' · ') : t('Add a task when you’re ready.','准备好了，就记录下一件事。');
+      focusId = candidate?.id || null; focusKicker.hidden = true;
+      focusTitle.textContent = candidate?.text || t('No tasks','暂无待办');
+      focusMeta.textContent = candidate ? [candidate.dueDate && candidate.dueDate < stats.today ? t('Overdue','逾期') : '',candidate.dueTime].filter(Boolean).join(' · ') : '';
+      focusMeta.hidden = !focusMeta.textContent;
       focusOpen.textContent = candidate ? t('Open task','打开任务') : t('New task','新建任务');
       const state = window.DailySpaceTallyCore.readState();
       const amount = state.records.filter(record => record.date === stats.today && record.scope !== 'shared').reduce((sum,record) => sum + window.DailySpaceTallyCore.baseAmount(record),0);

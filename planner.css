@@ -653,6 +653,7 @@ body.planner-page.has-bento-rail .main-area {
   letter-spacing: var(--type-body-tracking);
   line-height: var(--type-body-lh);
 }
+.planner-card-face:focus-visible { outline: 2px solid var(--pl-ink); outline-offset: var(--space-xs); border-radius: var(--radius-sm); }
 
 .planner-card-meta {
   display: flex;
@@ -809,7 +810,6 @@ body.planner-page.has-bento-rail .main-area {
 .planner-card-drawer {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows 0.28s ease;
   width: 100%;
 }
 
@@ -824,7 +824,6 @@ body.planner-page.has-bento-rail .main-area {
   flex-direction: column;
   gap: 0.4rem;
   padding-top: 0;
-  transition: padding-top 0.28s ease;
 }
 
 .planner-card:not(.is-collapsed) .planner-card-drawer-inner {

@@ -103,6 +103,7 @@
     "Your trips and itinerary.": "你的旅行和每日行程。",
     "No trips yet": "还没有旅行计划",
     "Saved on this device. Sign in to sync.": "已保存在本机，登录后可同步。",
+    "Saved on this device": "仅保存在本机",
 
     "Selected messages": "已选邮件",
     "Close message": "关闭邮件",

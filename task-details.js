@@ -133,7 +133,8 @@
         controls.categoryId.replaceChildren(new Option(localized('No category', '无分类'), ''));
         controls.categoryId.dataset.i18nIgnore = ''; api.getCategories().forEach(category => controls.categoryId.add(new Option(category.name, category.id))); controls.categoryId.value = value.categoryId || '';
         extras.fill(value, task); draftStatus.textContent = draft ? localized('Draft restored', '已恢复草稿') : ''; conflictActions.hidden = true;
-        motion.open(); controls.text.focus({ preventScroll: true });
+        const sourceTitle = () => document.querySelector(`#todo-list [data-id="${CSS.escape(id)}"] .todo-label, #task-list [data-id="${CSS.escape(id)}"] .todo-label`);
+        motion.open({ sourceTitle, title: controls.text, origin: sourceTitle()?.closest('.todo-item') }); controls.text.focus({ preventScroll: true });
       }
       function close(fromHistory = false) { if (root.hidden || motion.closing) return; stash(); motion.close(restoreCalendarFocus); if (!fromHistory) historyController.back(); }
       root.querySelectorAll('[data-dialog-close]').forEach(node => node.addEventListener('click', () => close()));

@@ -57,11 +57,11 @@
       sync(); if(frames.at(-1)?.dialog!==semanticDialog){reset(true);return;}
       const elapsed=Math.max(1,performance.now()-drag.time), distance=drag.distance;
       const dismiss=distance>=Math.min(112,panel.getBoundingClientRect().height*.24)||(distance>44&&distance/elapsed>.6);
-      reset(!dismiss);
-      if(dismiss)root.querySelector('[data-dialog-close]')?.click();
+      if(dismiss) { drag=null; root.querySelector('[data-dialog-close]')?.click(); }
+      else reset(true);
     });
     for(const event of ['pointercancel','lostpointercapture'])handle.addEventListener(event,()=>{if(drag)reset(true);});
-    new MutationObserver(()=>{if(root.hidden||root.classList.contains('is-closing'))reset();}).observe(root,{attributes:true,attributeFilter:['hidden','class']});
+    new MutationObserver(()=>{if(root.hidden||(root.classList.contains('is-closing')&&!panel.classList.contains('continuity-panel-active')))reset();}).observe(root,{attributes:true,attributeFilter:['hidden','class']});
     window.addEventListener('blur',()=>reset());
     return handle;
   }
@@ -184,19 +184,91 @@
     // Keep isolation and focus trapping active until the exit finishes.
     motion(root) {
       let timer = null;
+      let sourceTitle = null, editorTitle = null, motionOwner = null;
+      let origin = null, surfaceKind = 'panel', keyboardEntry = false;
+      let scrimAnimation = null;
       root.classList.add("workspace-sheet-motion");
       const panel = root.querySelector('[role="dialog"]'); panel.dataset.sheetPanel = "";
       sheetDrag(root,panel);
       root.firstElementChild.dataset.sheetBackdrop = "";
       const cancel = () => { clearTimeout(timer); timer = null; root.classList.remove("is-closing"); };
+      const resolve = value => typeof value === 'function' ? value() : value;
+      const backdrop = root.firstElementChild;
+      const scrimOpacity = () => root.hidden ? 0 : Number(getComputedStyle(backdrop).opacity);
+      function scrim(from, to, duration) {
+        scrimAnimation?.cancel(); backdrop.dataset.continuityScrim = '';
+        if (!duration) { scrimAnimation = null; backdrop.style.opacity = String(to); return; }
+        scrimAnimation = backdrop.animate([{ opacity: from }, { opacity: to }], { duration, easing: 'ease-out', fill: 'both' });
+        scrimAnimation.finished.catch(() => {});
+      }
+      matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', event => {
+        if (!event.matches || !scrimAnimation || scrimAnimation.playState === 'idle') return;
+        backdrop.style.opacity = scrimAnimation.effect.getKeyframes().at(-1).opacity; scrimAnimation.cancel(); scrimAnimation = null;
+      });
+      function anchor(origin, { keyboard = false } = {}) {
+        const space = parseFloat(getComputedStyle(panel).getPropertyValue('--space-md')) || 18;
+        let x = 0, y = space;
+        const phone = document.body.classList.contains('todo-mobile') || matchMedia('(max-width: 819px)').matches;
+        if (!phone && origin?.isConnected && !keyboard) {
+          const from = origin.getBoundingClientRect(), to = panel.getBoundingClientRect();
+          const dx = from.left + from.width / 2 - to.left - to.width / 2;
+          const dy = from.top + from.height / 2 - to.top - to.height / 2;
+          const distance = Math.max(space, Math.abs(dx), Math.abs(dy));
+          x = dx / distance * space; y = dy / distance * space;
+        }
+        if (keyboard) { x = 0; y = 0; }
+        root.style.setProperty('--sheet-enter-x', `${x}px`); root.style.setProperty('--sheet-enter-y', `${y}px`);
+        root.style.setProperty('--sheet-enter-duration', keyboard ? '160ms' : '180ms');
+      }
       return {
         get closing() { return root.classList.contains("is-closing"); },
-        open() { cancel(); root.hidden = false; },
+        anchor,
+        open(options = {}) {
+          const entering = root.hidden || root.classList.contains('is-closing');
+          const layout = window.DailySpaceLayoutMotion;
+          const opacity = layout?.captureOpacity(panel.children), scrimFrom = scrimOpacity();
+          const interruptedTitle = !root.hidden ? layout?.captureTitle(editorTitle) : null;
+          const interrupted = !root.hidden ? layout?.captureSurface(panel) : null;
+          cancel(); layout?.cancel(root, { finishSurfaces: false });
+          panel.style.removeProperty('translate'); delete panel.dataset.continuitySurface;
+          sourceTitle = options.sourceTitle || null; editorTitle = options.title || null;
+          motionOwner = window.DailySpaceView?.owner() || 'guest';
+          origin = options.origin === undefined ? (document.activeElement !== document.body ? document.activeElement : lastInteraction) : options.origin;
+          surfaceKind = root.classList.contains('interaction-surface') || root.classList.contains('workspace-command') ? 'menu' : 'panel';
+          keyboardEntry = Boolean(options.keyboard);
+          const before = interruptedTitle || layout?.captureTitle(resolve(sourceTitle));
+          const from = interrupted || layout?.captureSurface(origin);
+          root.hidden = false;
+          anchor(origin, options);
+          const surface = entering && !options.deferSurface && !keyboardEntry ? layout?.morphSurface(panel, { host: root, from, kind: surfaceKind, contentOpacity: opacity }) : null;
+          if (surface) root.style.setProperty('--sheet-enter-duration', `${surface.duration}ms`);
+          if (entering) scrim(scrimFrom, 1, matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : surface?.duration || (keyboardEntry ? 160 : 180));
+          if (entering && editorTitle) layout?.carryTitle(before, editorTitle, { container: root, ...(surface || {}) });
+        },
+        present() {
+          const layout = window.DailySpaceLayoutMotion;
+          const surface = !keyboardEntry ? layout?.morphSurface(panel, { host: root, from: layout.captureSurface(origin), kind: surfaceKind }) : null;
+          if (surface) root.style.setProperty('--sheet-enter-duration', `${surface.duration}ms`);
+          if (surface) scrim(scrimOpacity(), 1, surface.duration);
+        },
         close(done, immediate = false) {
-          cancel();
-          const finish = () => { root.hidden = true; cancel(); done?.(); window.DailySpaceUndo?.reposition(); };
+          const layout = window.DailySpaceLayoutMotion, from = layout?.captureSurface(panel), before = layout?.captureTitle(editorTitle), opacity = layout?.captureOpacity(panel.children), scrimFrom = scrimOpacity();
+          cancel(); layout?.cancel(root, { finishSurfaces: false });
+          const finish = () => { root.hidden = true; scrimAnimation?.cancel(); layout?.cancel(root, { finishSurfaces: false }); panel.style.removeProperty('translate'); cancel(); done?.(); window.DailySpaceUndo?.reposition(); };
           if (root.hidden || immediate || matchMedia("(prefers-reduced-motion: reduce)").matches) finish();
-          else { root.classList.add("is-closing"); timer = setTimeout(finish, 160); }
+          else {
+            const sameOwner = motionOwner === (window.DailySpaceView?.owner() || 'guest');
+            const targetTitle = sameOwner ? resolve(sourceTitle) : null;
+            const target = targetTitle?.closest('.todo-item') || (sameOwner && origin?.isConnected ? origin : null);
+            const to = sameOwner && !keyboardEntry ? layout?.captureSurface(target) : null;
+            const surface = to ? layout?.morphSurface(panel, { host: root, from, to, returning: true, kind: surfaceKind, contentOpacity: opacity, onFinish: finish }) : null;
+            if (surface) {
+              root.style.setProperty('--sheet-exit-duration', `${surface.duration}ms`);
+              if (editorTitle) layout?.carryTitle(before, targetTitle, { container: root, ...surface, returning: true });
+            } else { panel.style.removeProperty('translate'); root.style.setProperty('--sheet-exit-duration', '160ms'); timer = setTimeout(finish, 160); }
+            scrim(scrimFrom, 0, surface?.duration || 160);
+            root.classList.add('is-closing');
+          }
         },
       };
     },

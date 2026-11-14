@@ -1158,15 +1158,26 @@ body.tally-page .tally-form input, body.tally-page .tally-form select { font-wei
 
 .workspace-tool-backdrop, body.tally-page .tally-sheet-backdrop, .m-task-backdrop, #calendar-editor-backdrop, .task-desktop-backdrop { background: var(--modal-scrim); backdrop-filter: none; -webkit-backdrop-filter: none; }
 .workspace-sheet-motion.is-closing { pointer-events: none; }
-@keyframes workspace-sheet-enter { from { opacity: 0; transform: translateY(var(--space-md)); } to { opacity: 1; transform: translateY(0); } }
-@keyframes workspace-sheet-exit { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(var(--space-md)); } }
+@keyframes workspace-sheet-enter { from { transform: translate(var(--sheet-enter-x, 0px), var(--sheet-enter-y, var(--space-md))); } to { transform: translate(0, 0); } }
+@keyframes workspace-sheet-exit { from { transform: translate(0, 0); } to { transform: translate(var(--sheet-enter-x, 0px), var(--sheet-enter-y, var(--space-md))); } }
+@keyframes workspace-content-enter { from { opacity: 0; } to { opacity: 1; } }
+@keyframes workspace-content-exit { from { opacity: 1; } to { opacity: 0; } }
 @keyframes workspace-scrim-enter { from { opacity: 0; } to { opacity: 1; } }
 @keyframes workspace-scrim-exit { from { opacity: 1; } to { opacity: 0; } }
+.continuity-title { position: fixed; z-index: 1000; display: block; margin: 0; padding: 0; border: 0; pointer-events: none; white-space: nowrap; overflow: hidden; transform-origin: top left; }
+.continuity-title-target { color: transparent !important; caret-color: transparent !important; text-shadow: none !important; }
+.continuity-surface { position: absolute; box-sizing: border-box; pointer-events: none; transform-origin: top left; }
+.continuity-retiring { position: absolute !important; z-index: 3 !important; pointer-events: none !important; background: transparent !important; border: 0 !important; box-shadow: none !important; overflow: hidden !important; max-height: none !important; }
+.continuity-clear-fill { background: transparent !important; border-color: transparent !important; box-shadow: none !important; }
+.workspace-sheet-motion [data-sheet-panel][data-continuity-surface], .workspace-sheet-motion [data-sheet-panel][data-continuity-surface] > :not([data-sheet-drag-handle]) { animation: none !important; }
+.workspace-sheet-motion [data-continuity-scrim] { animation: none !important; }
 @media (prefers-reduced-motion: no-preference) {
-  .workspace-sheet-motion [data-sheet-panel] { animation: workspace-sheet-enter 180ms ease-out both; }
-  .workspace-sheet-motion [data-sheet-backdrop] { animation: workspace-scrim-enter 180ms ease-out both; }
-  .workspace-sheet-motion.is-closing [data-sheet-panel] { animation: workspace-sheet-exit 160ms ease-in both; }
-  .workspace-sheet-motion.is-closing [data-sheet-backdrop] { animation: workspace-scrim-exit 160ms ease-in both; }
+  .workspace-sheet-motion [data-sheet-panel] { animation: workspace-sheet-enter var(--sheet-enter-duration, 180ms) ease-out both; }
+  .workspace-sheet-motion [data-sheet-panel] > :not([data-sheet-drag-handle]) { animation: workspace-content-enter 90ms ease-out 80ms both; }
+  .workspace-sheet-motion [data-sheet-backdrop] { animation: workspace-scrim-enter var(--sheet-enter-duration, 180ms) ease-out both; }
+  .workspace-sheet-motion.is-closing [data-sheet-panel] { animation: workspace-sheet-exit var(--sheet-exit-duration, 160ms) ease-in both; }
+  .workspace-sheet-motion.is-closing [data-sheet-panel] > :not([data-sheet-drag-handle]) { animation: workspace-content-exit 80ms ease-in both; }
+  .workspace-sheet-motion.is-closing [data-sheet-backdrop] { animation: workspace-scrim-exit var(--sheet-exit-duration, 160ms) ease-in both; }
   :is(.workspace-tool-body details, .task-detail-fields, .task-batch-options, .trip-expenses, .trip-expense-history, .tally-extra-options) > summary::after { transition: transform 160ms ease-out; }
 }
 
@@ -1517,3 +1528,6 @@ body.travel-page .travel-desktop-day.is-active {
     background: var(--surface);
   }
 }
+
+/* The overview already shows completion; keep the home heading focused on date. */
+body.personal-workbench .today-progress { display: none; }

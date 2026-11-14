@@ -2,13 +2,14 @@
 .toolbox-shell { display: block; width: 100%; max-width: 1120px; margin-inline: auto; padding: var(--space-lg); box-sizing: border-box; }
 .toolbox-header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-md); margin-bottom: var(--space-lg); }
 .toolbox-header h1 { margin: 0; }
+.toolbox-header #toolbox-description { display: none; }
 .toolbox-header p, .toolbox-section > p, .toolbox-card-copy, .toolbox-status, .review-help { color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
 .toolbox-shell .workspace-save-status[hidden] { display: none; }
 .toolbox-back { display: inline-flex; align-items: center; min-height: 44px; margin-bottom: var(--space-sm); color: var(--primary); text-decoration: none; }
 .toolbox-section { margin-block: var(--space-lg); }
 .toolbox-section h2 { margin: 0 0 var(--space-md); font: var(--phone-title-weight) var(--phone-title-size)/var(--phone-title-lh) var(--font-ui); }
 .toolbox-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: var(--space-md); }
-.toolbox-card { display: flex; align-items: flex-start; gap: var(--space-md); min-width: 0; padding: var(--space-md); border: 1px solid var(--quiet-line); border-radius: var(--radius-md); background: var(--panel-fill); color: var(--text); text-align: start; text-decoration: none; cursor: pointer; font: var(--phone-body-weight) var(--phone-body-size)/var(--phone-body-lh) var(--font-ui); }
+.toolbox-card { display: flex; align-items: center; gap: var(--space-md); min-width: 0; padding: var(--space-md); border: 1px solid var(--quiet-line); border-radius: var(--radius-md); background: var(--panel-fill); color: var(--text); text-align: start; text-decoration: none; cursor: pointer; font: var(--phone-body-weight) var(--phone-body-size)/var(--phone-body-lh) var(--font-ui); }
 .toolbox-card:hover { background: var(--surface); }
 .toolbox-card:disabled { opacity: .5; cursor: default; }
 .toolbox-card > span:nth-child(2) { flex: 1; min-width: 0; }

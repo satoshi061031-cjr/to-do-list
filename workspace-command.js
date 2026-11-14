@@ -144,12 +144,13 @@
       }
       status.hidden=true;highlight();
     }
-    function open(fromHistory=false){
+    function open(fromHistory=false,{keyboard=false}={}){
       if(!ready())return false;
       if(!fromHistory&&palette.hidden&&historyController&&!historyController.push({}))return false;
       renderOwner=owner();closing=false;labels();input.value='';activeIndex=0;
-      if(motion)motion.open();else palette.hidden=false;
-      fit?.();input.setAttribute('aria-expanded','true');render('');
+      const origin=keyboard?null:document.querySelector('[data-workspace-search]');
+      if(motion)motion.open({origin,keyboard,deferSurface:true});else palette.hidden=false;
+      fit?.();motion?.anchor(origin,{keyboard});input.setAttribute('aria-expanded','true');render('');motion?.present();
       requestAnimationFrame(()=>{if(!palette.hidden&&renderOwner===owner())input.focus({preventScroll:true});});return true;
     }
     function close(fromHistory=false,after){
@@ -178,7 +179,7 @@
     dismiss.addEventListener('click',()=>close());backdrop?.addEventListener('click',()=>close());
     document.addEventListener('keydown',event=>{
       if(!(event.metaKey||event.ctrlKey)||String(event.key).toLowerCase()!=='k'||event.isComposing||event.keyCode===229)return;
-      event.preventDefault();if(palette.hidden)open();else close();
+      event.preventDefault();if(palette.hidden)open(false,{keyboard:true});else close();
     });
     function refresh(){
       if(renderOwner&&renderOwner!==owner()||!ready()){

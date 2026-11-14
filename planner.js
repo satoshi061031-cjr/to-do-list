@@ -1200,12 +1200,12 @@
       (expanded ? "" : " is-collapsed") +
       (entryMatchesSearch(entry) ? "" : " is-filtered-out");
     card.dataset.entryId = entry.id;
+    card.dataset.motionKey = entry.id;
     guardPlannerNode(card, context);
     card.addEventListener("click", (ev) => {
-      if (expanded) return;
+      if (!card.classList.contains('is-collapsed')) return;
       if (ev.target.closest("a, button, input, textarea, select, label")) return;
-      patchPlannerEntry(entry.id, { expanded: true });
-      renderPlanner();
+      setExpanded(true);
     });
 
     const top = document.createElement("div");
@@ -1229,6 +1229,8 @@
     titleInp.maxLength = 200;
     titleInp.addEventListener("change", () => {
       patchPlannerEntry(entry.id, { title: titleInp.value.slice(0, 200) });
+      faceTitle.textContent = entry.title || 'Untitled';
+      face.setAttribute('aria-label', entry.title || 'Untitled');
     });
 
     titleWrap.appendChild(titleInp);
@@ -1242,9 +1244,7 @@
     toggle.addEventListener("click", (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
-      const open = entryIsExpanded(entry);
-      patchPlannerEntry(entry.id, { expanded: !open });
-      renderPlanner();
+      setExpanded(card.classList.contains('is-collapsed'));
     });
 
     const del = document.createElement("button");
@@ -1264,6 +1264,8 @@
 
     const face = document.createElement("div");
     face.className = "planner-card-face";
+    face.tabIndex = 0; face.setAttribute('role', 'button'); face.setAttribute('aria-label', entry.title || 'Untitled'); face.setAttribute('aria-expanded', 'false');
+    face.addEventListener('keydown', event => { if (['Enter', ' '].includes(event.key)) { event.preventDefault(); setExpanded(true); } });
     const faceTitle = document.createElement("h3");
     faceTitle.className = "planner-card-face-title";
     faceTitle.textContent = entry.title || "Untitled";
@@ -1285,7 +1287,9 @@
 
     const drawer = document.createElement("div");
     drawer.className = "planner-card-drawer";
-    if (expanded) {
+    drawer.inert = !expanded;
+    function populateDrawer() {
+      if (drawer.firstElementChild) return;
       const drawerInner = document.createElement("div");
       drawerInner.className = "planner-card-drawer-inner";
 
@@ -1382,7 +1386,42 @@
       drawer.appendChild(drawerInner);
     }
 
+    if (expanded) populateDrawer();
     card.append(face, foot, top, drawer);
+    function setExpanded(next) {
+      if (!card.isConnected || !currentTeamContext(context)) return;
+      const layout = window.DailySpaceLayoutMotion;
+      const surfaceFrom = layout?.captureSurface(card);
+      const paintedOpacity = layout?.captureOpacity([face, top, drawer, foot]);
+      const titleSnapshot = layout?.captureTitle(next ? faceTitle : titleInp);
+      layout?.cancel(card);
+      const fading = next ? [face] : [top, drawer];
+      const oldBounds = card.getBoundingClientRect();
+      const oldPosition = card.style.position;
+      const frozen = fading.map(node => ({ node, css: node.style.cssText, inert: node.inert, rect: node.getBoundingClientRect() }));
+      const positions = layout?.capture(card.parentElement);
+      patchPlannerEntry(entry.id, { expanded: next });
+      if (next) populateDrawer();
+      card.classList.toggle('is-collapsed', !next); drawer.inert = !next;
+      face.setAttribute('aria-expanded', String(next));
+      toggle.setAttribute('aria-expanded', String(next)); toggle.setAttribute('aria-label', next ? 'Collapse card' : 'Expand card');
+      card.style.position = 'relative';
+      for (const item of frozen) {
+        Object.assign(item.node.style, { position: 'absolute', left: `${item.rect.left - oldBounds.left - card.clientLeft}px`, top: `${item.rect.top - oldBounds.top - card.clientTop}px`, width: `${item.rect.width}px`, height: `${item.rect.height}px`, display: item.node === drawer ? 'grid' : 'flex', gridTemplateRows: '1fr', pointerEvents: 'none' });
+        item.node.inert = true;
+      }
+      const fades = [];
+      const clean = () => { fades.forEach(animation => animation.cancel()); frozen.forEach(item => { item.node.style.cssText = item.css; item.node.inert = item.node === drawer ? !next : item.inert; }); card.style.position = oldPosition; };
+      // The same card, fields and column survive; a focused control never
+      // vanishes with an unrelated board rebuild or loses unfinished input.
+      (next ? toggle : face).focus({ preventScroll: true });
+      const timing = layout?.surfaceTiming('card', !next);
+      const surface = layout?.morphSurface(card, { from: surfaceFrom, returning: !next, incoming: true, kind: 'card', keepFill: !next, contents: next ? [top, drawer, foot] : [face, foot], onFinish: clean });
+      if (surface) for (const item of frozen) fades.push(item.node.animate([{ opacity: paintedOpacity?.get(item.node) ?? 1 }, { opacity: 0 }], { duration: timing.duration * .3, easing: 'ease-out', fill: 'both' }));
+      if (!surface) clean();
+      layout?.play(positions, timing);
+      layout?.carryTitle(titleSnapshot, next ? titleInp : faceTitle, { container: card, returning: !next, ...timing });
+    }
     return card;
   }
 
@@ -1715,6 +1754,7 @@
   }
 
   function renderPlanner() {
+    window.DailySpaceLayoutMotion?.cancel(plannerBoardEl);
     const boardName = (() => {
       if (isTeamMode()) {
         const board = teamBoards.find((item) => item.id === selectedTeamBoardId);

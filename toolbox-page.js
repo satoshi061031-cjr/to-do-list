@@ -37,20 +37,20 @@
       const el = typeof target === 'string' ? node('a') : button('', () => { if (ready()) target(); });
       el.className = 'toolbox-card'; el.dataset.tool = id;
       if (typeof target === 'string') el.href = target; else el.disabled = !ready();
-      const copy = node('span'); copy.append(node('strong', title), node('span', description, 'toolbox-card-copy'));
+      const copy = node('span'); copy.append(node('strong', title)); el.title = description;
       const arrow = node('span', '›', 'toolbox-arrow'); arrow.setAttribute('aria-hidden', 'true');
       el.append(icon(id), copy, arrow); grid.append(el);
     }
     function command(id) { if (!window.DailySpaceCommand?.execute(`action:${id}`)) report(new Error(t('Workspace is still loading. Please retry.', '工作台正在加载，请重试。'))); }
     function renderTools() {
-      const work = section(t('Your everyday tools', '日常工具')), grid = node('div', '', 'toolbox-grid'); work.append(grid);
+      const work = section(t('Tools', '工具')), grid = node('div', '', 'toolbox-grid'); work.append(grid);
       let notesCount = '';
       if (ready()) { try { notesCount = String(window.DailySpaceNotes?.list().length || 0); } catch (_) {} }
       card(grid, 'notes', t('Notes', '笔记'), notesCount ? t(`${notesCount} saved · Ideas, references and linked tasks`, `已保存 ${notesCount} 篇 · 想法、资料和关联任务`) : t('Ideas, references and linked tasks', '记录想法、资料，关联任务'), 'notes.html');
       card(grid, 'review', t('Weekly review', '每周复盘'), t('Completions, focus time and unfinished work', '查看完成事项、专注时间和待安排任务'), 'review.html');
       card(grid, 'focus', t('Focus', '专注'), t('Choose one task and start a timer', '选一件事，开始一段专注时间'), () => command('start-focus'));
       card(grid, 'templates', t('Task templates', '任务模板'), t('Create tasks from a routine you have saved', '从已保存的流程快速新建任务'), () => command('templates'));
-      const pages = section(t('More from your workspace', '工作与生活')), links = node('div', '', 'toolbox-grid'); pages.append(links);
+      const pages = section(t('Workspace', '工作与生活')), links = node('div', '', 'toolbox-grid'); pages.append(links);
       for (const [id, en, zh, hint, hintZh] of [
         ['planner', 'Projects', '项目', 'Boards and project cards', '管理看板与项目卡片'], ['mail', 'Mail', '邮箱', 'Connected Google inbox', '查看 Google 邮箱'],
         ['travel', 'Travel', '旅行', 'Trips, bookings and itineraries', '管理旅行、预订与行程'], ['teamwork', 'Teamwork', '协作', 'Shared workspaces and assignments', '共享工作空间与指派'],

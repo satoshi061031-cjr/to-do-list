@@ -51,7 +51,7 @@
       const needsEntry=mobile()||(history.state?.workspaceSheet?.transient&&history.state.workspaceSheet.owner===owner());
       if (needsEntry && !restoring && !controller.push({})) return false;
       if (needsEntry) historyEntry=true;
-      labels(); motion.open(); position(); restoring=false; current=api; notify(true);
+      labels(); motion.open({origin:trigger,deferSurface:true}); position(); motion.anchor(trigger); motion.present(); restoring=false; current=api; notify(true);
       requestAnimationFrame(()=>{
         if (root.hidden||motion.closing||openedOwner!==owner())return;
         (body.querySelector('input:not(:disabled),select:not(:disabled),button:not(:disabled),a[href]')||dismiss).focus({preventScroll:true});

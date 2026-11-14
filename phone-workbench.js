@@ -72,7 +72,7 @@
       const upcoming = arrangements.filter(item => (item.end || item.time) >= hm).sort((a,b) => a.time.localeCompare(b.time))[0];
       next.hidden = config.hidden.includes('agenda'); summary.classList.toggle('has-no-agenda',next.hidden);
       nextLabel.textContent = upcoming ? `${t('Next','接下来')} · ${upcoming.time}` : t('Calendar','日历');
-      nextValue.textContent = upcoming?.text || t('No more timed plans','暂无后续定时安排');
+      nextValue.textContent = upcoming?.text || t('No plans','暂无安排');
       next.href = upcoming?.href || 'calendar.html#today'; next.title = [nextLabel.textContent,nextValue.textContent].join(' · '); next.setAttribute('aria-label',next.title);
       for (const [id,label] of Object.entries(labels)) tiles[id].label.textContent = t(...label);
       tiles.tasks.value.textContent = String(stats.dueTodayOpen);

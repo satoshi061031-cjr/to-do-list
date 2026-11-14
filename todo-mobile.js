@@ -124,7 +124,8 @@
       status.textContent = draft ? t("Draft restored", "已恢复草稿") : "";
       conflictActions.hidden = true; loadLatest.textContent = t('Load latest', '加载最新'); keepEdits.textContent = t('Keep my edits', '保留我的修改');
       returnScroll = scrollY;
-      motion.open();
+      const sourceTitle = () => id ? document.querySelector(`#todo-list [data-id="${CSS.escape(id)}"] .todo-label`) : null;
+      motion.open({ sourceTitle, title, origin: sourceTitle()?.closest('.todo-item') || document.getElementById('m-add-task') });
       document.body.classList.add("m-task-editor-open");
       if (push) history.pushState({ ...history.state, mobileTaskSheet: true, taskId }, "", location.href);
       syncViewport();
@@ -223,7 +224,7 @@
       const tasks = api.getVisibleTasks();
       empty.hidden = tasks.length > 0 || view.source !== "personal";
       const planning = api.getPlanningView?.().mode || "tasks";
-      empty.textContent = planning === "inbox" ? t("Your inbox is clear. Capture an idea or link above.", "收集箱已清空，可在上方记录想法或链接。") : planning === "top" ? t("Choose up to three priorities from task details.", "在任务详情中选出今天最重要的三件事。") : view.range === "week" ? t("No tasks in the next 7 days.", "近期 7 天没有任务。") : done ? t("No completed tasks yet.", "还没有已完成的任务。") : t("A clear day. Add your first task.", "今天很清爽，添加第一条任务吧。");
+      empty.textContent = planning === "inbox" ? t("Inbox is empty", "收集箱为空") : planning === "top" ? t("Pin priorities in task details", "在任务详情中设为重点") : view.range === "week" ? t("No tasks in the next 7 days.", "近期 7 天没有任务。") : done ? t("No completed tasks yet.", "还没有已完成的任务。") : t("No tasks", "暂无待办");
     }
     document.getElementById("m-filter-active").addEventListener("click", () => api.setPlanningView({ ...api.getPlanningView(), mode: "tasks", filter: "active" }));
     document.getElementById("m-filter-completed").addEventListener("click", () => api.setPlanningView({ ...api.getPlanningView(), mode: "tasks", filter: "completed" }));

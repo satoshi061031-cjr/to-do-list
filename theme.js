@@ -196,7 +196,7 @@
       if (sidebarHintDone()) return;
       if (isWelcomePath(window.location.pathname)) return;
       if (!isDesktop()) return;
-      if (document.getElementById("sidebar-hint")) return;
+      if (document.getElementById("sidebar-hint") || document.body.classList.contains("has-bento-rail")) return;
       if (document.body.classList.contains("welcome-active")) return;
 
       const tip = document.createElement("div");
@@ -2395,7 +2395,7 @@
         '<div class="guest-save-copy">' +
         '<p class="guest-save-kicker">Guest</p>' +
         '<p class="guest-save-title">Sign in to keep this work</p>' +
-        '<p class="guest-save-hint">Saved on this device. Sign in to sync.</p>' +
+        '<p class="guest-save-hint">Saved on this device</p>' +
         "</div>" +
         '<div class="guest-save-actions">' +
         '<button type="button" class="btn btn-primary" data-guest-signin="google">Continue with Google</button>' +
@@ -2457,6 +2457,7 @@
     function render() {
       const user = currentUserId(); const dirty = user && userSnapshotSignature(collectUserSnapshotPayload()) !== userSnapshotBaseline;
       retry.hidden = true; row.hidden = !user && !localSave && userSnapshotStatus !== 'storage-error'; row.inert = row.hidden;
+      label.hidden = !user && userSnapshotStatus !== 'storage-error' && Boolean(document.getElementById('guest-save-banner'));
       if (userSnapshotStatus === 'storage-error') { label.textContent=t('Device storage failed · sync paused','本机存储失败 · 同步已暂停');retry.hidden=false;retry.textContent=t('Retry','重试'); }
       else if (!user) label.textContent = t('Saved on this device','已保存到本机');
       else if (userSnapshotStatus === 'conflict') { label.textContent=t('Saved locally · choose which version to keep','已保存到本机 · 请选择保留的版本');retry.hidden=false;retry.textContent=t('Review','查看'); }
