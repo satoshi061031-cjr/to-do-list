@@ -43,7 +43,7 @@ test('explicit task and workbench reorders preserve position continuity without 
     return { page, context };
   }
   const ids = page => page.locator('#todo-list > .todo-item').evaluateAll(rows => rows.map(row => row.dataset.id));
-  const settled = page => page.waitForFunction(() => [...document.querySelectorAll('#todo-list > .todo-item, [data-motion-key], [data-overview-widget]')].every(node => !node.getAnimations().some(animation => ['running','pending'].includes(animation.playState))));
+  const settled = async page => { await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))); return page.waitForFunction(() => [...document.querySelectorAll('#todo-list > .todo-item, [data-motion-key], [data-overview-widget]')].every(node => !node.getAnimations().some(animation => ['running','pending'].includes(animation.playState)))); };
 
   await t.test('Top 3 keyboard moves animate the same task IDs and retain the action focus', async () => {
     const { page } = await pageFor({ isMobile: true, hasTouch: true });

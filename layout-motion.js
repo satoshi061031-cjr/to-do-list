@@ -29,7 +29,7 @@
   }
   function cancelNode(node) {
     const item = running.get(node);
-    if (item) { running.delete(node); item.animation.cancel(); }
+    if (item) { running.delete(node); if (item.raised) node.style.zIndex = item.zIndex; item.animation.cancel(); }
   }
   function cancel(container, { finishSurfaces = true, preserveSurfaces = false, preserveTitles = false } = {}) {
     for (const [panel, surface] of [...surfaces]) if (!preserveSurfaces && (!container || panel === container || container.contains(panel))) {
@@ -130,8 +130,10 @@
         const rect = node.getBoundingClientRect(), dx = before.left - (rect.left - parent.left), dy = before.top - (rect.top - parent.top);
         if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) continue;
         const animation = node.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'translate(0px, 0px)' }], { duration: options.duration || duration, easing: options.easing || easing });
-        running.set(node, { container, animation, snapshot });
-        const clear = () => { if (running.get(node)?.animation === animation) running.delete(node); };
+        const zIndex = node.style.zIndex, raised = key(node) === snapshot.focus?.key;
+        if (raised) node.style.zIndex = '1';
+        running.set(node, { container, animation, snapshot, zIndex, raised });
+        const clear = () => { if (running.get(node)?.animation === animation) { running.delete(node); if (raised) node.style.zIndex = zIndex; } };
         animation.finished.then(clear, clear);
       }
     });
@@ -337,7 +339,12 @@
     for (const [container, request] of pending) if (request.snapshot && viewportChanged(request.snapshot)) cancel(container);
     for (const item of [...running.values()]) if (viewportChanged(item.snapshot)) cancel(item.container);
   }, true);
+  const viewportSignature = () => [innerWidth, innerHeight, window.visualViewport?.width, window.visualViewport?.height, window.visualViewport?.offsetLeft, window.visualViewport?.offsetTop, window.visualViewport?.scale].join(':');
+  let lastViewport = viewportSignature();
   function viewportChange() {
+    const nextViewport = viewportSignature();
+    if (nextViewport === lastViewport) return;
+    lastViewport = nextViewport;
     const phone = document.body.classList.contains('todo-mobile') || matchMedia('(max-width: 819px)').matches;
     let continuing = false;
     for (const surface of [...surfaces.values()]) {

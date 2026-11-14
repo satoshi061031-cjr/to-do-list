@@ -37,7 +37,7 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
   const errors = [];
 
   async function pageFor(options = {}) {
-    const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, serviceWorkers: "block", ...options });
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, serviceWorkers: "block", timezoneId: "Asia/Kuala_Lumpur", ...options });
     t.after(() => context.close());
     const page = await context.newPage();
     page.setDefaultTimeout(5000);
@@ -45,8 +45,9 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
     page.on("pageerror", error => errors.push(error.message));
     await page.addInitScript(() => {
       if (!localStorage.getItem("todo-app-v2")) {
+        const now = new Date(), today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
         localStorage.setItem("todo-app-v2", JSON.stringify({ categories: [], todos: ["a", "b", "c"].map(id => ({
-          id, text: `Task ${id}`, completed: false, dueDate: new Date().toISOString().slice(0, 10),
+          id, text: `Task ${id}`, completed: false, dueDate: today,
         })) }));
       }
     });
@@ -245,7 +246,7 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
     assert.ok(Math.abs((await page.locator('#todo-list [data-id=b]').boundingBox()).y-beforeSwipe.y)<1,'Revealing actions keeps the following task in place');
     assert.ok(Math.abs((await page.locator('#todo-list [data-id=a]').boundingBox()).height-rowBeforeSwipe.height)<1,'Swipe actions do not increase row height');
     await page.locator('.task-swipe-actions button').first().click();
-    assert.notEqual(await page.evaluate(()=>window.DailySpaceTodo.getTasks().find(task=>task.id==='a').dueDate),new Date().toISOString().slice(0,10));
+    assert.notEqual(await page.evaluate(()=>window.DailySpaceTodo.getTasks().find(task=>task.id==='a').dueDate),await page.evaluate(()=>window.DailySpaceLoop.todayIso()));
     await page.locator('#undo-bar button').click();await swipe(90);
     assert.equal(await page.evaluate(()=>window.DailySpaceTodo.getTasks().find(task=>task.id==='a').completed),true);
     assert.equal(await page.locator('#todo-list [data-id=a]').evaluate(row=>row.classList.contains('is-leaving')),true,'Swipe completion uses the existing checkbox departure animation');
@@ -342,12 +343,16 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
   await t.test("changing accounts while the task editor is open preserves each reader's view and private draft", async () => {
     const page = await pageFor({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
     await page.route("https://**/*", route => route.abort());
+    const readerA = { userId: "reader-a", email: "reader-a@example.test", label: "Reader A", provider: "Google" };
+    let sessionUser = null;
+    await page.route("**/api/auth/me", route => route.fulfill({ contentType: "application/json", body: JSON.stringify({ user: sessionUser }) }));
     await page.route("**/api/user/snapshot", route => route.fulfill({ contentType: "application/json", body: JSON.stringify({ payload: {}, revision: 0 }) }));
     await page.goto(`${base}/todo-m.html`, { waitUntil: "load" });
     await selectTaskRange(page, "week"); await clickTaskFilter(page,"#m-filter-completed");
     assert.equal(await page.evaluate(() => window.DailySpaceTodo.getView().range), "week", "Changing status and closing Filter preserves the date range");
     assert.equal(await page.evaluate(() => window.DailySpaceTodo.getView().filter), "completed");
     await page.locator("#m-add-task").click(); await page.locator("#m-task-title").fill("Guest private draft");
+    sessionUser = readerA;
     await page.evaluate(() => {
       localStorage.setItem("daily-space-auth-v1", JSON.stringify({ provider: "Google", label: "Reader A", email: "reader-a@example.test" }));
       window.dispatchEvent(new CustomEvent("daily-space-auth-updated"));
@@ -358,6 +363,7 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
     assert.equal(await page.evaluate(() => window.DailySpaceTodo.getView().filter), "active");
     await page.locator("#m-add-task").click(); assert.equal(await page.locator("#m-task-title").inputValue(), "");
     await page.locator("#m-task-title").fill("Reader A private draft");
+    sessionUser = null;
     const readerDay = await page.evaluate(() => {
       const day = new Date(); day.setDate(day.getDate() + 4);
       const iso = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
@@ -370,6 +376,7 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
     assert.equal(await page.evaluate(() => window.DailySpaceTodo.getView().range), "week");
     assert.equal(await page.evaluate(() => window.DailySpaceTodo.getView().filter), "completed");
     await page.locator("#m-add-task").click(); assert.equal(await page.locator("#m-task-title").inputValue(), "Guest private draft");
+    sessionUser = readerA;
     await page.evaluate(() => {
       localStorage.setItem("daily-space-auth-v1", JSON.stringify({ provider: "Google", label: "Reader A", email: "reader-a@example.test" }));
       window.dispatchEvent(new CustomEvent("daily-space-auth-updated"));
@@ -1035,7 +1042,7 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
     await page.locator("#m-task-save").click();
     assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem("todo-app-v2")).todos.length), 5);
     const second = await page.evaluate(() => JSON.parse(localStorage.getItem("todo-app-v2")).todos.find(task => task.text === "Second capture"));
-    assert.notEqual(second.dueDate, new Date().toISOString().slice(0, 10));
+    assert.notEqual(second.dueDate, await page.evaluate(() => window.DailySpaceLoop.todayIso()));
     await page.locator("#m-task-title").fill("Remember this draft");
     await page.goBack();
     await page.locator("#m-task-editor").waitFor({ state: "hidden" });
@@ -1227,6 +1234,8 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
     await page.waitForFunction(() => !document.body.classList.contains("has-mobile-dock"));
     assert.equal(await page.locator(".bento-rail-lens").evaluate(node => getComputedStyle(node).display), "none");
     await page.setViewportSize({ width: 360, height: 844 });
+    await page.waitForFunction(() => document.body.classList.contains("has-mobile-dock"));
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
     await page.locator(".bento-rail-nav.dock-ready").waitFor();
     await touchDock(page, await dockCenter(page, '[data-rail-page="tally"]'), await dockCenter(page, '[data-rail-page="calendar"]'));
     await page.waitForURL(`${base}/calendar.html`);
@@ -2347,7 +2356,7 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
     await page.locator('.task-desktop-panel [data-task-notes]').fill('A desktop note');
     await page.locator('.task-desktop-save').click(); await page.locator('.task-desktop-editor').waitFor({ state: 'hidden' });
     assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('todo-app-v2')).todos.find(task => task.id === 'a').notes), 'A desktop note');
-    const before = Date.now(); await page.evaluate(() => window.DailySpaceReminders.defer('todo', 'a', 10));
+    const before = await page.evaluate(() => Date.now()); await page.evaluate(() => window.DailySpaceReminders.defer('todo', 'a', 10));
     assert.ok(await page.evaluate(before => JSON.parse(localStorage.getItem('todo-app-v2')).todos.find(task => task.id === 'a').remindAt >= before + 600000, before));
     assert.deepEqual(remote, [], 'Guest reminders must never send tasks to a server');
     await page.locator('#task-select-mode').click(); await page.locator('#task-select-all').click();
@@ -2416,7 +2425,7 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
     const created=await page.evaluate(()=>window.DailySpaceTodo.getTasks().find(task=>task.text==='Review the week'));
     assert.equal(created.dueDate,'2026-12-31');assert.equal(created.subtasks.length,3);assert.equal(created.subtasks.every(task=>!task.completed),true);
     await page.locator('#undo-bar button').click();assert.equal(await page.evaluate(()=>window.DailySpaceTodo.getTasks().length),3);
-    await page.evaluate(()=>window.DailySpaceTodo.selectDueDay(new Date().toISOString().slice(0,10)));
+    await page.evaluate(()=>window.DailySpaceTodo.selectDueDay(window.DailySpaceLoop.todayIso()));
     await page.locator('#task-select-mode').click();await page.locator('#task-select-all').click();await page.locator('.task-batch-options summary').click();await page.locator('[data-save-template]').click();
     await page.locator('[data-template-name]').fill('Morning routine');
     await page.goBack();await page.locator('#workspace-tools-sheet').waitFor({state:'hidden'});
@@ -2445,7 +2454,7 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
     await page.locator('#workspace-import-apply').click();assert.equal(await page.evaluate(()=>window.DailySpaceTodo.getTasks().length),4);
     await page.locator('#workspace-import-file').setInputFiles(file);await page.locator('#workspace-import-preview').getByText(/existing kept/).waitFor();assert.equal(await page.locator('#workspace-import-apply').isDisabled(),true);
     const another={...file,buffer:Buffer.from('text,dueDate\nAnother task,2026-10-14')};await page.locator('#workspace-import-file').setInputFiles(another);await page.locator('#workspace-import-apply:not([disabled])').waitFor();
-    await page.evaluate(()=>window.DailySpaceTodo.saveTask({text:'Edited while previewing',dueDate:new Date().toISOString().slice(0,10)},'a'));
+    await page.evaluate(()=>window.DailySpaceTodo.saveTask({text:'Edited while previewing',dueDate:window.DailySpaceLoop.todayIso()},'a'));
     await page.locator('#workspace-import-apply').click();assert.ok((await page.locator('#workspace-tools-sheet .workspace-tool-status').textContent()).includes('changed'));assert.equal(await page.evaluate(()=>window.DailySpaceTodo.getTasks().some(task=>task.text==='Another task')),false);
     await page.locator('#workspace-import-file').setInputFiles({...file,buffer:Buffer.from('text,dueDate\nBad date,2026-02-30')});await page.locator('#workspace-tools-sheet .workspace-tool-status').getByText(/Invalid date/).waitFor();assert.equal(await page.locator('#workspace-import-apply').isDisabled(),true);assert.deepEqual(remote,[]);
     await page.setViewportSize({width:320,height:420});const save=await page.locator('#workspace-import-apply').boundingBox();assert.ok(save.y+save.height<=420);await trapped(page,'#workspace-tools-sheet .workspace-tool-panel');

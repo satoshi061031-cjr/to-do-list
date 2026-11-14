@@ -168,6 +168,7 @@ test('phone overview and calendar widgets preserve real personal workflows', { t
     await page.keyboard.press('Escape'); await panel.waitFor({ state: 'hidden' });
     assert.equal(await toggle.evaluate(el => el === document.activeElement), true);
     await page.setViewportSize({ width: 1280, height: 900 });
+    await page.waitForFunction(() => document.querySelector('#calendar-search-options #cal-search-form') && !document.querySelector('#calendar-range').hasAttribute('aria-controls'));
     assert.equal(await panel.isVisible(), false);
     assert.equal(await page.locator('#calendar-search-options #cal-search-form').count(), 1, 'The same search form returns to the desktop disclosure');
     assert.equal(await toggle.getAttribute('aria-controls'), null);
