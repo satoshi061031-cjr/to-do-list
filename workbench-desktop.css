@@ -309,3 +309,21 @@
   body.personal-workbench:not(.has-mobile-dock) .overview-quick-links a { flex-shrink: 0; max-width: 100%; white-space: nowrap; }
   body.personal-workbench:not(.has-mobile-dock) .overview-spend-link:last-child { align-items: flex-start; text-align: start; }
 }
+
+/* Nothing left today: a calm message first, then a quiet link to the calendar. */
+@media (min-width: 820px) {
+  body.personal-workbench:not(.has-mobile-dock) .overview-agenda-card.is-clear .overview-agenda-note {
+    margin: var(--space-sm) 0 0;
+    color: var(--text);
+    white-space: normal;
+    font: var(--phone-task-weight) var(--phone-task-size)/var(--phone-task-lh) var(--font-ui);
+  }
+  body.personal-workbench:not(.has-mobile-dock) .overview-agenda-card.is-clear .overview-agenda-link {
+    margin-top: auto;
+    color: var(--primary);
+    font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui);
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+}

@@ -1,5 +1,16 @@
 /** Discoverable tools and review, over the existing workspace stores. */
 (function () {
+  /** Week range in the same short style as Calendar: "Nov 9 – Nov 15" (year added outside the current year). */
+  function reviewRangeLabel(start, end) {
+    const toDate = iso => { const [y, m, d] = String(iso).split('-').map(Number); return new Date(y, m - 1, d); };
+    const a = toDate(start), b = toDate(end);
+    if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return `${start} – ${end}`;
+    const locale = window.DailySpaceI18n?.localeTag?.() || undefined;
+    const thisYear = new Date().getFullYear();
+    const options = a.getFullYear() === thisYear && b.getFullYear() === thisYear ? { month: 'short', day: 'numeric' } : { year: 'numeric', month: 'short', day: 'numeric' };
+    const format = date => date.toLocaleDateString(locale, options);
+    return `${format(a)} – ${format(b)}`;
+  }
   function boot() {
     const host = document.getElementById('toolbox-content');
     if (!host) return;
@@ -73,7 +84,7 @@
       const previous = button('‹', () => { weekOffset = Math.max(-520, weekOffset - 1); render(); }); previous.setAttribute('aria-label', t('Previous week', '上一周'));
       const next = button('›', () => { weekOffset = Math.min(0, weekOffset + 1); render(); }); next.setAttribute('aria-label', t('Next week', '下一周')); next.disabled = weekOffset === 0;
       const current = button(t('This week', '本周'), () => { weekOffset = 0; render(); }); current.hidden = weekOffset === 0;
-      const range = node('span', `${data.start} — ${data.end}`); range.dataset.reviewRange = ''; previous.dataset.reviewNav = 'previous'; next.dataset.reviewNav = 'next'; current.dataset.reviewNav = 'current'; nav.append(previous, range, next, current); host.append(nav);
+      const range = node('span', reviewRangeLabel(data.start, data.end)); range.dataset.i18nIgnore = ''; range.dataset.reviewRange = ''; previous.dataset.reviewNav = 'previous'; next.dataset.reviewNav = 'next'; current.dataset.reviewNav = 'current'; nav.append(previous, range, next, current); host.append(nav);
       const metrics = node('dl', '', 'review-metrics');
       for (const [key, label, value] of [['completed', weekOffset === 0 ? t('Completed this week', '本周完成') : t('Completed in selected week', '该周完成'), data.completedTasks.length], ['focus', t('Recorded focus', '已记录专注'), t(`${Math.round(data.focusMs / 60000)} min`, `${Math.round(data.focusMs / 60000)} 分钟`)], ['overdue', t('Still overdue', '仍然逾期'), data.overdueTasks.length], ['inbox', t('Inbox now', '当前待整理'), data.inboxCount]]) {
         const wrap = node('div'), valueEl = node('dd', String(value)); valueEl.dataset.reviewMetric = key; wrap.append(node('dt', label), valueEl); metrics.append(wrap);

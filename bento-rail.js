@@ -6,11 +6,11 @@
 (function () {
   const ICON = {
     todo:
-      '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></svg>',
+      '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1z"/></svg>',
     calendar:
       '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>',
     planner:
-      '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 6h16M4 12h10M4 18h14"/></svg>',
+      '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/></svg>',
     mail:
       '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 7 9-7"/></svg>',
     tally:
@@ -18,7 +18,9 @@
     tools:
       '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>',
     menu:
-      '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h16M4 12h10M4 17h14"/><circle cx="18" cy="12" r="1.5" fill="currentColor" stroke="none"/></svg>',
+      '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg>',
+    more:
+      '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg>',
   };
 
   function isNarrow() {
@@ -35,11 +37,11 @@
   }
 
   const DESKTOP_LINKS = [
-    { id: "todo", href: "todo.html#today", title: "Workbench", icon: ICON.todo },
+    { id: "todo", href: "todo.html#today", title: "Home", icon: ICON.todo },
     { id: "calendar", href: "calendar.html", title: "Calendar", icon: ICON.calendar },
     { id: "planner", href: "planner.html", title: "Projects", icon: ICON.planner },
     { id: "mail", href: "mail.html", title: "Mail", icon: ICON.mail },
-    { id: "tally", href: "tally.html", title: "Tally book", icon: ICON.tally },
+    { id: "tally", href: "tally.html", title: "Tally", icon: ICON.tally },
     { id: "tools", href: "tools.html", title: "Toolbox", icon: ICON.tools },
   ];
 
@@ -250,7 +252,7 @@
       })
       .join("");
     const title = menuTitle();
-    const menuBtn = isNarrow() ? `<a href="tools.html" class="bento-rail-link" id="bento-menu-toggle" data-rail-page="tools" title="More">${ICON.menu}<span class="bento-rail-sr">More</span></a>` :
+    const menuBtn = isNarrow() ? `<a href="tools.html" class="bento-rail-link" id="bento-menu-toggle" data-rail-page="tools" title="More">${ICON.more}<span class="bento-rail-sr">More</span></a>` :
       `<button type="button" class="bento-rail-link" id="bento-menu-toggle" aria-controls="sidebar" aria-expanded="false" title="${title}">` +
       ICON.menu +
       `<span class="bento-rail-sr">${title}</span></button>`;

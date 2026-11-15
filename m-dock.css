@@ -246,6 +246,7 @@
 }
 
 @media (min-width: 820px) {
-  .bento-rail-link[data-rail-page=tools] { flex-direction: column; gap: var(--space-xs); min-height: 60px; }
-  .bento-rail-link[data-rail-page=tools] .bento-rail-sr { position: static; width: auto; height: auto; clip: auto; clip-path: none; overflow: visible; white-space: nowrap; font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+  /* Every desktop rail destination carries a short visible label, not only Toolbox. */
+  body.has-bento-rail:not(.has-mobile-dock) .bento-rail-link { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; width: 4.25rem; height: auto; min-height: 52px; }
+  body.has-bento-rail:not(.has-mobile-dock) .bento-rail-link .bento-rail-sr { position: static; width: auto; height: auto; clip: auto; clip-path: none; overflow: visible; white-space: nowrap; font: 500 0.66rem/1.2 var(--font-ui); letter-spacing: 0; }
 }

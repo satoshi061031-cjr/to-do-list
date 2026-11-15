@@ -363,10 +363,13 @@
       if (entry.assigneeUserId) return [entry.assigneeUserId];
       return [];
     }
-    const tags = Array.isArray(entry.tags) ? entry.tags.filter(Boolean) : [];
-    if (tags.length) return tags.slice(0, 3).map((t) => t.replace(/^#/, ""));
-    if (entry.title) return [entry.title];
+    // Personal boards have no assignees; tags are shown as labelled chips instead
+    // of initials so a card never shows a fake "person" made from its own title.
     return [];
+  }
+
+  function entryTagLabels(entry) {
+    return (Array.isArray(entry.tags) ? entry.tags : []).map((t) => String(t).replace(/^#/, "").trim()).filter(Boolean);
   }
 
   function boardAssigneeLabels() {
@@ -1283,7 +1286,28 @@
     const avatars = document.createElement("div");
     avatars.className = "planner-card-avatars";
     appendAvatarStack(avatars, entryAvatarLabels(entry).slice(0, 3), "planner-card-avatar");
-    foot.appendChild(avatars);
+    if (avatars.childElementCount) foot.appendChild(avatars);
+    if (!isTeamMode()) {
+      const tags = entryTagLabels(entry);
+      if (tags.length) {
+        const chips = document.createElement("div");
+        chips.className = "planner-card-tag-chips";
+        tags.slice(0, 3).forEach((tag) => {
+          const chip = document.createElement("span");
+          chip.className = "planner-card-tag-chip";
+          chip.textContent = `#${tag}`;
+          chips.appendChild(chip);
+        });
+        if (tags.length > 3) {
+          const more = document.createElement("span");
+          more.className = "planner-card-tag-chip is-more";
+          more.textContent = `+${tags.length - 3}`;
+          chips.appendChild(more);
+        }
+        foot.appendChild(chips);
+      }
+    }
+    foot.hidden = !foot.childElementCount;
 
     const drawer = document.createElement("div");
     drawer.className = "planner-card-drawer";
