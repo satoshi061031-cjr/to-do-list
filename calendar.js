@@ -610,10 +610,7 @@
     todo.completed = completing;
     todo.completedAt = completing ? Date.now() : null;
     if (completing && (todo.repeat === "daily" || todo.repeat === "weekly" || todo.repeat === "monthly")) {
-      const next = new Date(parseIso(todo.dueDate || todayIso()));
-      if (todo.repeat === "daily") next.setDate(next.getDate() + 1);
-      else if (todo.repeat === "weekly") next.setDate(next.getDate() + 7);
-      else next.setMonth(next.getMonth() + 1);
+      const nextDue = window.DailySpaceTaskFields.nextRepeatDate(todo.dueDate, todo.repeat, todo.repeatDay, todayIso());
       todos.unshift({
         ...todo,
         ...window.DailySpaceTaskFields?.recurrence(todo),
@@ -624,7 +621,7 @@
         sourceTripDate: null,
         id: id(),
         completed: false,
-        dueDate: dateToIso(next),
+        dueDate: nextDue,
         sourceReminderId: null,
         sourcePlannerId: null,
         externalEventId: null,

@@ -524,7 +524,7 @@ body.todo-mobile .sidebar {
   border: 1px solid var(--liquid-edge);
   box-shadow: var(--liquid-shadow);
   transform: translateY(110%);
-  transition: transform 0.22s ease;
+  transition: transform var(--motion-slow) ease;
 }
 
 body.todo-mobile .sidebar.is-open,
@@ -797,7 +797,7 @@ body.m-task-editor-open .m-add-bar {
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   background: var(--liquid-sheen, var(--glass)), var(--surface);
   box-shadow: var(--shadow-pop);
-  animation: m-task-sheet-enter 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: m-task-sheet-enter 0.24s var(--ease-out);
 }
 .m-sheet-handle {
   flex-shrink: 0;

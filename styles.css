@@ -60,8 +60,30 @@
   --type-body-tracking: 0.02em;
   --type-label-tracking: 0.08em;
   --type-label-weight: 600;
+  /* Motion tokens (DESIGN.md "Motion and accessibility"): reuse these instead of literal durations. */
+  --motion-instant: 120ms;
+  --motion-fast: 150ms;
+  --motion-exit: 160ms;
+  --motion-base: 180ms;
+  --motion-slow: 220ms;
+  --ease-standard: ease;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in: ease-in;
+  --ease-continuity: cubic-bezier(0.32, 0.72, 0, 1);
   color-scheme: light;
   font-family: var(--font-family);
+}
+
+/* Safety net: anything without its own reduced-motion override still settles instantly. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0s !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 :root[data-theme="dark"] {
@@ -321,7 +343,7 @@ body::after {
   top: 47%;
   opacity: var(--welcome-intro-opacity);
   transform: translate(-50%, var(--welcome-intro-y));
-  transition: opacity 0.45s ease, transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: opacity 0.45s ease, transform 0.7s var(--ease-out);
 }
 
 .welcome-title {
@@ -337,7 +359,7 @@ body::after {
   top: 43%;
   opacity: var(--welcome-reveal-opacity);
   transform: translate(-50%, var(--welcome-reveal-y));
-  transition: opacity 0.45s ease, transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: opacity 0.45s ease, transform 0.7s var(--ease-out);
 }
 
 .welcome-reveal-kicker,
@@ -361,7 +383,7 @@ body::after {
   opacity: var(--welcome-actions-opacity);
   pointer-events: none;
   transform: translate(-50%, var(--welcome-actions-y));
-  transition: opacity 0.4s ease, transform 0.65s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: opacity 0.4s ease, transform 0.65s var(--ease-out);
 }
 
 .welcome-screen.is-expanded .welcome-actions {
@@ -600,7 +622,7 @@ body::after {
   color: var(--text);
   box-shadow: var(--shadow-pop);
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s;
+  transition: background var(--motion-fast), border-color var(--motion-fast), color var(--motion-fast), transform 0.1s;
 }
 
 .theme-toggle:hover {
@@ -635,7 +657,7 @@ body::after {
   letter-spacing: var(--type-body-tracking);
   cursor: pointer;
   box-shadow: var(--shadow-soft);
-  transition: background 0.15s, border-color 0.15s, right 0.2s ease;
+  transition: background var(--motion-fast), border-color var(--motion-fast), right 0.2s ease;
 }
 
 body.has-notif-bell .language-toggle {
@@ -706,7 +728,7 @@ body.has-notif-bell .language-toggle {
   /* Slide only. A throttled tab that never advances the animation still shows
      an opaque bar, which matters when the message is the only path to undo. */
   transform: translateX(-50%);
-  animation: undo-bar-in 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: undo-bar-in var(--motion-base) var(--ease-out);
 }
 
 .undo-bar[hidden] {
@@ -752,7 +774,7 @@ body.has-notif-bell .language-toggle {
   font: inherit;
   cursor: pointer;
   box-shadow: var(--shadow-soft);
-  transition: background 0.15s, border-color 0.15s, transform 0.15s;
+  transition: background var(--motion-fast), border-color var(--motion-fast), transform var(--motion-fast);
 }
 
 .notif-bell:hover,
@@ -847,7 +869,7 @@ body.has-notif-bell .language-toggle {
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition: background 0.12s, border-color 0.12s;
+  transition: background var(--motion-instant), border-color var(--motion-instant);
 }
 
 .notif-item.is-unread .notif-item-btn {
@@ -976,7 +998,7 @@ body.has-notif-bell .language-toggle {
   color: var(--text);
   cursor: pointer;
   box-shadow: var(--shadow-soft);
-  transition: background 0.15s, border-color 0.15s;
+  transition: background var(--motion-fast), border-color var(--motion-fast);
 }
 
 .sidebar-trigger:hover {
@@ -1138,7 +1160,7 @@ body.has-notif-bell .language-toggle {
   background: transparent;
   color: var(--text);
   cursor: pointer;
-  transition: background 0.12s, border-color 0.12s;
+  transition: background var(--motion-instant), border-color var(--motion-instant);
 }
 
 .category-btn:hover {
@@ -1176,7 +1198,7 @@ body.has-notif-bell .language-toggle {
   padding: 0 0.15rem;
   border-radius: var(--radius-sm);
   opacity: 0;
-  transition: opacity 0.12s, background 0.12s, color 0.12s;
+  transition: opacity var(--motion-instant), background var(--motion-instant), color var(--motion-instant);
 }
 
 .category-btn:hover .category-remove,
@@ -1215,7 +1237,7 @@ body.has-notif-bell .language-toggle {
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  transition: border-color var(--motion-fast), color var(--motion-fast), background var(--motion-fast);
 }
 
 .btn-sidebar-add:hover {
@@ -1293,7 +1315,7 @@ body.has-notif-bell .language-toggle {
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   background: transparent;
-  transition: background 0.12s, color 0.12s;
+  transition: background var(--motion-instant), color var(--motion-instant);
 }
 
 .sidebar-page-link[hidden],
@@ -1385,7 +1407,7 @@ body.has-notif-bell .language-toggle {
   box-shadow: var(--shadow-soft);
   color: inherit;
   text-decoration: none;
-  transition: background 0.15s, border-color 0.15s;
+  transition: background var(--motion-fast), border-color var(--motion-fast);
 }
 
 .sidebar-today-strip:hover {
@@ -1430,7 +1452,7 @@ body.has-notif-bell .language-toggle {
   cursor: pointer;
   font: inherit;
   text-align: left;
-  transition: transform 0.16s, box-shadow 0.16s, background 0.16s;
+  transition: transform var(--motion-exit), box-shadow var(--motion-exit), background var(--motion-exit);
 }
 
 .sidebar-auth-entry:hover,
@@ -1857,8 +1879,8 @@ body.shortcut-go-armed::after {
   border-radius: var(--radius);
   transform-origin: center;
   transition:
-    transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1),
-    filter 0.22s ease;
+    transform var(--motion-slow) var(--ease-out),
+    filter var(--motion-slow) ease;
   isolation: isolate;
 }
 
@@ -1875,7 +1897,7 @@ body.shortcut-go-armed::after {
     radial-gradient(circle at 24% 18%, rgba(246, 216, 79, 0.26), transparent 34%),
     radial-gradient(circle at 78% 72%, rgba(255, 255, 255, 0.2), transparent 38%);
   filter: blur(10px);
-  transition: opacity 0.22s ease;
+  transition: opacity var(--motion-slow) ease;
 }
 
 .welcome-card:hover,
@@ -2096,7 +2118,7 @@ body.shortcut-go-armed::after {
   font-size: 1.05rem;
   line-height: 1;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition: background var(--motion-fast), border-color var(--motion-fast);
 }
 
 .app-calendar-nav:hover {
@@ -2161,7 +2183,7 @@ body.shortcut-go-armed::after {
   font: inherit;
   font-size: 0.68rem;
   cursor: pointer;
-  transition: background 0.12s, color 0.12s;
+  transition: background var(--motion-instant), color var(--motion-instant);
 }
 
 .app-cal-cell:hover {
@@ -2286,7 +2308,7 @@ body.shortcut-go-armed::after {
   letter-spacing: var(--type-label-tracking);
   text-transform: uppercase;
   cursor: pointer;
-  transition: color 0.15s, opacity 0.15s;
+  transition: color var(--motion-fast), opacity var(--motion-fast);
 }
 
 .daily-loop-pill:hover {
@@ -2364,7 +2386,7 @@ body.shortcut-go-armed::after {
   background: transparent;
   color: inherit;
   text-decoration: none;
-  transition: color 0.15s;
+  transition: color var(--motion-fast);
 }
 
 .daily-loop-reminders[hidden] {
@@ -2616,7 +2638,7 @@ body.todo-source-assigned .evening-review {
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   background: transparent;
-  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+  transition: background var(--motion-fast), border-color var(--motion-fast), box-shadow var(--motion-fast);
 }
 
 .add-form-notion .add-form-row:focus-within {
@@ -2853,7 +2875,7 @@ body.todo-source-assigned .evening-review {
   cursor: pointer;
   text-align: left;
   outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+  transition: border-color var(--motion-fast), box-shadow var(--motion-fast), background var(--motion-fast);
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.65) inset;
 }
 
@@ -2901,7 +2923,7 @@ body.todo-source-assigned .evening-review {
   font-size: 1.2rem;
   line-height: 1;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  transition: background var(--motion-fast), color var(--motion-fast), border-color var(--motion-fast);
 }
 
 .deadline-clear-btn:hover {
@@ -2962,7 +2984,7 @@ body.todo-source-assigned .evening-review {
   font-size: 1.1rem;
   line-height: 1;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition: background var(--motion-fast), border-color var(--motion-fast);
 }
 
 .calendar-nav:hover {
@@ -3011,7 +3033,7 @@ body.todo-source-assigned .evening-review {
   font: inherit;
   font-size: 0.85rem;
   cursor: pointer;
-  transition: background 0.12s, color 0.12s;
+  transition: background var(--motion-instant), color var(--motion-instant);
 }
 
 .calendar-cell:hover:not(:disabled) {
@@ -3047,11 +3069,11 @@ body.todo-source-assigned .evening-review {
   z-index: 0;
   transform-origin: center left;
   transition:
-    transform 0.22s cubic-bezier(0.22, 1.2, 0.36, 1),
-    box-shadow 0.22s ease,
-    background 0.18s ease,
-    border-color 0.18s ease,
-    padding 0.18s ease;
+    transform var(--motion-slow) cubic-bezier(0.22, 1.2, 0.36, 1),
+    box-shadow var(--motion-slow) ease,
+    background var(--motion-base) ease,
+    border-color var(--motion-base) ease,
+    padding var(--motion-base) ease;
 }
 
 .todo-input::placeholder {
@@ -3096,7 +3118,7 @@ body.todo-source-assigned .evening-review {
   border: none;
   border-radius: var(--radius);
   cursor: pointer;
-  transition: background 0.15s, color 0.15s, opacity 0.15s;
+  transition: background var(--motion-fast), color var(--motion-fast), opacity var(--motion-fast);
   letter-spacing: var(--type-body-tracking);
   text-transform: uppercase;
 }
@@ -3157,7 +3179,7 @@ body.todo-source-assigned .evening-review {
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+  transition: background var(--motion-fast), color var(--motion-fast), box-shadow var(--motion-fast);
   letter-spacing: var(--type-body-tracking);
   flex: 1;
 }
@@ -3213,7 +3235,7 @@ body.todo-source-assigned .app-atmosphere {
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+  transition: background var(--motion-fast), color var(--motion-fast), box-shadow var(--motion-fast);
   letter-spacing: var(--type-body-tracking);
 }
 
@@ -3248,7 +3270,7 @@ body.todo-source-assigned .app-atmosphere {
   border-radius: var(--radius-sm);
   box-shadow: none;
   /* Entry motion belongs only to a newly inserted task. */
-  transition: background 0.12s, border-color 0.12s;
+  transition: background var(--motion-instant), border-color var(--motion-instant);
 }
 
 .todo-item:hover,
@@ -3283,7 +3305,7 @@ body.todo-source-assigned .app-atmosphere {
   font-size: 0.72rem;
   letter-spacing: var(--type-body-tracking);
   line-height: 1;
-  transition: opacity 0.12s, background 0.12s, color 0.12s;
+  transition: opacity var(--motion-instant), background var(--motion-instant), color var(--motion-instant);
 }
 
 .todo-item:hover .todo-block-handle,
@@ -3392,7 +3414,7 @@ body.todo-source-assigned .app-atmosphere {
   opacity: 0;
   font-size: 1.15rem;
   line-height: 1;
-  transition: background 0.15s, color 0.15s, opacity 0.12s;
+  transition: background var(--motion-fast), color var(--motion-fast), opacity var(--motion-instant);
 }
 
 .todo-item:hover .todo-delete,
@@ -3590,11 +3612,11 @@ body.due-day-page-open {
   border-color: var(--glass-border);
   box-shadow: var(--shadow-soft);
   transition:
-    transform 0.16s ease,
-    box-shadow 0.16s ease,
-    background 0.16s ease,
-    border-color 0.16s ease,
-    color 0.16s ease;
+    transform var(--motion-exit) ease,
+    box-shadow var(--motion-exit) ease,
+    background var(--motion-exit) ease,
+    border-color var(--motion-exit) ease,
+    color var(--motion-exit) ease;
 }
 
 .sidebar-trigger:hover,
@@ -3658,10 +3680,10 @@ body.due-day-page-open {
 .deadline-trigger {
   border-radius: var(--radius);
   transition:
-    transform 0.22s cubic-bezier(0.22, 1.2, 0.36, 1),
-    box-shadow 0.22s ease,
-    background 0.18s ease,
-    border-color 0.18s ease;
+    transform var(--motion-slow) cubic-bezier(0.22, 1.2, 0.36, 1),
+    box-shadow var(--motion-slow) ease,
+    background var(--motion-base) ease,
+    border-color var(--motion-base) ease;
 }
 
 .deadline-trigger:focus,
@@ -3736,9 +3758,9 @@ body.due-day-page-open {
     transform: translateX(calc(-100% - 1.25rem)) scale(0.985);
     transform-origin: left center;
     transition:
-      transform 0.34s cubic-bezier(0.22, 1, 0.36, 1),
-      opacity 0.22s ease,
-      box-shadow 0.22s ease;
+      transform 0.34s var(--ease-out),
+      opacity var(--motion-slow) ease,
+      box-shadow var(--motion-slow) ease;
   }
 
   .sidebar.is-auto-open,
@@ -3838,7 +3860,7 @@ body.due-day-page-open {
     opacity: 0;
     pointer-events: none;
     transition:
-      transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+      transform 0.28s var(--ease-out),
       opacity 0.2s ease;
     border: 1px solid var(--glass-border);
     border-radius: var(--radius-lg);
@@ -3914,7 +3936,7 @@ body.due-day-page-open {
   box-shadow: var(--shadow-soft);
   padding: 0.38rem;
   cursor: pointer;
-  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  transition: transform var(--motion-base) ease, box-shadow var(--motion-base) ease;
 }
 
 .todo-agent-fab:hover {
@@ -4325,7 +4347,7 @@ body.has-bento-rail .bento-rail-link {
   color: color-mix(in srgb, var(--bento-rail-fg) 72%, transparent);
   cursor: pointer;
   text-decoration: none;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition: background var(--motion-fast) ease, color var(--motion-fast) ease;
 }
 
 body.has-bento-rail .bento-rail-link:hover,
@@ -4681,7 +4703,7 @@ body.has-bento-rail .sidebar {
   pointer-events: none;
   transform: translateX(-0.75rem) scale(0.98);
   transition:
-    transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.28s var(--ease-out),
     opacity 0.2s ease;
 }
 
@@ -4770,8 +4792,6 @@ body.has-bento-rail .sidebar-trigger {
 
 .todo-item.is-leaving {
   pointer-events: none;
-  min-height: 0;
-  box-sizing: border-box;
 }
 
 @media (hover: none), (pointer: coarse), (max-width: 819px) {

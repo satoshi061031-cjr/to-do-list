@@ -32,10 +32,36 @@
       externalEventId: typeof value.externalEventId === 'string' ? value.externalEventId : null,
       sourceMailId: typeof value.sourceMailId === 'string' ? value.sourceMailId : null,
       sourceMailUrl: /^https:\/\/mail\.google\.com\//.test(value.sourceMailUrl || '') ? value.sourceMailUrl.slice(0, 2000) : null,
+      repeatDay: Number.isInteger(value.repeatDay) && value.repeatDay >= 1 && value.repeatDay <= 31 ? value.repeatDay : null,
     };
   }
+  const daysInMonth = (year, monthIndex) => new Date(year, monthIndex + 1, 0).getDate();
+  /** Day of month a monthly task belongs to. A saved anchor only applies while the date is still clamped to month end. */
+  function repeatAnchorDay(dueDate, repeatDay) {
+    const iso = validDate(dueDate);
+    if (!iso) return null;
+    const [year, month, day] = iso.split('-').map(Number);
+    const anchor = Number.isInteger(repeatDay) ? repeatDay : null;
+    return anchor && anchor > day && anchor <= 31 && day === daysInMonth(year, month - 1) ? anchor : day;
+  }
+  /** Next due date for a recurring task; monthly dates clamp to month end and return to the original day (Jan 31 → Feb 28 → Mar 31). */
+  function nextRepeatDate(iso, repeat, repeatDay = null, fallbackIso = null) {
+    const base = validDate(iso) || validDate(fallbackIso);
+    if (!base) return null;
+    const [year, month, day] = base.split('-').map(Number);
+    let date;
+    if (repeat === 'daily') date = new Date(year, month - 1, day + 1);
+    else if (repeat === 'weekly') date = new Date(year, month - 1, day + 7);
+    else if (repeat === 'monthly') {
+      const anchor = repeatAnchorDay(base, repeatDay);
+      date = new Date(year, month, Math.min(anchor, daysInMonth(year, month)));
+    } else return null;
+    const pad = value => String(value).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  }
   function recurrence(value) {
-    return { notes: fields(value).notes, subtasks: fields(value).subtasks.map(item => ({ ...item, id: crypto.randomUUID(), completed: false })), priority: fields(value).priority, inbox: false, todayPinDate: null, todayPinOrder: 0, createdAt: Date.now(), completedAt: null, sourceUrl: fields(value).sourceUrl, remindAt: null };
+    return { notes: fields(value).notes, subtasks: fields(value).subtasks.map(item => ({ ...item, id: crypto.randomUUID(), completed: false })), priority: fields(value).priority, inbox: false, todayPinDate: null, todayPinOrder: 0, createdAt: Date.now(), completedAt: null, sourceUrl: fields(value).sourceUrl, remindAt: null,
+      repeatDay: value.repeat === 'monthly' ? repeatAnchorDay(value.dueDate, value.repeatDay) : null };
   }
   function editable(value = {}) {
     return { ...fields(value), text: String(value.text || '').trim().slice(0, 500), dueDate: validDate(value.dueDate),
@@ -71,7 +97,7 @@
     if (fields(value).sourceUrl) return { href: fields(value).sourceUrl, label: 'Original link', zh: '原始链接' };
     return null;
   }
-  const api = { fields, recurrence, source, validDate, sourceUrl, mergeDraft };
+  const api = { fields, recurrence, source, validDate, sourceUrl, mergeDraft, nextRepeatDate, repeatAnchorDay };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.DailySpaceTaskFields = api;
 })();

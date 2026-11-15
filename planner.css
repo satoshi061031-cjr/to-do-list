@@ -442,7 +442,7 @@ body.planner-page.has-bento-rail .main-area {
 
 .planner-add-column-main.is-dealing-source {
   transform: scale(0.96);
-  transition: transform 0.18s ease;
+  transition: transform var(--motion-base) ease;
 }
 
 .planner-column-head {
@@ -555,7 +555,7 @@ body.planner-page.has-bento-rail .main-area {
   flex-direction: column;
   gap: 0;
   cursor: pointer;
-  transition: transform 0.16s ease, box-shadow 0.16s ease;
+  transition: transform var(--motion-exit) ease, box-shadow var(--motion-exit) ease;
 }
 
 .planner-card:hover {

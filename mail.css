@@ -32,9 +32,9 @@
   box-shadow: var(--shadow-pop);
   transform-origin: center;
   transition:
-    transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1),
-    filter 0.22s ease,
-    box-shadow 0.22s ease;
+    transform var(--motion-slow) var(--ease-out),
+    filter var(--motion-slow) ease,
+    box-shadow var(--motion-slow) ease;
 }
 
 .mail-hero.mail-card:hover {

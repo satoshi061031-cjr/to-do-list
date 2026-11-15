@@ -49,7 +49,6 @@ body.todo-mobile #todo-list .todo-item {
   box-shadow: none;
 }
 body.todo-mobile #todo-list .todo-item:hover { background: var(--surface); }
-body.todo-mobile #todo-list .todo-item.is-leaving { min-height: 0; }
 body.todo-mobile #todo-list .todo-item.task-swipe-ready { overflow: hidden; }
 body.todo-mobile #todo-list .todo-main { min-width: 0; }
 body.todo-mobile #todo-list .todo-label { font: var(--phone-task-weight) var(--phone-task-size)/var(--phone-task-lh) var(--font-ui); }

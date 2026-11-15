@@ -39,15 +39,8 @@
     return String(value).padStart(2, "0");
   }
 
-  function nextRepeatDate(iso, repeat) {
-    const base = ISO_DATE.test(String(iso || "")) ? String(iso) : todayIso();
-    const [year, month, day] = base.split("-").map(Number);
-    const date = new Date(year, month - 1, day);
-    if (repeat === "daily") date.setDate(date.getDate() + 1);
-    else if (repeat === "weekly") date.setDate(date.getDate() + 7);
-    else if (repeat === "monthly") date.setMonth(date.getMonth() + 1);
-    else return null;
-    return `${date.getFullYear()}-${padIsoPart(date.getMonth() + 1)}-${padIsoPart(date.getDate())}`;
+  function nextRepeatDate(iso, repeat, repeatDay) {
+    return window.DailySpaceTaskFields.nextRepeatDate(iso, repeat, repeatDay, todayIso());
   }
   /** @typedef {{ id: string; name: string }} Category */
 
@@ -1853,7 +1846,7 @@
     }
   }
 
-  function renderTodoRows(target, rows, options, completedId) {
+  function renderTodoRows(target, rows, options, completedId, removedId) {
     window.DailySpaceTaskList.render(target, rows, {
       signature: todo => JSON.stringify({
         todo, options: options(todo), source: todoSource, locale: uiLocale(), day: todayIso(), planningMode,
@@ -1861,11 +1854,12 @@
       }),
       create: todo => createTodoListItemEl(todo, options(todo)),
       completedId,
+      removedId,
       fallbackFocus: isMobileTodoPage() ? document.getElementById("m-add-task") : input,
     });
   }
 
-  function render({ completedId } = {}) {
+  function render({ completedId, removedId } = {}) {
     rememberTodoView();
     filterBtns.forEach((btn) => {
       const isActive = btn.dataset.filter === filter;
@@ -1886,7 +1880,7 @@
       showCategoryPill: selectedCategoryKey === "__all__" && !!todo.categoryId && categoryExists(todo.categoryId),
       showDueBadge: !!todo.dueDate,
       allowReorder: todoSource === "personal",
-    }), completedId);
+    }), completedId, removedId);
 
     const inScopeBase = todosInCategoryAndDayScope();
     const inScope =
@@ -2164,7 +2158,7 @@
       id: id(),
       text: item.text,
       completed: false,
-      dueDate: nextRepeatDate(item.dueDate, repeat),
+      dueDate: nextRepeatDate(item.dueDate, repeat, item.repeatDay),
       dueTime: item.dueTime || null,
       categoryId: item.categoryId || null,
       sourceMailId: null,
@@ -2228,7 +2222,7 @@
     todos = todos.filter((x) => x.id !== todoId);
     saveAll();
     renderCategorySidebar();
-    render();
+    render({ removedId: todoId });
     offerUndo("Task deleted", () => {
       if (!todos.some(task => task.id === removed.id)) todos.splice(Math.min(index, todos.length), 0, removed);
     });
