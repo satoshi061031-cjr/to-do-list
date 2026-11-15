@@ -304,3 +304,28 @@ test('assistant context bounds rich task details without truncating stored notes
   window.DailySpaceAgentData.applyActions([{ type: 'todo_update', todoId: 'rich', text: 'Renamed rich task' }]);
   const stored = JSON.parse(values.get('todo-app-v2')).todos[0]; assert.equal(stored.notes.length, 10000); assert.equal(stored.subtasks.length, 20);
 });
+
+test("monthly tasks clamp to month end and return to their original day", () => {
+  const { window } = loadScript("task-fields.js", { values: new Map() });
+  const fields = window.DailySpaceTaskFields;
+  const chain = ["2026-01-31"];
+  let repeatDay = null;
+  for (let i = 0; i < 4; i += 1) {
+    const current = chain[chain.length - 1];
+    repeatDay = fields.recurrence({ repeat: "monthly", dueDate: current, repeatDay }).repeatDay;
+    chain.push(fields.nextRepeatDate(current, "monthly", repeatDay));
+  }
+  assert.deepEqual(chain, ["2026-01-31", "2026-02-28", "2026-03-31", "2026-04-30", "2026-05-31"]);
+  assert.equal(fields.nextRepeatDate("2024-01-31", "monthly"), "2024-02-29");
+  assert.equal(fields.nextRepeatDate("2026-12-15", "monthly"), "2027-01-15");
+  // A stale anchor is ignored once the user moves the date off month end.
+  assert.equal(fields.nextRepeatDate("2026-02-10", "monthly", 31), "2026-03-10");
+});
+
+test("agent completion of a monthly task does not skip February", () => {
+  const { window } = loadScript("agent-data.js");
+  const api = window.DailySpaceAgentData;
+  api.applyActions([{ type: "todo_add", text: "Pay rent", dueDate: "2026-01-31", repeat: "monthly" }]);
+  api.applyActions([{ type: "todo_complete", todoId: api.getSnapshot().todo.todos[0].id }]);
+  assert.equal(api.getSnapshot().todo.todos.find((item) => !item.completed).dueDate, "2026-02-28");
+});

@@ -343,7 +343,7 @@ body.travel-page.has-bento-rail > .theme-toggle:not(.bento-rail-theme) {
   font-weight: 600;
   letter-spacing: var(--type-body-tracking);
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition: background var(--motion-fast) ease, border-color var(--motion-fast) ease;
 }
 
 .travel-search-btn:hover,

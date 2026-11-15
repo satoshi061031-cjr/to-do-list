@@ -37,13 +37,15 @@
     return null;
   }
 
-  function nextRepeatDate(iso, repeat) {
+  function nextRepeatDate(iso, repeat, repeatDay) {
+    const shared = window.DailySpaceTaskFields?.nextRepeatDate;
+    if (shared) return shared(iso, repeat, repeatDay, todayIso());
     const base = validDate(iso) ? iso : todayIso();
     const [year, month, day] = base.split("-").map(Number);
-    const date = new Date(year, month - 1, day);
-    if (repeat === "daily") date.setDate(date.getDate() + 1);
-    else if (repeat === "weekly") date.setDate(date.getDate() + 7);
-    else if (repeat === "monthly") date.setMonth(date.getMonth() + 1);
+    let date;
+    if (repeat === "daily") date = new Date(year, month - 1, day + 1);
+    else if (repeat === "weekly") date = new Date(year, month - 1, day + 7);
+    else if (repeat === "monthly") date = new Date(year, month, Math.min(day, new Date(year, month + 1, 0).getDate()));
     else return null;
     const pad = (value) => String(value).padStart(2, "0");
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
@@ -489,7 +491,7 @@
                   id: uid(),
                   text: item.text,
                   completed: false,
-                  dueDate: nextRepeatDate(item.dueDate, repeat),
+                  dueDate: nextRepeatDate(item.dueDate, repeat, item.repeatDay),
                   dueTime: item.dueTime || null,
                   categoryId: item.categoryId || null,
                   sourceMailId: null,

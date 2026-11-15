@@ -53,9 +53,9 @@
   box-shadow: var(--shadow-pop);
   transform-origin: center;
   transition:
-    transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1),
-    filter 0.22s ease,
-    box-shadow 0.22s ease;
+    transform var(--motion-slow) var(--ease-out),
+    filter var(--motion-slow) ease,
+    box-shadow var(--motion-slow) ease;
 }
 
 .teamwork-hero.teamwork-card:hover {
@@ -125,11 +125,11 @@
   z-index: 0;
   transform-origin: center left;
   transition:
-    transform 0.22s cubic-bezier(0.22, 1.2, 0.36, 1),
-    box-shadow 0.22s ease,
-    background 0.18s ease,
-    border-color 0.18s ease,
-    padding 0.18s ease;
+    transform var(--motion-slow) cubic-bezier(0.22, 1.2, 0.36, 1),
+    box-shadow var(--motion-slow) ease,
+    background var(--motion-base) ease,
+    border-color var(--motion-base) ease,
+    padding var(--motion-base) ease;
 }
 
 .teamwork-inline-input {

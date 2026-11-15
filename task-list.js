@@ -2,7 +2,49 @@
 (function () {
   const lists = new WeakMap();
 
-  function render(container, items, { signature, create, completedId, fallbackFocus }) {
+  function motionToken(name, fallback) {
+    const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    if (!value) return fallback;
+    if (name.startsWith("--ease")) return value;
+    const time = parseFloat(value);
+    return Number.isFinite(time) ? (value.endsWith("ms") ? time : time * 1000) : fallback;
+  }
+
+  /**
+   * An explicit completion or delete fades the row with transform/opacity only,
+   * then the rows below slide up through the shared layout motion. Nothing
+   * animates height or padding, so the list never re-lays out per frame.
+   */
+  function depart(container, state, id, row, kind) {
+    const node = row.node;
+    window.DailySpaceLayoutMotion?.cancelNode(node);
+    node.classList.add("is-leaving");
+    if (kind === "complete") {
+      node.classList.add("completed");
+      const check = node.querySelector(".todo-check");
+      if (check) check.checked = true;
+    }
+    node.inert = true;
+    const exit = kind === "complete"
+      ? [{ opacity: 1, transform: "none" }, { opacity: 0, transform: "translateX(12px) scale(0.98)" }]
+      : [{ opacity: 1, transform: "none" }, { opacity: 0, transform: "translateX(-16px)" }];
+    row.leaving = node.animate(exit, {
+      duration: motionToken("--motion-base", 180),
+      // Let the check mark register before a completed row leaves.
+      delay: kind === "complete" ? motionToken("--motion-fast", 150) : 0,
+      easing: motionToken("--ease-out", "cubic-bezier(0.22, 1, 0.36, 1)"),
+      fill: "forwards",
+    });
+    row.leaving.finished.then(() => {
+      if (state.rows.get(id) !== row) return;
+      state.rows.delete(id);
+      const motion = window.DailySpaceLayoutMotion;
+      if (motion && container.contains(node)) motion.run(container, () => node.remove());
+      else node.remove();
+    }).catch(() => { /* Reopening or restoring the task cancels its departure. */ });
+  }
+
+  function render(container, items, { signature, create, completedId, removedId, fallbackFocus }) {
     let state = lists.get(container);
     if (!state) {
       state = { rows: new Map(), initialized: false };
@@ -14,21 +56,9 @@
     for (const [id, row] of state.rows) {
       if (wanted.has(id) || row.leaving) continue;
       if (row.node.contains(document.activeElement)) focus = { removed: true, index: [...container.children].indexOf(row.node) };
-      if (id === completedId && !window.matchMedia("(prefers-reduced-motion: reduce)").matches && row.node.animate) {
-        window.DailySpaceLayoutMotion?.cancelNode(row.node);
-        row.node.classList.add("completed", "is-leaving");
-        const check = row.node.querySelector(".todo-check");
-        if (check) check.checked = true;
-        row.node.inert = true;
-        const style = getComputedStyle(row.node);
-        row.leaving = row.node.animate([
-          { height: `${row.node.getBoundingClientRect().height}px`, opacity: 1,
-            paddingTop: style.paddingTop, paddingBottom: style.paddingBottom, overflow: "hidden" },
-          { height: "0px", opacity: 0, paddingTop: "0px", paddingBottom: "0px", overflow: "hidden" },
-        ], { duration: 180, delay: 120, easing: "ease-out", fill: "forwards" });
-        row.leaving.finished.then(() => {
-          if (state.rows.get(id) === row) { row.node.remove(); state.rows.delete(id); }
-        }).catch(() => { /* Reopening the task cancels its departure. */ });
+      const kind = id === completedId ? "complete" : id === removedId ? "delete" : null;
+      if (kind && !window.matchMedia("(prefers-reduced-motion: reduce)").matches && row.node.animate) {
+        depart(container, state, id, row, kind);
       } else {
         window.DailySpaceLayoutMotion?.cancelNode(row.node);
         row.node.remove();

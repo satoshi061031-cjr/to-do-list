@@ -91,14 +91,13 @@ body.travel-page .travel-tools-sheet .travel-search-bar { display: grid; positio
 .travel-tools-sheet textarea { width: 100%; box-sizing: border-box; min-height: 72px; font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--quiet-line); border-radius: var(--radius-sm); padding: var(--space-sm); }
 body.todo-mobile #todo-list .todo-item { flex-wrap: nowrap; touch-action: pan-y pinch-zoom; }
 body.todo-mobile #todo-list .todo-item.task-swipe-ready { overflow: hidden; }
-body.todo-mobile #todo-list .todo-item.task-swipe-ready > :not(.task-swipe-actions) { transform: translateX(var(--task-swipe-offset, 0px)); transition: transform 160ms ease-out; }
+body.todo-mobile #todo-list .todo-item.task-swipe-ready > :not(.task-swipe-actions) { transform: translateX(var(--task-swipe-offset, 0px)); transition: transform var(--motion-exit) ease-out; }
 body.todo-mobile #todo-list .todo-item.is-swiping > :not(.task-swipe-actions) { transition: none; }
-.task-swipe-actions { position: absolute; z-index: 1; inset-block: 0; inset-inline-end: 0; display: flex; align-items: center; gap: var(--space-xs); width: max-content; max-width: calc(100% - 44px); clip-path: inset(0 0 0 calc(100% - var(--task-swipe-reveal, 0px))); transition: clip-path 160ms ease-out; }
+.task-swipe-actions { position: absolute; z-index: 1; inset-block: 0; inset-inline-end: 0; display: flex; align-items: center; gap: var(--space-xs); width: max-content; max-width: calc(100% - 44px); clip-path: inset(0 0 0 calc(100% - var(--task-swipe-reveal, 0px))); transition: clip-path var(--motion-exit) ease-out; }
 .is-swiping > .task-swipe-actions { transition: none; }
 body.todo-mobile #todo-list .todo-item[data-swipe=open] > .task-swipe-actions { transition: none; }
 .task-swipe-actions button { flex-shrink: 0; min-width: 44px; min-height: 44px; padding: var(--space-sm); color: var(--text); background: var(--surface); border: 0; border-radius: var(--radius-sm); font: var(--phone-action-weight) var(--phone-action-size)/var(--phone-action-lh) var(--font-ui); cursor: pointer; }
 body.todo-mobile #todo-list .todo-item[data-swipe=complete]::after { content: '✓'; position: absolute; inset-inline-start: var(--space-sm); top: 50%; transform: translateY(-50%); color: var(--success); }
-body.todo-mobile #todo-list .todo-item.is-leaving { min-height: 0; }
 @media (prefers-reduced-motion: reduce) {
   body.todo-mobile #todo-list .todo-item.task-swipe-ready > :not(.task-swipe-actions), .task-swipe-actions { transition: none; }
 }
@@ -557,7 +556,7 @@ body.has-mobile-dock.has-bento-rail .bento-rail-lens {
   background: var(--dock-selection);
   border-radius: var(--radius-pill);
   box-shadow: none;
-  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), width 220ms ease, height 220ms ease;
+  transition: transform var(--motion-slow) var(--ease-out), width var(--motion-slow) ease, height var(--motion-slow) ease;
 }
 body.has-mobile-dock.has-bento-rail .is-dragging .bento-rail-lens,
 body.has-mobile-dock.has-bento-rail .dock-instant .bento-rail-lens { transition: none; }
@@ -633,7 +632,7 @@ body.mail-page .mail-inbox-panel { padding: 0; }
 body.mail-page .mail-digest-section { padding: 0 0 var(--space-md); margin: 0 0 var(--space-md); border-bottom: 1px solid var(--quiet-line); }
 body.mail-page .mail-digest-section > summary { display: flex; align-items: center; justify-content: space-between; min-height: 44px; list-style: none; cursor: pointer; font-size: var(--phone-body-size); font-weight: var(--phone-task-weight); }
 body.mail-page .mail-digest-section > summary::-webkit-details-marker { display: none; }
-body.mail-page .mail-digest-chevron { color: var(--text-muted); transition: transform 160ms ease; }
+body.mail-page .mail-digest-chevron { color: var(--text-muted); transition: transform var(--motion-exit) ease; }
 body.mail-page .mail-digest-section[open] .mail-digest-chevron { transform: rotate(180deg); }
 body.mail-page .mail-digest { margin: var(--space-sm) 0; padding: 0; border: 0; background: transparent; font-size: var(--phone-body-size); line-height: var(--phone-body-lh); letter-spacing: 0; }
 body.mail-page .mail-digest ul { margin: 0; padding-inline-start: var(--space-md); }
@@ -667,7 +666,7 @@ body.mail-page #mail-selected-count { color: var(--text-muted); font-size: var(-
 body.mail-page .mail-batch-add { min-height: 44px; font-size: var(--phone-action-size); padding-inline: var(--space-md); }
 body.mail-page .mail-detail-sheet { position: fixed; inset: 0; z-index: 320; display: grid; place-items: center; padding: var(--space-md); }
 body.mail-page .mail-detail-backdrop { position: absolute; inset: 0; border: 0; background: var(--modal-scrim); }
-body.mail-page .mail-detail-panel { position: relative; width: min(40rem, 100%); max-height: calc(100dvh - var(--space-xl)); display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--quiet-line); border-radius: var(--radius-lg); background: var(--panel-fill); box-shadow: 0 8px 28px color-mix(in srgb, var(--on-tertiary) 14%, transparent); animation: mail-reader-in 160ms ease-out; }
+body.mail-page .mail-detail-panel { position: relative; width: min(40rem, 100%); max-height: calc(100dvh - var(--space-xl)); display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--quiet-line); border-radius: var(--radius-lg); background: var(--panel-fill); box-shadow: 0 8px 28px color-mix(in srgb, var(--on-tertiary) 14%, transparent); animation: mail-reader-in var(--motion-exit) ease-out; }
 body.mail-page .mail-detail-head { flex-shrink: 0; display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-sm); padding: var(--space-md) var(--space-md) var(--space-sm); }
 body.mail-page .mail-detail-head h2 { margin: 0; max-height: 28dvh; overflow: auto; overflow-wrap: anywhere; font-size: var(--type-title-size); font-weight: var(--phone-title-weight); line-height: var(--phone-title-lh); }
 body.mail-page .mail-detail-head .mail-icon-button { flex-shrink: 0; }
@@ -778,7 +777,7 @@ body.calendar-page .todo-delete { min-width: 44px; min-height: 44px; }
 body.calendar-page .calendar-editor-sheet { position: fixed; inset: 0; top: var(--workspace-sheet-top, 0); height: var(--workspace-sheet-height, 100dvh); z-index: 320; display: grid; place-items: center; padding: var(--space-md); box-sizing: border-box; }
 body.calendar-page .calendar-editor-sheet[hidden] { display: none !important; }
 .calendar-editor-backdrop { position: absolute; inset: 0; border: 0; background: var(--modal-scrim); }
-.calendar-editor-panel { position: relative; display: flex; flex-direction: column; width: min(40rem, 100%); max-height: 100%; background: var(--panel-fill); border: 1px solid var(--quiet-line); border-radius: var(--radius-lg); overflow: hidden; animation: mail-reader-in 160ms ease-out; }
+.calendar-editor-panel { position: relative; display: flex; flex-direction: column; width: min(40rem, 100%); max-height: 100%; background: var(--panel-fill); border: 1px solid var(--quiet-line); border-radius: var(--radius-lg); overflow: hidden; animation: mail-reader-in var(--motion-exit) ease-out; }
 .calendar-editor-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); padding: var(--space-md); flex-shrink: 0; }
 .calendar-editor-head h2 { margin: 0; font-size: var(--phone-title-size); font-weight: var(--phone-title-weight); line-height: var(--phone-title-lh); }
 .calendar-editor-body { padding: 0 var(--space-md) var(--space-md); min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
@@ -1056,7 +1055,7 @@ body.todo-bento .today-tasks .todo-delete { display: none; }
 }
 body.todo-mobile .task-batch-bar { bottom: calc(86px + env(safe-area-inset-bottom, 0px)); }
 @media (prefers-reduced-motion: no-preference) {
-  .task-desktop-panel { animation: task-detail-enter 160ms ease-out; }
+  .task-desktop-panel { animation: task-detail-enter var(--motion-exit) ease-out; }
   @keyframes task-detail-enter { from { opacity: 0; translate: 0 8px; } to { opacity: 1; translate: 0 0; } }
 }
 
@@ -1172,13 +1171,13 @@ body.tally-page .tally-form input, body.tally-page .tally-form select { font-wei
 .workspace-sheet-motion [data-sheet-panel][data-continuity-surface], .workspace-sheet-motion [data-sheet-panel][data-continuity-surface] > :not([data-sheet-drag-handle]) { animation: none !important; }
 .workspace-sheet-motion [data-continuity-scrim] { animation: none !important; }
 @media (prefers-reduced-motion: no-preference) {
-  .workspace-sheet-motion [data-sheet-panel] { animation: workspace-sheet-enter var(--sheet-enter-duration, 180ms) ease-out both; }
+  .workspace-sheet-motion [data-sheet-panel] { animation: workspace-sheet-enter var(--sheet-enter-duration, var(--motion-base)) ease-out both; }
   .workspace-sheet-motion [data-sheet-panel] > :not([data-sheet-drag-handle]) { animation: workspace-content-enter 90ms ease-out 80ms both; }
-  .workspace-sheet-motion [data-sheet-backdrop] { animation: workspace-scrim-enter var(--sheet-enter-duration, 180ms) ease-out both; }
-  .workspace-sheet-motion.is-closing [data-sheet-panel] { animation: workspace-sheet-exit var(--sheet-exit-duration, 160ms) ease-in both; }
+  .workspace-sheet-motion [data-sheet-backdrop] { animation: workspace-scrim-enter var(--sheet-enter-duration, var(--motion-base)) ease-out both; }
+  .workspace-sheet-motion.is-closing [data-sheet-panel] { animation: workspace-sheet-exit var(--sheet-exit-duration, var(--motion-exit)) ease-in both; }
   .workspace-sheet-motion.is-closing [data-sheet-panel] > :not([data-sheet-drag-handle]) { animation: workspace-content-exit 80ms ease-in both; }
-  .workspace-sheet-motion.is-closing [data-sheet-backdrop] { animation: workspace-scrim-exit var(--sheet-exit-duration, 160ms) ease-in both; }
-  :is(.workspace-tool-body details, .task-detail-fields, .task-batch-options, .trip-expenses, .trip-expense-history, .tally-extra-options) > summary::after { transition: transform 160ms ease-out; }
+  .workspace-sheet-motion.is-closing [data-sheet-backdrop] { animation: workspace-scrim-exit var(--sheet-exit-duration, var(--motion-exit)) ease-in both; }
+  :is(.workspace-tool-body details, .task-detail-fields, .task-batch-options, .trip-expenses, .trip-expense-history, .tally-extra-options) > summary::after { transition: transform var(--motion-exit) ease-out; }
 }
 
 /* Shared roles take precedence over the older individual page treatments. */
@@ -1531,3 +1530,16 @@ body.travel-page .travel-desktop-day.is-active {
 
 /* The overview already shows completion; keep the home heading focused on date. */
 body.personal-workbench .today-progress { display: none; }
+
+/* Phone: content fades out before it reaches the floating New task button and
+   the dock, so no row (e.g. the Reminders disclosure) sits underneath them. */
+body.todo-mobile .m-add-bar::before {
+  content: "";
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  height: calc(env(safe-area-inset-bottom, 0px) + 6.25rem + 3.25rem + var(--space-lg));
+  background: linear-gradient(to top, var(--bg) 0%, var(--bg) 62%, color-mix(in srgb, var(--bg) 0%, transparent) 100%);
+  pointer-events: none;
+  z-index: -1;
+}

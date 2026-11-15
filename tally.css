@@ -554,7 +554,7 @@
   border-radius: 0.65rem 0.65rem 0.18rem 0.18rem;
   background: var(--tertiary);
   box-shadow: 0 6px 16px color-mix(in srgb, var(--highlight) 22%, transparent);
-  transition: height 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: height 0.3s var(--ease-out);
 }
 
 .tally-bar:not(.has-value) .tally-bar-fill {
@@ -627,7 +627,7 @@
   min-height: 4.15rem;
   padding: 0.65rem 0.75rem;
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: background var(--motion-fast) ease;
 }
 
 .tally-record:hover,
@@ -700,7 +700,7 @@
   cursor: pointer;
   font: inherit;
   opacity: 0;
-  transition: opacity 0.15s, background 0.15s;
+  transition: opacity var(--motion-fast), background var(--motion-fast);
 }
 
 .tally-record:hover .tally-record-delete,
@@ -767,7 +767,7 @@
   font-size: 2rem;
   font-weight: 350;
   line-height: 1;
-  transition: transform 0.16s ease, background 0.15s ease;
+  transition: transform var(--motion-exit) ease, background var(--motion-fast) ease;
 }
 
 .tally-add-fab:hover {
@@ -976,7 +976,7 @@
   cursor: pointer;
   font: inherit;
   font-weight: 780;
-  transition: background 0.15s ease;
+  transition: background var(--motion-fast) ease;
 }
 
 .tally-submit-btn:hover {

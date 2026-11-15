@@ -1,7 +1,8 @@
 /** Small layout and shared-title transitions, opted into by an explicit action. */
 (function () {
-  const duration = 180;
-  const easing = 'cubic-bezier(0.22, 1, 0.36, 1)';
+  // Read the shared CSS motion tokens (styles.css :root) so JS and CSS stay in step.
+  const token = (name, fallback) => getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+  const ms = (name, fallback) => { const value = token(name, ''), time = parseFloat(value); return Number.isFinite(time) ? (value.endsWith('ms') ? time : time * 1000) : fallback; };
   const running = new Map();
   const pending = new Map();
   const versions = new WeakMap();
@@ -9,7 +10,7 @@
   const titles = new Map();
   const surfaces = new Map();
   const hosts = new WeakMap();
-  const continuityCurve = 'cubic-bezier(.32, .72, 0, 1)';
+  const continuity = () => token('--ease-continuity', 'cubic-bezier(.32, .72, 0, 1)');
   let releaseFrame = 0;
   let generation = 0;
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
@@ -129,7 +130,7 @@
         if (style.transform !== 'none') continue;
         const rect = node.getBoundingClientRect(), dx = before.left - (rect.left - parent.left), dy = before.top - (rect.top - parent.top);
         if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) continue;
-        const animation = node.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'translate(0px, 0px)' }], { duration: options.duration || duration, easing: options.easing || easing });
+        const animation = node.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'translate(0px, 0px)' }], { duration: options.duration || ms('--motion-base', 180), easing: options.easing || token('--ease-out', 'cubic-bezier(0.22, 1, 0.36, 1)') });
         const zIndex = node.style.zIndex, raised = key(node) === snapshot.focus?.key;
         if (raised) node.style.zIndex = '1';
         running.set(node, { container, animation, snapshot, zIndex, raised });
@@ -184,7 +185,7 @@
     document.body.append(copy);
     const hidden = [...new Set([before.node, ...(before.sourceNodes || []), target])].filter(node => node?.isConnected);
     hidden.forEach(node => node.classList.add('continuity-title-target'));
-    const animation = copy.animate([{ transform: `translate(${dx}px, ${dy}px) scale(${before.size / after.size})` }, { transform: 'translate(0px, 0px) scale(1)' }], { duration: time || (returning ? 160 : duration), easing: curve || easing, fill: 'both' });
+    const animation = copy.animate([{ transform: `translate(${dx}px, ${dy}px) scale(${before.size / after.size})` }, { transform: 'translate(0px, 0px) scale(1)' }], { duration: time || (returning ? ms('--motion-exit', 160) : ms('--motion-base', 180)), easing: curve || token('--ease-out', 'cubic-bezier(0.22, 1, 0.36, 1)'), fill: 'both' });
     let cancelled = false;
     const item = {
       returning, nodes: hidden, copy,
@@ -208,7 +209,7 @@
   function surfaceTiming(kind = 'panel', returning = false) {
     const phone = document.body.classList.contains('todo-mobile') || matchMedia('(max-width: 819px)').matches;
     const full = kind === 'panel';
-    return { duration: phone ? full ? returning ? 400 : 480 : returning ? 300 : 360 : full ? returning ? 260 : 320 : returning ? 200 : 240, easing: continuityCurve };
+    return { duration: phone ? full ? returning ? 400 : 480 : returning ? 300 : 360 : full ? returning ? 260 : 320 : returning ? 200 : 240, easing: continuity() };
   }
   function captureOpacity(nodes) {
     return new Map([...nodes].map(node => [node, visible(node) && node.getBoundingClientRect().height > 0 ? Number(getComputedStyle(node).opacity) : 0]));
