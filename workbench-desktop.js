@@ -62,8 +62,11 @@
       agendaTitle.textContent = t('Next today','接下来的安排'); agendaTime.hidden = !next;
       agendaTime.textContent = next?.time || ''; if (next) agendaTime.dateTime = `${stats.today}T${next.time}`;
       agendaLink.textContent = next?.text || t('Open calendar','打开日历'); agendaLink.href = next?.href || 'calendar.html';
-      agendaNote.hidden = true;
-      agendaNote.textContent = next ? new Date().toLocaleDateString(window.DailySpaceI18n?.localeTag() || 'en-US',{weekday:'long',month:'short',day:'numeric'}) : t('No more timed arrangements today.','今天没有更多定时安排。');
+      agendaCard.classList.toggle('is-clear', !next);
+      // With nothing left, say so before offering the calendar link.
+      agendaNote.hidden = Boolean(next);
+      if (!next) agendaCard.insertBefore(agendaNote, agendaLink); else agendaCard.append(agendaNote);
+      agendaNote.textContent = next ? new Date().toLocaleDateString(window.DailySpaceI18n?.localeTag() || 'en-US',{weekday:'long',month:'short',day:'numeric'}) : t('Nothing else scheduled today 🎉','今天没有其他安排了 🎉');
       const priority = {high:0,normal:1,low:2};
       const candidate = tasks.filter(task => !task.completed && !task.inbox && (task.todayPinDate === stats.today || !task.dueDate || task.dueDate <= stats.today)).sort((a,b) =>
         Number(b.todayPinDate === stats.today) - Number(a.todayPinDate === stats.today) ||

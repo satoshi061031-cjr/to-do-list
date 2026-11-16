@@ -1543,3 +1543,126 @@ body.todo-mobile .m-add-bar::before {
   pointer-events: none;
   z-index: -1;
 }
+
+
+/* Desktop Tally: "Add expense" is a normal header action, not a floating pill. */
+@media (min-width: 820px) {
+  body.tally-page .tally-add-fab.is-inline {
+    position: static;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xs);
+    width: auto;
+    height: 44px;
+    min-height: 44px;
+    padding-inline: var(--space-md);
+    font-size: var(--type-body-size);
+    font-weight: 600;
+    box-shadow: none;
+    transform: none;
+  }
+}
+
+/* Phone Calendar and Tally: content fades out before the fixed capture button
+   and the dock, matching the workbench, so no record sits underneath them. */
+@media (max-width: 819px) {
+  :root body.tally-page::after,
+  :root body.calendar-page::after {
+    content: "";
+    display: block;
+    position: fixed;
+    inset: auto 0 0 0;
+    height: calc(env(safe-area-inset-bottom, 0px) + 6.5rem + 48px + var(--space-lg));
+    z-index: 40;
+    background: linear-gradient(to top, var(--bg) 0%, var(--bg) 62%, color-mix(in srgb, var(--bg) 0%, transparent) 100%);
+    filter: none;
+    transform: none;
+    pointer-events: none;
+  }
+  body.calendar-editor-open.calendar-page::after,
+  body.tally-sheet-open.tally-page::after { display: none; }
+}
+
+/* Task rows: priority, category, due date and notes share one compact line on every layout. */
+.todo-item .todo-meta-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs) var(--space-sm);
+  min-width: 0;
+}
+.todo-item .todo-meta-line > * { margin: 0; align-self: center; }
+.todo-item .todo-meta-line > * + *::before { content: none; }
+
+/* Desktop quick add: input, due-date chip and Templates sit on one line, and the
+   date's clear (×) lives inside the chip so it clearly belongs to the date. */
+@media (min-width: 820px) {
+  body.todo-bento .today-tasks .add-form { grid-template-columns: minmax(0, 1fr) auto auto; column-gap: var(--space-sm); }
+  body.todo-bento .today-tasks .add-form > .add-form-row { grid-row: 1; grid-column: 1; }
+  body.todo-bento .today-tasks .add-form > .add-form-deadline { grid-row: 1; grid-column: 2; }
+  body.todo-bento .today-tasks .add-form > .workspace-task-shortcuts { grid-row: 1; grid-column: 3; margin: 0; }
+  body.todo-bento .today-tasks .deadline-field {
+    gap: 0;
+    padding-inline-end: var(--space-xs);
+    border: 1px solid var(--quiet-line);
+    border-radius: var(--radius-pill);
+    background: var(--surface);
+  }
+  body.todo-bento .today-tasks .deadline-field .deadline-trigger { border: 0; background: transparent; box-shadow: none; border-radius: var(--radius-pill); }
+  body.todo-bento .today-tasks .deadline-field .deadline-clear-btn {
+    width: 2rem;
+    height: 2rem;
+    min-width: 2rem;
+    min-height: 2rem;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--text-muted);
+  }
+  body.todo-bento .today-tasks .deadline-field .deadline-clear-btn:hover { background: var(--surface-hover); color: var(--text); }
+}
+
+/* Calendar: week navigation is a quiet secondary control; "Add reminder" stays the only primary action. */
+body.calendar-page .cal-shell .cal-range {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--quiet-line);
+}
+body.calendar-page .cal-shell .cal-range-nav:hover { background: var(--surface-hover); color: var(--text); }
+
+/* One rhythm under every page title: --space-lg on desktop, --space-md on phone (as on Toolbox). */
+body.tally-page .tally-intro { margin-bottom: var(--space-lg); }
+body.calendar-page .cal-top-main { margin-bottom: var(--space-lg); }
+@media (max-width: 819px) {
+  body.tally-page .tally-intro { margin-bottom: var(--space-md); }
+  body.calendar-page .cal-top-main { margin-bottom: var(--space-md); }
+}
+
+/* Page columns share one left edge: Tally and Mail use the full content width like
+   Calendar, Projects and Travel; Toolbox pages drop their extra inner inset. */
+@media (min-width: 820px) {
+  .tally-app,
+  .mail-app { width: 100%; max-width: none; }
+}
+body .toolbox-shell { padding-inline: 0; }
+/* Travel's empty state sits in the middle of the page, not the left half. */
+body.travel-page .travel-empty { margin-inline: auto; }
+
+/* Desktop Tally: same top inset as the other pages, and a small gap between month and ledger switches. */
+@media (min-width: 820px) {
+  body.tally-page .tally-app { padding-top: var(--space-lg); }
+}
+body.tally-page .tally-topbar { margin-bottom: var(--space-sm); }
+
+
+/* Save status: still reserved so a first save never pushes content down, but only one
+   quiet meta line tucked under the title instead of a 44px blank band. Rare states
+   with an action button (conflict, reconnect, retry) grow to fit the button. */
+.workspace-save-status { height: auto; min-height: 20px; margin: 0 0 var(--space-md); }
+body :not(.toolbox-shell) > [data-page-header]:has(+ .workspace-save-status) { margin-bottom: var(--space-xs); }
+.planner-header > .workspace-save-status { margin-bottom: 0; }
+.today-heading > .workspace-save-status { margin-bottom: 0; }
+@media (max-width: 819px) {
+  .workspace-save-status { margin-bottom: var(--space-sm); }
+}
+body.planner-page .planner-header .planner-toolbar, body.planner-page .planner-header .planner-status-strip { margin-top: 0; }

@@ -728,6 +728,34 @@ body.planner-page.has-bento-rail .main-area {
   margin-left: 0;
 }
 
+.planner-card-avatar {
+  overflow: hidden;
+  letter-spacing: 0;
+  font-size: 0.62rem;
+  line-height: 1;
+}
+
+.planner-card-foot[hidden] { display: none; }
+
+.planner-card-tag-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.planner-card-tag-chip {
+  max-width: 10rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 2px var(--space-sm);
+  border-radius: var(--radius-pill);
+  background: var(--pl-track);
+  color: var(--pl-ink);
+  font-size: var(--type-label-size);
+}
+
 .planner-card-avatar.is-more {
   background: var(--pl-track);
   color: var(--pl-ink);

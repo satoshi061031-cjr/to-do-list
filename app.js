@@ -531,6 +531,22 @@
     return String(n).padStart(2, "0");
   }
 
+  /** Short, relative due label shared by desktop and phone rows: Today, Tomorrow, Yesterday, 3 days overdue, Nov 20. */
+  function relativeDueLabel(iso, completed) {
+    const t = (en, zh) => window.DailySpaceI18n?.t(en, zh) || en;
+    const [y, mo, da] = iso.split("-").map(Number);
+    const due = new Date(y, mo - 1, da);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const days = Math.round((due - today) / 86400000);
+    if (days === 0) return t("Today", "今天");
+    if (days === 1) return t("Tomorrow", "明天");
+    if (days === -1) return t("Yesterday", "昨天");
+    if (days < -1 && !completed) return t(`${-days} days overdue`, `逾期 ${-days} 天`);
+    const options = due.getFullYear() === today.getFullYear() ? { month: "short", day: "numeric" } : { year: "numeric", month: "short", day: "numeric" };
+    return due.toLocaleDateString(uiLocale(), options);
+  }
+
   function toIsoYmd(y, mo, d) {
     return `${y}-${pad2(mo)}-${pad2(d)}`;
   }
@@ -1233,23 +1249,19 @@
       dueEl.className = "todo-due";
       const overdue = todo.dueDate ? isOverdue(todo.dueDate, todo.completed) : false;
       if (overdue) dueEl.classList.add("is-overdue");
-      const datePart = todo.dueDate
-        ? overdue
-          ? `Overdue · ${formatDueDate(todo.dueDate)}`
-          : `Due ${formatDueDate(todo.dueDate)}`
-        : "Due";
-      const mobileDate = todo.dueDate === todayIso()
-        ? (window.DailySpaceI18n?.t("Today", "今天") || "Today") : formatDueDate(todo.dueDate);
-      const displayDate = isMobileTodoPage() ? mobileDate : datePart;
+      dueEl.dataset.i18nIgnore = "";
+      dueEl.title = todo.dueDate ? formatDueDate(todo.dueDate) : "";
+      const displayDate = todo.dueDate ? relativeDueLabel(todo.dueDate, todo.completed) : (window.DailySpaceI18n?.t("Due", "截止") || "Due");
       dueEl.textContent = todo.dueTime ? `${displayDate} · ${todo.dueTime}` : displayDate;
       main.appendChild(dueEl);
     }
 
-    if (isMobileTodoPage()) {
-      const metadata = [...main.querySelectorAll(".todo-category-pill, .todo-due, .todo-travel-tag")];
+    {
+      // One compact metadata line on phone and desktop: priority, category, due, travel, notes.
+      const metadata = [...main.querySelectorAll(":scope > :is(.task-planning-badge, .todo-category-pill, .todo-due, .todo-travel-tag, .task-detail-meta, .todo-board-meta)")];
       if (metadata.length) {
         const meta = document.createElement("span");
-        meta.className = "m-task-meta";
+        meta.className = isMobileTodoPage() ? "m-task-meta todo-meta-line" : "todo-meta-line";
         meta.append(...metadata);
         main.appendChild(meta);
       }

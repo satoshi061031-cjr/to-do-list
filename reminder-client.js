@@ -45,7 +45,7 @@
   }
   function render() {
     for (const root of document.querySelectorAll('.reminder-settings')) {
-      root.querySelector('summary').textContent = t('Reminders', '提醒');
+      root.querySelector('summary').textContent = t('Reminder alerts', '提醒通知');
       root.querySelector('[role=status]').textContent = message();
       const control = root.querySelector('button'); control.textContent = enabled ? t('Turn off background reminders', '关闭此设备后台提醒') : t('Enable reminders', '开启提醒');
       control.disabled = permission() === 'unsupported' || permission() === 'denied';
@@ -154,7 +154,7 @@
       const anchor = document.getElementById('todo-list') || document.getElementById('calendar-alerts-btn');
       if (anchor) {
         const root = document.createElement('details'); root.className = 'reminder-settings'; root.dataset.i18nIgnore = '';
-        const summary = document.createElement('summary'); summary.textContent = t('Reminders', '提醒');
+        const summary = document.createElement('summary'); summary.textContent = t('Reminder alerts', '提醒通知');
         const description = document.createElement('p'); description.setAttribute('role', 'status'); description.dataset.i18nIgnore = '';
         const control = document.createElement('button'); control.type = 'button'; control.addEventListener('click', () => { control.disabled = true; (enabled ? disable() : enable()).finally(render); });
         root.append(summary, description, control); anchor.after(root);

@@ -59,6 +59,22 @@
   const emptyPanelEl = $("tally-empty-panel");
   const emptyCtaBtn = $("tally-empty-cta");
   const addOpenBtn = $("tally-add-open");
+  // Desktop keeps "Add expense" in the page action cluster instead of floating
+  // over the ledger; phone keeps the full-width capture above the dock.
+  (function placeAddButton() {
+    const actions = document.querySelector(".tally-intro-actions");
+    if (!addOpenBtn || !actions || !window.matchMedia) return;
+    const home = document.createComment("tally-add-open");
+    addOpenBtn.before(home);
+    const wide = window.matchMedia("(min-width: 820px)");
+    const place = () => {
+      if (wide.matches) actions.prepend(addOpenBtn);
+      else home.after(addOpenBtn);
+      addOpenBtn.classList.toggle("is-inline", wide.matches);
+    };
+    place();
+    wide.addEventListener?.("change", place);
+  })();
   const addSheet = $("tally-add-sheet");
   const addCloseBtn = $("tally-add-close");
   const addBackdrop = $("tally-add-backdrop");

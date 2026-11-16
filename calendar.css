@@ -805,6 +805,11 @@ body.calendar-page .calendar-app > .app-greeting {
   color: var(--cal-muted);
 }
 
+/* Today's filled marker keeps its readable ink on weekends too. */
+.cal-week-day.is-today[data-weekend="true"] .cal-week-day-num {
+  color: var(--cal-on-accent);
+}
+
 .cal-col.is-selected {
   background-color: transparent;
 }
@@ -856,7 +861,9 @@ body.calendar-page .calendar-app > .app-greeting {
   padding: 0.2rem 0.35rem;
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--cal-accent) 18%, transparent);
-  color: var(--cal-on-accent);
+  /* Dark ink on the pale tint; white text on an 18% tint was unreadable. */
+  color: var(--cal-ink, var(--text));
+  font-weight: 600;
   font-size: 0.65rem;
   white-space: nowrap;
   overflow: hidden;
