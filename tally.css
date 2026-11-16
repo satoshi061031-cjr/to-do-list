@@ -1137,3 +1137,12 @@ body.tally-sheet-open {
     transition: none;
   }
 }
+
+/* Shortcut quick add: the address and one-time key, each with a copy button. */
+.tally-quick-reveal { display: grid; gap: var(--space-md); }
+.tally-quick-reveal[hidden] { display: none; }
+.tally-quick-reveal label { display: grid; gap: var(--space-xs); font-size: var(--phone-meta-size, var(--type-label-size)); color: var(--text-muted); }
+.tally-quick-row { display: flex; gap: var(--space-sm); min-width: 0; }
+.tally-quick-row input { flex: 1; min-width: 0; min-height: 44px; padding-inline: var(--space-md); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font: inherit; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--type-label-size); }
+.tally-quick-row button { flex-shrink: 0; min-height: 44px; }
+.tally-quick-example { margin: 0; padding: var(--space-md); overflow-x: auto; border-radius: var(--radius-sm); background: var(--surface-muted); color: var(--text); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--type-label-size); line-height: 1.6; white-space: pre; }

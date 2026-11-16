@@ -185,6 +185,8 @@
       recurringBills: [],
       records: [],
       settlements: Array.isArray(state.settlements) ? state.settlements.slice() : [],
+      // Identifier of the active quick-add key (never the key itself); clearing it revokes the key.
+      quickAddKeyId: /^[A-Za-z0-9_-]{16,64}$/.test(String(state.quickAddKeyId || "")) ? String(state.quickAddKeyId) : null,
     };
     normalized.records = Array.isArray(state.records)
       ? state.records.map((record) => normalizeRecord(record, normalized)).filter(Boolean)

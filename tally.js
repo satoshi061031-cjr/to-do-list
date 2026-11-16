@@ -17,7 +17,7 @@
   let composing = false;
   let savingExpense = false;
   let continuingEntry = false;
-  let planningUI = null;
+  let planningUI = null, quickAddUI = null;
 
   const $ = (id) => document.getElementById(id);
   const monthTitleEl = $("tally-month-title");
@@ -569,7 +569,86 @@
     renderMonth();
     renderRecords();
     renderSettlement();
-    planningUI?.render();
+    planningUI?.render(); quickAddUI?.render();
+  }
+
+  /**
+   * Quick add from outside the app (e.g. an iOS Shortcut). The key is shown once;
+   * only its identifier is kept in the synced ledger, and clearing it revokes the key.
+   */
+  function mountQuickAdd() {
+    const tr = (en, zh) => isZh() ? zh : en;
+    const node = (tag, text = "", className = "") => { const el = document.createElement(tag); el.textContent = text; if (className) el.className = className; return el; };
+    const copy = (tag, en, zh, cls) => { const el = node(tag, tr(en, zh), cls); el.dataset.quickEn = en; el.dataset.quickZh = zh; return el; };
+    const action = (en, zh, run) => { const el = copy("button", en, zh); el.type = "button"; el.addEventListener("click", run); return el; };
+    const root = node("details", "", "tally-planning tally-quick-add"); root.id = "tally-quick-add"; root.dataset.i18nIgnore = "";
+    const summary = copy("summary", "Shortcut quick add", "快捷指令记账");
+    const body = node("div", "", "tally-planning-body");
+    const help = copy("p", "Record an expense without opening dayfly — for example from an iOS Shortcut, by sending the amount to your personal address with a key.", "不打开 dayfly 也能记一笔：例如在 iOS 快捷指令里，用密钥把金额发到你的专属地址。", "tally-plan-help");
+    const state_ = node("p", "", "tally-plan-help"); state_.setAttribute("role", "status"); state_.setAttribute("aria-live", "polite");
+    const reveal = node("div", "", "tally-quick-reveal"); reveal.hidden = true;
+    const readonly = (labelEn, labelZh, id) => {
+      const label = node("label"); const field = node("input"); field.type = "text"; field.readOnly = true; field.id = id; field.spellcheck = false;
+      field.addEventListener("focus", () => field.select());
+      const copyButton = action("Copy", "复制", async () => {
+        try { await navigator.clipboard.writeText(field.value); copyButton.textContent = tr("Copied", "已复制"); }
+        catch (_) { field.focus(); field.select(); copyButton.textContent = tr("Select and copy", "请手动复制"); }
+      });
+      const row = node("span", "", "tally-quick-row"); row.append(field, copyButton);
+      label.append(copy("span", labelEn, labelZh), row); return { label, field };
+    };
+    const address = readonly("Address (POST)", "接口地址（POST）", "tally-quick-endpoint");
+    const secret = readonly("Key — shown only once", "密钥 — 只显示这一次", "tally-quick-token");
+    const example = node("pre", "", "tally-quick-example");
+    const once = copy("p", "Paste the key into your Shortcut now. It cannot be shown again; create a new key if you lose it.", "请现在就把密钥粘贴到快捷指令里。之后无法再次查看，丢失后只能重新生成。", "tally-plan-help");
+    reveal.append(address.label, secret.label, once, example);
+    const create = action("Create key", "生成密钥", createKey);
+    const revoke = action("Turn off", "停用", () => {
+      if (!canEdit()) return;
+      const previous = Core.readState(); state = { ...previous, quickAddKeyId: null }; saveState(); reveal.hidden = true; secret.field.value = ""; render();
+    });
+    const actions = node("div", "", "tally-plan-actions"); actions.append(create, revoke);
+    body.append(help, state_, actions, reveal); root.append(summary, body);
+    (document.getElementById("tally-planning") || $("tally-quick-options")).after(root);
+    const more = action("Shortcut quick add", "快捷指令记账", () => { $("tally-tools").open = false; root.open = true; root.scrollIntoView({ block: "start", behavior: "auto" }); summary.focus({ preventScroll: true }); });
+    $("tally-tools").querySelector(".workspace-menu-panel").append(more);
+    let busy = false, notice = null;
+    const signedIn = () => window.DailySpaceView.owner() !== "guest";
+    function canEdit() {
+      return viewOwner === window.DailySpaceView.owner() && document.documentElement.dataset.workspaceReady !== "false" && document.documentElement.dataset.workspaceLocked !== "true" && !localStorage.getItem("daily-space-snapshot-recovery-v1");
+    }
+    async function createKey() {
+      if (busy || !signedIn() || !canEdit()) return;
+      const owner = viewOwner; busy = true; notice = null; render();
+      try {
+        const response = await fetch("/api/tally/quick-add/key", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || "" }) });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data.token || !data.keyId) throw new Error(data.error || "failed");
+        if (owner !== window.DailySpaceView.owner() || !canEdit()) throw new Error("changed");
+        // Saving the identifier makes this key the only active one; any earlier key stops working.
+        state = { ...Core.readState(), quickAddKeyId: data.keyId }; saveState();
+        address.field.value = data.endpoint; secret.field.value = data.token;
+        example.textContent = `POST ${data.endpoint}\nAuthorization: Bearer <${tr("key", "密钥")}>\nContent-Type: application/json\n\n{ "amount": 32, "category": "${tr("Lunch", "午餐")}", "note": "" }`;
+        reveal.hidden = false;
+      } catch (_) {
+        notice = ["Could not create a key. Check your connection and sign-in, then try again.", "生成密钥失败，请检查网络和登录状态后重试。"];
+      } finally { busy = false; render(); }
+    }
+    function render() {
+      root.querySelectorAll("[data-quick-en]").forEach(el => { el.textContent = isZh() ? el.dataset.quickZh : el.dataset.quickEn; });
+      const active = Boolean(state.quickAddKeyId), member = signedIn();
+      if (!active && !busy) { reveal.hidden = true; secret.field.value = ""; }
+      create.disabled = busy || !member; revoke.hidden = !active;
+      create.textContent = busy ? tr("Creating…", "正在生成…") : active ? tr("Replace key", "更换密钥") : tr("Create key", "生成密钥");
+      state_.textContent = notice ? tr(...notice)
+        : !member ? tr("Sign in with Google to use quick add; guest data stays on this device only.", "使用 Google 登录后才能使用；访客数据只保存在本机。")
+        : !active ? tr("Quick add is off.", "尚未开启。")
+        : !reveal.hidden ? tr("Key created. It starts working a few seconds after this device syncs.", "密钥已生成，本机同步完成后几秒内生效。")
+        : tr("Quick add is on. One key is active.", "已开启，当前有一个生效的密钥。");
+    }
+    render();
+    return { render };
   }
 
   /** Optional personal-ledger planning; normal capture remains amount-first. */
@@ -1206,7 +1285,7 @@
     // after the account snapshot is usable, including the first signed-in load.
     if (event.detail?.workspaceReady === true && viewOwner === window.DailySpaceView.owner()) {
       state = Core.readState(); render();
-    } else planningUI?.render();
+    } else planningUI?.render(); quickAddUI?.render();
   });
   window.addEventListener("storage", event => {
     if (event.key === Core.STORAGE_KEY && viewOwner === window.DailySpaceView.owner()) { state = Core.readState(); render(); }
@@ -1214,6 +1293,7 @@
 
   restoreView();
   planningUI = mountPlanning();
+  quickAddUI = mountQuickAdd();
   if (!window.matchMedia("(max-width: 819px)").matches) document.getElementById("tally-insights").open = true;
   if (tripFilter) {
     const filter = document.createElement("button"); filter.type = "button"; filter.className = "tally-trip-filter";
