@@ -216,7 +216,9 @@
         budgets.skipped+=imported.categoryBudgets.filter(item=>oldBudgetKeys.has(budgetKey(item))).length;
         const bills=merge(old.recurringBills,imported.recurringBills);
         if(budgets.items.length>2400||bills.items.length>100)fail('Too many budgets or bills after merge.');
-        result=Tally.normalizeState({...base,people:people.items,records:records.items,tripBudgets:{...imported.tripBudgets,...old.tripBudgets},settlements:settlements.items,categoryBudgets:budgets.items,recurringBills:bills.items});
+        result=Tally.normalizeState({...base,people:people.items,records:records.items,tripBudgets:{...imported.tripBudgets,...old.tripBudgets},settlements:settlements.items,categoryBudgets:budgets.items,recurringBills:bills.items,
+          // A backup never switches the quick-add key on, off or back to an older one.
+          quickAddKeyId:old.quickAddKeyId});
         summary.push({key,added:records.added+budgets.added+bills.added,skipped:records.skipped+budgets.skipped+bills.skipped});
       }
       else if ([Views.KEY, Notes.KEY, Focus.KEY, History.KEY].includes(key)) {

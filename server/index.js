@@ -79,6 +79,7 @@ const SESSION_COOKIE_NAME = "daily_space_session";
 
 loadEnv();
 getDb();
+const quickAdd = require("./quick-add").createQuickAdd({ getSecret: getSessionSecret, getSnapshotStore: getUserSnapshotStore });
 const reminderStore = require("./reminder-store").createReminderStore(getDb());
 const reminderTimer = setInterval(() => reminderStore.tick().catch(() => console.error("Reminder scheduler failed.")), 15000);
 reminderTimer.unref();
@@ -134,6 +135,28 @@ async function handleApi(request, response, url) {
       sendJson(response, { ok: true, count: reminderStore.sync(session.userId, body?.jobs) }); return;
     }
     throw Object.assign(new Error("Reminder route not found."), { statusCode: 404 });
+  }
+
+  // Quick add: an expense sent from outside the app (e.g. an iOS Shortcut) with a personal key.
+  if (url.pathname === "/api/tally/quick-add") {
+    if (method !== "POST") throw Object.assign(new Error("Use POST."), { statusCode: 405 });
+    const body = await readJson(request, 10_000);
+    sendJson(response, await quickAdd.addExpense({ authorization: request.headers.authorization, body, ip: request.socket.remoteAddress }));
+    return;
+  }
+  // Creating a key needs the signed-in browser session and a same-origin request.
+  if (method === "POST" && url.pathname === "/api/tally/quick-add/key") {
+    enforceUserSession(session);
+    const origin = request.headers.origin;
+    const forwardedProtocol = String(request.headers["x-forwarded-proto"] || "").split(",")[0].trim();
+    const expectedOrigin = `${forwardedProtocol === "https" || request.socket.encrypted ? "https" : "http"}://${request.headers.host}`;
+    if ((origin && origin !== expectedOrigin) || request.headers["sec-fetch-site"] === "cross-site") {
+      throw Object.assign(new Error("Cross-origin request denied."), { statusCode: 403 });
+    }
+    const body = await readJson(request, 2_000);
+    const issued = quickAdd.issueKey(session.userId, body?.timeZone);
+    sendJson(response, { ok: true, keyId: issued.keyId, token: issued.token, endpoint: `${expectedOrigin}/api/tally/quick-add` });
+    return;
   }
 
   if (method === "GET" && url.pathname === "/api/health") {
