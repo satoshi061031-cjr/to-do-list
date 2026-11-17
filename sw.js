@@ -1,4 +1,4 @@
-const CACHE_NAME = 'todo-v332';
+const CACHE_NAME = 'todo-v333';
 const SCOPE_PATH = new URL(self.registration.scope).pathname.replace(/\/$/, '');
 const withScope = (path) => `${SCOPE_PATH}${path}`;
 const urlsToCache = [
@@ -107,6 +107,7 @@ const urlsToCache = [
   '/welcome-sticker.png',
   '/android-chrome-192x192.png',
   '/android-chrome-512x512.png',
+  '/apple-touch-icon.png',
 ].map(withScope);
 
 self.addEventListener('install', (event) => {
