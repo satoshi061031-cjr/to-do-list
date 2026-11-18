@@ -369,7 +369,11 @@ body .todo-item input.todo-check[type="checkbox"] {
   display: grid;
   place-content: center;
 }
-body .todo-item input.todo-check[type="checkbox"]:checked { background: var(--primary); border-color: var(--primary); }
+body .todo-item input.todo-check[type="checkbox"] { transition: background-color var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out); }
+body .todo-item input.todo-check[type="checkbox"]:checked { background: var(--primary); border-color: var(--primary); animation: todo-check-pop var(--motion-base) var(--ease-out); }
+body .todo-item input.todo-check[type="checkbox"]:checked::after { animation: todo-check-mark var(--motion-base) var(--ease-out); }
+@keyframes todo-check-pop { 0% { transform: scale(0.82); } 60% { transform: scale(1.08); } 100% { transform: scale(1); } }
+@keyframes todo-check-mark { from { opacity: 0; } to { opacity: 1; } }
 body .todo-item input.todo-check[type="checkbox"]:focus-visible { outline: 2px solid var(--text); outline-offset: var(--space-xs); }
 body .todo-item input.todo-check[type="checkbox"]:checked::after {
   content: "";
@@ -557,6 +561,8 @@ body.has-mobile-dock.has-bento-rail .bento-rail-lens {
   border-radius: var(--radius-pill);
   box-shadow: none;
   transition: transform var(--motion-slow) var(--ease-out), width var(--motion-slow) ease, height var(--motion-slow) ease;
+  /* Its size comes from variables, so resizing it never re-lays out or repaints the rest of the dock. */
+  contain: strict;
 }
 body.has-mobile-dock.has-bento-rail .is-dragging .bento-rail-lens,
 body.has-mobile-dock.has-bento-rail .dock-instant .bento-rail-lens { transition: none; }
@@ -1658,7 +1664,7 @@ body.tally-page .tally-topbar { margin-bottom: var(--space-sm); }
 /* Save status: still reserved so a first save never pushes content down, but only one
    quiet meta line tucked under the title instead of a 44px blank band. Rare states
    with an action button (conflict, reconnect, retry) grow to fit the button. */
-.workspace-save-status { height: auto; min-height: 20px; margin: 0 0 var(--space-md); }
+.workspace-save-status { height: auto; min-height: var(--save-status-line, 20px); margin: 0 0 var(--space-md); }
 body :not(.toolbox-shell) > [data-page-header]:has(+ .workspace-save-status) { margin-bottom: var(--space-xs); }
 .planner-header > .workspace-save-status { margin-bottom: 0; }
 .today-heading > .workspace-save-status { margin-bottom: 0; }
@@ -1666,3 +1672,29 @@ body :not(.toolbox-shell) > [data-page-header]:has(+ .workspace-save-status) { m
   .workspace-save-status { margin-bottom: var(--space-sm); }
 }
 body.planner-page .planner-header .planner-toolbar, body.planner-page .planner-header .planner-status-strip { margin-top: 0; }
+
+/* Loading without layout shift ----------------------------------------- */
+/* Tally: sections under the ledger stay invisible (but laid out) until the
+   records render, so the list growing never pushes visible content down. */
+.tally-app:not(.is-rendered) > .tally-transactions ~ * { visibility: hidden; }
+/* The save status row is inserted by script; reserve its line under the page
+   title beforehand so the content below does not jump when it arrives. */
+body :not(.toolbox-shell) > [data-page-header]:not(.m-top, .today-hero):not(:has(+ .workspace-save-status)) {
+  margin-bottom: calc(var(--space-xs) + var(--save-status-line, 20px) + var(--space-md));
+}
+@media (max-width: 819px) {
+  body :not(.toolbox-shell) > [data-page-header]:not(.m-top, .today-hero):not(:has(+ .workspace-save-status)) {
+    margin-bottom: calc(var(--space-xs) + var(--save-status-line, 20px) + var(--space-sm));
+  }
+}
+/* Page subtitles (date, counts) are filled by script: keep their line from the start. */
+.workspace-page-meta:empty::before { content: "\00a0"; }
+/* Calendar: the week grid and day agenda appear once rendered, not as an empty frame that then moves. */
+.calendar-app:not(.is-rendered) .cal-board > :not(.cal-top) { visibility: hidden; }
+
+/* Touch reordering: the lifted task floats above its neighbours; the drop target is outlined. */
+#todo-list .todo-item.is-reorderable { -webkit-touch-callout: none; }
+#todo-list .todo-item.is-reordering { position: relative; z-index: 2; box-shadow: var(--shadow-pop); background: var(--panel-fill, var(--surface)); border-radius: var(--radius-sm); }
+#todo-list .todo-item.is-drop-target[data-drop-side="before"] { box-shadow: inset 0 2px 0 var(--primary); }
+#todo-list .todo-item.is-drop-target[data-drop-side="after"] { box-shadow: inset 0 -2px 0 var(--primary); }
+body.task-reordering { -webkit-user-select: none; user-select: none; }

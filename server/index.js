@@ -79,6 +79,7 @@ const SESSION_COOKIE_NAME = "daily_space_session";
 
 loadEnv();
 getDb();
+const staticAssets = require("./static-assets").createStaticAssets({ rootDir: ROOT_DIR, publicAssets: PUBLIC_ASSETS, contentType });
 const quickAdd = require("./quick-add").createQuickAdd({ getSecret: getSessionSecret, getSnapshotStore: getUserSnapshotStore });
 const reminderStore = require("./reminder-store").createReminderStore(getDb());
 const reminderTimer = setInterval(() => reminderStore.tick().catch(() => console.error("Reminder scheduler failed.")), 15000);
@@ -101,7 +102,7 @@ async function handleRequest(request, response) {
     await handleApi(request, response, url);
     return;
   }
-  await serveStatic(response, url.pathname);
+  await serveStatic(request, response, url);
 }
 
 async function handleApi(request, response, url) {
@@ -1666,40 +1667,18 @@ async function handleApi(request, response, url) {
   throw error;
 }
 
-async function serveStatic(response, pathname) {
+async function serveStatic(request, response, url) {
   let cleanPath;
-  try { cleanPath = decodeURIComponent(pathname); } catch (_) {
+  try { cleanPath = decodeURIComponent(url.pathname); } catch (_) {
     sendText(response, "Bad request", 400);
     return;
   }
-  let relative = cleanPath === "/" ? "index.html" : cleanPath.replace(/^\/+/, "");
+  const relative = cleanPath === "/" ? "index.html" : cleanPath.replace(/^\/+/, "");
   if (relative === "stocks" || relative === "stocks.html") {
     sendText(response, "Stock signals were removed from dayfly.", 410);
     return;
   }
-
-  if (!PUBLIC_ASSETS.has(relative)) {
-    sendText(response, "Not found", 404);
-    return;
-  }
-  try {
-    const filePath = await fs.promises.realpath(path.join(ROOT_DIR, relative));
-    // Reject symlinks into private files, even when their public filename is allowed.
-    if (filePath !== path.join(ROOT_DIR, relative)) {
-      sendText(response, "Forbidden", 403);
-      return;
-    }
-    const data = await fs.promises.readFile(filePath);
-    response.writeHead(200, {
-      "Content-Type": contentType(filePath),
-      "Cache-Control": "no-cache",
-      "X-Content-Type-Options": "nosniff",
-    });
-    response.end(data);
-  } catch (error) {
-    if (error.code !== "ENOENT" && error.code !== "ENOTDIR") throw error;
-    sendText(response, "Not found", 404);
-  }
+  if (!(await staticAssets.serve(request, response, relative, url.searchParams))) sendText(response, "Not found", 404);
 }
 
 function sendJson(response, payload, status = 200) {

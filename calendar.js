@@ -537,6 +537,53 @@
     render();
   }
 
+  const weekPanels = () => [document.getElementById("week-head"), document.getElementById("week-grid")].filter(Boolean);
+
+  /** A short slide in the direction of travel, so a week or day change does not hard-cut. */
+  function slideIn(direction, nodes) {
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const css = getComputedStyle(document.documentElement);
+    const ms = parseFloat(css.getPropertyValue("--motion-base")) || 180;
+    const easing = css.getPropertyValue("--ease-out").trim() || "cubic-bezier(0.22, 1, 0.36, 1)";
+    nodes.forEach((node) => node?.animate?.([
+      { transform: `translateX(${direction * 24}px)`, opacity: 0.35 },
+      { transform: "translateX(0)", opacity: 1 },
+    ], { duration: ms, easing }));
+  }
+
+  function shiftDay(delta) {
+    const next = parseIso(selectedDate);
+    next.setDate(next.getDate() + delta);
+    selectDate(dateToIso(next));
+  }
+
+  /**
+   * Phone: swipe the week strip to change week, or the day agenda to change day.
+   * Vertical scrolling is untouched; only a clearly horizontal swipe navigates.
+   */
+  function setupSwipeNavigation() {
+    const phone = matchMedia("(max-width: 819px)");
+    const composer = document.getElementById("cal-composer");
+    const bind = (el, onSwipe) => {
+      if (!el) return;
+      let start = null;
+      el.addEventListener("touchstart", (event) => {
+        if (!phone.matches || event.touches.length !== 1 || event.target.closest("input, textarea, select, [contenteditable='true'], .task-swipe-actions")) { start = null; return; }
+        start = { x: event.touches[0].clientX, y: event.touches[0].clientY, t: Date.now() };
+      }, { passive: true });
+      el.addEventListener("touchend", (event) => {
+        const touch = event.changedTouches[0];
+        if (!start || !touch) return;
+        const dx = touch.clientX - start.x, dy = touch.clientY - start.y, quick = Date.now() - start.t < 700;
+        start = null;
+        if (quick && Math.abs(dx) > 56 && Math.abs(dx) > Math.abs(dy) * 1.8) onSwipe(dx < 0 ? 1 : -1);
+      }, { passive: true });
+      el.addEventListener("touchcancel", () => { start = null; }, { passive: true });
+    };
+    bind(weekHeadEl, (direction) => { shiftWeek(direction); slideIn(direction, weekPanels()); });
+    bind(composer, (direction) => { shiftDay(direction); slideIn(direction, [composer]); });
+  }
+
   function goToday() {
     selectDate(todayIso());
   }
@@ -1071,6 +1118,26 @@
     }
   }
 
+  // Show the week and agenda once the page shell (phone layout, save status,
+  // header actions) has settled, so they never appear and then move.
+  let calendarRevealPending = false;
+  function revealCalendar() {
+    const app = document.querySelector(".calendar-app");
+    if (!app || app.classList.contains("is-rendered") || calendarRevealPending) return;
+    calendarRevealPending = true;
+    let shown = false;
+    const show = () => { if (shown) return; shown = true; app.classList.add("is-rendered"); };
+    // DOMContentLoaded handlers (header actions, save status, phone layout) have all run by the next task.
+    const loaded = new Promise(resolve => {
+      const next = () => setTimeout(resolve, 0);
+      if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", next, { once: true }); else next();
+    });
+    const mobile = !document.querySelector('script[src*="calendar-mobile.js"]') || window.DailySpaceCalendarMobileReady ? Promise.resolve()
+      : new Promise(resolve => window.addEventListener("daily-space-calendar-mobile-ready", resolve, { once: true }));
+    Promise.all([loaded, mobile]).then(show);
+    setTimeout(show, 3000);
+  }
+
   function render() {
     window.DailySpaceView?.write("calendar", { query: calSearchQuery, filter: calFilter });
     renderWeekGrid();
@@ -1078,6 +1145,7 @@
     renderUpcoming();
     syncCalendarAlertsButton();
     window.dispatchEvent(new CustomEvent("daily-space-calendar-view-updated"));
+    revealCalendar();
   }
 
   const editor = document.getElementById("calendar-editor-sheet");
@@ -1195,8 +1263,9 @@
 
   if (sidebarTrigger) sidebarTrigger.addEventListener("click", () => toggleSidebar());
   if (sidebarBackdrop) sidebarBackdrop.addEventListener("click", () => closeSidebar());
-  if (prevBtn) prevBtn.addEventListener("click", () => shiftWeek(-1));
-  if (nextBtn) nextBtn.addEventListener("click", () => shiftWeek(1));
+  if (prevBtn) prevBtn.addEventListener("click", () => { shiftWeek(-1); slideIn(-1, weekPanels()); });
+  if (nextBtn) nextBtn.addEventListener("click", () => { shiftWeek(1); slideIn(1, weekPanels()); });
+  setupSwipeNavigation();
   if (todayBtn) {
     todayBtn.addEventListener("click", () => {
       goToday();

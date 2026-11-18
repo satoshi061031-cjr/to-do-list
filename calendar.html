@@ -41,6 +41,7 @@
     <link rel="stylesheet" href="interaction-feedback.css" />
   </head>
   <body class="calendar-page calendar-week-workspace">
+    <script>/* Apply the page-shell classes bento-rail.js will add, before first paint, so nothing jumps. */(function(b){b.classList.add("has-bento-rail");b.classList.toggle("has-mobile-dock",b.classList.contains("todo-mobile")||matchMedia("(max-width: 819px)").matches)})(document.body)</script>
     <button type="button" class="sidebar-trigger" id="sidebar-trigger" aria-controls="sidebar" aria-expanded="false">
       Menu
     </button>
@@ -67,7 +68,7 @@
         <div class="calendar-app calendar-app-solo cal-shell">
           <section class="cal-board" aria-label="Week calendar">
             <header class="cal-top">
-              <div class="cal-top-main" data-page-header>
+              <div class="cal-top-main workspace-page-header" data-page-header>
                 <div class="cal-top-copy">
                   <h1 class="calendar-title" id="calendar-title">Calendar</h1>
                   <p class="calendar-meta" id="calendar-meta"></p>

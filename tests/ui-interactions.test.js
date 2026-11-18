@@ -1958,6 +1958,15 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
     assert.equal(await page.locator(".tally-record").count(), 1);
     assert.ok(await page.locator('[data-record-id="month-shared"]').isVisible());
     await page.locator('[data-tally-view="personal"]').tap();
+    // Phone rows reveal Delete with a left swipe.
+    await page.locator('[data-record-id="month-usd"]').evaluate(row => {
+      const r = row.getBoundingClientRect(), y = r.top + r.height / 2, x = r.right - 40, touch = clientX => new Touch({ identifier: 1, target: row, clientX, clientY: y });
+      row.dispatchEvent(new TouchEvent("touchstart", { touches: [touch(x)], changedTouches: [touch(x)], bubbles: true }));
+      for (let i = 1; i <= 6; i += 1) row.dispatchEvent(new TouchEvent("touchmove", { touches: [touch(x - i * 20)], changedTouches: [touch(x - i * 20)], bubbles: true }));
+      row.dispatchEvent(new TouchEvent("touchend", { touches: [], changedTouches: [touch(x - 120)], bubbles: true }));
+    });
+    assert.ok(await page.locator('[data-record-id="month-usd"]').evaluate(row => row.classList.contains("is-swipe-open")));
+    await page.waitForTimeout(250);
     await page.locator('[data-record-id="month-usd"] .tally-record-delete').tap();
     assert.equal(await page.locator("#tally-calendar-total").textContent(), "CN¥120.00");
     assert.equal(await page.locator('[data-tally-day="2024-02-29"] .tally-month-amount').textContent(), "20");

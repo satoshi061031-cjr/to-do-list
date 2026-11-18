@@ -1152,8 +1152,9 @@ body.calendar-page .calendar-app > .app-greeting {
 }
 
 @media (max-width: 640px) {
+  /* Match the final phone layout (dock added by script) so the page does not jump 8px. */
   .calendar-page .layout {
-    padding: var(--space-sm);
+    padding: 0;
   }
 
   .cal-shell .cal-top {

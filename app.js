@@ -1147,6 +1147,14 @@
         li.draggable = false;
       });
       handle.addEventListener("click", (e) => e.preventDefault());
+      // Keyboard reordering: arrow keys move the task one visible row up or down.
+      handle.setAttribute("aria-keyshortcuts", "ArrowUp ArrowDown");
+      handle.title = "Drag, or use the arrow keys, to reorder";
+      handle.addEventListener("keydown", (e) => {
+        if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+        e.preventDefault();
+        moveTodoBy(todo.id, e.key === "ArrowUp" ? -1 : 1, { focusHandle: true });
+      });
       li.appendChild(handle);
     }
 
@@ -2203,6 +2211,86 @@
     render();
   }
 
+  /** Move a task past its visible neighbour, with the shared position motion. */
+  function moveTodoBy(todoId, step, { focusHandle = false } = {}) {
+    const rows = [...listEl.querySelectorAll(":scope > .todo-item.is-reorderable:not(.is-leaving)")];
+    const index = rows.findIndex((row) => row.dataset.id === todoId);
+    const neighbour = rows[index + step];
+    if (index < 0 || !neighbour) return;
+    const move = () => reorderTodo(todoId, neighbour.dataset.id);
+    if (window.DailySpaceLayoutMotion) window.DailySpaceLayoutMotion.run(listEl, move); else move();
+    if (focusHandle) listEl.querySelector(`.todo-item[data-id="${CSS.escape(todoId)}"] .todo-block-handle`)?.focus({ preventScroll: false });
+  }
+
+  /**
+   * Touch reordering: long-press a task, then drag it up or down. Horizontal
+   * swipes (task-actions.js) still work because a long press needs a still finger.
+   */
+  function setupTouchReorder() {
+    const HOLD_MS = 420, SLOP = 8;
+    let pending = null, drag = null, swallowClick = false;
+    const reduced = matchMedia("(prefers-reduced-motion: reduce)");
+    const blocked = (target) => target.closest("button, input, select, textarea, a, [contenteditable='true'], .todo-check-target, .task-batch-check, .task-swipe-actions");
+    function clear() {
+      clearTimeout(pending?.timer);
+      pending = null;
+      if (!drag) return;
+      drag.row.classList.remove("is-reordering");
+      drag.row.style.removeProperty("transform");
+      drag.target?.classList.remove("is-drop-target"); drag.target?.removeAttribute("data-drop-side");
+      document.body.classList.remove("task-reordering");
+      drag = null;
+    }
+    listEl.addEventListener("touchstart", (event) => {
+      if (event.touches.length !== 1 || document.body.classList.contains("task-selecting")) return clear();
+      const row = event.target.closest(".todo-item.is-reorderable");
+      if (!row || row.inert || blocked(event.target) || row.querySelector(".todo-label[contenteditable='true']:focus")) return;
+      const touch = event.touches[0];
+      clearTimeout(pending?.timer);
+      pending = { row, x: touch.clientX, y: touch.clientY, timer: setTimeout(() => {
+        if (!pending || row.dataset.swipe) return;
+        drag = { row, startY: pending.y, target: null };
+        pending = null;
+        row.classList.add("is-reordering");
+        document.body.classList.add("task-reordering");
+        navigator.vibrate?.(8);
+      }, HOLD_MS) };
+    }, { passive: true });
+    document.addEventListener("touchmove", (event) => {
+      const touch = event.touches[0];
+      if (pending && touch && Math.hypot(touch.clientX - pending.x, touch.clientY - pending.y) > SLOP) { clearTimeout(pending.timer); pending = null; }
+      if (!drag || !touch) return;
+      event.preventDefault(); // the page must not scroll while a task is lifted
+      const dy = touch.clientY - drag.startY;
+      drag.row.style.transform = `translateY(${dy}px)${reduced.matches ? "" : " scale(1.02)"}`;
+      drag.row.style.visibility = "hidden";
+      const under = document.elementFromPoint(touch.clientX, touch.clientY)?.closest(".todo-item.is-reorderable");
+      drag.row.style.removeProperty("visibility");
+      const target = under && under !== drag.row && listEl.contains(under) ? under : null;
+      if (target !== drag.target) {
+        drag.target?.classList.remove("is-drop-target"); drag.target?.removeAttribute("data-drop-side");
+        // Moving down lands after the target, moving up lands before it.
+        if (target) { target.classList.add("is-drop-target"); target.dataset.dropSide = drag.row.compareDocumentPosition(target) & Node.DOCUMENT_POSITION_FOLLOWING ? "after" : "before"; }
+        drag.target = target;
+      }
+    }, { passive: false });
+    const end = () => {
+      if (drag) {
+        swallowClick = true; setTimeout(() => { swallowClick = false; }, 400);
+        const { row, target } = drag;
+        clear();
+        if (target) {
+          const move = () => reorderTodo(row.dataset.id, target.dataset.id);
+          if (window.DailySpaceLayoutMotion) window.DailySpaceLayoutMotion.run(listEl, move); else move();
+        }
+      } else clear();
+    };
+    document.addEventListener("touchend", end);
+    document.addEventListener("touchcancel", () => { swallowClick = Boolean(drag); clear(); });
+    listEl.addEventListener("contextmenu", (event) => { if (drag || pending) event.preventDefault(); });
+    listEl.addEventListener("click", (event) => { if (swallowClick) { event.preventDefault(); event.stopPropagation(); swallowClick = false; } }, true);
+  }
+
   function reorderTodo(dragId, dropId) {
     if (!refreshLatestTasks()) return;
     if (!dragId || !dropId || dragId === dropId) return;
@@ -2907,6 +2995,8 @@
       pinned.forEach((item,index) => { item.todayPinOrder = index; }); return true;
     });
   }
+
+  setupTouchReorder();
 
   window.DailySpaceTodo = {
     getTasks: () => structuredClone(todos),

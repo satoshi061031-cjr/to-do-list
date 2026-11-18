@@ -40,6 +40,7 @@
     <link rel="stylesheet" href="interaction-feedback.css" />
   </head>
   <body class="planner-page planner-kanban">
+    <script>/* Apply the page-shell classes bento-rail.js will add, before first paint, so nothing jumps. */(function(b){b.classList.add("has-bento-rail");b.classList.toggle("has-mobile-dock",b.classList.contains("todo-mobile")||matchMedia("(max-width: 819px)").matches)})(document.body)</script>
     <button type="button" class="sidebar-trigger" id="sidebar-trigger" aria-controls="sidebar" aria-expanded="false">
       Menu
     </button>
@@ -96,7 +97,7 @@
         <div class="planner-view-root">
           <div class="planner-shell">
             <header class="planner-header">
-              <div class="planner-heading-row" data-page-header>
+              <div class="planner-heading-row workspace-page-header" data-page-header>
                 <div><h1 class="workspace-page-title">Projects</h1><p class="workspace-page-meta" id="planner-month-title" data-i18n-ignore>Landing Page</p></div>
                 <div class="planner-heading-actions page-action-cluster">
                   <details class="workspace-page-menu" id="planner-tools" data-page-menu>

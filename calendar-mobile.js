@@ -5,7 +5,7 @@
     const toggle = document.getElementById('calendar-range');
     const form = document.getElementById('cal-search-form');
     const disclosure = document.getElementById('calendar-search-options');
-    if (!api || !toggle || !form || !disclosure) return;
+    if (!api || !toggle || !form || !disclosure) { ready(); return; }
     const media = matchMedia('(max-width: 819px)');
     const t = (en, zh) => window.DailySpaceI18n?.t(en, zh) || en;
     const locale = () => window.DailySpaceI18n?.localeTag() || 'en-US';
@@ -110,6 +110,11 @@
     window.addEventListener('daily-space-locale-changed',refresh);
     window.addEventListener('daily-space-auth-updated',() => close());
     syncLayout();
+    ready();
+  }
+  function ready() {
+    window.DailySpaceCalendarMobileReady = true;
+    window.dispatchEvent(new CustomEvent('daily-space-calendar-mobile-ready'));
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded',boot,{once:true}); else boot();
 })();

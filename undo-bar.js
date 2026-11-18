@@ -61,7 +61,30 @@
     clearTimer();
     pendingUndo = null;
     if (!bar) return;
+    const wasVisible = !bar.hidden;
     bar.hidden = true;
+    if (wasVisible) leaveAnimation();
+  }
+
+  /**
+   * The real bar hides at once (state stays simple); a non-interactive copy
+   * slides out in its place so the bar does not just vanish.
+   */
+  function leaveAnimation() {
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches || typeof bar.animate !== "function") return;
+    const ghost = bar.cloneNode(true);
+    ghost.removeAttribute("id"); ghost.removeAttribute("role"); ghost.removeAttribute("aria-live");
+    ghost.setAttribute("aria-hidden", "true"); ghost.inert = true; ghost.hidden = false;
+    ghost.style.pointerEvents = "none"; ghost.style.animation = "none";
+    bar.after(ghost);
+    const css = getComputedStyle(document.documentElement);
+    // Keep the bar's own centring transform and only add the small drop.
+    const base = getComputedStyle(ghost).transform;
+    const from = base && base !== "none" ? base : "";
+    const animation = ghost.animate([{ opacity: 1, transform: `${from} translateY(0)`.trim() }, { opacity: 0, transform: `${from} translateY(8px)`.trim() }],
+      { duration: parseFloat(css.getPropertyValue("--motion-exit")) || 160, easing: css.getPropertyValue("--ease-in").trim() || "ease-in", fill: "forwards" });
+    const remove = () => ghost.remove();
+    animation.finished.then(remove, remove);
   }
 
   function runUndo() {
@@ -81,6 +104,8 @@
     const owner = window.DailySpaceView?.owner();
     pendingUndo = () => { if (window.DailySpaceView?.owner() === owner) onUndo(); };
     textEl.textContent = message;
+    // A second offer while the bar is showing replays its entrance, so the change is noticed.
+    if (!bar.hidden) { bar.style.animation = "none"; void bar.offsetWidth; bar.style.removeProperty("animation"); }
     bar.hidden = false;
     clearBottomChrome();
     if (window.DailySpaceI18n && typeof window.DailySpaceI18n.apply === "function") {
