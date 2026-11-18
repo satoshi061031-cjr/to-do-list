@@ -39,6 +39,7 @@
       <link rel="stylesheet" href="toolbox-page.css" />
 </head>
 <body class="notes-page">
+    <script>/* Apply the page-shell classes bento-rail.js will add, before first paint, so nothing jumps. */(function(b){b.classList.add("has-bento-rail");b.classList.toggle("has-mobile-dock",b.classList.contains("todo-mobile")||matchMedia("(max-width: 819px)").matches)})(document.body)</script>
   <button type="button" class="sidebar-trigger" id="sidebar-trigger" aria-controls="sidebar" aria-expanded="false">Menu</button>
   <div class="backdrop" id="sidebar-backdrop" hidden aria-hidden="true"></div>
   <div class="layout">
@@ -49,7 +50,7 @@
     </div></aside>
     <main class="main-area" id="main-area"><div class="toolbox-shell">
       <a class="toolbox-back" href="tools.html">← Toolbox</a>
-      <header class="toolbox-header" data-page-header>
+      <header class="toolbox-header workspace-page-header" data-page-header>
         <div><h1 class="workspace-page-title" id="toolbox-title" data-i18n-ignore>Notes</h1><p id="toolbox-description" data-i18n-ignore>Ideas and references, connected to your work.</p></div>
         <div class="page-action-cluster"></div>
       </header>

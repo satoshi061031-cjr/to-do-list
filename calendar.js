@@ -1071,6 +1071,22 @@
     }
   }
 
+  // Show the week and agenda once the page shell (phone layout, save status,
+  // header actions) has settled, so they never appear and then move.
+  let calendarRevealPending = false;
+  function revealCalendar() {
+    const app = document.querySelector(".calendar-app");
+    if (!app || app.classList.contains("is-rendered") || calendarRevealPending) return;
+    calendarRevealPending = true;
+    let shown = false;
+    const show = () => { if (shown) return; shown = true; requestAnimationFrame(() => requestAnimationFrame(() => app.classList.add("is-rendered"))); };
+    const loaded = document.readyState === "complete" ? Promise.resolve() : new Promise(resolve => window.addEventListener("load", resolve, { once: true }));
+    const mobile = !document.querySelector('script[src*="calendar-mobile.js"]') || window.DailySpaceCalendarMobileReady ? Promise.resolve()
+      : new Promise(resolve => window.addEventListener("daily-space-calendar-mobile-ready", resolve, { once: true }));
+    Promise.all([loaded, mobile]).then(show);
+    setTimeout(show, 3000);
+  }
+
   function render() {
     window.DailySpaceView?.write("calendar", { query: calSearchQuery, filter: calFilter });
     renderWeekGrid();
@@ -1078,6 +1094,7 @@
     renderUpcoming();
     syncCalendarAlertsButton();
     window.dispatchEvent(new CustomEvent("daily-space-calendar-view-updated"));
+    revealCalendar();
   }
 
   const editor = document.getElementById("calendar-editor-sheet");

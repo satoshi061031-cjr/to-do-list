@@ -46,6 +46,7 @@
     <link rel="stylesheet" href="interaction-feedback.css" />
   </head>
   <body class="todo-mobile todo-loop todo-agent-page">
+    <script>/* Apply the page-shell classes bento-rail.js will add, before first paint, so nothing jumps. */(function(b){b.classList.add("has-bento-rail");b.classList.toggle("has-mobile-dock",b.classList.contains("todo-mobile")||matchMedia("(max-width: 819px)").matches)})(document.body)</script>
     <button type="button" class="sidebar-trigger" id="sidebar-trigger" aria-controls="sidebar" aria-expanded="false">
       Menu
     </button>
@@ -91,7 +92,7 @@
 
       <main class="main-area">
         <div class="app m-shell">
-          <header class="m-top" id="m-top" data-page-header>
+          <header class="m-top workspace-page-header" id="m-top" data-page-header>
             <div class="m-top-copy">
               <h1 class="m-greet" id="m-greet-title">My workbench</h1>
               <p class="m-page-date" id="m-page-date"></p>

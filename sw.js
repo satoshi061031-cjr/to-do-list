@@ -1,4 +1,4 @@
-const CACHE_NAME = 'todo-v333';
+const CACHE_NAME = 'todo-v334';
 const SCOPE_PATH = new URL(self.registration.scope).pathname.replace(/\/$/, '');
 const withScope = (path) => `${SCOPE_PATH}${path}`;
 const urlsToCache = [
@@ -161,6 +161,51 @@ function revalidate(request) {
     .catch(() => undefined);
 }
 
+const NETWORK_TIMEOUT_MS = 3000;
+
+function cachePut(request, response) {
+  if (!response || !response.ok) return Promise.resolve();
+  const copy = response.clone();
+  return caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+}
+
+function cachedShell(request) {
+  return caches.match(request)
+    .then((cached) => cached || caches.match(request, { ignoreSearch: true }))
+    .then((cached) => cached || (request.mode === 'navigate' ? caches.match(withScope('/todo.html')) : undefined));
+}
+
+function networkFirstWithTimeout(event, request) {
+  const network = fetch(request);
+  // Keep the cache fresh even when the cached copy answered first.
+  event.waitUntil(network.then((response) => cachePut(request, response)).catch(() => undefined));
+  const fallback = () => cachedShell(request).then((cached) => cached || network);
+  let timer;
+  const timeout = new Promise((resolve) => { timer = setTimeout(resolve, NETWORK_TIMEOUT_MS); })
+    .then(() => cachedShell(request))
+    .then((cached) => cached || network);
+  return Promise.race([network.then((response) => { clearTimeout(timer); return response; }), timeout])
+    .catch(() => { clearTimeout(timer); return fallback(); })
+    .then((response) => response || Response.error(), () => Response.error());
+}
+
+function versionedAsset(request, url) {
+  return caches.open(CACHE_NAME).then((cache) => cache.match(request).then((cached) => {
+    if (cached) return cached;
+    return fetch(request).then((response) => {
+      if (response && response.ok) {
+        cache.put(request, response.clone());
+        // Drop older versions of the same file so the cache does not grow per deploy.
+        cache.keys().then((keys) => keys.forEach((key) => {
+          const old = new URL(key.url);
+          if (old.pathname === url.pathname && old.search && old.search !== url.search) cache.delete(key);
+        }));
+      }
+      return response;
+    }).catch(() => cache.match(request, { ignoreSearch: true }).then((plain) => plain || Response.error()));
+  }));
+}
+
 function isShellAsset(url) {
   const path = url.pathname;
   return (
@@ -190,27 +235,16 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // HTML/JS/CSS: network-first so deploys show up without a hard refresh.
+  // Versioned scripts and styles (file.js?v=<hash>) never change: cache-first.
+  if (url.searchParams.has('v') && /\.(js|css)$/.test(url.pathname)) {
+    event.respondWith(versionedAsset(request, url));
+    return;
+  }
+
+  // Pages and unversioned shell files: network-first, but a slow or sleeping
+  // server falls back to the cached copy after a few seconds instead of a blank page.
   if (isShellAsset(url) || request.mode === 'navigate') {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          if (response && response.ok) {
-            const copy = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
-          }
-          return response;
-        })
-        .catch(() =>
-          caches.match(request).then((cached) => {
-            if (cached) return cached;
-            if (request.mode === 'navigate') {
-              return caches.match(withScope('/todo.html')).then((fallback) => fallback || Response.error());
-            }
-            return Response.error();
-          })
-        )
-    );
+    event.respondWith(networkFirstWithTimeout(event, request));
     return;
   }
 

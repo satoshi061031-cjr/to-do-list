@@ -1658,7 +1658,7 @@ body.tally-page .tally-topbar { margin-bottom: var(--space-sm); }
 /* Save status: still reserved so a first save never pushes content down, but only one
    quiet meta line tucked under the title instead of a 44px blank band. Rare states
    with an action button (conflict, reconnect, retry) grow to fit the button. */
-.workspace-save-status { height: auto; min-height: 20px; margin: 0 0 var(--space-md); }
+.workspace-save-status { height: auto; min-height: var(--save-status-line, 20px); margin: 0 0 var(--space-md); }
 body :not(.toolbox-shell) > [data-page-header]:has(+ .workspace-save-status) { margin-bottom: var(--space-xs); }
 .planner-header > .workspace-save-status { margin-bottom: 0; }
 .today-heading > .workspace-save-status { margin-bottom: 0; }
@@ -1666,3 +1666,22 @@ body :not(.toolbox-shell) > [data-page-header]:has(+ .workspace-save-status) { m
   .workspace-save-status { margin-bottom: var(--space-sm); }
 }
 body.planner-page .planner-header .planner-toolbar, body.planner-page .planner-header .planner-status-strip { margin-top: 0; }
+
+/* Loading without layout shift ----------------------------------------- */
+/* Tally: sections under the ledger stay invisible (but laid out) until the
+   records render, so the list growing never pushes visible content down. */
+.tally-app:not(.is-rendered) > .tally-transactions ~ * { visibility: hidden; }
+/* The save status row is inserted by script; reserve its line under the page
+   title beforehand so the content below does not jump when it arrives. */
+body :not(.toolbox-shell) > [data-page-header]:not(.m-top, .today-hero):not(:has(+ .workspace-save-status)) {
+  margin-bottom: calc(var(--space-xs) + var(--save-status-line, 20px) + var(--space-md));
+}
+@media (max-width: 819px) {
+  body :not(.toolbox-shell) > [data-page-header]:not(.m-top, .today-hero):not(:has(+ .workspace-save-status)) {
+    margin-bottom: calc(var(--space-xs) + var(--save-status-line, 20px) + var(--space-sm));
+  }
+}
+/* Page subtitles (date, counts) are filled by script: keep their line from the start. */
+.workspace-page-meta:empty::before { content: "\00a0"; }
+/* Calendar: the week grid and day agenda appear once rendered, not as an empty frame that then moves. */
+.calendar-app:not(.is-rendered) .cal-board > :not(.cal-top) { visibility: hidden; }

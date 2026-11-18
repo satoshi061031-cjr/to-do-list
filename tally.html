@@ -40,6 +40,7 @@
     <link rel="stylesheet" href="interaction-feedback.css" />
   </head>
   <body class="tally-page">
+    <script>/* Apply the page-shell classes bento-rail.js will add, before first paint, so nothing jumps. */(function(b){b.classList.add("has-bento-rail");b.classList.toggle("has-mobile-dock",b.classList.contains("todo-mobile")||matchMedia("(max-width: 819px)").matches)})(document.body)</script>
     <button type="button" class="sidebar-trigger" id="sidebar-trigger" aria-controls="sidebar" aria-expanded="false">
       Menu
     </button>
@@ -64,7 +65,7 @@
 
       <main class="main-area">
         <div class="tally-app">
-          <header class="tally-intro" data-page-header>
+          <header class="tally-intro workspace-page-header" data-page-header>
             <div class="tally-intro-copy">
               <h1 class="tally-heading">Tally</h1>
               <p class="workspace-page-meta" id="tally-page-meta"></p>

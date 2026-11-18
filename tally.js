@@ -570,6 +570,7 @@
     renderRecords();
     renderSettlement();
     planningUI?.render(); quickAddUI?.render();
+    document.querySelector(".tally-app")?.classList.add("is-rendered");
   }
 
   /**
