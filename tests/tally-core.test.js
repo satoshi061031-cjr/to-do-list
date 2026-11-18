@@ -164,7 +164,7 @@ test("empty ledgers can select a base currency while settlement and trip budget 
   assert.equal(choice.changed, true);
   assert.equal(choice.blocked, false);
   assert.equal(choice.state.baseCurrency, "MYR");
-  assert.equal(choice.state.currency, "MYR");
+  assert.equal(choice.state.currency, "RM");
   assert.equal(empty.baseCurrency, "CNY");
   const withSettlement = { ...empty, settlements: [{ fromId: "me", toId: "friend", amountBase: 8 }] };
   const withBudget = { ...empty, tripBudgets: { trip: { amount: 500, currency: "CNY" } } };
@@ -173,4 +173,13 @@ test("empty ledgers can select a base currency while settlement and trip budget 
     assert.equal(result.blocked, true);
     assert.equal(result.state, state);
   }
+});
+
+test("foreign amounts never borrow the base currency's symbol", () => {
+  const Core = require("../tally-core.js");
+  const state = Core.normalizeState({ baseCurrency: "CNY", currency: "CN¥" });
+  assert.equal(Core.formatAmount(state, 20.85, "MYR"), "RM 20.85");
+  assert.equal(Core.formatAmount(state, 33.94, "CNY"), "CN¥33.94");
+  assert.equal(Core.formatAmount(state, 5, "IDR"), "IDR 5.00");
+  assert.equal(Core.formatAmount(Core.normalizeState({ baseCurrency: "JPY", currency: "¥" }), 100, "JPY"), "¥100.00");
 });
