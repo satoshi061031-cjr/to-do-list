@@ -349,10 +349,12 @@
     const phone = document.body.classList.contains('todo-mobile') || matchMedia('(max-width: 819px)').matches;
     let continuing = false;
     for (const surface of [...surfaces.values()]) {
-      if (phone && surface.returning && surface.snapshot.width === innerWidth) { surface.rebase(); continuing = true; }
+      // A phone keyboard only changes the height: keep both opening and returning
+      // panels moving, re-aimed at their latest position, instead of jumping to the end.
+      if (phone && surface.snapshot.width === innerWidth) { surface.rebase(); continuing = true; }
       else surface.finish();
     }
-    for (const title of [...titles.values()]) { if (continuing && title.returning) title.rebase(); else title.cancel(); }
+    for (const title of [...titles.values()]) { if (continuing) title.rebase(); else title.cancel(); }
     cancel(undefined, { preserveSurfaces: true, preserveTitles: true });
   }
   window.addEventListener('resize', viewportChange);
