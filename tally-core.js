@@ -22,6 +22,13 @@
     HKD: "HK$",
     SGD: "S$",
     CNY: "CN¥",
+    MYR: "RM",
+    THB: "฿",
+    TWD: "NT$",
+    AUD: "A$",
+    CAD: "C$",
+    VND: "₫",
+    PHP: "₱",
   };
 
   function uid(prefix) {
@@ -320,7 +327,9 @@
 
   function formatAmount(state, amount, currency) {
     const code = currencyCode(currency, state.baseCurrency);
-    const symbol = currencySymbol(code, state.currency);
+    // The saved legacy symbol belongs to the base currency only; any other code
+    // without a known symbol shows its ISO code (e.g. "IDR 20.85"), never the base symbol.
+    const symbol = code === state.baseCurrency ? currencySymbol(code, state.currency) : (CODE_TO_SYMBOL[code] || code);
     const separator = /[a-z0-9]$/i.test(symbol) ? " " : "";
     return `${symbol}${separator}${Number(amount || 0).toFixed(2)}`;
   }
