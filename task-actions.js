@@ -236,6 +236,8 @@
     }
     function move(x, y) {
       if (!gesture) return false;
+      // A long-pressed task is being reordered vertically; never swipe it too.
+      if (document.body.classList.contains("task-reordering")) { reset(); return false; }
       const dx = x - gesture.x,
         dy = y - gesture.y;
       if (!gesture.locked && Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) {

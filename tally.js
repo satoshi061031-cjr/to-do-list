@@ -340,7 +340,8 @@
     currencyNote.textContent = currencyLocked ? (isZh()
       ? "账本已有记录、结算或预算/账单，基础币种已锁定；可为单笔支出选择其他币种。"
       : "Base currency is locked while this ledger has records, settlements, budgets or bills. Add expenses in another currency instead.") : "";
-    progressBar.style.width = `${viewMode === "personal" ? percent : 0}%`;
+    // Clip rather than resize: the bar animates without re-laying out the page and keeps its rounded ends.
+    progressBar.style.setProperty("--progress", `${Math.max(0, Math.min(100, viewMode === "personal" ? percent : 0))}%`);
     progressBar.classList.toggle("is-over", viewMode === "personal" && overBudget);
     budgetNoteEl.textContent = overBudget
       ? `${baseMoney(Math.abs(remaining))} over · ${baseMoney(personalMonthTotal)} spent`
@@ -373,6 +374,8 @@
       `;
       barsEl.appendChild(bar);
     });
+    // Only the first view grows the bars; later re-renders update them in place.
+    if (!barsEl.dataset.grown) { barsEl.dataset.grown = "1"; setTimeout(() => barsEl.classList.add("is-settled"), 400); }
   }
 
   function groupTitle(iso) {
@@ -1295,6 +1298,65 @@
   restoreView();
   planningUI = mountPlanning();
   quickAddUI = mountQuickAdd();
+  setupRecordSwipe();
+
+  /**
+   * Phone: swipe a record left to reveal Delete instead of showing a bin on
+   * every row. Keyboard focus also reveals it, and one row is open at a time.
+   */
+  function setupRecordSwipe() {
+    const REVEAL = 88, OPEN_AT = 44;
+    const phone = matchMedia("(max-width: 819px)");
+    let gesture = null, openRow = null, swallowClick = false;
+    const setOffset = (row, x) => { row.style.setProperty("--swipe-x", `${x}px`); row.style.setProperty("--swipe-reveal", `${Math.max(0, -x)}px`); };
+    // Rows are rebuilt on render; a removed row can no longer be "open".
+    const live = () => { if (openRow && !openRow.isConnected) openRow = null; return openRow; };
+    function close(row = openRow) {
+      if (!row) return;
+      row.classList.remove("is-swiping", "is-swipe-open"); setOffset(row, 0);
+      if (row === openRow) openRow = null;
+    }
+    recordListEl.addEventListener("touchstart", (event) => {
+      if (!phone.matches || event.touches.length !== 1) return;
+      const row = event.target.closest(".tally-record");
+      if (live() && openRow !== row) { close(); swallowClick = true; }
+      if (!row || event.target.closest(".tally-record-delete")) { gesture = null; return; }
+      const touch = event.touches[0];
+      gesture = { row, x: touch.clientX, y: touch.clientY, dx: 0, locked: false, base: row === openRow ? -REVEAL : 0 };
+    }, { passive: true });
+    recordListEl.addEventListener("touchmove", (event) => {
+      const touch = event.touches[0];
+      if (!gesture || !touch) return;
+      const dx = touch.clientX - gesture.x, dy = touch.clientY - gesture.y;
+      if (!gesture.locked) {
+        if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { gesture = null; return; }
+        if (Math.abs(dx) < 12 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
+        gesture.locked = true; gesture.row.classList.add("is-swiping");
+      }
+      gesture.dx = dx;
+      setOffset(gesture.row, Math.max(-REVEAL - 12, Math.min(0, gesture.base + dx)));
+    }, { passive: true });
+    const end = () => {
+      const current = gesture; gesture = null;
+      if (!current?.locked) return;
+      swallowClick = true; setTimeout(() => { swallowClick = false; }, 400);
+      current.row.classList.remove("is-swiping");
+      if (current.base + current.dx < -OPEN_AT) {
+        if (openRow && openRow !== current.row) close();
+        openRow = current.row; openRow.classList.add("is-swipe-open"); setOffset(openRow, -REVEAL);
+      } else close(current.row);
+    };
+    recordListEl.addEventListener("touchend", end);
+    recordListEl.addEventListener("touchcancel", () => { if (gesture?.locked) close(gesture.row); gesture = null; });
+    // After a swipe, or while a row is open, a tap closes instead of opening the editor.
+    recordListEl.addEventListener("click", (event) => {
+      if (event.target.closest(".tally-record-delete")) return;
+      if (swallowClick || live()) { event.preventDefault(); event.stopPropagation(); swallowClick = false; close(); }
+    }, true);
+    document.addEventListener("touchstart", (event) => { if (live() && !recordListEl.contains(event.target)) close(); }, { passive: true });
+    window.addEventListener("scroll", () => close(), { passive: true });
+    phone.addEventListener?.("change", () => close());
+  }
   if (!window.matchMedia("(max-width: 819px)").matches) document.getElementById("tally-insights").open = true;
   if (tripFilter) {
     const filter = document.createElement("button"); filter.type = "button"; filter.className = "tally-trip-filter";
