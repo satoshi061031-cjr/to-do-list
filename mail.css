@@ -750,3 +750,31 @@ body.mail-booking-open {
     flex-direction: column-reverse;
   }
 }
+
+/* Top 5 to read: a ranked, compact list above the inbox, opening the same reader. */
+.mail-important { display: grid; gap: var(--space-sm); margin-bottom: var(--space-md); }
+.mail-important[hidden] { display: none; }
+.mail-important-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-sm); flex-wrap: wrap; }
+.mail-important-head h2 { margin: 0; font-size: var(--type-body-size); font-weight: 600; color: var(--text); }
+.mail-important-source { font-size: var(--type-label-size); color: var(--text-muted); }
+.mail-important-list { display: grid; gap: var(--space-xs); margin: 0; padding: 0; list-style: none; }
+.mail-important-main {
+  display: flex; gap: var(--space-sm); align-items: flex-start; width: 100%; min-height: 44px;
+  padding: var(--space-sm) var(--space-md); border: 1px solid var(--quiet-line, var(--glass-border)); border-radius: var(--radius-sm);
+  background: var(--surface); color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.mail-important-main:hover { background: var(--surface-hover); }
+.mail-important-main:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+.mail-important-rank {
+  flex-shrink: 0; display: grid; place-items: center; width: 1.5rem; height: 1.5rem; margin-top: 0.1rem;
+  border-radius: var(--radius-pill); background: var(--accent-soft); color: var(--primary); font-size: var(--type-label-size); font-weight: 600;
+}
+.mail-important-item.is-unread .mail-important-rank { background: var(--primary); color: var(--on-primary); }
+.mail-important-body { display: grid; gap: 2px; min-width: 0; }
+.mail-important-body strong { color: var(--text); font-size: 0.95rem; line-height: 1.3; overflow-wrap: anywhere; }
+.mail-important-summary { color: var(--text); font-size: 0.84rem; line-height: 1.4; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.mail-important-reason { justify-self: start; margin-top: 2px; padding: 1px var(--space-sm); border-radius: var(--radius-pill); background: var(--accent-soft); color: var(--primary); font-size: var(--type-label-size); }
+.mail-important-body { flex: 1; }
+.mail-important-body .mail-row-meta { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-sm); min-width: 0; }
+.mail-important-body .mail-message-from { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mail-important-body .mail-message-time { flex-shrink: 0; }

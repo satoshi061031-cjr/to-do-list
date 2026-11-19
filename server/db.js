@@ -332,6 +332,37 @@ function getMailAccountById(userId, id) {
   };
 }
 
+// Notified after any mailbox row changes, so a durable backup can follow it.
+let mailAccountsChanged = null;
+function setMailAccountsChangeListener(listener) { mailAccountsChanged = typeof listener === "function" ? listener : null; }
+function notifyMailAccountsChanged(userId) {
+  try { mailAccountsChanged?.(normalizeUserId(userId)); } catch (_) { /* a backup failure never blocks mail */ }
+}
+
+const MAIL_ACCOUNT_COLUMNS = ["id", "provider", "email", "access_token", "refresh_token", "token_type", "scope", "expires_at", "profile_json", "connected_at", "updated_at"];
+
+/** Full rows for one user, tokens still sealed, for a durable backup. */
+function exportMailAccounts(userId) {
+  const ownerId = normalizeUserId(userId);
+  if (!ownerId) return [];
+  return getDb().prepare(`SELECT ${MAIL_ACCOUNT_COLUMNS.join(", ")} FROM mail_accounts WHERE user_id = ?`).all(ownerId);
+}
+
+/** Restore backed-up rows; rows that already exist locally are kept as they are. */
+function importMailAccounts(userId, rows) {
+  const ownerId = normalizeUserId(userId);
+  if (!ownerId || !Array.isArray(rows)) return 0;
+  const insert = getDb().prepare(`INSERT OR IGNORE INTO mail_accounts (user_id, ${MAIL_ACCOUNT_COLUMNS.join(", ")}) VALUES (?, ${MAIL_ACCOUNT_COLUMNS.map(() => "?").join(", ")})`);
+  let restored = 0;
+  for (const row of rows.slice(0, 20)) {
+    if (!row || typeof row !== "object" || !row.provider || !row.email || !row.connected_at || !row.updated_at) continue;
+    const values = MAIL_ACCOUNT_COLUMNS.map(column => (row[column] == null ? null : String(row[column])));
+    if (!values[0]) values[0] = `${ownerId}:${String(row.provider).toLowerCase()}:${String(row.email).toLowerCase()}`;
+    restored += insert.run(ownerId, ...values).changes;
+  }
+  return restored;
+}
+
 function upsertMailAccount(input) {
   const userId = normalizeUserId(input.userId);
   const provider = String(input.provider || "").trim().toLowerCase();
@@ -379,15 +410,19 @@ function upsertMailAccount(input) {
       connectedAt,
       now
     );
-  return getDb().prepare("SELECT * FROM mail_accounts WHERE user_id = ? AND id = ?").get(userId, id);
+  const saved = getDb().prepare("SELECT * FROM mail_accounts WHERE user_id = ? AND id = ?").get(userId, id);
+  notifyMailAccountsChanged(userId);
+  return saved;
 }
 
 function removeMailAccount(userId, id) {
   const ownerId = normalizeUserId(userId);
   if (!ownerId) return false;
-  return getDb()
+  const removed = getDb()
     .prepare("DELETE FROM mail_accounts WHERE user_id = ? AND id = ?")
     .run(ownerId, String(id || "")).changes > 0;
+  if (removed) notifyMailAccountsChanged(ownerId);
+  return removed;
 }
 
 function removeMailAccountByProviderEmail(userId, provider, email) {
@@ -395,11 +430,11 @@ function removeMailAccountByProviderEmail(userId, provider, email) {
   const normalizedProvider = String(provider || "").trim().toLowerCase();
   const normalizedEmail = String(email || "").trim().toLowerCase();
   if (!ownerId || !normalizedProvider || !normalizedEmail) return false;
-  return (
-    getDb()
-      .prepare("DELETE FROM mail_accounts WHERE user_id = ? AND provider = ? AND email = ?")
-      .run(ownerId, normalizedProvider, normalizedEmail).changes > 0
-  );
+  const removed = getDb()
+    .prepare("DELETE FROM mail_accounts WHERE user_id = ? AND provider = ? AND email = ?")
+    .run(ownerId, normalizedProvider, normalizedEmail).changes > 0;
+  if (removed) notifyMailAccountsChanged(ownerId);
+  return removed;
 }
 
 function getUserSnapshot(userId) {
@@ -425,6 +460,7 @@ function removeAllMailAccountsForUser(userId) {
   const id = String(userId || "").trim().toLowerCase();
   if (!id) return { removed: 0 };
   const result = getDb().prepare("DELETE FROM mail_accounts WHERE user_id = ?").run(id);
+  notifyMailAccountsChanged(id);
   return { removed: Number(result.changes || 0) };
 }
 
@@ -498,6 +534,9 @@ module.exports = {
   removeMailAccountByProviderEmail,
   removeAllMailAccountsForUser,
   upsertMailAccount,
+  exportMailAccounts,
+  importMailAccounts,
+  setMailAccountsChangeListener,
   getUserSnapshot,
   deleteUserSnapshot,
   upsertUserSnapshot,
