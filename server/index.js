@@ -14,6 +14,9 @@ const {
   listMailAccounts,
   removeMailAccount,
   removeMailAccountByProviderEmail,
+  exportMailAccounts,
+  importMailAccounts,
+  setMailAccountsChangeListener,
   removeAllMailAccountsForUser,
   upsertMailAccount,
 } = require("./db");
@@ -79,6 +82,9 @@ const SESSION_COOKIE_NAME = "daily_space_session";
 
 loadEnv();
 getDb();
+// Mailboxes survive a wiped SQLite file through a Supabase copy (when configured).
+const mailBackup = require("./mail-account-backup").createMailAccountBackup({ exportRows: exportMailAccounts, importRows: importMailAccounts });
+setMailAccountsChangeListener(mailBackup.scheduleSave);
 const staticAssets = require("./static-assets").createStaticAssets({ rootDir: ROOT_DIR, publicAssets: PUBLIC_ASSETS, contentType });
 const quickAdd = require("./quick-add").createQuickAdd({ getSecret: getSessionSecret, getSnapshotStore: getUserSnapshotStore });
 const reminderStore = require("./reminder-store").createReminderStore(getDb());
@@ -108,6 +114,9 @@ async function handleRequest(request, response) {
 async function handleApi(request, response, url) {
   const method = request.method || "GET";
   const session = readSessionFromRequest(request);
+  if (session?.userId && (url.pathname.startsWith("/api/mail/") || url.pathname.startsWith("/api/calendar/"))) {
+    await mailBackup.ensureRestored(String(session.userId).trim().toLowerCase());
+  }
   if (url.pathname.startsWith("/api/reminders/")) {
     if (method !== "GET") {
       const origin = request.headers.origin;
@@ -945,7 +954,8 @@ async function handleApi(request, response, url) {
     const stateInfo = consumeOauthState(state);
     const returnTo = sanitizeReturnTo(stateInfo?.returnTo || "/todo.html");
 
-    if (!stateInfo || stateInfo.provider !== "google-login") {
+    const consentRetry = stateInfo?.provider === "google-login-consent";
+    if (!stateInfo || (stateInfo.provider !== "google-login" && !consentRetry)) {
       sendRedirect(
         response,
         withQuery(returnTo, {
@@ -957,6 +967,12 @@ async function handleApi(request, response, url) {
     }
 
     if (oauthError) {
+      // Declining the extra Gmail consent still leaves the user signed in (the
+      // first pass set the session); return as a normal sign-in.
+      if (consentRetry && isValidEmail(stateInfo.emailHint || "")) {
+        sendRedirect(response, withQuery(returnTo, { userauth: "success", provider: "Google", label: stateInfo.emailHint, email: stateInfo.emailHint }));
+        return;
+      }
       sendRedirect(
         response,
         withQuery(returnTo, {
@@ -986,6 +1002,8 @@ async function handleApi(request, response, url) {
       const email = String(profile.email || tokenClaims.email || "").trim().toLowerCase();
       const label = resolveDisplayName(profile, tokenClaims, email, "Google user");
       if (isValidEmail(email) && token.access_token) {
+        // A redeployed server may have lost this mailbox; bring back the stored copy first.
+        await mailBackup.ensureRestored(email);
         try {
           persistMailboxFromOauth({
             userId: email,
@@ -999,6 +1017,17 @@ async function handleApi(request, response, url) {
         } catch (_) {
           /* Login still succeeds if mailbox persistence is unavailable. */
         }
+      }
+      const sessionCookie = buildSessionCookieValue({ userId: email, email, provider: "Google", label });
+      // Google only returns a long-lived refresh token on a consent screen. Without
+      // one, Mail would stop working an hour after sign-in, so ask once, for this
+      // same account, before returning. The user is already signed in either way.
+      const storedMailbox = isValidEmail(email) ? exportMailAccounts(email).find((row) => row.provider === "gmail" && row.email === email) : null;
+      if (!consentRetry && isValidEmail(email) && token.access_token && !storedMailbox?.refresh_token) {
+        const retryState = crypto.randomUUID();
+        createOauthState({ state: retryState, provider: "google-login-consent", returnTo, emailHint: email });
+        sendRedirect(response, buildSignInAuthUrl("google", config, retryState, { forceConsent: true, loginHint: email }), 302, { "Set-Cookie": sessionCookie });
+        return;
       }
       sendRedirect(
         response,
@@ -1382,7 +1411,7 @@ async function handleApi(request, response, url) {
         ? url.searchParams.get("today")
         : new Date().toISOString().slice(0, 10);
     const lang = String(url.searchParams.get("lang") || "").trim() || "en";
-    const { digest, summaries, summarized, fallbackReason } = await summarizeInboxMessages(
+    const { digest, summaries, summarized, fallbackReason, important } = await summarizeInboxMessages(
       messages,
       today,
       { lang }
@@ -1394,6 +1423,7 @@ async function handleApi(request, response, url) {
         email: account.email,
       },
       digest,
+      important: important || [],
       summarized,
       fallbackReason: fallbackReason || null,
       agentConfigured: isAgentConfigured(),
@@ -2161,6 +2191,7 @@ function buildSignInAuthUrl(provider, config, state, options) {
     params.set("access_type", "offline");
     params.set("include_granted_scopes", "true");
     params.set("prompt", forceConsent ? "consent" : "select_account");
+    if (options?.loginHint) params.set("login_hint", String(options.loginHint));
   } else if (provider === "outlook") {
     params.set("response_mode", "query");
     params.set("prompt", forceConsent ? "consent" : "select_account");
@@ -2859,10 +2890,18 @@ async function fetchRecentGmailMessages(account, limit) {
       receivedAt: detailPayload.internalDate ? new Date(Number(detailPayload.internalDate)).toISOString() : null,
       snippet: String(detailPayload.snippet || "").trim().slice(0, 280),
       threadId: String(detailPayload.threadId || id),
+      ...gmailSignals(detailPayload.labelIds),
     };
   });
   const results = await Promise.all(tasks);
   return results.filter(Boolean);
+}
+
+/** Gmail's own labels are the strongest importance hints available without reading the body. */
+function gmailSignals(labelIds) {
+  const labels = new Set(Array.isArray(labelIds) ? labelIds : []);
+  const category = ["PROMOTIONS", "SOCIAL", "UPDATES", "FORUMS"].find(name => labels.has(`CATEGORY_${name}`));
+  return { unread: labels.has("UNREAD"), starred: labels.has("STARRED"), markedImportant: labels.has("IMPORTANT"), category: category ? category.toLowerCase() : "primary" };
 }
 
 async function fetchRecentOutlookMessages(account, limit) {
@@ -2872,7 +2911,7 @@ async function fetchRecentOutlookMessages(account, limit) {
   const accessToken = openToken(account.accessToken);
   const url = new URL("https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages");
   url.searchParams.set("$top", String(limit));
-  url.searchParams.set("$select", "id,subject,receivedDateTime,from,bodyPreview");
+  url.searchParams.set("$select", "id,subject,receivedDateTime,from,bodyPreview,isRead,importance,flag,inferenceClassification");
   url.searchParams.set("$orderby", "receivedDateTime DESC");
   const response = await fetch(url, {
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -2893,6 +2932,10 @@ async function fetchRecentOutlookMessages(account, limit) {
     from: item.from?.emailAddress?.address || item.from?.emailAddress?.name || "Unknown sender",
     receivedAt: item.receivedDateTime || null,
     snippet: String(item.bodyPreview || "").trim().slice(0, 280),
+    unread: item.isRead === false,
+    starred: item.flag?.flagStatus === "flagged",
+    markedImportant: item.importance === "high",
+    category: item.inferenceClassification === "other" ? "updates" : "primary",
   }));
 }
 

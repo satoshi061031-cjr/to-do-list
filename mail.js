@@ -56,6 +56,9 @@
   const POLL_MS = 120000;
   let pollTimer = null;
   let latestMessages = [];
+  let latestImportant = [];
+  const importantSection = document.getElementById("mail-important");
+  const importantList = document.getElementById("mail-important-list");
   let selectedMailIds = new Set();
   let signedIn = false;
   let pendingBookingImport = null;
@@ -688,12 +691,44 @@
         </button>
       </article>`;
     }).join("") : `<p class="mail-message-empty">${t("No recent inbox messages.", "暂无最近收件。")}</p>`;
+    renderImportant();
     syncBatchBar();
     syncDetail();
     if (focused?.id) {
       const attribute = focused.check ? "data-mail-check" : "data-open-mail";
       messageList.querySelector(`[${attribute}="${CSS.escape(focused.id)}"]`)?.focus({ preventScroll: true });
     }
+  }
+
+  /** The five messages that most need attention, each with why, opening the same reader. */
+  function renderImportant() {
+    if (!importantSection || !importantList) return;
+    const byId = new Map(latestMessages.map(message => [message.id, message]));
+    const rows = latestImportant.map(item => ({ item, message: byId.get(item.id) })).filter(row => row.message);
+    importantSection.hidden = !rows.length || selecting;
+    if (!rows.length) { importantList.innerHTML = ""; return; }
+    document.getElementById("mail-important-heading").textContent = t(`Top ${rows.length} to read`, `重要的 ${rows.length} 封邮件`);
+    const fromAi = rows.some(row => row.item.source === "ai");
+    document.getElementById("mail-important-source").textContent = fromAi ? t("Picked by AI", "AI 挑选") : t("By unread, stars and keywords", "按未读、星标和关键词挑选");
+    importantList.innerHTML = rows.map(({ item, message }, index) => {
+      const id = escapeHtml(message.id);
+      const subject = escapeHtml(message.subject || t("No subject", "无主题"));
+      const sender = String(message.from || t("Unknown sender", "未知发件人"));
+      const displayName = sender.replace(/\s*<[^>]+>\s*$/, "").replace(/^"|"$/g, "").trim() || sender;
+      const summary = message.summary && message.summary !== message.subject ? escapeHtml(message.summary) : "";
+      return `<li class="mail-important-item${message.unread ? " is-unread" : ""}">
+        <button type="button" class="mail-important-main" data-open-mail="${id}" aria-label="${escapeHtml(t("Open message", "打开邮件"))}: ${subject}">
+          <span class="mail-important-rank" aria-hidden="true">${index + 1}</span>
+          <span class="mail-important-body">
+            <span class="mail-row-meta"><span class="mail-message-from">${escapeHtml(displayName)}</span>
+              <span class="mail-message-time">${escapeHtml(formatDate(message.receivedAt, true))}</span></span>
+            <strong>${subject}</strong>
+            ${summary ? `<span class="mail-important-summary">${summary}</span>` : ""}
+            <span class="mail-important-reason">${escapeHtml(item.reason || "")}</span>
+          </span>
+        </button>
+      </li>`;
+    }).join("");
   }
 
   function openDetail(id) {
@@ -854,6 +889,7 @@
       setAiBanner(Boolean(cached?.unavailable));
       setDigest(cached?.digest || "");
       window.DailySpaceLoop?.writeCachedMailDigest?.(cached?.digest || "", !cached?.unavailable);
+      latestImportant = cached?.important || [];
       renderMessages(cached?.messages || []);
       updateHero();
       setInboxStatus("");
@@ -862,14 +898,15 @@
     if (!options?.silent) setInboxStatus(t("Refreshing…", "正在刷新…"));
     try {
       const lang = window.DailySpaceI18n?.localeTag?.() || document.documentElement.lang || "en";
-      const payload = await request(`/api/mail/accounts/${encodeURIComponent(account.id)}/digest?limit=12&today=${encodeURIComponent(todayIso())}&lang=${encodeURIComponent(lang)}`, { signal: controller.signal });
+      const payload = await request(`/api/mail/accounts/${encodeURIComponent(account.id)}/digest?limit=25&today=${encodeURIComponent(todayIso())}&lang=${encodeURIComponent(lang)}`, { signal: controller.signal });
       if (requestId !== messagesRequestId || userId !== authUserId || selectedAccount()?.id !== account.id) return;
       const rows = Array.isArray(payload.messages) ? payload.messages : [];
       const unavailable = rows.length > 0 && !payload.summarized;
       lastUpdatedAt = new Date().toISOString();
-      inboxCache.set(account.id, { messages: rows, digest: payload.digest || "", unavailable, updatedAt: lastUpdatedAt });
+      inboxCache.set(account.id, { messages: rows, digest: payload.digest || "", important: payload.important || [], unavailable, updatedAt: lastUpdatedAt });
       setAiBanner(unavailable);
       setDigest(payload.digest || "");
+      latestImportant = Array.isArray(payload.important) ? payload.important.slice(0, 5) : [];
       if (window.DailySpaceLoop?.writeCachedMailDigest) {
         window.DailySpaceLoop.writeCachedMailDigest(payload.digest || "", Boolean(payload.summarized));
       }
