@@ -1031,6 +1031,50 @@
     emitUserSnapshotUpdate();
   }
 
+  // Large stores travel and are kept gzip-compressed as "gz1:<base64>" (see
+  // server/snapshot-values.js), so years of records fit the cloud size limit.
+  // localStorage and every reader keep plain JSON; only the wire format changes.
+  const SNAPSHOT_GZIP_PREFIX = "gz1:";
+  const SNAPSHOT_GZIP_FROM = 2048;
+  const canGzipSnapshot = () => typeof CompressionStream === "function" && typeof DecompressionStream === "function"
+    && typeof Blob === "function" && typeof Response === "function";
+  function snapshotBytesToBase64(bytes) {
+    let binary = "";
+    for (let index = 0; index < bytes.length; index += 0x8000) binary += String.fromCharCode.apply(null, bytes.subarray(index, index + 0x8000));
+    return btoa(binary);
+  }
+  function snapshotBase64ToBytes(text) {
+    const binary = atob(text), bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+    return bytes;
+  }
+  async function encodeSnapshotPayload(payload) {
+    if (!payload || typeof payload !== "object" || !canGzipSnapshot()) return payload;
+    const encoded = {};
+    for (const [key, value] of Object.entries(payload)) {
+      if (typeof value !== "string" || value.length < SNAPSHOT_GZIP_FROM) { encoded[key] = value; continue; }
+      try {
+        const stream = new Blob([value]).stream().pipeThrough(new CompressionStream("gzip"));
+        const packed = SNAPSHOT_GZIP_PREFIX + snapshotBytesToBase64(new Uint8Array(await new Response(stream).arrayBuffer()));
+        encoded[key] = packed.length < value.length ? packed : value;
+      } catch (_) {
+        encoded[key] = value;
+      }
+    }
+    return encoded;
+  }
+  async function decodeSnapshotPayload(payload) {
+    if (!payload || typeof payload !== "object") return payload;
+    const decoded = {};
+    for (const [key, value] of Object.entries(payload)) {
+      if (typeof value !== "string" || !value.startsWith(SNAPSHOT_GZIP_PREFIX)) { decoded[key] = value; continue; }
+      if (!canGzipSnapshot()) throw Object.assign(new Error("Update this browser to read synced data."), { status: 426 });
+      const stream = new Blob([snapshotBase64ToBytes(value.slice(SNAPSHOT_GZIP_PREFIX.length))]).stream().pipeThrough(new DecompressionStream("gzip"));
+      decoded[key] = await new Response(stream).text();
+    }
+    return decoded;
+  }
+
   async function requestUserSnapshot(method, payload, keepalive = false) {
     const generation = snapshotGeneration, owner = currentUserId();
     const assertCurrent = () => {
@@ -1050,10 +1094,13 @@
     });
     try {
       const operation = (async () => {
+      // A page-hide flush must start synchronously, so it stays plain (it is size-capped).
+      const sent = payload && payload.payload && !keepalive ? { ...payload, payload: await encodeSnapshotPayload(payload.payload) } : payload;
+      assertCurrent();
       const response = await fetch("/api/user/snapshot", {
         method,
         headers: { "Content-Type": "application/json" },
-        body: payload ? JSON.stringify({ ...payload, baseRevision: userSnapshotRevision }) : undefined,
+        body: sent ? JSON.stringify({ ...sent, baseRevision: userSnapshotRevision }) : undefined,
         signal: controller.signal,
         keepalive,
         cache: "no-store",
@@ -1069,6 +1116,8 @@
         throw Object.assign(new Error("Invalid sync response"), { status: 502 });
       }
       if (data.userId && String(data.userId).toLowerCase() !== owner) throw Object.assign(new Error("Sign in again"), { status: 401 });
+      if (data.payload) data.payload = await decodeSnapshotPayload(data.payload);
+      assertCurrent();
       return data;
       })();
       const data = await Promise.race([operation, canceled]);
@@ -1505,7 +1554,8 @@
     const recovery = readSnapshotRecovery();
     const candidate = recovery?.ownerBefore === userId ? recovery.payloadBefore
       : readWorkspaceOwner() === userId && !recovery ? collectUserSnapshotPayload() : readUserLocalCache(userId) || {};
-    if (new Blob([JSON.stringify(candidate)]).size > 1024 * 1024) {
+    // The server enforces its limit on the compressed upload; this only stops absurd sizes early.
+    if (new Blob([JSON.stringify(candidate)]).size > 16 * 1024 * 1024) {
       if (tryCacheMaterializedWorkspace()) handleSnapshotFailure({ status: 413 }); return;
     }
     const generation = snapshotGeneration;

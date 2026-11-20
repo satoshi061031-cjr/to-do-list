@@ -240,11 +240,31 @@ test("invalid successful responses are rejected and an oversized local snapshot 
   c.context.fetch = async () => ({ ok: true, json: async () => ({}) });
   await c.sync.tick();
   assert.equal(c.sync.state().status, "unavailable");
-  c.values.set("todo-app-v2", "x".repeat(1024 * 1024));
+  // The server limits the compressed upload; the client only refuses absurd raw sizes up front.
+  c.values.set("todo-app-v2", "x".repeat(17 * 1024 * 1024));
   await c.sync.tick(true);
   assert.equal(c.sync.state().status, "too-large");
   assert.equal(c.timers.size, 0);
-  assert.ok(c.values.get("todo-app-v2").length >= 1024 * 1024);
+  assert.ok(c.values.get("todo-app-v2").length >= 17 * 1024 * 1024);
+});
+
+test("large stores upload gzip-compressed, and compressed cloud stores are applied as plain JSON", async () => {
+  const { decodeValue, encodeValue } = require("../server/snapshot-values");
+  const fromPhone = JSON.stringify({ todos: Array.from({ length: 120 }, (_, i) => ({ id: `p${i}`, text: "Water the plants", notes: "", sourceUrl: null })) });
+  const c = client();
+  Object.assign(c.context, { CompressionStream, DecompressionStream, Response, btoa, atob });
+  c.changeCloud({ "todo-app-v2": encodeValue(fromPhone) });
+  await c.sync.load();
+  assert.equal(c.values.get("todo-app-v2"), fromPhone, "a compressed cloud store lands in localStorage as plain JSON");
+
+  const local = JSON.stringify({ todos: Array.from({ length: 200 }, (_, i) => ({ id: `t${i}`, text: "Prepare the weekly review", notes: "", sourceUrl: null })) });
+  c.values.set("todo-app-v2", local);
+  await c.sync.tick();
+  const put = c.requests.filter((request) => request.method === "PUT").pop();
+  const sent = JSON.parse(put.body).payload["todo-app-v2"];
+  assert.ok(sent.startsWith("gz1:") && sent.length < local.length / 4, `sent ${sent.length} bytes for ${local.length}`);
+  assert.equal(decodeValue(sent), local, "the server reads the same format");
+  assert.equal(c.sync.state().status !== "too-large", true);
 });
 
 test("an empty second account clears the first account's data before any automatic upload", async () => {
