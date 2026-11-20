@@ -67,12 +67,28 @@ module.exports = [
     },
   },
 
-  // Node: server, scripts and config files.
+  // Node: every script outside the repository root (server/, scripts/, tests/
+  // and any new tool directory), any .cjs/.mjs file, and the root config files.
   {
-    files: ["server/**/*.js", "scripts/**/*.js", ...nodeRootFiles],
+    files: ["**/*.js", "**/*.cjs"],
+    ignores: ["*.js"],
     languageOptions: {
       sourceType: "commonjs",
       globals: { ...globals.node },
+    },
+  },
+  {
+    files: nodeRootFiles,
+    languageOptions: {
+      sourceType: "commonjs",
+      globals: { ...globals.node },
+    },
+  },
+  {
+    files: ["**/*.mjs"],
+    languageOptions: {
+      sourceType: "module",
+      globals: { ...globals.nodeBuiltin },
     },
   },
 
@@ -80,7 +96,6 @@ module.exports = [
   {
     files: ["tests/**/*.js"],
     languageOptions: {
-      sourceType: "commonjs",
       globals: {
         ...globals.node,
         ...globals.browser,
