@@ -30,9 +30,7 @@
   }
 
   function normalizeRepeat(value) {
-    const repeat = String(value || "").trim().toLowerCase();
-    if (repeat === "daily" || repeat === "weekly" || repeat === "monthly") return repeat;
-    return null;
+    return window.DailySpaceTaskFields.normalizeRepeat(value);
   }
 
   function padIsoPart(value) {
@@ -1282,8 +1280,10 @@
       [
         ["", "Once"],
         ["daily", "Daily"],
+        ["weekdays", "Weekdays"],
         ["weekly", "Weekly"],
         ["monthly", "Monthly"],
+        ["yearly", "Yearly"],
       ].forEach(([value, label]) => {
         const option = document.createElement("option");
         option.value = value;
@@ -1298,12 +1298,15 @@
       repeat.addEventListener("click", (event) => event.stopPropagation());
       main.appendChild(repeat);
     } else if (todo.repeat) {
-      const badge = document.createElement("span");
-      badge.className = "todo-repeat-badge";
-      const repeatLabels = { daily: ["Daily", "每天"], weekly: ["Weekly", "每周"], monthly: ["Monthly", "每月"] };
-      const label = repeatLabels[todo.repeat] || [todo.repeat, todo.repeat];
-      badge.textContent = window.DailySpaceI18n?.t(...label) || label[0];
-      main.appendChild(badge);
+      const label = window.DailySpaceTaskFields.describeRepeat(todo);
+      if (label) {
+        const badge = document.createElement("span");
+        badge.className = "todo-repeat-badge";
+        badge.dataset.i18nIgnore = "";
+        badge.textContent = window.DailySpaceI18n?.t(label.en, label.zh) || label.en;
+        // Sits on the compact metadata line with the due date and category.
+        (main.querySelector(".todo-meta-line") || main).appendChild(badge);
+      }
     }
 
     const checkTarget = document.createElement("label");
@@ -2173,12 +2176,15 @@
   function spawnRepeatFrom(item) {
     const repeat = normalizeRepeat(item.repeat);
     if (!repeat) return;
+    // Weekdays, every N, chosen days, an end date and "from completion" all live in one shared rule.
+    const nextDue = window.DailySpaceTaskFields.nextOccurrenceDate(item, { today: todayIso(), completedOn: todayIso() });
+    if (!nextDue) return; // the series has ended
     todos.unshift({
       ...window.DailySpaceTaskFields?.recurrence(item),
       id: id(),
       text: item.text,
       completed: false,
-      dueDate: nextRepeatDate(item.dueDate, repeat, item.repeatDay),
+      dueDate: nextDue,
       dueTime: item.dueTime || null,
       categoryId: item.categoryId || null,
       sourceMailId: null,

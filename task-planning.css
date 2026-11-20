@@ -69,3 +69,24 @@ body.has-consolidated-filters .task-planning.task-planning-unified { display: bl
 body.has-consolidated-filters .m-task-controls { justify-content: flex-end; }
 body.todo-mobile:not(.m-show-completed) .task-filter-content #clear-completed { display: none !important; }
 @media (max-width: 360px) { .task-planning-bar { gap: var(--space-xs); } .task-planning-bar .task-planning-tabs button { padding-inline: var(--space-xs); } }
+
+/* Repeat details (every N, days, end, from completion) under the editor's Repeat select. */
+.task-repeat-rule { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm) var(--space-md); padding: var(--space-sm) 0; color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+.task-repeat-rule[hidden], .task-repeat-rule [hidden] { display: none !important; }
+.task-repeat-rule label { display: inline-flex; align-items: center; gap: var(--space-xs); min-height: 44px; }
+.task-repeat-every input { width: 4.5rem; min-height: 44px; box-sizing: border-box; padding: var(--space-xs) var(--space-sm); border: 1px solid var(--quiet-line); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font: inherit; }
+.task-repeat-until input { min-height: 44px; box-sizing: border-box; padding: var(--space-xs) var(--space-sm); border: 1px solid var(--quiet-line); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font: inherit; }
+.task-repeat-days { display: flex; flex-wrap: wrap; gap: var(--space-xs); width: 100%; }
+.task-repeat-day { position: relative; }
+.task-repeat-day input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.task-repeat-day span { display: grid; place-items: center; min-width: 44px; min-height: 44px; box-sizing: border-box; padding: 0 var(--space-sm); border: 1px solid var(--quiet-line); border-radius: var(--radius-pill); background: var(--surface); color: var(--text); }
+.task-repeat-day input:checked + span { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+.task-repeat-day input:focus-visible + span { outline: 2px solid var(--primary); outline-offset: 2px; }
+.task-repeat-from input { width: 1.1rem; height: 1.1rem; accent-color: var(--primary); }
+/* The editor stacks ordinary labels; these option rows read left to right. */
+.task-desktop-body .task-repeat-rule label, .task-detail-fields .task-repeat-rule label,
+.task-desktop-body .task-planning-fields .task-inbox-option { flex-direction: row; align-items: center; }
+.task-repeat-rule .task-repeat-day span { color: var(--text); }
+.task-repeat-rule .task-repeat-until { flex: 1 1 16rem; min-width: 0; }
+.task-repeat-rule .task-repeat-until span, .task-repeat-rule .task-repeat-every span { white-space: nowrap; }
+.task-repeat-rule .task-repeat-until input { flex: 1 1 9rem; width: auto; min-width: 0; }

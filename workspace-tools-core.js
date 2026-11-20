@@ -29,7 +29,7 @@
     if (!text(item?.text)) fail('Task text is required.');
     if (item.dueDate && !date(item.dueDate)) fail('Invalid date.'); if (item.dueTime && !time(item.dueTime)) fail('Invalid time.');
     return { ...TaskFields.fields(item), id: identity(item.id), text: text(item.text), completed: completion(item.completed), dueDate: date(item.dueDate), dueTime: time(item.dueTime), categoryId: text(item.categoryId, 120) || null,
-      notes: text(item.notes, 10000), subtasks: checklist(item.subtasks), repeat: ['daily','weekly','monthly'].includes(item.repeat) ? item.repeat : null,
+      notes: text(item.notes, 10000), subtasks: checklist(item.subtasks), repeat: TaskFields.normalizeRepeat ? TaskFields.normalizeRepeat(item.repeat) : (['daily','weekly','monthly'].includes(item.repeat) ? item.repeat : null),
       sourceMailId: text(item.sourceMailId, 120) || null, sourceMailUrl: /^https:\/\/mail\.google\.com\//.test(item.sourceMailUrl || '') ? text(item.sourceMailUrl, 2000) : null,
       sourcePlannerId: text(item.sourcePlannerId, 120) || null, sourceReminderId: text(item.sourceReminderId, 120) || null, externalEventId: text(item.externalEventId, 120) || null,
       sourceTripId: text(item.sourceTripId, 120) || null, sourceTripName: text(item.sourceTripName, 60) || null, sourceTripDate: date(item.sourceTripDate),

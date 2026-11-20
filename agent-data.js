@@ -32,9 +32,10 @@
   }
 
   function normalizeRepeat(value) {
+    const shared = window.DailySpaceTaskFields?.normalizeRepeat;
+    if (shared) return shared(value);
     const repeat = String(value || "").trim().toLowerCase();
-    if (repeat === "daily" || repeat === "weekly" || repeat === "monthly") return repeat;
-    return null;
+    return ["daily", "weekdays", "weekly", "monthly", "yearly"].includes(repeat) ? repeat : null;
   }
 
   function nextRepeatDate(iso, repeat, repeatDay) {
@@ -485,13 +486,15 @@
           if (action.type === "todo_complete") {
             if (!item.completed) {
               const repeat = normalizeRepeat(item.repeat);
-              if (repeat) {
+              const shared = window.DailySpaceTaskFields?.nextOccurrenceDate;
+              const nextDue = !repeat ? null : shared ? shared(item, { today: todayIso(), completedOn: todayIso() }) : nextRepeatDate(item.dueDate, repeat, item.repeatDay);
+              if (nextDue) {
                 todo.todos.unshift({
                   ...window.DailySpaceTaskFields?.recurrence(item),
                   id: uid(),
                   text: item.text,
                   completed: false,
-                  dueDate: nextRepeatDate(item.dueDate, repeat, item.repeatDay),
+                  dueDate: nextDue,
                   dueTime: item.dueTime || null,
                   categoryId: item.categoryId || null,
                   sourceMailId: null,

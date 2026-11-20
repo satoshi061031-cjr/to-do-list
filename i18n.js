@@ -538,6 +538,8 @@
     Repeat: "重复",
     Once: "一次",
     Daily: "每天",
+    Weekdays: "工作日",
+    Yearly: "每年",
     Weekly: "每周",
     "Search dayfly": "搜索 dayfly",
     "Search tasks, trips, spend…": "搜索任务、行程、支出…",

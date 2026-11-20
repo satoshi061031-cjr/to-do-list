@@ -365,7 +365,7 @@
           dueDate: typeof x.dueDate === "string" && ISO_DATE.test(x.dueDate) ? x.dueDate : null,
           dueTime: normalizeTime(x.dueTime),
           categoryId: typeof x.categoryId === "string" ? x.categoryId : null,
-          repeat: x.repeat === "daily" || x.repeat === "weekly" || x.repeat === "monthly" ? x.repeat : null,
+          repeat: window.DailySpaceTaskFields?.normalizeRepeat(x.repeat) || null,
           sourceReminderId: typeof x.sourceReminderId === "string" ? x.sourceReminderId : null,
           sourcePlannerId: typeof x.sourcePlannerId === "string" ? x.sourcePlannerId : null,
           externalEventId: typeof x.externalEventId === "string" ? x.externalEventId : null,
@@ -656,8 +656,8 @@
     const completing = !todo.completed;
     todo.completed = completing;
     todo.completedAt = completing ? Date.now() : null;
-    if (completing && (todo.repeat === "daily" || todo.repeat === "weekly" || todo.repeat === "monthly")) {
-      const nextDue = window.DailySpaceTaskFields.nextRepeatDate(todo.dueDate, todo.repeat, todo.repeatDay, todayIso());
+    const nextDue = completing ? window.DailySpaceTaskFields.nextOccurrenceDate(todo, { today: todayIso(), completedOn: todayIso() }) : null;
+    if (nextDue) {
       todos.unshift({
         ...todo,
         ...window.DailySpaceTaskFields?.recurrence(todo),

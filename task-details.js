@@ -34,7 +34,46 @@
       refreshPlanning();
     }); pin.dataset.taskPin = '';
     const pinStatus = element('p', '', 'task-planning-status'); pinStatus.setAttribute('role', 'status');
-    planning.append(priorityLabel, inboxLabel, sourceLabel, pin, pinStatus);
+    const tagsLabel = element('label'), tagsInput = element('input'); tagsInput.type = 'text'; tagsInput.maxLength = 200; tagsInput.dataset.taskTags = ''; tagsInput.setAttribute('data-i18n-ignore', '');
+    planning.append(priorityLabel, tagsLabel, inboxLabel, sourceLabel, pin, pinStatus);
+    // Repeat details beside the editor's own Repeat select: every N, weekdays to use, an end date, count from completion.
+    const repeatSelect = form.querySelector('select[name="repeat"], #m-task-repeat');
+    const rule = element('div', '', 'task-repeat-rule'); rule.dataset.i18nIgnore = ''; rule.setAttribute('role', 'group');
+    const everyLabel = element('label', '', 'task-repeat-every'), everyInput = element('input'), everyUnit = element('span');
+    everyInput.type = 'number'; everyInput.min = '1'; everyInput.max = '99'; everyInput.step = '1'; everyInput.inputMode = 'numeric'; everyInput.dataset.repeatEvery = '';
+    const everyText = element('span'); everyLabel.append(everyText, everyInput, everyUnit);
+    const daysGroup = element('div', '', 'task-repeat-days'); daysGroup.setAttribute('role', 'group');
+    const dayBoxes = [1, 2, 3, 4, 5, 6, 0].map(day => {
+      const chip = element('label', '', 'task-repeat-day'), box = element('input'), name = element('span');
+      box.type = 'checkbox'; box.value = String(day); box.dataset.repeatDay = String(day); chip.append(box, name); daysGroup.append(chip);
+      return { day, box, name };
+    });
+    const untilLabel = element('label', '', 'task-repeat-until'), untilInput = element('input'), untilText = element('span');
+    untilInput.type = 'date'; untilInput.dataset.repeatUntil = ''; untilLabel.append(untilText, untilInput);
+    const fromLabel = element('label', '', 'task-repeat-from'), fromInput = element('input'), fromText = element('span');
+    fromInput.type = 'checkbox'; fromInput.dataset.repeatFrom = ''; fromLabel.append(fromInput, fromText);
+    rule.append(everyLabel, daysGroup, untilLabel, fromLabel);
+    if (repeatSelect) (repeatSelect.closest('label') || repeatSelect).after(rule); else rule.hidden = true;
+    function refreshRule() {
+      const unit = repeatSelect?.value || '';
+      rule.hidden = !unit;
+      everyLabel.hidden = !unit || unit === 'weekdays';
+      daysGroup.hidden = unit !== 'weekly';
+      const units = { daily: ['day(s)', '天'], weekly: ['week(s)', '周'], monthly: ['month(s)', '个月'], yearly: ['year(s)', '年'] };
+      everyText.textContent = localized('Every', '每');
+      everyUnit.textContent = units[unit] ? localized(...units[unit]) : '';
+      rule.setAttribute('aria-label', localized('Repeat options', '重复选项'));
+      daysGroup.setAttribute('aria-label', localized('Repeat on', '在这些天重复'));
+      const names = { 0: ['Sun', '日'], 1: ['Mon', '一'], 2: ['Tue', '二'], 3: ['Wed', '三'], 4: ['Thu', '四'], 5: ['Fri', '五'], 6: ['Sat', '六'] };
+      dayBoxes.forEach(({ day, name }) => { name.textContent = localized(...names[day]); });
+      untilText.textContent = localized('Ends on (optional)', '截止日期（可选）');
+      fromText.textContent = localized('Count from when I finish it', '从完成那天开始算');
+      tagsLabel.replaceChildren(document.createTextNode(localized('Tags (comma separated)', '标签（用逗号分隔）')), tagsInput);
+      tagsInput.placeholder = localized('e.g. errands, health', '例如：杂事, 健康');
+    }
+    repeatSelect?.addEventListener('change', refreshRule);
+    window.addEventListener('daily-space-locale-changed', refreshRule);
+    refreshRule();
     const postpone = element('div', '', 'task-snooze-actions');
     let currentId = null, currentLink = null;
     window.addEventListener('daily-space-locale-changed', () => { if (currentLink) source.textContent = `${localized(currentLink.label, currentLink.zh)} ›`; });
@@ -68,11 +107,21 @@
       node.append(label, input, remove); list.append(node);
     }
     return {
-      value: () => ({ priority: priority.value, inbox: inbox.checked, sourceUrl: sourceInput.value, notes: notes.value, subtasks: [...list.children].map(node => ({ id: node.dataset.subtaskId, text: node.querySelector('[data-subtask-text]').value.trim(), completed: node.querySelector('[type=checkbox]').checked })).filter(item => item.text) }),
+      value: () => ({ priority: priority.value, inbox: inbox.checked, sourceUrl: sourceInput.value, notes: notes.value,
+        tags: tagsInput.value.split(/[,，、#]+/).map(tag => tag.trim()).filter(Boolean),
+        repeatEvery: repeatSelect?.value && repeatSelect.value !== 'weekdays' && Number(everyInput.value) > 1 ? Number(everyInput.value) : null,
+        repeatDays: repeatSelect?.value === 'weekly' ? dayBoxes.filter(item => item.box.checked).map(item => item.day) : null,
+        repeatUntil: repeatSelect?.value ? untilInput.value || null : null,
+        repeatFrom: repeatSelect?.value && fromInput.checked ? 'completion' : null, subtasks: [...list.children].map(node => ({ id: node.dataset.subtaskId, text: node.querySelector('[data-subtask-text]').value.trim(), completed: node.querySelector('[type=checkbox]').checked })).filter(item => item.text) }),
       fill(value, task = value) {
         const fields = window.DailySpaceTaskFields.fields(value || {}); notes.value = fields.notes; list.replaceChildren(); fields.subtasks.forEach(row);
         section.open = Boolean(fields.notes || fields.subtasks.length); currentId = task?.id || null; postpone.hidden = !currentId || task?.completed;
         priority.value = fields.priority; inbox.checked = fields.inbox; sourceInput.value = fields.sourceUrl || ''; pinStatus.textContent = ''; refreshPlanning();
+        tagsInput.value = fields.tags.join(', ');
+        everyInput.value = String(fields.repeatEvery || 1); untilInput.value = fields.repeatUntil || ''; fromInput.checked = fields.repeatFrom === 'completion';
+        dayBoxes.forEach(item => { item.box.checked = Boolean(fields.repeatDays?.includes(item.day)); });
+        // The editor sets its Repeat select right after filling these fields.
+        queueMicrotask(refreshRule);
         const link = window.DailySpaceTaskFields.source(task || {}); currentLink = link; source.hidden = !link;
         if (link) { source.textContent = `${localized(link.label, link.zh)} ›`; source.href = link.href; if (link.href.startsWith('https:')) { source.target = '_blank'; source.rel = 'noopener noreferrer'; } else { source.removeAttribute('target'); } }
       },
@@ -90,7 +139,7 @@
           <form class="task-desktop-form"><div class="task-desktop-body">
             <label>${t('Task', '任务')}<input name="text" maxlength="500" required data-i18n-ignore></label>
             <div class="task-desktop-dates"><label>${t('Date', '日期')}<input name="dueDate" type="date"></label><label>${t('Time', '时间')}<input name="dueTime" type="time"></label></div>
-            <div class="task-desktop-options"><label>${t('Category', '分类')}<select name="categoryId"></select></label><label>${t('Repeat', '重复')}<select name="repeat"><option value="">${t('Once', '一次')}</option><option value="daily">${t('Daily', '每天')}</option><option value="weekly">${t('Weekly', '每周')}</option><option value="monthly">${t('Monthly', '每月')}</option></select></label></div>
+            <div class="task-desktop-options"><label>${t('Category', '分类')}<select name="categoryId"></select></label><label>${t('Repeat', '重复')}<select name="repeat"><option value="">${t('Once', '一次')}</option><option value="daily">${t('Daily', '每天')}</option><option value="weekdays">${t('Weekdays', '工作日')}</option><option value="weekly">${t('Weekly', '每周')}</option><option value="monthly">${t('Monthly', '每月')}</option><option value="yearly">${t('Yearly', '每年')}</option></select></label></div>
             <p class="task-draft-status" role="status"></p></div><button class="btn btn-primary task-desktop-save" type="submit">${t('Save changes', '保存更改')}</button></form>
         </section>`;
       document.body.append(root);
