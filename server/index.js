@@ -25,6 +25,7 @@ const { runGlobalAgent } = require("./global-agent");
 const { searchTravelPlaces, travelPlacesStatus } = require("./travel-places");
 const { getTravelCollabStore } = require("./travel-collab-store");
 const { summarizeInboxMessages } = require("./mail-digest");
+const { decodePayload } = require("./snapshot-values");
 const { parseMailBookings } = require("./mail-booking");
 const {
   GOOGLE_WORKSPACE_SCOPES,
@@ -621,7 +622,8 @@ async function handleApi(request, response, url) {
       ok: true,
       exportedAt,
       userId: session.userId,
-      payload: snapshot?.payload || {},
+      // Exports are plain JSON even when stores are kept compressed.
+      payload: decodePayload(snapshot?.payload || {}),
       updatedAt: snapshot?.updatedAt || null,
       revision: snapshot?.revision || 0,
     };

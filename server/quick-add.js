@@ -9,6 +9,7 @@
  */
 const crypto = require("node:crypto");
 const TallyCore = require("../tally-core.js");
+const { readStore, writeStore } = require("./snapshot-values");
 
 const TOKEN_PREFIX = "dfq_";
 const TALLY_KEY = "tally-book-v1";
@@ -121,8 +122,7 @@ function createQuickAdd({ getSecret, getSnapshotStore, fetchRate = defaultFetchR
     let rate = null;
     for (let attempt = 0; attempt < MAX_WRITE_ATTEMPTS; attempt += 1) {
       const snapshot = await store.getSnapshot(key.userId);
-      let book = null;
-      try { book = JSON.parse(snapshot?.payload?.[TALLY_KEY] || "null"); } catch (_) { book = null; }
+      const book = readStore(snapshot?.payload, TALLY_KEY);
       // An unknown, replaced or cleared identifier all read the same: the key no longer works.
       if (!book || book.quickAddKeyId !== key.keyId) {
         limitFailures(`ip:${ip || "unknown"}`);
@@ -147,7 +147,7 @@ function createQuickAdd({ getSecret, getSnapshotStore, fetchRate = defaultFetchR
       if (!String(body.category || "").trim()) record.category = "Other";
       state.records.unshift(record);
       try {
-        await store.upsertSnapshot(key.userId, { ...snapshot.payload, [TALLY_KEY]: JSON.stringify(state) }, snapshot.revision || 0);
+        await store.upsertSnapshot(key.userId, writeStore(snapshot.payload, TALLY_KEY, state), snapshot.revision || 0);
         return summary(state, record, false);
       } catch (error) {
         // Another device synced in between: re-read and apply the expense on top of it.
