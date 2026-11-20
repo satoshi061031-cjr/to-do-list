@@ -48,17 +48,84 @@ async function defaultFetchRate(from, to) {
   return rate;
 }
 
-function createLimiter({ now = Date.now, windowMs = 60_000, limit = 30, maxKeys = 10_000 } = {}) {
+function createLimiter({ now = Date.now, windowMs = 60_000, limit = 30, maxKeys = 10_000, code = "QUICK_ADD_RATE_LIMITED" } = {}) {
   const buckets = new Map();
   return function hit(key) {
     const timestamp = now();
     for (const [name, bucket] of buckets) if (timestamp >= bucket.resetAt) buckets.delete(name);
     const bucket = buckets.get(key) || (buckets.size < maxKeys ? { count: 0, resetAt: timestamp + windowMs } : null);
     if (!bucket || bucket.count >= limit) {
-      throw Object.assign(fail("Too many requests. Try again shortly.", 429, "QUICK_ADD_RATE_LIMITED"),
+      throw Object.assign(fail("Too many requests. Try again shortly.", 429, code),
         { retryAfter: Math.max(1, Math.ceil(((bucket?.resetAt || timestamp + windowMs) - timestamp) / 1000)) });
     }
     bucket.count += 1; buckets.set(key, bucket);
+  };
+}
+
+/**
+ * Validated expense fields from a request body. Shared by quick add and the MCP
+ * server so both accept the same amounts, dates and currencies. Throws 400s.
+ */
+function prepareExpense(body, { timeZone = null, now = Date.now, idPrefix = "quick-" } = {}) {
+  if (!body || typeof body !== "object" || Array.isArray(body)) throw fail("Send a JSON object.", 400);
+  const amount = parseAmount(body.amount);
+  if (!(amount > 0) || amount > 1e12) throw fail("amount must be a number greater than 0.", 400, "INVALID_AMOUNT");
+  let date = dateInZone(now(), validTimeZone(body.timeZone) || timeZone);
+  if (body.date != null && body.date !== "") {
+    date = TallyCore.validDate(String(body.date).trim().slice(0, 10));
+    if (!date) throw fail("date must look like 2026-01-31.", 400, "INVALID_DATE");
+  }
+  const currency = body.currency == null || body.currency === "" ? null : String(body.currency).trim().toUpperCase();
+  if (currency && !/^[A-Z]{3}$/.test(currency)) throw fail("currency must be a 3-letter code such as CNY.", 400, "INVALID_CURRENCY");
+  const id = typeof body.id === "string" && /^[A-Za-z0-9_.:-]{1,80}$/.test(body.id.trim()) ? `${idPrefix}${body.id.trim()}` : null;
+  if (body.id != null && body.id !== "" && !id) throw fail("id may only contain letters, digits and _ . : -", 400, "INVALID_ID");
+  return { amount, date, currency, id, idPrefix, fxRate: body.fxRate,
+    category: typeof body.category === "string" ? body.category : "", note: typeof body.note === "string" ? body.note : "" };
+}
+
+/**
+ * Adds a prepared expense to a normalized Tally state (state.records is
+ * changed in place). A repeated request id returns the existing record. A
+ * foreign currency uses the given fxRate, or `rate(from, to)`.
+ */
+async function applyExpense(state, input, rate) {
+  const duplicate = input.id && state.records.find(record => record.id === input.id);
+  if (duplicate) return { record: duplicate, duplicate: true };
+  const currency = input.currency || state.baseCurrency;
+  let fxRate = 1;
+  if (currency !== state.baseCurrency) {
+    const given = Number(input.fxRate);
+    if (input.fxRate != null && input.fxRate !== "" && !(given > 0 && given <= 1e6)) throw fail("fxRate must be a positive number.", 400, "INVALID_FX_RATE");
+    fxRate = given > 0 ? given : await rate(currency, state.baseCurrency);
+  }
+  const record = TallyCore.normalizeRecord({
+    id: input.id || `${input.idPrefix ?? "quick-"}${crypto.randomUUID()}`, date: input.date, amount: input.amount, currency, fxRate, scope: "personal",
+    category: input.category, note: input.note,
+  }, state);
+  if (!record) throw fail("The expense could not be recorded.", 400);
+  if (!String(input.category || "").trim()) record.category = "Other";
+  state.records.unshift(record);
+  return { record, duplicate: false };
+}
+
+/** One exchange-rate lookup per request, however often a write is retried. */
+function rateOnce(fetchRate) {
+  const rates = new Map();
+  return async (from, to) => {
+    if (!rates.has(`${from}:${to}`)) rates.set(`${from}:${to}`, await fetchRate(from, to));
+    return rates.get(`${from}:${to}`);
+  };
+}
+
+function expenseSummary(state, record, duplicate) {
+  const dayTotal = state.records.filter(item => item.scope === "personal" && item.date === record.date)
+    .reduce((sum, item) => sum + Number(item.amount) * Number(item.fxRate || 1), 0);
+  const money = (value, currency) => `${currency} ${Number(value.toFixed(2))}`;
+  return {
+    ok: true, duplicate,
+    record: { id: record.id, date: record.date, amount: record.amount, currency: record.currency, category: record.category, note: record.note },
+    dayTotal: Number(dayTotal.toFixed(2)), baseCurrency: state.baseCurrency,
+    message: `${duplicate ? "Already recorded" : "Recorded"} ${money(record.amount, record.currency)} · ${record.category} · ${record.date}. Day total ${money(dayTotal, state.baseCurrency)}.`,
   };
 }
 
@@ -103,23 +170,10 @@ function createQuickAdd({ getSecret, getSnapshotStore, fetchRate = defaultFetchR
     const key = verify(bearer(authorization));
     if (!key) { limitFailures(`ip:${ip || "unknown"}`); throw fail("Invalid or missing quick-add key.", 401, "QUICK_ADD_KEY_INVALID"); }
     limitUser(`user:${key.userId}`);
-    if (!body || typeof body !== "object" || Array.isArray(body)) throw fail("Send a JSON object.", 400);
-
-    const amount = parseAmount(body.amount);
-    if (!(amount > 0) || amount > 1e12) throw fail("amount must be a number greater than 0.", 400, "INVALID_AMOUNT");
-    const timeZone = validTimeZone(body.timeZone) || key.timeZone;
-    let date = dateInZone(now(), timeZone);
-    if (body.date != null && body.date !== "") {
-      date = TallyCore.validDate(String(body.date).trim().slice(0, 10));
-      if (!date) throw fail("date must look like 2026-01-31.", 400, "INVALID_DATE");
-    }
-    const requestedCurrency = body.currency == null || body.currency === "" ? null : String(body.currency).trim().toUpperCase();
-    if (requestedCurrency && !/^[A-Z]{3}$/.test(requestedCurrency)) throw fail("currency must be a 3-letter code such as CNY.", 400, "INVALID_CURRENCY");
-    const requestId = typeof body.id === "string" && /^[A-Za-z0-9_.:-]{1,80}$/.test(body.id.trim()) ? `quick-${body.id.trim()}` : null;
-    if (body.id != null && body.id !== "" && !requestId) throw fail("id may only contain letters, digits and _ . : -", 400, "INVALID_ID");
+    const input = prepareExpense(body, { timeZone: key.timeZone, now });
 
     const store = getSnapshotStore();
-    let rate = null;
+    const rate = rateOnce(fetchRate);
     for (let attempt = 0; attempt < MAX_WRITE_ATTEMPTS; attempt += 1) {
       const snapshot = await store.getSnapshot(key.userId);
       const book = readStore(snapshot?.payload, TALLY_KEY);
@@ -129,26 +183,11 @@ function createQuickAdd({ getSecret, getSnapshotStore, fetchRate = defaultFetchR
         throw fail("This quick-add key is not active. Create a new one in Tally.", 401, "QUICK_ADD_KEY_INACTIVE");
       }
       const state = TallyCore.normalizeState(book);
-      const duplicate = requestId && state.records.find(record => record.id === requestId);
-      if (duplicate) return summary(state, duplicate, true);
-
-      const currency = requestedCurrency || state.baseCurrency;
-      let fxRate = 1;
-      if (currency !== state.baseCurrency) {
-        const given = Number(body.fxRate);
-        if (body.fxRate != null && body.fxRate !== "" && !(given > 0 && given <= 1e6)) throw fail("fxRate must be a positive number.", 400, "INVALID_FX_RATE");
-        fxRate = given > 0 ? given : (rate ?? (rate = await fetchRate(currency, state.baseCurrency)));
-      }
-      const record = TallyCore.normalizeRecord({
-        id: requestId || `quick-${crypto.randomUUID()}`, date, amount, currency, fxRate, scope: "personal",
-        category: typeof body.category === "string" ? body.category : "", note: typeof body.note === "string" ? body.note : "",
-      }, state);
-      if (!record) throw fail("The expense could not be recorded.", 400);
-      if (!String(body.category || "").trim()) record.category = "Other";
-      state.records.unshift(record);
+      const { record, duplicate } = await applyExpense(state, input, rate);
+      if (duplicate) return expenseSummary(state, record, true);
       try {
         await store.upsertSnapshot(key.userId, writeStore(snapshot.payload, TALLY_KEY, state), snapshot.revision || 0);
-        return summary(state, record, false);
+        return expenseSummary(state, record, false);
       } catch (error) {
         // Another device synced in between: re-read and apply the expense on top of it.
         if (error?.code !== "SNAPSHOT_CONFLICT") throw error;
@@ -157,19 +196,10 @@ function createQuickAdd({ getSecret, getSnapshotStore, fetchRate = defaultFetchR
     throw fail("Your account is syncing right now. Try again in a moment.", 503, "QUICK_ADD_BUSY");
   }
 
-  function summary(state, record, duplicate) {
-    const dayTotal = state.records.filter(item => item.scope === "personal" && item.date === record.date)
-      .reduce((sum, item) => sum + Number(item.amount) * Number(item.fxRate || 1), 0);
-    const money = (value, currency) => `${currency} ${Number(value.toFixed(2))}`;
-    return {
-      ok: true, duplicate,
-      record: { id: record.id, date: record.date, amount: record.amount, currency: record.currency, category: record.category, note: record.note },
-      dayTotal: Number(dayTotal.toFixed(2)), baseCurrency: state.baseCurrency,
-      message: `${duplicate ? "Already recorded" : "Recorded"} ${money(record.amount, record.currency)} · ${record.category} · ${record.date}. Day total ${money(dayTotal, state.baseCurrency)}.`,
-    };
-  }
-
   return { issueKey, verify, addExpense };
 }
 
-module.exports = { createQuickAdd, parseAmount, dateInZone };
+module.exports = {
+  createQuickAdd, parseAmount, dateInZone, validTimeZone, createLimiter, defaultFetchRate,
+  prepareExpense, applyExpense, rateOnce, expenseSummary,
+};

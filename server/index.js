@@ -88,6 +88,9 @@ const mailBackup = require("./mail-account-backup").createMailAccountBackup({ ex
 setMailAccountsChangeListener(mailBackup.scheduleSave);
 const staticAssets = require("./static-assets").createStaticAssets({ rootDir: ROOT_DIR, publicAssets: PUBLIC_ASSETS, contentType });
 const quickAdd = require("./quick-add").createQuickAdd({ getSecret: getSessionSecret, getSnapshotStore: getUserSnapshotStore });
+const { createMcp, serverOrigins } = require("./mcp");
+const mcp = createMcp({ getSecret: getSessionSecret, getSnapshotStore: getUserSnapshotStore });
+const mcpOrigins = request => serverOrigins(request, process.env.MAIL_OAUTH_BASE_URL || process.env.RENDER_EXTERNAL_URL || "");
 const reminderStore = require("./reminder-store").createReminderStore(getDb());
 const reminderTimer = setInterval(() => reminderStore.tick().catch(() => console.error("Reminder scheduler failed.")), 15000);
 reminderTimer.unref();
@@ -167,6 +170,27 @@ async function handleApi(request, response, url) {
     const body = await readJson(request, 2_000);
     const issued = quickAdd.issueKey(session.userId, body?.timeZone);
     sendJson(response, { ok: true, keyId: issued.keyId, token: issued.token, endpoint: `${expectedOrigin}/api/tally/quick-add` });
+    return;
+  }
+
+  // MCP: an assistant (Claude, ChatGPT, …) reads and changes tasks, expenses and reminders with a personal key.
+  if (method === "POST" && url.pathname === "/api/mcp/key") {
+    enforceUserSession(session);
+    const origins = mcpOrigins(request);
+    if ((request.headers.origin && request.headers.origin !== origins.hostOrigin) || request.headers["sec-fetch-site"] === "cross-site") {
+      throw Object.assign(new Error("Cross-origin request denied."), { statusCode: 403 });
+    }
+    const body = await readJson(request, 2_000);
+    const issued = mcp.issueKey(session.userId, body?.timeZone);
+    sendJson(response, { ok: true, keyId: issued.keyId, token: issued.token,
+      endpoint: `${origins.publicOrigin}/api/mcp`, pathEndpoint: `${origins.publicOrigin}/api/mcp/k/${issued.token}` });
+    return;
+  }
+  const mcpRoute = /^\/api\/mcp(?:\/k\/([^/]*))?\/?$/.exec(url.pathname);
+  if (mcpRoute) {
+    let pathKey = mcpRoute[1] ?? null;
+    try { pathKey = pathKey === null ? null : decodeURIComponent(pathKey); } catch (_) { pathKey = ""; }
+    await mcp.handleHttp(request, response, { pathKey, allowedOrigins: mcpOrigins(request).allowed });
     return;
   }
 
