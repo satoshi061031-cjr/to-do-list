@@ -1970,7 +1970,7 @@
     window.dispatchEvent(new CustomEvent("daily-space-todo-view-updated"));
   }
 
-  function add(text, dueDate, categoryIdOverride, dueTime = null, skipRefresh = false) {
+  function add(text, dueDate, categoryIdOverride, dueTime = null, skipRefresh = false, extras = null) {
     if (!skipRefresh && !refreshLatestTasks()) return null;
     const trimmed = text.trim();
     if (!trimmed) return null;
@@ -1993,6 +1993,17 @@
       categoryId,
       repeat: null,
     };
+    // Applied quick-add suggestions: repeat rule, tags, priority and a category by name.
+    if (extras && typeof extras === "object") {
+      const fields = window.DailySpaceTaskFields;
+      const rule = fields.fields({ ...extras, repeat: undefined });
+      item.repeat = fields.normalizeRepeat(extras.repeat);
+      if (item.repeat) Object.assign(item, { repeatEvery: rule.repeatEvery, repeatDays: rule.repeatDays });
+      if (Array.isArray(extras.tags)) item.tags = fields.normalizeTags(extras.tags);
+      if (extras.priority === "high" || extras.priority === "low") item.priority = extras.priority;
+      const category = typeof extras.categoryName === "string" && categories.find((entry) => entry.name.toLocaleLowerCase() === extras.categoryName.toLocaleLowerCase());
+      if (category) item.categoryId = category.id;
+    }
     todos.unshift(item);
     saveAll();
     if (item.dueTime && window.DailySpaceTasks && typeof window.DailySpaceTasks.pushExternalEvent === "function") {
@@ -2491,7 +2502,10 @@
       return;
     }
     const due = deadlineInput.value.trim() || todayIso();
-    add(input.value, due, undefined, document.getElementById("quick-task-time")?.value);
+    let extras = null;
+    try { extras = input.dataset.quickExtras ? JSON.parse(input.dataset.quickExtras) : null; } catch (_) { extras = null; }
+    delete input.dataset.quickExtras;
+    add(input.value, due, undefined, document.getElementById("quick-task-time")?.value, false, extras);
     if (document.getElementById("quick-task-time")) document.getElementById("quick-task-time").value = "";
     input.value = "";
     resetDeadlineToToday();
