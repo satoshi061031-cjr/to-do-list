@@ -1,0 +1,22 @@
+# Self-hosted dayfly. Create .env from .env.example first (see README), then:
+#   docker compose up -d --build
+name: dayfly
+
+services:
+  dayfly:
+    build: .
+    restart: unless-stopped
+    init: true
+    ports:
+      - "3000:3000"
+    env_file: .env
+    environment:
+      # Fixed here so values meant for `npm start` in .env cannot move the
+      # server off the published port or the database out of the volume.
+      PORT: "3000"
+      DAILY_SPACE_DB_PATH: /data/dayfly.sqlite
+    volumes:
+      - data:/data
+
+volumes:
+  data:
