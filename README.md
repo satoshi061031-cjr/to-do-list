@@ -1,8 +1,24 @@
 # dayfly
 
+[![Tests](https://github.com/satoshi061031-cjr/to-do-list/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/satoshi061031-cjr/to-do-list/actions/workflows/test.yml)
+
 A personal workbench for work, life and plans. Start with today's tasks and arrangements, then open projects, mail, expenses or travel when you need them. dayfly keeps its quiet glass surfaces, original ghost assistant and optional collaboration tools.
 
 Live app: start at `/todo.html` (PWA start URL). Welcome screen: `/` or `/index.html`.
+
+## Screenshots
+
+<p>
+  <a href="docs/screenshots/workbench-desktop-light.png"><img src="docs/screenshots/workbench-desktop-light.png" width="49%" alt="Desktop workbench in the light theme: today's progress, the next arrangement, a task to focus on and today's spending above the task list"></a>
+  <a href="docs/screenshots/calendar-desktop-light.png"><img src="docs/screenshots/calendar-desktop-light.png" width="49%" alt="Desktop Calendar: a week grid of reminders and dated tasks"></a>
+</p>
+<p>
+  <a href="docs/screenshots/workbench-phone-dark.png"><img src="docs/screenshots/workbench-phone-dark.png" width="32%" alt="Phone workbench in the dark theme: overview tiles and today's tasks above the dock"></a>
+  <a href="docs/screenshots/tally-phone-light.png"><img src="docs/screenshots/tally-phone-light.png" width="32%" alt="Tally on a phone: today's spending and its records"></a>
+  <a href="docs/screenshots/travel-phone-dark.png"><img src="docs/screenshots/travel-phone-dark.png" width="32%" alt="Travel day on a phone in the dark theme: the next stop and bookings with confirmation codes"></a>
+</p>
+
+Sample data. Desktop at 1440×900; phone at iPhone 13 size (390×844).
 
 ## What you get
 
@@ -88,6 +104,24 @@ npm start
 Open `http://localhost:3000/` or `http://localhost:3000/todo.html`.
 
 Requires **Node 22+** (uses built-in `node:sqlite` for local/dev data when Supabase is unset).
+
+## Self-hosting with Docker
+
+The image runs the same server as `npm start` on Node 22, as a non-root user, with its SQLite database in a Docker volume.
+
+```sh
+cp .env.example .env    # then replace or delete every placeholder value
+docker compose up -d --build
+docker compose ps       # STATUS shows "healthy" once /api/health answers
+```
+
+Open `http://localhost:3000/`. Compose passes `.env` to the container. A placeholder left in place counts as configured, so delete the `SUPABASE_*`, `GROQ_API_KEY` and OAuth lines you do not use; guest mode needs none of them. Keep `MAIL_TOKEN_ENCRYPTION_KEY` (and `APP_SESSION_SECRET`, if you set it) the same across restarts: they seal mailbox tokens and sign sessions.
+
+- **Data:** the database is `/data/dayfly.sqlite` in the `dayfly_data` volume. It survives rebuilds and `docker compose down`, but not `down -v`. `docker-compose.yml` fixes `PORT` and `DAILY_SPACE_DB_PATH` inside the container, so values meant for `npm start` in `.env` cannot move the database out of the volume. To use a host directory instead, make it writable by UID 1000 (the image's `node` user).
+- **Port and HTTPS:** change the host side of `ports`, for example to `"127.0.0.1:8080:3000"` behind a reverse proxy. With HTTPS, set `MAIL_OAUTH_BASE_URL` to the public origin; it is used for OAuth callbacks and also marks the session cookie `Secure`.
+- **Backups:** `docker compose exec dayfly npm run db:backup -- /data/backup-2026-11-20.sqlite`, then `docker compose cp dayfly:/data/backup-2026-11-20.sqlite .` to copy it off the volume. See [Database backup and recovery](#database-backup-and-recovery).
+- **Updates:** `git pull`, then `docker compose up -d --build`.
+- Run one container per database: SQLite and the reminder scheduler support a single instance.
 
 ## Persistent workspaces (Supabase)
 
@@ -232,14 +266,21 @@ Only the client files listed in `server/public-assets.js` are served publicly; C
 
 Both Agent routes share per-process limits: 20 requests per user (or guest connection IP) per minute, 60 per connection IP, 100 total per minute, and 4 simultaneous calls. Responses exceeding a limit use HTTP 429 and `Retry-After`. Guest Agent usage remains available. Limits use the actual socket address; spoofed `X-Forwarded-For` headers do not bypass them. Behind a reverse proxy, clients may share the proxy IP budget. Multi-instance deployments need a shared limiter and explicit trusted-proxy configuration before relying on per-user/IP quotas.
 
-## Test
+## Development (lint, tests, CI)
 
 ```sh
-npm test
+npm ci
+npm run lint       # ESLint: errors fail, warnings are advisory
+npm test           # unit and API tests (node:test)
 npm run test:e2e   # HTTP critical-path smoke against a local server
+CHROMIUM_PATH=/path/to/chromium npm run test:ui
 ```
 
 `npm run test:ui` runs Chromium interaction tests for stable task rows, editing focus, modal keyboard navigation, touch targets, narrow layouts, and reduced motion. Install Chromium separately; `playwright-core` is a locked development dependency and does not download a browser. The default executable is `/usr/bin/chromium`; set `CHROMIUM_PATH` to override it. In an isolated container where Chromium's sandbox is unavailable, run `CHROMIUM_NO_SANDBOX=1 npm run test:ui`. The suite starts its own server and temporary SQLite database; it does not require OAuth/AI keys. Phone checks emulate viewport and touch input in Chromium, not physical iOS/Android keyboards.
+
+**Lint.** `eslint.config.js` applies ESLint's recommended rules. Rules that catch real bugs, such as `no-undef`, `no-dupe-keys`, `no-unreachable`, `no-redeclare` and `valid-typeof`, are errors; unused variables, empty blocks and redundant assignments are warnings. Client scripts share state through `window.*`; if code needs a new bare global, declare it in the config's `globals` instead of an inline comment.
+
+**CI.** [`.github/workflows/test.yml`](.github/workflows/test.yml) runs on every pull request, on pushes to `main` and on demand: `npm ci`, lint, `npm test`, then the UI suite with the Chromium build that matches the locked `playwright-core` version. A newer push cancels the superseded run. The iOS widget build stays a separate, manual workflow.
 
 ## Legacy note
 
