@@ -171,7 +171,7 @@ test('data integrity and recovery workflows', { timeout: 120000 }, async t => {
     });
     await page.goto(`${base}/todo-m.html`,{waitUntil:'load'});
     await page.waitForFunction(()=>document.querySelector('.workspace-save-status')?.textContent.includes('Synced to cloud'));
-    const tasks=JSON.parse(cloud.payload['todo-app-v2']);tasks.todos.find(task=>task.id==='private').text='Updated on another device';
+    const tasks=require('../server/snapshot-values').readStore(cloud.payload,'todo-app-v2');tasks.todos.find(task=>task.id==='private').text='Updated on another device';
     cloud={payload:{...cloud.payload,'todo-app-v2':JSON.stringify(tasks)},revision:cloud.revision+1,updatedAt:new Date().toISOString()};const writesBefore=puts;
     await page.evaluate(()=>{
       window.originalStorageSetItem=Storage.prototype.setItem;

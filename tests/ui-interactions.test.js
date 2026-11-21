@@ -5,6 +5,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawn } = require("node:child_process");
 const { chromium } = require("playwright-core");
+const { readStore } = require("../server/snapshot-values");
 
 test("browser interactions on desktop and touch screens", { timeout: 180_000 }, async t => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "daily-space-ui-"));
@@ -420,7 +421,8 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
       return route.fulfill({contentType:'application/json',body:JSON.stringify({ok:true,...cloud})});
     });
     return { requests, fail: value => {status=value;}, update: text => {
-      const tasks=JSON.parse(cloud.payload['todo-app-v2']); tasks.todos.find(task=>task.id==='design').text=text;
+      // Large stores arrive gzip-compressed ("gz1:"), exactly as the real server keeps them.
+      const tasks=readStore(cloud.payload,'todo-app-v2'); tasks.todos.find(task=>task.id==='design').text=text;
       cloud={payload:{...cloud.payload,'todo-app-v2':JSON.stringify(tasks)},revision:cloud.revision+1,updatedAt:new Date().toISOString()};
     } };
   }

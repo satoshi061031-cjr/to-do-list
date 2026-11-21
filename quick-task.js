@@ -315,7 +315,76 @@
         input.focus({ preventScroll: true });
       });
       input.form?.addEventListener("submit", () => setTimeout(update, 0));
+      mountVoice(input, phone, t);
     }
+  }
+
+  /**
+   * Dictation with the browser's own speech recognition (Chrome, Edge, Safari).
+   * What was said goes into the input, so the quick-add suggestion applies as usual.
+   * Hidden where the browser has no speech recognition.
+   */
+  function mountVoice(input, phone, t) {
+    const Recognition = global.SpeechRecognition || global.webkitSpeechRecognition;
+    if (!Recognition) return;
+    const mic = document.createElement("button");
+    mic.type = "button";
+    mic.className = "quick-task-voice";
+    mic.dataset.i18nIgnore = "";
+    mic.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>';
+    const status = document.createElement("span");
+    status.className = "quick-task-voice-status";
+    status.setAttribute("role", "status");
+    status.setAttribute("aria-live", "polite");
+    status.dataset.i18nIgnore = "";
+    const submit = input.form?.querySelector('button[type="submit"]');
+    if (!phone && submit) { submit.before(mic); mic.after(status); }
+    else {
+      // Phone: the microphone sits inside the title field, at its trailing edge.
+      const wrap = document.createElement("span");
+      wrap.className = "quick-task-input-wrap";
+      input.before(wrap);
+      wrap.append(input, mic);
+      wrap.after(status);
+    }
+    let recognition = null, prefix = "";
+    const label = () => {
+      const listening = Boolean(recognition);
+      mic.setAttribute("aria-label", listening ? t("Stop dictation", "停止语音输入") : t("Dictate a task", "语音输入任务"));
+      mic.title = mic.getAttribute("aria-label");
+      mic.setAttribute("aria-pressed", String(listening));
+      mic.classList.toggle("is-listening", listening);
+    };
+    function stop() { try { recognition?.stop(); } catch (_) { /* already stopped */ } }
+    mic.addEventListener("click", () => {
+      if (recognition) { stop(); return; }
+      const zh = (global.DailySpaceI18n?.localeTag?.() || document.documentElement.lang || "").toLowerCase().startsWith("zh");
+      recognition = new Recognition();
+      recognition.lang = zh ? "zh-CN" : "en-US";
+      recognition.interimResults = true;
+      recognition.continuous = false;
+      prefix = input.value.trim() ? `${input.value.trim()} ` : "";
+      recognition.onresult = (event) => {
+        let text = "";
+        for (const result of event.results) text += result[0]?.transcript || "";
+        input.value = `${prefix}${text.trim()}`;
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      };
+      let failed = false;
+      recognition.onerror = (event) => {
+        failed = true;
+        status.textContent = event.error === "not-allowed" || event.error === "service-not-allowed"
+          ? t("Microphone access is blocked for this site.", "此网站的麦克风权限已被关闭。")
+          : event.error === "no-speech" ? t("Didn't catch that. Try again.", "没有听清，请再说一次。") : t("Dictation stopped.", "语音输入已停止。");
+      };
+      recognition.onend = () => { recognition = null; if (!failed) status.textContent = ""; label(); input.focus({ preventScroll: true }); };
+      status.textContent = t("Listening…", "正在听…");
+      try { recognition.start(); } catch (_) { recognition = null; status.textContent = t("Dictation is unavailable right now.", "暂时无法语音输入。"); }
+      label();
+    });
+    input.addEventListener("input", () => { if (!recognition) status.textContent = ""; });
+    global.addEventListener("daily-space-locale-changed", label);
+    label();
   }
   /** The phone editor has real fields for every part, so fill them in place. */
   function applyToPhoneEditor(form, extras) {

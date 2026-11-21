@@ -197,7 +197,7 @@
   function applyTodoView(saved) {
     filter = isMobileTodoPage() ? "active" : "today";
     taskRange = "day";
-    planningMode = ["inbox", "top"].includes(saved?.planningMode) ? saved.planningMode : "tasks";
+    planningMode = ["inbox", "top", "matrix"].includes(saved?.planningMode) ? saved.planningMode : "tasks";
     planningPriority = ["low", "normal", "high"].includes(saved?.planningPriority) ? saved.planningPriority : "all";
     todoSource = "personal";
     resetViewDayFilter();
@@ -970,6 +970,8 @@
   function visibleTodosPipeline() {
     let list = todos.filter(todoMatchesCategory);
     if (planningMode === "inbox") return list.filter(task => task.inbox && !task.completed && (planningPriority === "all" || task.priority === planningPriority));
+    // The matrix sorts every unfinished, organised task by importance and urgency itself.
+    if (planningMode === "matrix") return list.filter(task => !task.inbox && !task.completed);
     if (planningMode === "top") return list.filter(task => !task.completed && task.todayPinDate === todayIso() && (planningPriority === "all" || task.priority === planningPriority)).sort((a,b) => a.todayPinOrder - b.todayPinOrder);
     list = list.filter(task => !task.inbox);
     if (taskRange === "week") {
@@ -1262,9 +1264,17 @@
       main.appendChild(dueEl);
     }
 
+    (todo.tags || []).slice(0, 4).forEach((tagName) => {
+      const tag = document.createElement("span");
+      tag.className = "todo-tag";
+      tag.dataset.i18nIgnore = "";
+      tag.textContent = `#${tagName}`;
+      main.appendChild(tag);
+    });
+
     {
-      // One compact metadata line on phone and desktop: priority, category, due, travel, notes.
-      const metadata = [...main.querySelectorAll(":scope > :is(.task-planning-badge, .todo-category-pill, .todo-due, .todo-travel-tag, .task-detail-meta, .todo-board-meta)")];
+      // One compact metadata line on phone and desktop: priority, category, due, travel, notes, tags.
+      const metadata = [...main.querySelectorAll(":scope > :is(.task-planning-badge, .todo-category-pill, .todo-due, .todo-travel-tag, .task-detail-meta, .todo-board-meta, .todo-tag)")];
       if (metadata.length) {
         const meta = document.createElement("span");
         meta.className = isMobileTodoPage() ? "m-task-meta todo-meta-line" : "todo-meta-line";
@@ -1869,6 +1879,63 @@
     }
   }
 
+  /** Eisenhower matrix: important = marked important or in today's Top 3; urgent = overdue or due by tomorrow. */
+  const MATRIX_QUADRANTS = [
+    { key: "do", en: "Do now", zh: "马上做", hintEn: "Important · urgent", hintZh: "重要 · 紧急" },
+    { key: "plan", en: "Schedule", zh: "计划做", hintEn: "Important · not urgent", hintZh: "重要 · 不紧急" },
+    { key: "soon", en: "Handle soon", zh: "尽快处理", hintEn: "Urgent · less important", hintZh: "紧急 · 不重要" },
+    { key: "later", en: "Later", zh: "以后再说", hintEn: "Neither", hintZh: "不重要 · 不紧急" },
+  ];
+  function matrixQuadrant(task) {
+    const tomorrow = new Date(`${todayIso()}T12:00:00`); tomorrow.setDate(tomorrow.getDate() + 1);
+    const soon = `${tomorrow.getFullYear()}-${padIsoPart(tomorrow.getMonth() + 1)}-${padIsoPart(tomorrow.getDate())}`;
+    const urgent = Boolean(task.dueDate) && task.dueDate <= soon;
+    const important = task.priority === "high" || task.todayPinDate === todayIso();
+    return important ? (urgent ? "do" : "plan") : (urgent ? "soon" : "later");
+  }
+  let matrixEl = null;
+  function ensureMatrix() {
+    if (matrixEl) return matrixEl;
+    matrixEl = document.createElement("section");
+    matrixEl.className = "todo-matrix"; matrixEl.hidden = true; matrixEl.dataset.i18nIgnore = "";
+    for (const quadrant of MATRIX_QUADRANTS) {
+      const section = document.createElement("section");
+      section.className = "todo-matrix-quadrant"; section.dataset.quadrant = quadrant.key;
+      const head = document.createElement("header"); head.className = "todo-matrix-head";
+      const title = document.createElement("h3"); const hint = document.createElement("span"); hint.className = "todo-matrix-hint";
+      const count = document.createElement("span"); count.className = "todo-matrix-count";
+      head.append(title, hint, count);
+      const list = document.createElement("ul"); list.className = "todo-list todo-matrix-list";
+      const empty = document.createElement("p"); empty.className = "todo-matrix-empty";
+      section.setAttribute("aria-labelledby", `todo-matrix-${quadrant.key}`); title.id = `todo-matrix-${quadrant.key}`;
+      section.append(head, list, empty); matrixEl.append(section);
+    }
+    listEl.after(matrixEl);
+    return matrixEl;
+  }
+  function renderMatrix(rows, completedId, removedId) {
+    const root = ensureMatrix(), tr = (en, zh) => window.DailySpaceI18n?.t(en, zh) || en;
+    root.hidden = false; listEl.hidden = true;
+    root.setAttribute("aria-label", tr("Priority matrix", "四象限"));
+    for (const quadrant of MATRIX_QUADRANTS) {
+      const section = root.querySelector(`[data-quadrant="${quadrant.key}"]`);
+      const items = rows.filter(task => matrixQuadrant(task) === quadrant.key)
+        .sort((a, b) => `${a.dueDate || "9999"} ${a.dueTime || "99:99"}`.localeCompare(`${b.dueDate || "9999"} ${b.dueTime || "99:99"}`));
+      section.querySelector("h3").textContent = tr(quadrant.en, quadrant.zh);
+      section.querySelector(".todo-matrix-hint").textContent = tr(quadrant.hintEn, quadrant.hintZh);
+      section.querySelector(".todo-matrix-count").textContent = String(items.length);
+      const empty = section.querySelector(".todo-matrix-empty");
+      empty.hidden = items.length > 0; empty.textContent = tr("Nothing here", "这里没有任务");
+      renderTodoRows(section.querySelector("ul"), items, todo => ({
+        showCategoryPill: !!todo.categoryId && categoryExists(todo.categoryId),
+        showDueBadge: !!todo.dueDate,
+        allowReorder: false,
+        // Phone rows delete by swipe in the list; the matrix keeps them uncluttered.
+        allowDelete: !isMobileTodoPage(),
+      }), completedId, removedId);
+    }
+  }
+
   function renderTodoRows(target, rows, options, completedId, removedId) {
     window.DailySpaceTaskList.render(target, rows, {
       signature: todo => JSON.stringify({
@@ -1899,11 +1966,16 @@
 
     const visible = visibleTodosPipeline();
     syncDueDayFilterBar();
-    renderTodoRows(listEl, visible, todo => ({
-      showCategoryPill: selectedCategoryKey === "__all__" && !!todo.categoryId && categoryExists(todo.categoryId),
-      showDueBadge: !!todo.dueDate,
-      allowReorder: todoSource === "personal",
-    }), completedId, removedId);
+    if (planningMode === "matrix") renderMatrix(visible, completedId, removedId);
+    else {
+      if (matrixEl) matrixEl.hidden = true;
+      listEl.hidden = false;
+      renderTodoRows(listEl, visible, todo => ({
+        showCategoryPill: selectedCategoryKey === "__all__" && !!todo.categoryId && categoryExists(todo.categoryId),
+        showDueBadge: !!todo.dueDate,
+        allowReorder: todoSource === "personal",
+      }), completedId, removedId);
+    }
 
     const inScopeBase = todosInCategoryAndDayScope();
     const inScope =
@@ -1929,7 +2001,7 @@
     emptyEl.classList.toggle("is-visible", showEmpty);
     if (showEmpty) {
       if (planningMode !== "tasks") {
-        emptyEl.textContent = planningMode === "inbox" ? (window.DailySpaceI18n?.t("Your inbox is clear. Capture an idea or link above.", "收集箱已清空，可在上方记录想法或链接。") || "Your inbox is clear.") : (window.DailySpaceI18n?.t("Choose up to three priorities from task details.", "在任务详情中选出今天最重要的三件事。") || "Choose up to three priorities from task details.");
+        emptyEl.textContent = planningMode === "matrix" ? (window.DailySpaceI18n?.t("No unfinished tasks. Mark tasks important or give them dates to sort them here.", "没有未完成的任务。把任务标为重要或设置日期，就会出现在这里。") || "No unfinished tasks.") : planningMode === "inbox" ? (window.DailySpaceI18n?.t("Your inbox is clear. Capture an idea or link above.", "收集箱已清空，可在上方记录想法或链接。") || "Your inbox is clear.") : (window.DailySpaceI18n?.t("Choose up to three priorities from task details.", "在任务详情中选出今天最重要的三件事。") || "Choose up to three priorities from task details.");
       } else
       if (viewDueDateFilter && (isMobileTodoPage() || selectedCategoryKey !== "__all__")) {
         if (filter === "completed") {
@@ -2969,7 +3041,7 @@
   function setPlanningView(value = {}) {
     if (!planningReady()) return false;
     cancelViewScrollRestore();
-    planningMode = ["inbox", "top"].includes(value.mode) ? value.mode : "tasks";
+    planningMode = ["inbox", "top", "matrix"].includes(value.mode) ? value.mode : "tasks";
     planningPriority = ["low", "normal", "high"].includes(value.priority) ? value.priority : "all";
     const previousSource = todoSource;
     todoSource = value.source === "assigned" ? "assigned" : "personal";

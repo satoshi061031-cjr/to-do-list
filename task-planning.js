@@ -19,7 +19,7 @@
     const tabs = node('div', 'task-planning-tabs'); tabs.setAttribute('role', 'group');
     const bar = node('div', 'task-planning-bar'), chips = node('div', 'task-filter-chips'); chips.setAttribute('aria-label', t('Active filters', '当前筛选'));
     const tabButtons = {};
-    for (const mode of ['tasks', 'inbox', 'top']) {
+    for (const mode of ['tasks', 'inbox', 'top', 'matrix']) {
       const button = action('', () => {
         if (!allowed()) return;
         selectedViewId = '';
@@ -185,8 +185,13 @@
       const inboxCount = tasks.filter(task => task.inbox && !task.completed).length;
       const pinnedCount = tasks.filter(task => !task.completed && task.todayPinDate === day()).length;
       const taskLabel = !assigned && current.mode === 'tasks' ? current.range === 'week' ? t('7 days', '近期 7 天') : effectiveDay === day() ? t('Today', '今天') : effectiveDay ? t('Selected day', '已选日期') : t('Tasks', '任务') : t('Today', '今天');
-      const labels = { tasks: taskLabel, inbox: `${t('Inbox', '收集箱')} ${inboxCount}`, top: `${t('Top 3', '重点')} ${pinnedCount}/3` };
+      const labels = { tasks: taskLabel, inbox: `${t('Inbox', '收集箱')} ${inboxCount}`, top: `${t('Top 3', '重点')} ${pinnedCount}/3`, matrix: t('Matrix', '四象限') };
       for (const [mode, button] of Object.entries(tabButtons)) { button.textContent = labels[mode]; button.setAttribute('aria-pressed', String(!assigned && current.mode === mode)); }
+      // On a phone the matrix tab is a compact 2×2 icon; its name stays available to screen readers.
+      if (document.body.classList.contains('todo-mobile')) {
+        tabButtons.matrix.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>';
+        tabButtons.matrix.setAttribute('aria-label', labels.matrix); tabButtons.matrix.title = labels.matrix;
+      }
       personal.disabled = assigned; personal.hidden = assigned;
       statusControls?.closest('.task-filter-group')?.toggleAttribute('hidden', current.mode !== 'tasks' || assigned);
       dateControls.closest('.task-filter-group').hidden = current.mode !== 'tasks' || assigned;
