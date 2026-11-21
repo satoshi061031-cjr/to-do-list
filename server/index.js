@@ -1508,6 +1508,19 @@ async function handleApi(request, response, url) {
     return;
   }
 
+  const calendarEventMatch = url.pathname.match(/^\/api\/calendar\/events\/([^/]{1,1024})$/);
+  if (calendarEventMatch && (method === "PATCH" || method === "DELETE")) {
+    enforceUserSession(session);
+    const eventId = decodeURIComponent(calendarEventMatch[1]);
+    const body = method === "PATCH" ? await readJson(request) : {};
+    const provider = String((method === "PATCH" ? body.provider : url.searchParams.get("provider")) || "").trim();
+    const result = method === "PATCH"
+      ? await updateWorkspaceCalendarEvent(session, request, eventId, body, provider)
+      : await deleteWorkspaceCalendarEvent(session, request, eventId, provider);
+    sendJson(response, result, result.connected && !result.ok ? 502 : 200);
+    return;
+  }
+
   if (method === "POST" && url.pathname === "/api/mail/accounts/icloud") {
     enforceUserSession(session);
     const body = await readJson(request);
@@ -2770,6 +2783,87 @@ async function createWorkspaceCalendarEvent(session, request, body) {
     return { connected: true, provider: "outlook", event };
   }
   return { connected: false, event: null, reason: "mailbox_required" };
+}
+
+/**
+ * Mailboxes to try for an event this app created, preferred provider first.
+ * The id alone does not say which calendar holds it, so the other provider is
+ * tried when the preferred one does not know the event.
+ */
+async function calendarMailboxes(session, request, preferred) {
+  const order = preferred === "outlook" ? ["outlook", "gmail"] : ["gmail", "outlook"];
+  const boxes = [];
+  for (const provider of order) {
+    const account = await loadReadyMailbox(session, provider, request).catch(() => null);
+    if (account?.accessToken) boxes.push({ provider: provider === "gmail" ? "google" : "outlook", account });
+  }
+  return boxes;
+}
+
+function calendarEventUrl(provider, eventId) {
+  const id = encodeURIComponent(eventId);
+  return provider === "google"
+    ? `https://www.googleapis.com/calendar/v3/calendars/primary/events/${id}`
+    : `https://graph.microsoft.com/v1.0/me/events/${id}`;
+}
+
+/** Event fields for a PATCH: switching between timed and all-day clears the other form. */
+function calendarPatchBody(provider, input) {
+  if (provider === "google") {
+    const body = buildGoogleEventBody(input);
+    if (!body) return null;
+    if (body.start.date) {
+      body.start = { date: body.start.date, dateTime: null, timeZone: null };
+      body.end = { date: body.end.date, dateTime: null, timeZone: null };
+    } else {
+      body.start = { ...body.start, date: null };
+      body.end = { ...body.end, date: null };
+    }
+    return body;
+  }
+  const body = buildGraphEventBody(input);
+  if (!body) return null;
+  if (!body.isAllDay) body.isAllDay = false;
+  return body;
+}
+
+async function updateWorkspaceCalendarEvent(session, request, eventId, body, preferred) {
+  const boxes = await calendarMailboxes(session, request, preferred);
+  if (!boxes.length) return { connected: false, ok: false, reason: "mailbox_required" };
+  for (const { provider, account } of boxes) {
+    const patch = calendarPatchBody(provider, body || {});
+    if (!patch) return { connected: true, ok: false, reason: "invalid_event" };
+    const response = await fetch(calendarEventUrl(provider, eventId), {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${openToken(account.accessToken)}`, "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    }).catch(() => null);
+    if (!response) continue;
+    if (response.status === 404 || response.status === 410) continue;
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) return { connected: true, ok: false, provider, reason: "provider_error" };
+    return { connected: true, ok: true, provider, event: provider === "google" ? googleEventToWorkspace(payload) : graphEventToWorkspace(payload) };
+  }
+  // No connected calendar knows the event (for example it was deleted there): nothing to update.
+  return { connected: true, ok: true, gone: true };
+}
+
+async function deleteWorkspaceCalendarEvent(session, request, eventId, preferred) {
+  const boxes = await calendarMailboxes(session, request, preferred);
+  if (!boxes.length) return { connected: false, ok: false, reason: "mailbox_required" };
+  let failed = null;
+  for (const { provider, account } of boxes) {
+    const response = await fetch(calendarEventUrl(provider, eventId), {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${openToken(account.accessToken)}` },
+    }).catch(() => null);
+    if (!response) { failed = provider; continue; }
+    if (response.ok) return { connected: true, ok: true, provider, deleted: true };
+    if (response.status !== 404 && response.status !== 410) failed = provider;
+  }
+  return failed
+    ? { connected: true, ok: false, provider: failed, reason: "provider_error" }
+    : { connected: true, ok: true, gone: true };
 }
 
 async function fetchGoogleCalendarEvents(account, fromIso, toIso) {
