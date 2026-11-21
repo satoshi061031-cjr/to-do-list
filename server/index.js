@@ -88,10 +88,29 @@ const mailBackup = require("./mail-account-backup").createMailAccountBackup({ ex
 setMailAccountsChangeListener(mailBackup.scheduleSave);
 const staticAssets = require("./static-assets").createStaticAssets({ rootDir: ROOT_DIR, publicAssets: PUBLIC_ASSETS, contentType });
 const quickAdd = require("./quick-add").createQuickAdd({ getSecret: getSessionSecret, getSnapshotStore: getUserSnapshotStore });
-const reminderStore = require("./reminder-store").createReminderStore(getDb());
-const reminderTimer = setInterval(() => reminderStore.tick().catch(() => console.error("Reminder scheduler failed.")), 15000);
+// Background reminders also survive a wiped SQLite file through a Supabase copy (when configured).
+let reminderBackup = null;
+const reminderStore = require("./reminder-store").createReminderStore(getDb(), { onChange: owner => reminderBackup?.scheduleSave(owner) });
+reminderBackup = require("./reminder-backup").createReminderBackup({ store: reminderStore });
+// Nothing reminder-related runs before the copy is back: a browser told "not subscribed" drops its push key.
+const remindersReady = reminderBackup.restoreAll().catch(() => 0);
+const runReminderTick = () => remindersReady.then(() => reminderStore.tick());
+const reminderTimer = setInterval(() => runReminderTick().catch(() => console.error("Reminder scheduler failed.")), 15000);
 reminderTimer.unref();
-reminderStore.tick().catch(() => console.error("Reminder scheduler failed."));
+runReminderTick().catch(() => console.error("Reminder scheduler failed."));
+for (const signal of ["SIGTERM", "SIGINT"]) {
+  process.once(signal, () => { reminderBackup.flush().finally(() => process.exit(0)); setTimeout(() => process.exit(0), 3000).unref(); });
+}
+
+/** Constant-time check of the wake-up secret an external scheduler sends. */
+function validTickSecret(header) {
+  const secret = String(process.env.REMINDER_TICK_SECRET || "");
+  const match = /^Bearer\s+(\S+)$/i.exec(String(header || "").trim());
+  if (secret.length < 16 || !match) return false;
+  const given = crypto.createHash("sha256").update(match[1]).digest();
+  const expected = crypto.createHash("sha256").update(secret).digest();
+  return crypto.timingSafeEqual(given, expected);
+}
 
 const server = http.createServer((request, response) => {
   handleRequest(request, response).catch((error) => {
@@ -119,6 +138,13 @@ async function handleApi(request, response, url) {
     await mailBackup.ensureRestored(String(session.userId).trim().toLowerCase());
   }
   if (url.pathname.startsWith("/api/reminders/")) {
+    // Wake-up call from an external scheduler (see README): keeps a sleeping free-plan server firing on time.
+    if (method === "POST" && url.pathname === "/api/reminders/tick") {
+      if (!validTickSecret(request.headers.authorization)) throw Object.assign(new Error("Invalid reminder tick secret."), { statusCode: 401 });
+      const result = await runReminderTick();
+      sendJson(response, { ok: true, configured: reminderStore.configured, sent: result?.sent || 0 }); return;
+    }
+    await remindersReady;
     if (method !== "GET") {
       const origin = request.headers.origin;
       const forwardedProtocol = String(request.headers["x-forwarded-proto"] || "").split(",")[0].trim();

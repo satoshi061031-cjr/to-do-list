@@ -37,6 +37,11 @@
   }
   function message() {
     if (status) return status;
+    if (window.Capacitor?.isNativePlatform?.() && window.Capacitor?.Plugins?.LocalNotifications) {
+      return nativeScheduled == null
+        ? t('Allow notifications so reminders arrive with the app closed.', '允许通知后，关闭 App 也能收到提醒。')
+        : t(`Reminders are scheduled on this phone (${nativeScheduled} upcoming) and arrive with the app closed.`, `提醒已排在本机（${nativeScheduled} 条待发），关闭 App 也能准时收到。`);
+    }
     if (permission() === 'unsupported') return t('Notifications are unavailable here. On iPhone, add this site to the Home Screen first.', '此浏览器暂不支持通知。iPhone 请先将网站添加到主屏幕。');
     if (!signedIn()) return t('Guest reminders stay on this device and require this page to remain open.', 'Guest 提醒保留在本机，需要保持页面打开。');
     if (enabled) return t('Background reminders on. Closing the page is fine. Untimed tasks remind at 19:00.', '后台提醒已开启，可以关闭页面。未设时间的任务会在 19:00 提醒。');
@@ -49,6 +54,7 @@
       root.querySelector('[role=status]').textContent = message();
       const control = root.querySelector('button'); control.textContent = enabled ? t('Turn off background reminders', '关闭此设备后台提醒') : t('Enable reminders', '开启提醒');
       control.disabled = permission() === 'unsupported' || permission() === 'denied';
+      control.hidden = Boolean(window.Capacitor?.isNativePlatform?.() && window.Capacitor?.Plugins?.LocalNotifications);
       if (permission() === 'denied') root.querySelector('[role=status]').textContent = t('Notifications are blocked. Allow this site in browser settings, then reload.', '通知权限被阻止，请在浏览器设置中允许此网站通知后刷新。');
     }
   }
@@ -148,6 +154,41 @@
     } catch (_) { /* Permission can change between checking and showing an alert. */ }
     finally { localTick = false; }
   }
+  /*
+   * Native app (Capacitor): the phone schedules reminders itself, so they fire
+   * on time with the app closed and no server involved. Upcoming jobs replace
+   * the previous set; iOS keeps at most 64 pending, so the soonest win.
+   */
+  const NATIVE_LIMIT = 60;
+  let nativeTimer = null, nativeListening = false, nativeScheduled = null;
+  const nativePlugin = () => (window.Capacitor?.isNativePlatform?.() && window.Capacitor?.Plugins?.LocalNotifications) || null;
+  function nativeId(source) {
+    let value = 0;
+    for (const char of source) value = (Math.imul(value, 31) + char.codePointAt(0)) | 0;
+    return (value & 0x7fffffff) || 1;
+  }
+  async function scheduleNative() {
+    const plugin = nativePlugin(); if (!plugin) return false;
+    try {
+      if (!nativeListening) {
+        nativeListening = true;
+        plugin.addListener?.('localNotificationActionPerformed', event => { const href = event?.notification?.extra?.href; if (typeof href === 'string' && /^(todo|calendar)\.html/.test(href)) location.href = href; });
+      }
+      let perm = await plugin.checkPermissions();
+      if (perm.display === 'prompt' || perm.display === 'prompt-with-rationale') perm = await plugin.requestPermissions();
+      if (perm.display !== 'granted') return false;
+      // dayfly is the only scheduler in its app, so clearing everything also drops another account's leftovers.
+      const pending = (await plugin.getPending?.())?.notifications || [];
+      if (pending.length) await plugin.cancel({ notifications: pending.map(item => ({ id: item.id })) });
+      const upcoming = jobs().filter(job => job.dueAt > Date.now() + 5000).sort((a, b) => a.dueAt - b.dueAt).slice(0, NATIVE_LIMIT);
+      const notifications = upcoming.map(job => ({ id: nativeId(`${owner()}|${job.source}`), title: 'dayfly', body: job.title, schedule: { at: new Date(job.dueAt), allowWhileIdle: true }, extra: { href: job.href } }));
+      if (notifications.length) await plugin.schedule({ notifications });
+      nativeScheduled = notifications.length;
+      render();
+      return true;
+    } catch (_) { return false; }
+  }
+  function queueNative() { if (!nativePlugin()) return; clearTimeout(nativeTimer); nativeTimer = setTimeout(scheduleNative, 800); }
   function setup() {
     if (setupDone) return; setupDone = true;
     function boot() {
@@ -165,20 +206,20 @@
         const [kind, ...id] = source.split(':'); if (['todo','reminder'].includes(kind)) defer(kind, id.join(':'), action === 'snooze' ? 10 : 'tomorrow');
         ['localReminder','reminderAction','reminderOwner'].forEach(key => params.delete(key)); history.replaceState(history.state, '', `${location.pathname}?${params}${location.hash}`);
       }
-      render(); refresh().finally(tick);
+      render(); refresh().finally(tick); queueNative();
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
     window.addEventListener('daily-space-user-sync-updated', event => { syncReady = event.detail?.status === 'ok'; if (syncReady) sync(); });
-    window.addEventListener('daily-space-agent-data-updated', () => { sync(); tick(); });
-    window.addEventListener('storage', event => { if ([TODO, CALENDAR].includes(event.key)) { sync(); tick(); } });
+    window.addEventListener('daily-space-agent-data-updated', () => { sync(); tick(); queueNative(); });
+    window.addEventListener('storage', event => { if ([TODO, CALENDAR].includes(event.key)) { sync(); tick(); queueNative(); } });
     window.addEventListener('online', () => { status = ''; refresh(); });
     window.addEventListener('daily-space-locale-changed', render);
     window.addEventListener('daily-space-auth-updated', async () => { generation++; enabled = false; checking = false; syncReady = false; status = ''; configuration = null;
       if (!signedIn()) { const reg = await registration(); await (await reg?.pushManager?.getSubscription())?.unsubscribe(); }
-      render(); refresh();
+      render(); refresh(); queueNative();
     });
     document.addEventListener('visibilitychange', () => { if (!document.hidden) { refresh(); tick(); } });
     window.setInterval(tick, 30000);
   }
-  window.DailySpaceReminders = { setup, enable, tick, defer, jobs };
+  window.DailySpaceReminders = { setup, enable, tick, defer, jobs, scheduleNative };
 })();

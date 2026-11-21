@@ -1,0 +1,38 @@
+# Wakes the server so background reminders go out on time, even on a host that
+# sleeps when idle (for example Render's free plan).
+#
+# Setup: in the repository's Settings → Secrets and variables → Actions, add
+#   DAYFLY_URL            e.g. https://your-app.onrender.com
+#   REMINDER_TICK_SECRET  the same value as the server's REMINDER_TICK_SECRET
+# Without both secrets the job does nothing. GitHub may start scheduled runs a
+# few minutes late, so reminders can arrive up to ~10 minutes after their time.
+name: Reminder tick
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: reminder-tick
+  cancel-in-progress: false
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Wake the server and send due reminders
+        env:
+          DAYFLY_URL: ${{ secrets.DAYFLY_URL }}
+          REMINDER_TICK_SECRET: ${{ secrets.REMINDER_TICK_SECRET }}
+        run: |
+          if [ -z "$DAYFLY_URL" ] || [ -z "$REMINDER_TICK_SECRET" ]; then
+            echo "DAYFLY_URL or REMINDER_TICK_SECRET is not set; nothing to do."
+            exit 0
+          fi
+          # A sleeping free-plan service can take about a minute to start.
+          curl --fail-with-body --silent --show-error --retry 3 --retry-delay 20 --retry-all-errors --max-time 120 \
+            -X POST -H "Authorization: Bearer $REMINDER_TICK_SECRET" "${DAYFLY_URL%/}/api/reminders/tick"

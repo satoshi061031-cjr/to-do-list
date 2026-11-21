@@ -40,7 +40,10 @@ services:
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
-      # Optional Web Push. Enable only on an always-running service with persistent SQLite.
+      # Optional Web Push. On the free plan, pair it with the Supabase reminder backup
+      # (migration 007) and the reminder-tick workflow, which wakes the service on time.
+      - key: REMINDER_TICK_SECRET
+        generateValue: true
       - key: VAPID_PUBLIC_KEY
         sync: false
       - key: VAPID_PRIVATE_KEY
