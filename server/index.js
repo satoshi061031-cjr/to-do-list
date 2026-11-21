@@ -87,6 +87,7 @@ const mailBackup = require("./mail-account-backup").createMailAccountBackup({ ex
 setMailAccountsChangeListener(mailBackup.scheduleSave);
 const staticAssets = require("./static-assets").createStaticAssets({ rootDir: ROOT_DIR, publicAssets: PUBLIC_ASSETS, contentType });
 const quickAdd = require("./quick-add").createQuickAdd({ getSecret: getSessionSecret, getSnapshotStore: getUserSnapshotStore });
+const receiptScanner = require("./receipt-scan").createReceiptScanner();
 const reminderStore = require("./reminder-store").createReminderStore(getDb());
 const reminderTimer = setInterval(() => reminderStore.tick().catch(() => console.error("Reminder scheduler failed.")), 15000);
 reminderTimer.unref();
@@ -166,6 +167,21 @@ async function handleApi(request, response, url) {
     const body = await readJson(request, 2_000);
     const issued = quickAdd.issueKey(session.userId, body?.timeZone);
     sendJson(response, { ok: true, keyId: issued.keyId, token: issued.token, endpoint: `${expectedOrigin}/api/tally/quick-add` });
+    return;
+  }
+  // Receipt scanning reads one photo for the signed-in person's expense form; nothing is saved here.
+  if (url.pathname === "/api/tally/receipt") {
+    if (method !== "POST") throw Object.assign(new Error("Use POST."), { statusCode: 405 });
+    enforceUserSession(session);
+    const origin = request.headers.origin;
+    const forwardedProtocol = String(request.headers["x-forwarded-proto"] || "").split(",")[0].trim();
+    const expectedOrigin = `${forwardedProtocol === "https" || request.socket.encrypted ? "https" : "http"}://${request.headers.host}`;
+    if ((origin && origin !== expectedOrigin) || request.headers["sec-fetch-site"] === "cross-site") {
+      throw Object.assign(new Error("Cross-origin request denied."), { statusCode: 403 });
+    }
+    receiptScanner.admit({ userId: session.userId, contentLength: request.headers["content-length"] });
+    const body = await readJson(request, receiptScanner.MAX_BODY_BYTES);
+    sendJson(response, await receiptScanner.scan({ userId: session.userId, body }));
     return;
   }
 
@@ -532,7 +548,8 @@ async function handleApi(request, response, url) {
   if (method === "GET" && url.pathname === "/api/agent/status") {
     const configured = isAgentConfigured();
     // Configuration presence is not an upstream model connectivity probe.
-    sendJson(response, { ok: true, configured, connection: configured ? "unverified" : "unconfigured", modelVerified: false });
+    sendJson(response, { ok: true, configured, connection: configured ? "unverified" : "unconfigured", modelVerified: false,
+      receiptScan: configured && receiptScanner.enabled() });
     return;
   }
 
