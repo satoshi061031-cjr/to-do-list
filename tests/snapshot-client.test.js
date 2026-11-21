@@ -468,7 +468,7 @@ test('adding personal workspace keys upgrades old baselines without manufacturin
   const c = client(); await c.sync.load();
   const baselineKey = 'daily-space-user-baseline-v1:alice@example.com';
   const signature = c.values.get(baselineKey);
-  const addedKeys = ['daily-space-workbench-v1','dayfly-task-views-v1','dayfly-focus-v1','dayfly-notes-v1','dayfly-history-v1'];
+  const addedKeys = ['daily-space-workbench-v1','dayfly-task-views-v1','dayfly-focus-v1','dayfly-notes-v1','dayfly-history-v1','dayfly-connections-v1'];
   const suffix = addedKeys.map(key => `|${key}:0:`).join('');
   assert.ok(signature.endsWith(suffix));
   c.values.set(baselineKey, signature.slice(0, -suffix.length));

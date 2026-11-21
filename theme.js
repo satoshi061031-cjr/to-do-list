@@ -17,6 +17,8 @@
     "dayfly-focus-v1",
     "dayfly-notes-v1",
     "dayfly-history-v1",
+    // Active assistant (MCP) key identifier only; never in backups, so an old key is never re-activated.
+    "dayfly-connections-v1",
   ];
   const USER_SNAPSHOT_INTERVAL_MS = 30000;
 
@@ -1447,7 +1449,8 @@
     const mapping = { "todo-app-v2": "todo", "calendar-app-v1": "calendar", "planner-app-v1": "planner",
       "tally-book-v1": "tally", "teamwork-page-v1": "teamwork", "travel-book-v1": "travel", "travel-shared-v1": "travel",
       "daily-space-workbench-v1": "workbench", "dayfly-task-views-v1": "task-views",
-      "dayfly-focus-v1": "focus", "dayfly-notes-v1": "notes", "dayfly-history-v1": "history" };
+      "dayfly-focus-v1": "focus", "dayfly-notes-v1": "notes", "dayfly-history-v1": "history",
+      "dayfly-connections-v1": "connections" };
     Object.keys(mapping).filter(key => materialized || before[key] !== after[key]).forEach(key => snapshotPendingKeys.add(key));
     if (!materialized && snapshotEditorActive()) return;
     const domains = [...new Set([...snapshotPendingKeys].map(key => mapping[key]).filter(Boolean))];
