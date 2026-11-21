@@ -26,6 +26,7 @@
       notes: 'M5 3h11l3 3v15H5z M8 10h8 M8 14h8 M8 18h5',
       review: 'M4 20V4 M4 20h16 M8 16v-5 M12 16V7 M16 16v-8',
       focus: 'M12 8v4l3 2 M9 2h6 M12 2v3',
+      habits: 'M4 5h16v15H4z M4 9.5h16 M8 3v4 M16 3v4 M9 14.5l2 2 4-4',
       templates: 'M4 4h7v7H4z M14 4h6v7h-6z M4 14h7v6H4z M14 14h6v6h-6z',
       history: 'M3 11a9 9 0 1 1 2 7 M3 4v7h7 M12 7v6l4 2',
       backup: 'M4 15v5h16v-5 M12 16V3 M7 8l5-5 5 5',
@@ -58,6 +59,7 @@
       let notesCount = '';
       if (ready()) { try { notesCount = String(window.DailySpaceNotes?.list().length || 0); } catch (_) {} }
       card(grid, 'notes', t('Notes', '笔记'), notesCount ? t(`${notesCount} saved · Ideas, references and linked tasks`, `已保存 ${notesCount} 篇 · 想法、资料和关联任务`) : t('Ideas, references and linked tasks', '记录想法、资料，关联任务'), 'notes.html');
+      card(grid, 'habits', t('Habits', '习惯'), t('Daily check-ins and streaks', '每日打卡与连续记录'), 'habits.html');
       card(grid, 'review', t('Weekly review', '每周复盘'), t('Completions, focus time and unfinished work', '查看完成事项、专注时间和待安排任务'), 'review.html');
       card(grid, 'focus', t('Focus', '专注'), t('Choose one task and start a timer', '选一件事，开始一段专注时间'), () => command('start-focus'));
       card(grid, 'templates', t('Task templates', '任务模板'), t('Create tasks from a routine you have saved', '从已保存的流程快速新建任务'), () => command('templates'));
@@ -69,6 +71,7 @@
       const data = section(t('Data management', '数据管理')), manage = node('div', '', 'toolbox-grid'); data.append(manage);
       card(manage, 'history', t('History & recycle bin', '历史与回收站'), t('Inspect previous versions and recover deleted records', '查看旧版本，恢复已删除记录'), () => window.DailySpaceHistory?.open());
       card(manage, 'backup', t('Import & export', '导入与导出'), t('Download a backup or preview a file before importing', '下载备份，或预览文件后导入'), () => window.DailySpaceWorkspaceTools?.open());
+      const connect = window.DailySpaceAssistantConnect?.element(); if (connect) manage.append(connect);
       const settings = section(t('Account & appearance', '账户与外观')), controls = node('div', '', 'toolbox-settings'); settings.append(controls);
       const account = button(t('Account & sync', '账户与同步'), () => document.querySelector('.sidebar-auth-entry')?.click()); account.dataset.toolboxAccount = '';
       const dark = document.documentElement.dataset.theme === 'dark';
@@ -109,6 +112,8 @@
       renderedSignature = signature;
       const focused = document.activeElement?.closest('[data-tool],[data-toolbox-theme],[data-toolbox-language],[data-toolbox-account],[data-review-nav]');
       const selector = focused?.hasAttribute('data-toolbox-account') ? '[data-toolbox-account]' : focused?.dataset.reviewNav ? `[data-review-nav="${focused.dataset.reviewNav}"]` : focused?.dataset.tool ? `[data-tool="${focused.dataset.tool}"]` : focused?.hasAttribute('data-toolbox-theme') ? '[data-toolbox-theme]' : focused?.hasAttribute('data-toolbox-language') ? '[data-toolbox-language]' : null;
+      // The assistant card is one persistent element; it is re-attached, so its own control keeps focus.
+      const keep = document.activeElement?.closest('[data-connect]') ? document.activeElement : null;
       host.replaceChildren(); status.textContent = '';
       const review = document.body.classList.contains('review-page');
       document.getElementById('toolbox-title').textContent = review ? t('Weekly review', '每周复盘') : t('Toolbox', '工具箱');
@@ -116,6 +121,7 @@
       document.getElementById('toolbox-description').textContent = review ? t('Make room for what comes next.', '回看这一周，为下一步留出空间。') : t('A place for ideas, progress and the tools you need.', '想法、进展和日常工具，都在这里。');
       try { if (review) renderReview(); else renderTools(); } catch (error) { report(error); }
       if (selector) { const target = host.querySelector(selector); (target && !target.hidden && !target.disabled ? target : host.querySelector('[data-review-nav=previous]'))?.focus({ preventScroll: true }); }
+      else if (keep?.isConnected) keep.focus({ preventScroll: true });
     }
     for (const event of ['daily-space-user-sync-updated', 'daily-space-auth-updated', 'daily-space-agent-data-updated', 'daily-space-notes-updated', 'daily-space-locale-changed', 'storage']) window.addEventListener(event, render);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });

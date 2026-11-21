@@ -353,10 +353,148 @@
     }
   }
 
+  /*
+   * Two-way follow-up for calendar events dayfly created: when the task or
+   * reminder behind an event is renamed, moved or deleted, the event follows.
+   *
+   * Each account keeps, on this device, the last state it sent for each event.
+   * New ids are only recorded (another device may already have sent them).
+   * A missing item waits out the undo window before its event is deleted, and
+   * many items vanishing at once (an account switch or a restore) only resets
+   * the record, so a data swap never deletes calendar events.
+   */
+  const EXTERNAL_MAP_PREFIX = "dayfly-external-events-v1:";
+  const EXTERNAL_DELETE_GRACE_MS = 15000;
+  const EXTERNAL_BULK_MISSING = 3;
+  const EXTERNAL_RETRY_MS = 5 * 60 * 1000;
+  let reconcileTimer = null;
+  let reconciling = false;
+
+  function signedInUser() {
+    const auth = readJson("daily-space-auth-v1", null);
+    return String(auth && auth.email || "").trim().toLowerCase();
+  }
+
+  function workspaceWritable() {
+    const root = document.documentElement.dataset;
+    return root.workspaceLocked !== "true" && root.workspaceReady !== "false";
+  }
+
+  /** Every item that owns a calendar event, keyed by event id. Reminders win over a linked task. */
+  function externalItems() {
+    const items = new Map();
+    const todos = readJson(STORAGE_TODO, {}).todos;
+    (Array.isArray(todos) ? todos : []).forEach((todo) => {
+      const date = validDate(todo && todo.dueDate);
+      if (!todo || typeof todo.externalEventId !== "string" || !todo.externalEventId || !date) return;
+      items.set(todo.externalEventId, { title: String(todo.text || "").trim(), date, startTime: validTime(todo.dueTime), endTime: null });
+    });
+    const reminders = readJson(STORAGE_CALENDAR, {}).reminders;
+    (Array.isArray(reminders) ? reminders : []).forEach((reminder) => {
+      const date = validDate(reminder && reminder.date);
+      if (!reminder || typeof reminder.externalEventId !== "string" || !reminder.externalEventId || !date) return;
+      items.set(reminder.externalEventId, { title: String(reminder.text || "").trim(), date, startTime: validTime(reminder.startTime), endTime: validTime(reminder.endTime) });
+    });
+    items.forEach((item, id) => { if (!item.title) items.delete(id); });
+    return items;
+  }
+
+  function externalSignature(item) {
+    return [item.title, item.date, item.startTime || "", item.endTime || ""].join("|");
+  }
+
+  async function updateExternalEvent(eventId, item, provider) {
+    try {
+      const response = await fetch(`/api/calendar/events/${encodeURIComponent(eventId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...item, provider: provider || "", timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC" }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      return response.ok && payload.ok ? payload : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  async function deleteExternalEvent(eventId, provider) {
+    try {
+      const params = provider ? `?provider=${encodeURIComponent(provider)}` : "";
+      const response = await fetch(`/api/calendar/events/${encodeURIComponent(eventId)}${params}`, { method: "DELETE" });
+      const payload = await response.json().catch(() => ({}));
+      return response.ok && payload.ok ? payload : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  async function reconcileExternalEvents(options = {}) {
+    const user = signedInUser();
+    if (!user || reconciling || !workspaceWritable()) return { skipped: true };
+    reconciling = true;
+    const now = typeof options.now === "number" ? options.now : Date.now();
+    const key = EXTERNAL_MAP_PREFIX + user;
+    const record = readJson(key, {});
+    const events = record.events && typeof record.events === "object" ? record.events : {};
+    const current = externalItems();
+    const result = { updated: 0, deleted: 0 };
+    try {
+      const missing = Object.keys(events).filter((id) => !current.has(id));
+      if (missing.length > EXTERNAL_BULK_MISSING) {
+        missing.forEach((id) => delete events[id]);
+        result.rebaselined = true;
+      }
+      for (const [id, item] of current) {
+        const signature = externalSignature(item);
+        const entry = events[id];
+        if (!entry) { events[id] = { sig: signature }; continue; }
+        delete entry.missingSince;
+        if (entry.sig === signature || (entry.retryAt && entry.retryAt > now)) continue;
+        const saved = await updateExternalEvent(id, item, entry.provider);
+        if (saved) {
+          events[id] = { sig: signature, ...(saved.provider ? { provider: saved.provider } : entry.provider ? { provider: entry.provider } : {}) };
+          result.updated += 1;
+        } else {
+          entry.retryAt = now + EXTERNAL_RETRY_MS;
+        }
+      }
+      for (const id of Object.keys(events)) {
+        if (current.has(id)) continue;
+        const entry = events[id];
+        if (!entry.missingSince) { entry.missingSince = now; continue; }
+        if (now - entry.missingSince < EXTERNAL_DELETE_GRACE_MS || (entry.retryAt && entry.retryAt > now)) continue;
+        if (await deleteExternalEvent(id, entry.provider)) { delete events[id]; result.deleted += 1; }
+        else entry.retryAt = now + EXTERNAL_RETRY_MS;
+      }
+      // The account may have changed while requests were in flight; never write one account's record under another.
+      if (signedInUser() === user) localStorage.setItem(key, JSON.stringify({ version: 1, events }));
+      if (Object.values(events).some((entry) => entry.missingSince)) scheduleExternalReconcile(EXTERNAL_DELETE_GRACE_MS + 1000);
+    } catch (_) {
+      /* Storage full or unavailable: try again on the next change. */
+    } finally {
+      reconciling = false;
+    }
+    return result;
+  }
+
+  function scheduleExternalReconcile(delay = 1500) {
+    clearTimeout(reconcileTimer);
+    reconcileTimer = setTimeout(() => { reconcileExternalEvents(); }, delay);
+  }
+
+  if (typeof window.addEventListener === "function") {
+    window.addEventListener("daily-space-agent-data-updated", (event) => {
+      const domains = Array.isArray(event.detail && event.detail.domains) ? event.detail.domains : [];
+      if (!domains.length || domains.includes("todo") || domains.includes("calendar")) scheduleExternalReconcile();
+    });
+    window.addEventListener("load", () => scheduleExternalReconcile(4000));
+  }
+
   window.DailySpaceTasks = {
     guestHasWorkspaceData,
     syncLinkedWork,
     pushExternalEvent,
     fetchExternalEvents,
+    reconcileExternalEvents,
   };
 })();

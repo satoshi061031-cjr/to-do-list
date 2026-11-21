@@ -1172,3 +1172,109 @@ body.tally-sheet-open {
   .tally-record.is-swiping .tally-record-delete { transition: none; }
   .tally-record:has(.tally-record-delete:focus-visible) { --swipe-x: -88px; --swipe-reveal: 88px; }
 }
+
+/* Spending insights: ranked category bars, a six-month column trend and subscription
+   suggestions. Bar lengths are clip-paths, so a change never re-lays out the page. */
+.tally-spending .tally-insight { display: grid; gap: var(--space-sm); min-width: 0; }
+.tally-spending .tally-insight > h2:focus { outline: none; }
+.tally-spending .tally-insight > h2:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tally-insight-note,
+.tally-insight-empty,
+.tally-subscription p,
+.tally-insight-total span,
+.tally-category-value,
+.tally-planning .tally-trend-bar { color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); }
+.tally-insight-empty { padding: var(--space-md); border-radius: var(--radius-sm); background: var(--surface); text-align: center; }
+.tally-insight-total { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-xs) var(--space-sm); }
+.tally-insight-total strong { color: var(--text); font: var(--phone-title-weight) var(--phone-title-size)/var(--phone-title-lh) var(--font-ui); }
+
+.tally-category-bars { display: grid; gap: var(--space-md); margin: 0; padding: 0; list-style: none; }
+.tally-category-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: var(--space-xs) var(--space-md); }
+.tally-category-name { min-width: 0; overflow-wrap: anywhere; color: var(--text); font: var(--phone-task-weight) var(--phone-task-size)/var(--phone-task-lh) var(--font-ui); }
+.tally-category-value { font-variant-numeric: tabular-nums; text-align: end; white-space: nowrap; }
+.tally-category-track { grid-column: 1 / -1; display: block; height: var(--space-sm); }
+.tally-category-fill {
+  display: block;
+  height: 100%;
+  background: var(--primary);
+  clip-path: inset(0 calc(100% - max(var(--bar, 0%), var(--space-sm))) 0 0 round 0 var(--radius-pill) var(--radius-pill) 0);
+  transition: clip-path var(--motion-slow) var(--ease-out);
+}
+.tally-category-row.is-other .tally-category-fill { background: color-mix(in srgb, var(--text-muted) 50%, transparent); }
+/* Wide screens: name, bar and figure on one row, with every bar on the same baseline and length scale. */
+@media (min-width: 820px) {
+  .tally-category-bars { grid-template-columns: minmax(6rem, 12rem) minmax(0, 1fr) max-content; column-gap: var(--space-md); row-gap: var(--space-sm); }
+  .tally-category-row { grid-column: 1 / -1; grid-template-columns: subgrid; align-items: center; }
+  .tally-category-track { grid-column: 2; grid-row: 1; }
+  .tally-category-value { grid-column: 3; grid-row: 1; }
+}
+
+.tally-trend { display: grid; grid-template-columns: repeat(6, minmax(44px, 1fr)); }
+.tally-planning .tally-trend-bar {
+  display: grid;
+  grid-template-rows: auto calc(var(--space-xl) * 3) auto;
+  justify-items: center;
+  gap: var(--space-xs);
+  min-width: 44px;
+  min-height: 44px;
+  padding: var(--space-xs) 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font-variant-numeric: tabular-nums;
+}
+.tally-planning .tally-trend-bar:hover { background: var(--surface-hover); }
+.tally-planning .tally-trend-bar[aria-pressed="true"] { color: var(--text); }
+.tally-trend-value,
+.tally-trend-month { white-space: nowrap; }
+.tally-trend-bar[aria-pressed="true"] .tally-trend-month { font-weight: var(--phone-action-weight); }
+.tally-trend-track { display: flex; justify-content: center; width: 100%; border-bottom: 1px solid var(--quiet-line); }
+.tally-trend-fill {
+  width: min(24px, 60%);
+  background: color-mix(in srgb, var(--text-muted) 55%, transparent);
+  clip-path: inset(calc(100% - max(var(--bar, 0%), var(--space-xs))) 0 0 0 round var(--radius-sm) var(--radius-sm) 0 0);
+  transition: clip-path var(--motion-slow) var(--ease-out);
+}
+.tally-trend-bar[aria-pressed="true"] .tally-trend-fill { background: var(--primary); }
+.tally-trend-bar.is-empty .tally-trend-fill { visibility: hidden; }
+
+.tally-subscription-list { display: grid; gap: var(--space-sm); }
+.tally-subscription { display: grid; gap: var(--space-md); padding: var(--space-md); border: 1px solid var(--quiet-line); border-radius: var(--radius-md); }
+.tally-subscription > div:first-child { display: grid; gap: var(--space-xs); min-width: 0; }
+.tally-subscription strong { color: var(--text); font: var(--phone-task-weight) var(--phone-task-size)/var(--phone-task-lh) var(--font-ui); overflow-wrap: anywhere; }
+.tally-subscription-detail > span { white-space: nowrap; }
+.tally-planning .tally-subscription .is-primary { border-color: transparent; background: var(--accent-soft); color: var(--accent); font-weight: var(--phone-action-weight); }
+.tally-planning .tally-subscription .is-primary:hover { background: var(--surface-hover); }
+@media (min-width: 820px) {
+  .tally-subscription { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+}
+.tally-spending :is(.tally-insight, .tally-insight-total, .tally-category-bars, .tally-trend, .tally-insight-note, .tally-insight-empty)[hidden] { display: none; }
+
+/* Receipt scanning inside the expense sheet. */
+.tally-receipt { grid-column: 1 / -1; display: grid; justify-items: start; gap: var(--space-sm); min-width: 0; }
+.tally-receipt[hidden] { display: none; }
+.tally-receipt-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: 44px;
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--quiet-line);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  font: var(--phone-action-weight) var(--phone-action-size)/var(--phone-action-lh) var(--font-ui);
+}
+.tally-receipt-button:hover { background: var(--surface-hover); }
+.tally-receipt-button:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+.tally-receipt-button[aria-disabled="true"] { color: var(--text-muted); cursor: progress; }
+.tally-receipt-button svg { flex-shrink: 0; }
+.tally-receipt-status { margin: 0; color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); overflow-wrap: anywhere; }
+.tally-receipt-status:empty { display: none; }
+.tally-receipt-status.is-error { color: var(--danger); }
+
+@media (prefers-reduced-motion: reduce) {
+  .tally-category-fill,
+  .tally-trend-fill { transition: none; }
+}

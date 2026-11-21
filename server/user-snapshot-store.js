@@ -14,6 +14,7 @@ const ALLOWED_SNAPSHOT_KEYS = new Set([
   "dayfly-focus-v1",
   "dayfly-notes-v1",
   "dayfly-history-v1",
+  "dayfly-habits-v1",
   "planner-app-v1",
   "calendar-app-v1",
   "tally-book-v1",
@@ -22,6 +23,7 @@ const ALLOWED_SNAPSHOT_KEYS = new Set([
   "travel-shared-v1",
   "daily-space-mail-accounts-v1",
   "todo-theme",
+  "dayfly-connections-v1",
 ]);
 
 let defaultStore;

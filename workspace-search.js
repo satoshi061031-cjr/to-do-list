@@ -15,6 +15,7 @@
     { id: "jump-tools", label: "Toolbox", hint: "All your tools", href: "tools.html", aliases: ["tool", "tools", "toolbox", "工具", "工具箱"] },
     { id: "jump-notes", label: "Notes", hint: "Private notebook", href: "notes.html", aliases: ["notes", "笔记"] },
     { id: "jump-review", label: "Weekly review", hint: "Recorded progress", href: "review.html", aliases: ["review", "复盘"] },
+    { id: "jump-habits", label: "Habits", hint: "Daily check-ins", href: "habits.html", aliases: ["habit", "habits", "streak", "routine", "check-in", "打卡"] },
     { id: "jump-today", label: "Workbench", hint: "Personal workspace", href: "todo.html#today", aliases: ["today", "todo", "workbench", "工作台", "今天"] },
     { id: "jump-calendar", label: "Calendar", hint: "Month", href: "calendar.html", aliases: ["calendar"] },
     { id: "jump-planner", label: "Projects", hint: "Boards", href: "planner.html", aliases: ["planner", "projects", "项目"] },
@@ -24,7 +25,7 @@
     { id: "jump-teamwork", label: "Teamwork", hint: "Notes", href: "teamwork.html", aliases: ["teamwork"] },
   ];
   const PAGE_ZH = {
-    'jump-tools':['工具箱','全部工具'],'jump-notes':['笔记','私人笔记'],'jump-review':['每周复盘','查看实际进展'],
+    'jump-tools':['工具箱','全部工具'],'jump-notes':['笔记','私人笔记'],'jump-review':['每周复盘','查看实际进展'],'jump-habits':['习惯','每日打卡'],
     'jump-today':['工作台','个人工作空间'],'jump-calendar':['日历','日程'],
     'jump-planner':['项目','看板'],'jump-mail':['邮箱','收件箱'],
     'jump-tally':['记账','消费记录'],'jump-travel':['旅行','行程'],'jump-teamwork':['协作','团队工具'],

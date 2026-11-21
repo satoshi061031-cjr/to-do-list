@@ -240,11 +240,31 @@ test("invalid successful responses are rejected and an oversized local snapshot 
   c.context.fetch = async () => ({ ok: true, json: async () => ({}) });
   await c.sync.tick();
   assert.equal(c.sync.state().status, "unavailable");
-  c.values.set("todo-app-v2", "x".repeat(1024 * 1024));
+  // The server limits the compressed upload; the client only refuses absurd raw sizes up front.
+  c.values.set("todo-app-v2", "x".repeat(17 * 1024 * 1024));
   await c.sync.tick(true);
   assert.equal(c.sync.state().status, "too-large");
   assert.equal(c.timers.size, 0);
-  assert.ok(c.values.get("todo-app-v2").length >= 1024 * 1024);
+  assert.ok(c.values.get("todo-app-v2").length >= 17 * 1024 * 1024);
+});
+
+test("large stores upload gzip-compressed, and compressed cloud stores are applied as plain JSON", async () => {
+  const { decodeValue, encodeValue } = require("../server/snapshot-values");
+  const fromPhone = JSON.stringify({ todos: Array.from({ length: 120 }, (_, i) => ({ id: `p${i}`, text: "Water the plants", notes: "", sourceUrl: null })) });
+  const c = client();
+  Object.assign(c.context, { CompressionStream, DecompressionStream, Response, btoa, atob });
+  c.changeCloud({ "todo-app-v2": encodeValue(fromPhone) });
+  await c.sync.load();
+  assert.equal(c.values.get("todo-app-v2"), fromPhone, "a compressed cloud store lands in localStorage as plain JSON");
+
+  const local = JSON.stringify({ todos: Array.from({ length: 200 }, (_, i) => ({ id: `t${i}`, text: "Prepare the weekly review", notes: "", sourceUrl: null })) });
+  c.values.set("todo-app-v2", local);
+  await c.sync.tick();
+  const put = c.requests.filter((request) => request.method === "PUT").pop();
+  const sent = JSON.parse(put.body).payload["todo-app-v2"];
+  assert.ok(sent.startsWith("gz1:") && sent.length < local.length / 4, `sent ${sent.length} bytes for ${local.length}`);
+  assert.equal(decodeValue(sent), local, "the server reads the same format");
+  assert.equal(c.sync.state().status !== "too-large", true);
 });
 
 test("an empty second account clears the first account's data before any automatic upload", async () => {
@@ -448,7 +468,7 @@ test('adding personal workspace keys upgrades old baselines without manufacturin
   const c = client(); await c.sync.load();
   const baselineKey = 'daily-space-user-baseline-v1:alice@example.com';
   const signature = c.values.get(baselineKey);
-  const addedKeys = ['daily-space-workbench-v1','dayfly-task-views-v1','dayfly-focus-v1','dayfly-notes-v1','dayfly-history-v1'];
+  const addedKeys = ['daily-space-workbench-v1','dayfly-task-views-v1','dayfly-focus-v1','dayfly-notes-v1','dayfly-history-v1','dayfly-connections-v1','dayfly-habits-v1'];
   const suffix = addedKeys.map(key => `|${key}:0:`).join('');
   assert.ok(signature.endsWith(suffix));
   c.values.set(baselineKey, signature.slice(0, -suffix.length));
@@ -465,12 +485,13 @@ test('personal view, focus, note and history stores sync and clear together on s
     'dayfly-task-views-v1':JSON.stringify({views:[{id:'view',name:'My work'}]}),
     'dayfly-focus-v1':JSON.stringify({sessions:[{id:'session'}]}),
     'dayfly-notes-v1':JSON.stringify({notes:[{id:'note',title:'Private'}]}),
-    'dayfly-history-v1':JSON.stringify({entries:[{id:'version'}]})
+    'dayfly-history-v1':JSON.stringify({entries:[{id:'version'}]}),
+    'dayfly-habits-v1':JSON.stringify({version:1,habits:[{id:'habit',name:'Walk',frequency:{type:'daily'}}],checkins:{habit:{'2026-11-20':1}}})
   };
   c.changeCloud(payload);await c.sync.tick();
   for(const [key,value] of Object.entries(payload))assert.equal(c.values.get(key),value);
   const domains=c.events.findLast(event=>event.type==='daily-space-agent-data-updated').detail.domains;
-  for(const domain of ['task-views','focus','notes','history'])assert.ok(domains.includes(domain));
+  for(const domain of ['task-views','focus','notes','history','habits'])assert.ok(domains.includes(domain));
   c.values.delete('daily-space-auth-v1');await c.sync.refresh(true);c.sync.stop();
   for(const key of Object.keys(payload).filter(key=>key.startsWith('dayfly-')))assert.equal(c.values.get(key),undefined);
   const cached=JSON.parse(c.values.get('daily-space-user-cache-v1:alice@example.com'));

@@ -1,8 +1,24 @@
 # dayfly
 
+[![Tests](https://github.com/satoshi061031-cjr/to-do-list/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/satoshi061031-cjr/to-do-list/actions/workflows/test.yml)
+
 A personal workbench for work, life and plans. Start with today's tasks and arrangements, then open projects, mail, expenses or travel when you need them. dayfly keeps its quiet glass surfaces, original ghost assistant and optional collaboration tools.
 
 Live app: start at `/todo.html` (PWA start URL). Welcome screen: `/` or `/index.html`.
+
+## Screenshots
+
+<p>
+  <a href="docs/screenshots/workbench-desktop-light.png"><img src="docs/screenshots/workbench-desktop-light.png" width="49%" alt="Desktop workbench in the light theme: today's progress, the next arrangement, a task to focus on and today's spending above the task list"></a>
+  <a href="docs/screenshots/calendar-desktop-light.png"><img src="docs/screenshots/calendar-desktop-light.png" width="49%" alt="Desktop Calendar: a week grid of reminders and dated tasks"></a>
+</p>
+<p>
+  <a href="docs/screenshots/workbench-phone-dark.png"><img src="docs/screenshots/workbench-phone-dark.png" width="32%" alt="Phone workbench in the dark theme: overview tiles and today's tasks above the dock"></a>
+  <a href="docs/screenshots/tally-phone-light.png"><img src="docs/screenshots/tally-phone-light.png" width="32%" alt="Tally on a phone: today's spending and its records"></a>
+  <a href="docs/screenshots/travel-phone-dark.png"><img src="docs/screenshots/travel-phone-dark.png" width="32%" alt="Travel day on a phone in the dark theme: the next stop and bookings with confirmation codes"></a>
+</p>
+
+Sample data. Desktop at 1440×900; phone at iPhone 13 size (390×844).
 
 ## What you get
 
@@ -88,6 +104,24 @@ npm start
 Open `http://localhost:3000/` or `http://localhost:3000/todo.html`.
 
 Requires **Node 22+** (uses built-in `node:sqlite` for local/dev data when Supabase is unset).
+
+## Self-hosting with Docker
+
+The image runs the same server as `npm start` on Node 22, as a non-root user, with its SQLite database in a Docker volume.
+
+```sh
+cp .env.example .env    # then replace or delete every placeholder value
+docker compose up -d --build
+docker compose ps       # STATUS shows "healthy" once /api/health answers
+```
+
+Open `http://localhost:3000/`. Compose passes `.env` to the container. A placeholder left in place counts as configured, so delete the `SUPABASE_*`, `GROQ_API_KEY` and OAuth lines you do not use; guest mode needs none of them. Keep `MAIL_TOKEN_ENCRYPTION_KEY` (and `APP_SESSION_SECRET`, if you set it) the same across restarts: they seal mailbox tokens and sign sessions.
+
+- **Data:** the database is `/data/dayfly.sqlite` in the `dayfly_data` volume. It survives rebuilds and `docker compose down`, but not `down -v`. `docker-compose.yml` fixes `PORT` and `DAILY_SPACE_DB_PATH` inside the container, so values meant for `npm start` in `.env` cannot move the database out of the volume. To use a host directory instead, make it writable by UID 1000 (the image's `node` user).
+- **Port and HTTPS:** change the host side of `ports`, for example to `"127.0.0.1:8080:3000"` behind a reverse proxy. With HTTPS, set `MAIL_OAUTH_BASE_URL` to the public origin; it is used for OAuth callbacks and also marks the session cookie `Secure`.
+- **Backups:** `docker compose exec dayfly npm run db:backup -- /data/backup-2026-11-20.sqlite`, then `docker compose cp dayfly:/data/backup-2026-11-20.sqlite .` to copy it off the volume. See [Database backup and recovery](#database-backup-and-recovery).
+- **Updates:** `git pull`, then `docker compose up -d --build`.
+- Run one container per database: SQLite and the reminder scheduler support a single instance.
 
 ## Persistent workspaces (Supabase)
 
@@ -178,13 +212,28 @@ Notification actions offer **10 minutes later** and **Tomorrow** (09:00 in the r
 To enable production Web Push:
 
 1. Generate a key pair with `npx web-push generate-vapid-keys --json` in a private terminal. Set `VAPID_PUBLIC_KEY`, **`VAPID_PRIVATE_KEY`**, and `VAPID_SUBJECT` (your real `mailto:` contact or HTTPS support page) in secure deployment environment settings. Keep the key pair stable across deployments. Never commit the private key.
-2. Use HTTPS, an **always-running server**, and a persistent `DAILY_SPACE_DB_PATH`; this scheduler supports one Node service instance. The default Render free Blueprint sleeps and has ephemeral storage, so adding keys alone does not make it a reliable reminder service. Configure the hosting plan/disk yourself; the repository does not activate paid hosting.
-3. Sign in with Google, wait for account sync, then open **Reminders → Enable reminders** on each device and grant notification permission. On iPhone/iPad, Web Push requires iOS/iPadOS 16.4+ and adding the site to the Home Screen. The Capacitor shell does not gain native local notifications from this Web Push implementation.
+2. Use HTTPS and keep the schedule durable and the server awake; this scheduler supports one Node service instance. Either run an always-on service with a persistent `DAILY_SPACE_DB_PATH`, or, on a free plan that sleeps and wipes its disk (Render free):
+   - **Survive wipes:** set `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` and run `supabase/migrations/007_reminder_backups.sql` once in the Supabase SQL Editor. Subscriptions and schedules are mirrored there and restored when the server starts, before any reminder request is answered, so browsers keep their push keys.
+   - **Wake on time:** set `REMINDER_TICK_SECRET` on the server (the Render Blueprint generates one), then add the repository secrets `DAYFLY_URL` and `REMINDER_TICK_SECRET` (same value) under GitHub **Settings → Secrets and variables → Actions**. `.github/workflows/reminder-tick.yml` then calls `POST /api/reminders/tick` every 10 minutes. GitHub may start scheduled runs a few minutes late, so expect alerts within about 10 minutes of their time. Any other scheduler that can send that request with `Authorization: Bearer <secret>` works too.
+3. Sign in with Google, wait for account sync, then open **Reminders → Enable reminders** on each device and grant notification permission. On iPhone/iPad, Web Push requires iOS/iPadOS 16.4+ and adding the site to the Home Screen.
 4. Test a future timed task, close the page, and confirm delivery and both postponement actions on the actual device. Automated checks exercise scheduling, encryption, ownership, cancellation and service worker actions, but do not send real provider pushes or validate physical OS delivery.
 
 Guest reminder data stays local and is never uploaded to the push API. Guest and unconfigured-server fallbacks alert only while a page is running; the UI states this limit. Browser permissions, OS notification settings, connectivity and hosting uptime still govern delivery. Offline edits must finish account and reminder sync before closing the page; the UI reports a failed schedule update. Local notification postponement reopens the page to save locally. Notification action buttons vary by browser; use task details when unavailable.
 
-Pending reminders/device subscriptions use SQLite even when personal snapshots use Supabase. Include them in the existing SQLite backup/recovery process. Only the configured public VAPID key is exposed to the client; private credentials and action capabilities are never cached as API responses.
+**Native app (Capacitor):** the app schedules up to 60 upcoming reminders on the phone itself with `@capacitor/local-notifications`, so they fire on time with the app closed and need neither Web Push nor a running server. The schedule refreshes whenever tasks or reminders change. Run `npm run cap:sync` after updating so the native project picks up the plugin.
+
+Pending reminders/device subscriptions use SQLite (mirrored to Supabase when configured, see step 2). Include them in the existing SQLite backup/recovery process. Only the configured public VAPID key is exposed to the client; private credentials and action capabilities are never cached as API responses.
+
+## Connect an AI assistant (MCP)
+
+Claude, ChatGPT and other assistants that speak the [Model Context Protocol](https://modelcontextprotocol.io) can read and change your tasks, Tally expenses and calendar reminders. Sign in, open **Toolbox → Data management → Connect an AI assistant (MCP)** and choose **Create key**. The key is shown once; it starts working a few seconds after the device syncs.
+
+- **Claude Code:** `claude mcp add --transport http dayfly https://<your-host>/api/mcp --header "Authorization: Bearer <key>"`
+- **Apps that take only a URL** (Claude or ChatGPT custom connectors): `https://<your-host>/api/mcp/k/<key>`. That address contains the key, so treat it like a password.
+
+Tools: `list_tasks`, `add_task`, `complete_task`, `update_task`, `list_expenses`, `add_expense`, `list_events` and `add_reminder`. "Today" uses the time zone recorded when the key was created. The endpoint is stateless Streamable HTTP (POST, JSON answers, protocol versions 2025-06-18, 2025-03-26 and 2024-11-05) and needs `APP_SESSION_SECRET`.
+
+Only the key's identifier is kept, in the synced `dayfly-connections-v1` store. **Replace key** or **Turn off** revokes the old key once the device syncs; backups never restore a key. Browser requests from other origins are refused, and failed or excessive requests are rate limited. Changes are written into the account snapshot, so a device with unsynced edits may ask which version to keep, exactly as with Tally quick add.
 
 ## Deploy (Render)
 
@@ -232,14 +281,21 @@ Only the client files listed in `server/public-assets.js` are served publicly; C
 
 Both Agent routes share per-process limits: 20 requests per user (or guest connection IP) per minute, 60 per connection IP, 100 total per minute, and 4 simultaneous calls. Responses exceeding a limit use HTTP 429 and `Retry-After`. Guest Agent usage remains available. Limits use the actual socket address; spoofed `X-Forwarded-For` headers do not bypass them. Behind a reverse proxy, clients may share the proxy IP budget. Multi-instance deployments need a shared limiter and explicit trusted-proxy configuration before relying on per-user/IP quotas.
 
-## Test
+## Development (lint, tests, CI)
 
 ```sh
-npm test
+npm ci
+npm run lint       # ESLint: errors fail, warnings are advisory
+npm test           # unit and API tests (node:test)
 npm run test:e2e   # HTTP critical-path smoke against a local server
+CHROMIUM_PATH=/path/to/chromium npm run test:ui
 ```
 
 `npm run test:ui` runs Chromium interaction tests for stable task rows, editing focus, modal keyboard navigation, touch targets, narrow layouts, and reduced motion. Install Chromium separately; `playwright-core` is a locked development dependency and does not download a browser. The default executable is `/usr/bin/chromium`; set `CHROMIUM_PATH` to override it. In an isolated container where Chromium's sandbox is unavailable, run `CHROMIUM_NO_SANDBOX=1 npm run test:ui`. The suite starts its own server and temporary SQLite database; it does not require OAuth/AI keys. Phone checks emulate viewport and touch input in Chromium, not physical iOS/Android keyboards.
+
+**Lint.** `eslint.config.js` applies ESLint's recommended rules. Rules that catch real bugs, such as `no-undef`, `no-dupe-keys`, `no-unreachable`, `no-redeclare` and `valid-typeof`, are errors; unused variables, empty blocks and redundant assignments are warnings. Client scripts share state through `window.*`; if code needs a new bare global, declare it in the config's `globals` instead of an inline comment.
+
+**CI.** [`.github/workflows/test.yml`](.github/workflows/test.yml) runs on every pull request, on pushes to `main` and on demand: `npm ci`, lint, `npm test`, then the UI suite with the Chromium build that matches the locked `playwright-core` version. A newer push cancels the superseded run. The iOS widget build stays a separate, manual workflow.
 
 ## Legacy note
 

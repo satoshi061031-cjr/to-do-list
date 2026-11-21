@@ -365,7 +365,7 @@
           dueDate: typeof x.dueDate === "string" && ISO_DATE.test(x.dueDate) ? x.dueDate : null,
           dueTime: normalizeTime(x.dueTime),
           categoryId: typeof x.categoryId === "string" ? x.categoryId : null,
-          repeat: x.repeat === "daily" || x.repeat === "weekly" || x.repeat === "monthly" ? x.repeat : null,
+          repeat: window.DailySpaceTaskFields?.normalizeRepeat(x.repeat) || null,
           sourceReminderId: typeof x.sourceReminderId === "string" ? x.sourceReminderId : null,
           sourcePlannerId: typeof x.sourcePlannerId === "string" ? x.sourcePlannerId : null,
           externalEventId: typeof x.externalEventId === "string" ? x.externalEventId : null,
@@ -495,6 +495,9 @@
     return c ? c.name : "Uncategorized";
   }
 
+  function taskCoveredByReminder(todo) {
+    return Boolean(todo.sourceReminderId && reminders.some(reminder => reminder.id === todo.sourceReminderId && reminder.date === todo.dueDate));
+  }
   function taskCoveredBySchedule(todo) {
     return (todo.sourceReminderId && reminders.some(reminder => reminder.id === todo.sourceReminderId && reminder.date === todo.dueDate)) ||
       (todo.externalEventId && googleEvents.some(event => event.id === todo.externalEventId && event.date === todo.dueDate));
@@ -656,8 +659,8 @@
     const completing = !todo.completed;
     todo.completed = completing;
     todo.completedAt = completing ? Date.now() : null;
-    if (completing && (todo.repeat === "daily" || todo.repeat === "weekly" || todo.repeat === "monthly")) {
-      const nextDue = window.DailySpaceTaskFields.nextRepeatDate(todo.dueDate, todo.repeat, todo.repeatDay, todayIso());
+    const nextDue = completing ? window.DailySpaceTaskFields.nextOccurrenceDate(todo, { today: todayIso(), completedOn: todayIso() }) : null;
+    if (nextDue) {
       todos.unshift({
         ...todo,
         ...window.DailySpaceTaskFields?.recurrence(todo),
@@ -692,6 +695,207 @@
       if (!todos.some(task => task.id === todoId)) todos.push(removed);
       saveTodoState(); render();
     });
+  }
+
+  /* ---------- Time-blocking: drag tasks and reminders onto the week grid ---------- */
+  const ALLDAY_CHIP_LIMIT = 3;
+  const SNAP_MINUTES = 15;
+  let dragClickPending = false;
+
+  /** The click that ends a drag must not also open or delete the item. */
+  function consumeDragClick() {
+    if (!dragClickPending) return false;
+    dragClickPending = false;
+    return true;
+  }
+
+  function minutesToTime(total) {
+    const value = Math.max(0, Math.min(24 * 60 - 1, Math.round(total)));
+    return `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`;
+  }
+
+  function workspaceWritable() {
+    const root = document.documentElement.dataset;
+    return window.DailySpaceWorkbenchPreferences?.ready() !== false && root.workspaceLocked !== "true" && root.workspaceReady !== "false";
+  }
+
+  /** Move a task or reminder to a day and start time; offers Undo. */
+  function moveScheduleItem(kind, itemId, iso, startMin) {
+    if (!workspaceWritable() || !ISO_DATE.test(iso || "")) return false;
+    const time = minutesToTime(startMin);
+    if (kind === "task") {
+      loadTodoState();
+      const task = todos.find((item) => item.id === itemId);
+      if (!task || task.completed) return false;
+      if (task.dueDate === iso && task.dueTime === time) return false;
+      const before = { dueDate: task.dueDate, dueTime: task.dueTime, remindAt: task.remindAt };
+      Object.assign(task, { dueDate: iso, dueTime: time, remindAt: null });
+      saveTodoState();
+      window.DailySpaceTasks?.syncLinkedWork({ from: "todo", silent: true });
+      loadTodoState();
+      render();
+      window.DailySpaceUndo?.offer(t(`Moved to ${formatClockTime(time)}`, `已移到 ${formatClockTime(time)}`), () => {
+        loadTodoState();
+        const current = todos.find((item) => item.id === itemId);
+        if (!current) return;
+        Object.assign(current, before);
+        saveTodoState();
+        window.DailySpaceTasks?.syncLinkedWork({ from: "todo", silent: true });
+        loadTodoState();
+        render();
+      });
+      return true;
+    }
+    const reminder = reminders.find((item) => item.id === itemId);
+    if (!reminder || !reminder.startTime) return false;
+    const oldStart = minutesFromMidnight(reminder.startTime);
+    const length = reminder.endTime ? minutesFromMidnight(reminder.endTime) - oldStart : 0;
+    const endTime = reminder.endTime && length > 0 ? minutesToTime(Math.min(startMin + length, 24 * 60 - 1)) : reminder.endTime;
+    if (reminder.date === iso && reminder.startTime === time) return false;
+    const before = { date: reminder.date, startTime: reminder.startTime, endTime: reminder.endTime };
+    Object.assign(reminder, { date: iso, startTime: time, endTime });
+    saveCalendarState();
+    window.DailySpaceTasks?.syncLinkedWork({ from: "calendar", silent: true });
+    render();
+    window.DailySpaceUndo?.offer(t(`Moved to ${formatClockTime(time)}`, `已移到 ${formatClockTime(time)}`), () => {
+      const current = reminders.find((item) => item.id === itemId);
+      if (!current) return;
+      Object.assign(current, before);
+      saveCalendarState();
+      window.DailySpaceTasks?.syncLinkedWork({ from: "calendar", silent: true });
+      render();
+    });
+    return true;
+  }
+
+  function shiftIso(iso, days) {
+    const date = parseIso(iso);
+    date.setDate(date.getDate() + days);
+    return dateToIso(date);
+  }
+
+  /**
+   * Pointer drag (mouse or pen; touch keeps scrolling the grid) with a snapped
+   * preview, plus Alt+arrow keys: Up/Down move by 15 minutes, Left/Right by a day.
+   */
+  function attachScheduleDrag(element, item) {
+    const { rangeStart, rangeEnd, rangeSpan } = item.range;
+    const duration = Math.max(SNAP_MINUTES, Math.min(item.duration || 60, rangeSpan));
+    element.classList.add("cal-draggable");
+
+    element.addEventListener("keydown", (event) => {
+      if (!event.altKey || !["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)) return;
+      event.preventDefault();
+      const base = item.startMin == null ? 9 * 60 - (event.key === "ArrowDown" ? SNAP_MINUTES : 0) : item.startMin;
+      let iso = item.iso, start = base;
+      if (event.key === "ArrowUp") start = Math.max(0, base - SNAP_MINUTES);
+      if (event.key === "ArrowDown") start = Math.min(24 * 60 - SNAP_MINUTES, base + SNAP_MINUTES);
+      if (event.key === "ArrowLeft") iso = shiftIso(item.iso, -1);
+      if (event.key === "ArrowRight") iso = shiftIso(item.iso, 1);
+      if (!moveScheduleItem(item.kind, item.id, iso, start)) return;
+      const selector = item.kind === "task" ? `[data-task-id="${CSS.escape(item.id)}"]` : `[data-grid-reminder-id="${CSS.escape(item.id)}"]`;
+      weekColsEl.querySelector(selector)?.focus();
+    });
+
+    element.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0 || event.pointerType === "touch" || !workspaceWritable()) return;
+      const sourceRect = element.getBoundingClientRect();
+      const colRect = element.parentElement.getBoundingClientRect();
+      const minutesPerPixel = rangeSpan / colRect.height;
+      // Keep the point you grabbed under the pointer; a chip is picked up by its top edge.
+      const grabOffset = item.startMin == null ? 0 : (event.clientY - sourceRect.top) * minutesPerPixel;
+      const origin = { x: event.clientX, y: event.clientY };
+      let dragging = false, preview = null, target = null;
+      try { element.setPointerCapture?.(event.pointerId); } catch (_) { /* pointer already released */ }
+
+      const slotAt = (x, y) => {
+        const col = [...weekColsEl.children].find((candidate) => {
+          const rect = candidate.getBoundingClientRect();
+          return x >= rect.left && x < rect.right;
+        });
+        if (!col || !col.dataset.date) return null;
+        const rect = col.getBoundingClientRect();
+        const raw = rangeStart + ((y - rect.top) / rect.height) * rangeSpan - grabOffset;
+        const snapped = Math.round(raw / SNAP_MINUTES) * SNAP_MINUTES;
+        const start = Math.max(rangeStart, Math.min(rangeEnd - Math.min(duration, rangeSpan), snapped));
+        return { col, iso: col.dataset.date, start };
+      };
+
+      const move = (moveEvent) => {
+        if (!dragging) {
+          if (Math.hypot(moveEvent.clientX - origin.x, moveEvent.clientY - origin.y) < 5) return;
+          dragging = true;
+          element.classList.add("is-dragging");
+          document.body.classList.add("cal-is-dragging");
+          preview = document.createElement("div");
+          preview.className = "cal-drop-preview";
+          preview.setAttribute("aria-hidden", "true");
+        }
+        moveEvent.preventDefault();
+        target = slotAt(moveEvent.clientX, moveEvent.clientY);
+        if (!target) { preview.remove(); return; }
+        if (preview.parentElement !== target.col) target.col.appendChild(preview);
+        const end = Math.min(target.start + duration, rangeEnd);
+        preview.style.top = `${((target.start - rangeStart) / rangeSpan) * 100}%`;
+        preview.style.height = `${((end - target.start) / rangeSpan) * 100}%`;
+        preview.textContent = formatTimeRange(minutesToTime(target.start), minutesToTime(end));
+      };
+
+      const finish = (endEvent) => {
+        element.removeEventListener("pointermove", move);
+        element.removeEventListener("pointerup", finish);
+        element.removeEventListener("pointercancel", finish);
+        if (!dragging) return;
+        // The browser fires that click in the same task as pointerup; later clicks are real.
+        dragClickPending = true;
+        setTimeout(() => { dragClickPending = false; }, 0);
+        preview?.remove();
+        element.classList.remove("is-dragging");
+        document.body.classList.remove("cal-is-dragging");
+        if (endEvent.type === "pointerup" && target) moveScheduleItem(item.kind, item.id, target.iso, target.start);
+      };
+
+      element.addEventListener("pointermove", move);
+      element.addEventListener("pointerup", finish);
+      element.addEventListener("pointercancel", finish);
+    });
+  }
+
+  function markSpan(block, start, end) {
+    block.dataset.spanStart = String(start);
+    block.dataset.spanEnd = String(Math.max(end, start + 20));
+  }
+
+  /** Overlapping items in a day share its width side by side instead of covering each other. */
+  function layoutColumnLanes(col) {
+    const blocks = [...col.querySelectorAll(":scope > .cal-event")]
+      .map((el) => ({ el, start: Number(el.dataset.spanStart), end: Number(el.dataset.spanEnd) }))
+      .filter((item) => Number.isFinite(item.start) && Number.isFinite(item.end))
+      .sort((a, b) => a.start - b.start || b.end - a.end);
+    let cluster = [], clusterEnd = -1;
+    const flush = () => {
+      const laneEnds = [];
+      cluster.forEach((item) => {
+        let lane = laneEnds.findIndex((end) => end <= item.start);
+        if (lane === -1) { lane = laneEnds.length; laneEnds.push(0); }
+        laneEnds[lane] = item.end;
+        item.lane = lane;
+      });
+      const lanes = laneEnds.length;
+      cluster.forEach((item) => {
+        if (lanes === 1) { item.el.style.removeProperty("width"); item.el.style.removeProperty("left"); item.el.style.removeProperty("right"); return; }
+        item.el.style.left = `calc(0.25rem + (100% - 0.5rem) * ${item.lane} / ${lanes})`;
+        item.el.style.width = `calc((100% - 0.5rem) / ${lanes} - 2px)`;
+        item.el.style.right = "auto";
+      });
+      cluster = [];
+    };
+    blocks.forEach((item) => {
+      if (cluster.length && item.start >= clusterEnd) flush();
+      cluster.push(item);
+      clusterEnd = Math.max(clusterEnd, item.end);
+    });
+    if (cluster.length) flush();
   }
 
   function renderWeekGrid() {
@@ -777,10 +981,12 @@
     const rangeEnd = hourEnd * 60;
     const rangeSpan = rangeEnd - rangeStart;
 
+    const shownTaskEvents = new Set();
     days.forEach((day, dayIndex) => {
       const iso = dateToIso(day);
       const col = document.createElement("div");
       col.className = "cal-col" + (iso === selectedDate ? " is-selected" : "");
+      col.dataset.date = iso;
       if (isWeekend(day)) col.dataset.weekend = "true";
       col.addEventListener("click", (event) => {
         if (event.target !== col) return;
@@ -791,21 +997,71 @@
         if (reminderInput) reminderInput.focus();
       });
 
-      const dayTasks = todosDueOn(iso).filter(
-        (t) => !t.completed && matchesSearch(t.text) && calFilter !== "reminders"
+      // A task dayfly pushed to Google stays a draggable task here, not a read-only Google link.
+      const dayTasks = todos.filter(
+        (task) => task.dueDate === iso && !task.completed && !taskCoveredByReminder(task) && matchesSearch(task.text) && calFilter !== "reminders"
       );
-      if (dayTasks.length) {
-        const chip = document.createElement("div");
+      dayTasks.forEach((task) => { if (task.externalEventId) shownTaskEvents.add(task.externalEventId); });
+      const timedTasks = dayTasks.filter((task) => task.dueTime);
+      const untimedTasks = dayTasks.filter((task) => !task.dueTime);
+      // Untimed tasks sit at the top of the day; drag one into an hour to give it a time.
+      const chipLimit = untimedTasks.length > ALLDAY_CHIP_LIMIT ? ALLDAY_CHIP_LIMIT - 1 : ALLDAY_CHIP_LIMIT;
+      untimedTasks.slice(0, chipLimit).forEach((task, index) => {
+        const chip = document.createElement("button");
+        chip.type = "button";
         chip.className = "cal-allday";
-        chip.textContent =
-          dayTasks.length === 1 ? dayTasks[0].text : `${dayTasks.length} tasks due`;
-        chip.title = dayTasks.map((t) => t.text).join(", ");
+        chip.dataset.taskId = task.id;
+        chip.style.setProperty("--cal-allday-index", String(index));
+        chip.textContent = task.text;
+        chip.title = t(`${task.text} · drag into an hour to schedule`, `${task.text} · 拖到时间格即可安排`);
+        chip.setAttribute("aria-label", t(`${task.text}, unscheduled. Alt+Down to schedule at 9:00`, `${task.text}，未安排时间。Alt+下方向键安排到 9:00`));
         chip.addEventListener("click", (e) => {
           e.stopPropagation();
+          if (consumeDragClick()) return;
           selectDate(iso);
         });
+        attachScheduleDrag(chip, { kind: "task", id: task.id, iso, startMin: null, duration: 60, range: { rangeStart, rangeEnd, rangeSpan } });
         col.appendChild(chip);
+      });
+      if (untimedTasks.length > chipLimit) {
+        const more = document.createElement("button");
+        more.type = "button";
+        more.className = "cal-allday cal-allday-more";
+        more.style.setProperty("--cal-allday-index", String(chipLimit));
+        const rest = untimedTasks.length - chipLimit;
+        more.textContent = t(`+${rest} more`, `还有 ${rest} 项`);
+        more.title = untimedTasks.slice(chipLimit).map((task) => task.text).join(", ");
+        more.addEventListener("click", (e) => { e.stopPropagation(); selectDate(iso); });
+        col.appendChild(more);
       }
+
+      timedTasks.forEach((task) => {
+        const startMin = minutesFromMidnight(task.dueTime);
+        const endMin = Math.min(startMin + 60, 24 * 60);
+        const clampedStart = Math.max(startMin, rangeStart);
+        const clampedEnd = Math.min(endMin, rangeEnd);
+        if (clampedEnd <= rangeStart || clampedStart >= rangeEnd) return;
+        const block = document.createElement("button");
+        block.type = "button";
+        block.className = "cal-event cal-event-task";
+        block.dataset.taskId = task.id;
+        markSpan(block, clampedStart, clampedEnd);
+        if (task.priority === "high") block.dataset.priority = "high";
+        block.style.top = `${((clampedStart - rangeStart) / rangeSpan) * 100}%`;
+        block.style.height = `${Math.max(((clampedEnd - clampedStart) / rangeSpan) * 100, 4.5)}%`;
+        block.innerHTML = `<span class="cal-event-title"></span><span class="cal-event-time"></span>`;
+        block.querySelector(".cal-event-title").textContent = task.text;
+        block.querySelector(".cal-event-time").textContent = formatClockTime(task.dueTime);
+        block.title = t(`${task.text} · drag to move`, `${task.text} · 拖动可改时间`);
+        block.setAttribute("aria-label", t(`Task ${task.text} at ${formatClockTime(task.dueTime)}. Alt+arrow keys move it`, `任务 ${task.text}，${formatClockTime(task.dueTime)}。Alt+方向键可移动`));
+        block.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (consumeDragClick()) return;
+          selectDate(iso);
+        });
+        attachScheduleDrag(block, { kind: "task", id: task.id, iso, startMin, duration: 60, range: { rangeStart, rangeEnd, rangeSpan } });
+        col.appendChild(block);
+      });
 
       const dayReminders = remindersForDate(iso).filter(
         (r) => r.startTime && matchesSearch(r.text) && calFilter !== "tasks"
@@ -826,6 +1082,7 @@
         block.type = "button";
         block.className = "cal-event";
         block.dataset.tone = eventTone(index + dayIndex);
+        markSpan(block, clampedStart, clampedEnd);
         block.style.top = `${top}%`;
         block.style.height = `${height}%`;
         block.innerHTML =
@@ -834,17 +1091,21 @@
         block.querySelector(".cal-event-title").textContent = reminder.text;
         block.querySelector(".cal-event-time").textContent =
           formatTimeRange(reminder.startTime, reminder.endTime) || reminder.startTime;
-        block.title = "Click to delete reminder";
+        block.title = t("Click to delete reminder · drag to move", "点击删除提醒 · 拖动可改时间");
+        block.dataset.gridReminderId = reminder.id;
         block.addEventListener("click", (e) => {
           e.stopPropagation();
+          if (consumeDragClick()) return;
           removeReminder(reminder.id);
         });
+        attachScheduleDrag(block, { kind: "reminder", id: reminder.id, iso, startMin, duration: endMin - startMin, range: { rangeStart, rangeEnd, rangeSpan } });
         col.appendChild(block);
       });
 
-      const knownExternal = new Set(
-        reminders.map((item) => item.externalEventId).filter(Boolean)
-      );
+      const knownExternal = new Set([
+        ...reminders.map((item) => item.externalEventId).filter(Boolean),
+        ...shownTaskEvents,
+      ]);
       googleEvents
         .filter(
           (event) =>
@@ -866,6 +1127,7 @@
           const block = document.createElement("a");
           block.className = "cal-event cal-event-external";
           block.dataset.tone = eventTone(index + dayIndex + 3);
+          markSpan(block, clampedStart, clampedEnd);
           block.style.top = `${top}%`;
           block.style.height = `${height}%`;
           block.href = event.htmlLink || "calendar.html";
@@ -883,6 +1145,7 @@
           col.appendChild(block);
         });
 
+      layoutColumnLanes(col);
       weekColsEl.appendChild(col);
     });
   }

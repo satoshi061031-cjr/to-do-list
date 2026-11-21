@@ -1,0 +1,32 @@
+# The image needs only package*.json, server/, scripts/backup-db.js and the
+# public client files listed in server/public-assets.js.
+
+# Secrets and local data
+.env
+.env.*
+server/data/
+**/*.sqlite
+**/*.sqlite-*
+*.keystore
+*.jks
+
+# Dependencies and build output
+node_modules/
+www/
+npm-debug.log*
+
+# Native shells, docs, tests and tooling
+.git/
+.github/
+.claude/
+.cursor/
+**/.DS_Store
+android/
+ios/
+docs/
+tests/
+supabase/
+*.md
+Dockerfile
+docker-compose.yml
+.dockerignore

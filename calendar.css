@@ -856,8 +856,14 @@ body.calendar-page .calendar-app > .app-greeting {
   position: absolute;
   left: 0.25rem;
   right: 0.25rem;
-  top: 0.2rem;
-  z-index: 1;
+  top: calc(0.2rem + var(--cal-allday-index, 0) * 1.3rem);
+  z-index: 3;
+  display: block;
+  min-height: 0;
+  border: 0;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
   padding: 0.2rem 0.35rem;
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--cal-accent) 18%, transparent);
@@ -868,6 +874,67 @@ body.calendar-page .calendar-app > .app-greeting {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.cal-allday-more {
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  color: var(--cal-muted);
+}
+
+/* Timed tasks on the grid: outlined so they read apart from reminders and events. */
+.cal-event-task {
+  display: block;
+  text-align: left;
+  font-family: inherit;
+  background: color-mix(in srgb, var(--cal-accent) 10%, var(--cal-event-a));
+  border: 1px solid color-mix(in srgb, var(--cal-accent) 45%, transparent);
+  border-left: 3px solid var(--cal-accent);
+}
+
+.cal-event-task[data-priority="high"] {
+  border-left-color: var(--danger);
+}
+
+.cal-draggable {
+  touch-action: manipulation;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .cal-draggable {
+    cursor: grab;
+  }
+}
+
+.cal-draggable.is-dragging {
+  opacity: 0.45;
+}
+
+body.cal-is-dragging,
+body.cal-is-dragging * {
+  cursor: grabbing !important;
+  user-select: none;
+}
+
+.cal-drop-preview {
+  position: absolute;
+  left: 0.25rem;
+  right: 0.25rem;
+  z-index: 4;
+  padding: 0.2rem 0.4rem;
+  border-radius: var(--radius-sm);
+  border: 1.5px dashed var(--cal-accent);
+  background: color-mix(in srgb, var(--cal-accent) 14%, transparent);
+  color: var(--cal-ink, var(--text));
+  font-size: 0.65rem;
+  font-weight: 600;
+  pointer-events: none;
+  transition: top var(--motion-instant) linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cal-drop-preview {
+    transition: none;
+  }
 }
 
 /* Composer under grid */

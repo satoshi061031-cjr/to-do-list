@@ -1,4 +1,4 @@
-const CACHE_NAME = 'todo-v334';
+const CACHE_NAME = 'todo-v335';
 const SCOPE_PATH = new URL(self.registration.scope).pathname.replace(/\/$/, '');
 const withScope = (path) => `${SCOPE_PATH}${path}`;
 const urlsToCache = [
@@ -10,6 +10,11 @@ const urlsToCache = [
   '/toolbox-page.css',
   '/toolbox-page.js',
   '/toolbox-tasks.js',
+  '/toolbox-connect.js',
+  '/habits.html',
+  '/habits.js',
+  '/habits-core.js',
+  '/habits.css',
 
   '/todo.html',
   '/todo-m.html',
