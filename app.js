@@ -37,9 +37,6 @@
     return String(value).padStart(2, "0");
   }
 
-  function nextRepeatDate(iso, repeat, repeatDay) {
-    return window.DailySpaceTaskFields.nextRepeatDate(iso, repeat, repeatDay, todayIso());
-  }
   /** @typedef {{ id: string; name: string }} Category */
 
   function uiLocale() {
@@ -2574,7 +2571,7 @@
       return;
     }
     const due = deadlineInput.value.trim() || todayIso();
-    let extras = null;
+    let extras;
     try { extras = input.dataset.quickExtras ? JSON.parse(input.dataset.quickExtras) : null; } catch (_) { extras = null; }
     delete input.dataset.quickExtras;
     add(input.value, due, undefined, document.getElementById("quick-task-time")?.value, false, extras);

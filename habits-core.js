@@ -96,8 +96,8 @@
   }
   function bytes(value) {
     const text = JSON.stringify(value);
-    if (typeof TextEncoder !== 'undefined') return new TextEncoder().encode(text).length;
-    return typeof Buffer !== 'undefined' ? Buffer.byteLength(text, 'utf8') : text.length * 3;
+    // TextEncoder exists in every supported browser and in Node; the fallback is a safe overestimate.
+    return typeof TextEncoder !== 'undefined' ? new TextEncoder().encode(text).length : text.length * 3;
   }
   /** Keep the store within its sync budget by letting the oldest check-ins roll off first. */
   function fit(state, strictMode) {
