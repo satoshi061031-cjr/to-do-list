@@ -6,6 +6,30 @@ yet, so each merged pull request is an entry, newest first, dated by its merge.
 
 ## [Unreleased]
 
+### Added
+
+- **Recurrence rules:** repeat on weekdays or yearly, every N days/weeks/months, on chosen weekdays, until a date, or counted from completion ("every 2 weeks · Mon, Thu"). The task editor, the app, the calendar and the MCP server share one rule (`nextOccurrenceDate` in `task-fields.js`).
+- **Tags** on tasks (up to 10), edited in task details and shown as chips.
+- **Natural-language quick add** in English and Chinese: relative days, weekdays, dates, times ("下午3点一刻", "7pm"), repeats, `#tag` or category, and `!!` / `!3` priority, previewed as an Apply chip.
+- **Voice input** for quick add where the browser supports speech recognition.
+- **Eisenhower matrix** view of tasks (important = high priority or Top 3; urgent = due by tomorrow).
+- **Calendar time-blocking:** drag a task or reminder into an hour on the week grid (15-minute snap, live preview, Undo) or move it with Alt+arrow keys. Timed tasks appear as blocks, and overlapping items sit side by side.
+- **Habit tracker** page: daily check-ins, a seven-day strip per habit, streaks and a 12-week heatmap.
+- **Tally insights:** spending charts, likely subscriptions (the same merchant charged about monthly), and receipt scanning with a vision model (`AGENT_VISION_MODEL`) that pre-fills the expense form.
+- **MCP server** at `/api/mcp`, so Claude, ChatGPT and other assistants can list and change tasks, expenses and reminders with a personal key (Toolbox → Connect an AI assistant).
+- **Engineering:** GitHub Actions CI (lint, unit and UI tests), ESLint, Dockerfile and docker-compose for self-hosting, README screenshots and this changelog.
+
+### Changed
+
+- Account sync compresses large stores (`gz1:` gzip values), so years of data fit the 1 MB cloud limit instead of about eight months. Old plain values still read normally.
+- Calendar events dayfly created in Google Calendar or Outlook now follow their task or reminder: renames and moves update the event, and deletes remove it after the undo window. New routes: `PATCH` / `DELETE /api/calendar/events/:id`.
+
+### Fixed
+
+- Background reminders no longer switch themselves off after a redeploy on a host that wipes its disk: push subscriptions and schedules are mirrored to Supabase (migration `007_reminder_backups.sql`) and restored before any reminder request is answered.
+- Reminders on a host that sleeps can be sent on time: `POST /api/reminders/tick` with `REMINDER_TICK_SECRET`, called every 10 minutes by `.github/workflows/reminder-tick.yml` once `DAYFLY_URL` and the secret are configured.
+- The Capacitor app schedules reminders on the phone with local notifications, so they fire with the app closed and no server.
+
 ## [PR #8] - 2026-11-19
 
 ### Added
