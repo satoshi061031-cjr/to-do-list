@@ -7,6 +7,7 @@ module.exports = [
   "toolbox-page.css",
   "toolbox-page.js",
   "toolbox-tasks.js",
+  "toolbox-connect.js",
 
   "todo.html",
   "todo-m.html",

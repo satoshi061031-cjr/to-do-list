@@ -186,6 +186,17 @@ Guest reminder data stays local and is never uploaded to the push API. Guest and
 
 Pending reminders/device subscriptions use SQLite even when personal snapshots use Supabase. Include them in the existing SQLite backup/recovery process. Only the configured public VAPID key is exposed to the client; private credentials and action capabilities are never cached as API responses.
 
+## Connect an AI assistant (MCP)
+
+Claude, ChatGPT and other assistants that speak the [Model Context Protocol](https://modelcontextprotocol.io) can read and change your tasks, Tally expenses and calendar reminders. Sign in, open **Toolbox → Data management → Connect an AI assistant (MCP)** and choose **Create key**. The key is shown once; it starts working a few seconds after the device syncs.
+
+- **Claude Code:** `claude mcp add --transport http dayfly https://<your-host>/api/mcp --header "Authorization: Bearer <key>"`
+- **Apps that take only a URL** (Claude or ChatGPT custom connectors): `https://<your-host>/api/mcp/k/<key>`. That address contains the key, so treat it like a password.
+
+Tools: `list_tasks`, `add_task`, `complete_task`, `update_task`, `list_expenses`, `add_expense`, `list_events` and `add_reminder`. "Today" uses the time zone recorded when the key was created. The endpoint is stateless Streamable HTTP (POST, JSON answers, protocol versions 2025-06-18, 2025-03-26 and 2024-11-05) and needs `APP_SESSION_SECRET`.
+
+Only the key's identifier is kept, in the synced `dayfly-connections-v1` store. **Replace key** or **Turn off** revokes the old key once the device syncs; backups never restore a key. Browser requests from other origins are refused, and failed or excessive requests are rate limited. Changes are written into the account snapshot, so a device with unsynced edits may ask which version to keep, exactly as with Tally quick add.
+
 ## Deploy (Render)
 
 1. Connect the GitHub repo; use `npm start` (or your existing Render Blueprint).

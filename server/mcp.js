@@ -69,6 +69,8 @@ function bearer(header) {
  * repeats exactly like one completed in dayfly. Keep recurrence rules here.
  */
 function nextOccurrence(task, todayIso) {
+  // TODO(merge): main's task-fields.js now exports nextOccurrenceDate(task, { today, completedOn });
+  // compute dueDate with it here instead of nextRepeatDate so recurrence rules live in one place.
   if (!task?.repeat) return null;
   const dueDate = TaskFields.nextRepeatDate(task.dueDate, task.repeat, task.repeatDay, todayIso);
   if (!dueDate) return null;

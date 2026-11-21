@@ -69,6 +69,7 @@
       const data = section(t('Data management', '数据管理')), manage = node('div', '', 'toolbox-grid'); data.append(manage);
       card(manage, 'history', t('History & recycle bin', '历史与回收站'), t('Inspect previous versions and recover deleted records', '查看旧版本，恢复已删除记录'), () => window.DailySpaceHistory?.open());
       card(manage, 'backup', t('Import & export', '导入与导出'), t('Download a backup or preview a file before importing', '下载备份，或预览文件后导入'), () => window.DailySpaceWorkspaceTools?.open());
+      const connect = window.DailySpaceAssistantConnect?.element(); if (connect) manage.append(connect);
       const settings = section(t('Account & appearance', '账户与外观')), controls = node('div', '', 'toolbox-settings'); settings.append(controls);
       const account = button(t('Account & sync', '账户与同步'), () => document.querySelector('.sidebar-auth-entry')?.click()); account.dataset.toolboxAccount = '';
       const dark = document.documentElement.dataset.theme === 'dark';
@@ -109,6 +110,8 @@
       renderedSignature = signature;
       const focused = document.activeElement?.closest('[data-tool],[data-toolbox-theme],[data-toolbox-language],[data-toolbox-account],[data-review-nav]');
       const selector = focused?.hasAttribute('data-toolbox-account') ? '[data-toolbox-account]' : focused?.dataset.reviewNav ? `[data-review-nav="${focused.dataset.reviewNav}"]` : focused?.dataset.tool ? `[data-tool="${focused.dataset.tool}"]` : focused?.hasAttribute('data-toolbox-theme') ? '[data-toolbox-theme]' : focused?.hasAttribute('data-toolbox-language') ? '[data-toolbox-language]' : null;
+      // The assistant card is one persistent element; it is re-attached, so its own control keeps focus.
+      const keep = document.activeElement?.closest('[data-connect]') ? document.activeElement : null;
       host.replaceChildren(); status.textContent = '';
       const review = document.body.classList.contains('review-page');
       document.getElementById('toolbox-title').textContent = review ? t('Weekly review', '每周复盘') : t('Toolbox', '工具箱');
@@ -116,6 +119,7 @@
       document.getElementById('toolbox-description').textContent = review ? t('Make room for what comes next.', '回看这一周，为下一步留出空间。') : t('A place for ideas, progress and the tools you need.', '想法、进展和日常工具，都在这里。');
       try { if (review) renderReview(); else renderTools(); } catch (error) { report(error); }
       if (selector) { const target = host.querySelector(selector); (target && !target.hidden && !target.disabled ? target : host.querySelector('[data-review-nav=previous]'))?.focus({ preventScroll: true }); }
+      else if (keep?.isConnected) keep.focus({ preventScroll: true });
     }
     for (const event of ['daily-space-user-sync-updated', 'daily-space-auth-updated', 'daily-space-agent-data-updated', 'daily-space-notes-updated', 'daily-space-locale-changed', 'storage']) window.addEventListener(event, render);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
