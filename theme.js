@@ -2041,7 +2041,7 @@
     if (!head.querySelector('link[rel="apple-touch-icon"]')) {
       const icon = document.createElement("link");
       icon.rel = "apple-touch-icon";
-      icon.href = "android-chrome-192x192.png";
+      icon.href = "apple-touch-icon.png";
       head.appendChild(icon);
     }
   }

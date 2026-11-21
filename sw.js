@@ -1,4 +1,4 @@
-const CACHE_NAME = 'todo-v336';
+const CACHE_NAME = 'todo-v337';
 const SCOPE_PATH = new URL(self.registration.scope).pathname.replace(/\/$/, '');
 const withScope = (path) => `${SCOPE_PATH}${path}`;
 const urlsToCache = [
@@ -113,6 +113,7 @@ const urlsToCache = [
   '/welcome-sticker.png',
   '/android-chrome-192x192.png',
   '/android-chrome-512x512.png',
+  '/maskable-512x512.png',
   '/apple-touch-icon.png',
 ].map(withScope);
 

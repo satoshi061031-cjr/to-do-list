@@ -206,7 +206,7 @@ components:
 
 ## Brand
 
-The product name is **dayfly**, always lowercase in both languages. Use it in welcome, browser/install titles, assistant labels, notifications and exported filenames. Keep the original ghost. Existing storage/event keys, database paths, native application identifiers and backup format markers remain compatible; the internal font-family alias `Daily Space Gotham` remains a technical name.
+The product name is **dayfly**, always lowercase in both languages. Use it in welcome, browser/install titles, assistant labels, notifications and exported filenames. Use the original ghost on the welcome screen and in the assistant. The installed app and PWA icons use the waving ghost in `colors.text` on a `colors.highlight` background. Existing storage/event keys, database paths, native application identifiers and backup format markers remain compatible; the internal font-family alias `Daily Space Gotham` remains a technical name.
 
 ## Visual direction
 
