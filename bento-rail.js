@@ -68,7 +68,7 @@
   function pageId() {
     const path = (location.pathname || "").toLowerCase();
     const file = path.split("/").pop() || "";
-    if (/^(tools|notes|review)\.html$/.test(file)) return "tools";
+    if (/^(tools|notes|review|habits)\.html$/.test(file)) return "tools";
     if (file.includes("calendar")) return "calendar";
     if (file.includes("planner")) return "planner";
     if (file.includes("mail")) return "mail";

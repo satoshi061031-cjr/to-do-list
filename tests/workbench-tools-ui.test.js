@@ -35,7 +35,7 @@ test('toolbox routes expose real tools and preserve the original records', { tim
     if (width < 820) { await page.locator('#bento-menu-toggle').click(); }
     else { const link = page.locator('.bento-rail [data-rail-page=tools]'); assert.equal(await link.locator('.bento-rail-sr').textContent(), 'Toolbox'); await link.click(); }
     await page.waitForURL('**/tools.html'); await page.locator('[data-tool=notes]').waitFor();
-    assert.equal(await page.locator('.toolbox-card').count(), 10); assert.equal(await page.locator('.notes-launch').count(), 0);
+    assert.equal(await page.locator('.toolbox-card').count(), 11); assert.equal(await page.locator('.notes-launch').count(), 0);
     assert.equal(await page.locator('.bento-rail [data-rail-page=tools]').getAttribute('aria-current'), 'page');
     for (const el of await page.locator('.toolbox-card').all()) { const box = await el.boundingBox(); assert.ok(box.width >= 44 && box.height >= 44); }
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));

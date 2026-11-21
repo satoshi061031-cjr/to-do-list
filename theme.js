@@ -17,6 +17,7 @@
     "dayfly-focus-v1",
     "dayfly-notes-v1",
     "dayfly-history-v1",
+    "dayfly-habits-v1",
   ];
   const USER_SNAPSHOT_INTERVAL_MS = 30000;
 
@@ -1227,7 +1228,7 @@
         if (key === "teamwork-page-v1") return Object.values(state).some(item =>
           typeof item === "string" ? item.trim() : Array.isArray(item) && item.length);
         if (state.active && key === "dayfly-focus-v1") return true;
-        if (["todos", "categories", "reminders", "records", "settlements", "entries", "plannerEntries", "trips", "templates", "accounts", "notes", "sessions", "views", "categoryBudgets", "recurringBills"].some(name => Array.isArray(state[name]) && state[name].length)) return true;
+        if (["todos", "categories", "reminders", "records", "settlements", "entries", "plannerEntries", "trips", "templates", "accounts", "notes", "sessions", "views", "categoryBudgets", "recurringBills", "habits"].some(name => Array.isArray(state[name]) && state[name].length)) return true;
         return Object.values(state.boards || {}).some(board => Array.isArray(board?.entries) && board.entries.length);
       } catch (_) { return true; } // Preserve legacy/plain-text data rather than assume it is empty.
     });
@@ -1398,7 +1399,7 @@
     const mapping = { "todo-app-v2": "todo", "calendar-app-v1": "calendar", "planner-app-v1": "planner",
       "tally-book-v1": "tally", "teamwork-page-v1": "teamwork", "travel-book-v1": "travel", "travel-shared-v1": "travel",
       "daily-space-workbench-v1": "workbench", "dayfly-task-views-v1": "task-views",
-      "dayfly-focus-v1": "focus", "dayfly-notes-v1": "notes", "dayfly-history-v1": "history" };
+      "dayfly-focus-v1": "focus", "dayfly-notes-v1": "notes", "dayfly-history-v1": "history", "dayfly-habits-v1": "habits" };
     Object.keys(mapping).filter(key => materialized || before[key] !== after[key]).forEach(key => snapshotPendingKeys.add(key));
     if (!materialized && snapshotEditorActive()) return;
     const domains = [...new Set([...snapshotPendingKeys].map(key => mapping[key]).filter(Boolean))];
