@@ -370,6 +370,74 @@
     return normalized;
   }
 
+  // Only matching record IDs describe the same transaction. Old rows without an
+  // ID remain independent choices even if their dates and amounts happen to match.
+  function ledgerSide(raw) {
+    const book = raw == null ? {} : JSON.parse(raw);
+    if (!book || typeof book !== "object" || Array.isArray(book) ||
+        (book.records !== undefined && !Array.isArray(book.records))) throw new Error("invalid-ledger");
+    const state = normalizeState(book), records = new Map();
+    if (state.records.length !== (book.records || []).length) throw new Error("invalid-ledger");
+    state.records.forEach((record, index) => {
+      if (records.has(record.id) || !Number.isFinite(record.amount)) throw new Error("invalid-ledger");
+      records.set(record.id, { ...book.records[index], ...record });
+    });
+    return { book, state, records };
+  }
+
+  function compareLedgers(localRaw, cloudRaw) {
+    const local = ledgerSide(localRaw), cloud = ledgerSide(cloudRaw);
+    const target = cloudRaw == null ? local : cloud;
+    const rows = [];
+    for (const id of new Set([...cloud.records.keys(), ...local.records.keys()])) {
+      const device = local.records.get(id), remote = cloud.records.get(id);
+      const fields = device && remote ? [...new Set([...Object.keys(device), ...Object.keys(remote)])].filter(key =>
+        JSON.stringify(device[key]) !== JSON.stringify(remote[key]) ||
+        (key === "fxRate" && local.state.baseCurrency !== cloud.state.baseCurrency)
+      ) : [];
+      rows.push({ id, local: device, cloud: remote, fields, kind: !device ? "cloud" : !remote ? "local" : fields.length ? "changed" : "same" });
+    }
+    return { local, cloud, target, rows };
+  }
+
+  function needsMergeRate(source, target, record) {
+    return source.state.baseCurrency !== target.state.baseCurrency && record.currency !== target.state.baseCurrency;
+  }
+
+  function mergeLedgerRecords(preview, choices, rates) {
+    const { target } = preview;
+    const people = new Map(target.state.people.map(person => [person.id, person]));
+    const records = [];
+    for (const row of preview.rows) {
+      const choice = row.kind === "same" ? "cloud" : choices.get(row.id);
+      if (choice === "omit") continue;
+      if (!["local", "cloud"].includes(choice) || !row[choice]) throw new Error("missing-choice");
+      const source = preview[choice], record = { ...row[choice] };
+      if (record.currency === target.state.baseCurrency) record.fxRate = 1;
+      else if (needsMergeRate(source, target, record)) {
+        const rate = Number(rates.get(row.id));
+        if (!Number.isFinite(rate) || rate <= 0) throw new Error("missing-rate");
+        record.fxRate = rate;
+      }
+      if (source !== target) {
+        const mapPerson = id => {
+          if (id === source.state.selfPersonId) return target.state.selfPersonId;
+          const person = source.state.people.find(item => item.id === id);
+          if (!person || id === target.state.selfPersonId || (people.has(id) && people.get(id).name !== person.name)) {
+            throw new Error("people-conflict");
+          }
+          people.set(id, person);
+          return id;
+        };
+        record.paidById = mapPerson(record.paidById);
+        record.splitAmongIds = record.splitAmongIds.map(mapPerson);
+      }
+      records.push(record);
+    }
+    if (people.size > 24) throw new Error("people-conflict");
+    return { ...target.book, baseCurrency: target.state.baseCurrency, people: [...people.values()], selfPersonId: target.state.selfPersonId, records };
+  }
+
   function changeBaseCurrency(state, value) {
     const current = currencyCode(state.baseCurrency || state.currency, "JPY");
     const next = currencyCode(value, current);
@@ -512,6 +580,9 @@
     nextBillDate,
     normalizeCategoryBudget,
     normalizeRecurringBill,
+    compareLedgers,
+    mergeLedgerRecords,
+    needsMergeRate,
     normalizeRecord,
     normalizeState,
     personalRecords,

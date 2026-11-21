@@ -46,6 +46,11 @@
   let tripFilter = (new URLSearchParams(location.search).get("tripFilter") || "").trim().slice(0, 160);
   const scopeInput = $("tally-scope");
   const recordCurrencyInput = $("tally-record-currency");
+  const quickCurrency = $("tally-quick-currency");
+  const quickRate = $("tally-quick-rate");
+  const quickFx = $("tally-quick-fx");
+  for (const option of recordCurrencyInput.options) quickCurrency.add(new Option(option.text, option.value));
+  let quickOwner, quickBase, quickRateContext = "", quickRateRequest;
   const fxField = $("tally-fx-field");
   const fxRateInput = $("tally-fx-rate");
   const fxHelp = $("tally-fx-help");
@@ -328,9 +333,9 @@
         : overBudget
           ? `${monthRecords.length} records · ${baseMoney(Math.abs(remaining))} over budget`
           : `${monthRecords.length} records · ${percent.toFixed(0)}% of budget used`;
-    monthTotalEl.textContent = baseMoney(monthTotal);
-    weekTotalEl.textContent = baseMoney(spentThisWeek);
-    todayTotalEl.textContent = baseMoney(spentToday);
+    monthTotalEl.textContent = baseMoney(monthTotal) + " " + state.baseCurrency;
+    weekTotalEl.textContent = baseMoney(spentThisWeek) + " " + state.baseCurrency;
+    todayTotalEl.textContent = baseMoney(spentToday) + " " + state.baseCurrency;
     budgetInput.value = String(state.budget);
     currencyInput.value = state.baseCurrency;
     const currencyLocked = Boolean(state.records.length || state.settlements.length || Object.keys(state.tripBudgets).length || state.categoryBudgets.length || state.recurringBills.length);
@@ -562,6 +567,7 @@
 
   function render() {
     ensureSelectedDay();
+    syncQuickCurrency();
     window.DailySpaceView?.write("tally", { year: viewYear, month: viewMonth, mode: viewMode, layout: ledgerLayout, day: selectedDay });
     const meta = document.getElementById("tally-page-meta");
     if (meta) meta.textContent = new Date().toLocaleDateString(uiLocale(), { weekday: "long", month: "long", day: "numeric" });
@@ -1201,10 +1207,68 @@
       : "";
   }
 
-  function selectRecordCurrency(value) {
+  function setCurrency(select, value) {
     const code = Core.currencyCode(value, state.baseCurrency);
-    if (![...recordCurrencyInput.options].some(option => option.value === code)) recordCurrencyInput.add(new Option(code, code));
-    recordCurrencyInput.value = code;
+    for (const currency of new Set([state.baseCurrency, code])) {
+      if (![...select.options].some(option => option.value === currency)) select.add(new Option(currency, currency));
+    }
+    select.value = code;
+  }
+
+  function selectRecordCurrency(value) { setCurrency(recordCurrencyInput, value); }
+
+  function currencyPreferenceKey() {
+    return "dayfly-entry-currency:" + window.DailySpaceView.owner();
+  }
+
+  function lastCurrency() {
+    try { return Core.currencyCode(localStorage.getItem(currencyPreferenceKey()), state.baseCurrency); }
+    catch (_) { return state.baseCurrency; }
+  }
+
+  function rememberCurrency(code) {
+    try { localStorage.setItem(currencyPreferenceKey(), code); } catch (_) { /* Entry was saved. */ }
+    setCurrency(quickCurrency, code);
+  }
+
+  async function lookupRate(from, to, date, signal) {
+    const params = new URLSearchParams({ from, to, date });
+    const response = await fetch(`/api/fx/rate?${params}`, { signal });
+    if (!response.ok) throw new Error("rate unavailable");
+    const rate = Number((await response.json()).rate);
+    if (!Number.isFinite(rate) || rate <= 0) throw new Error("invalid rate");
+    return rate;
+  }
+
+  function syncQuickCurrency() {
+    const owner = window.DailySpaceView.owner();
+    if (owner !== quickOwner || quickBase !== state.baseCurrency) {
+      if (quickOwner !== undefined && owner !== quickOwner) {
+        quickAmount.value = ""; quickCategory.value = ""; quickError.hidden = true;
+      }
+      quickOwner = owner;
+      quickBase = state.baseCurrency;
+      setCurrency(quickCurrency, lastCurrency());
+    }
+    const from = quickCurrency.value, to = state.baseCurrency, date = captureDate();
+    const expanded = $("tally-quick-options").open;
+    const context = JSON.stringify([owner, from, to, date, expanded]);
+    if (context === quickRateContext) return;
+    quickRateContext = context;
+    quickRateRequest?.abort();
+    quickFx.hidden = from === to;
+    quickRate.disabled = from === to;
+    quickRate.required = from !== to;
+    quickRate.value = from === to ? "1" : "";
+    quickFx.firstElementChild.textContent = `1 ${from} → ${to}`;
+    if (from === to || !expanded) return;
+    const controller = new AbortController();
+    quickRateRequest = controller;
+    const timeout = setTimeout(() => controller.abort(), 12000);
+    lookupRate(from, to, date, controller.signal).then(rate => {
+      if (!controller.signal.aborted && quickRateContext === context) quickRate.value = String(rate);
+    }).catch(() => { /* The labelled exchange rate remains editable offline. */ })
+      .finally(() => clearTimeout(timeout));
   }
 
   function clearFormError() {
@@ -1264,14 +1328,10 @@
     fxHelp.textContent = "Fetching rate…";
     saveDraft();
     try {
-      const params = new URLSearchParams({ from, to: state.baseCurrency, date: dateInput.value || todayIso() });
-      const response = await fetch(`/api/fx/rate?${params}`, { signal: controller.signal });
-      if (!response.ok) throw new Error("rate unavailable");
-      const payload = await response.json();
+      const rate = await lookupRate(from, state.baseCurrency, dateInput.value || todayIso(), controller.signal);
       if (!current()) return;
-      if (!Number.isFinite(Number(payload.rate)) || !(Number(payload.rate) > 0)) throw new Error("invalid rate");
-      fxRateInput.value = String(payload.rate);
-      fxHelp.textContent = `1 ${from} = ${Number(payload.rate).toFixed(6)} ${state.baseCurrency}`;
+      fxRateInput.value = String(rate);
+      fxHelp.textContent = `1 ${from} = ${rate.toFixed(6)} ${state.baseCurrency}`;
       saveDraft();
     } catch (_) {
       if (current()) fxHelp.textContent = "Rate unavailable — enter it manually.";
@@ -1348,8 +1408,8 @@
     const tripLink = value ? { tripId: value.tripId || null, tripName: value.tripName || "" } : filteredTripLink();
     window.DailySpaceTripExpenses.populate(tripInput, tripLink.tripId || "", tripLink.tripName);
     scopeInput.value = value?.scope || (viewMode === "shared" ? "shared" : "personal");
-    selectRecordCurrency(value?.currency || state.baseCurrency);
-    fxRateInput.value = String(value?.fxRate ?? 1);
+    selectRecordCurrency(value?.currency || lastCurrency());
+    fxRateInput.value = String(value?.fxRate ?? (recordCurrencyInput.value === state.baseCurrency ? 1 : ""));
     clearFormError();
     syncSheetMode();
     receiptUI?.reset();
@@ -1358,7 +1418,7 @@
     syncSharedFields();
     if (value?.splitAmongIds) splitPeopleEl.querySelectorAll("input").forEach(input => { input.checked = value.splitAmongIds.includes(input.value); });
     syncCategorySuggestions(categoryInput.value);
-    extraOptions.open = Boolean(value?.note || tripInput.value || scopeInput.value === "shared" || recordCurrencyInput.value !== state.baseCurrency);
+    extraOptions.open = Boolean(value?.note || tripInput.value || scopeInput.value === "shared");
     form.scrollTop = 0;
     sheetMotion.open();
     document.body.classList.add("tally-sheet-open");
@@ -1447,6 +1507,7 @@
       showFormError(isZh() ? "无法保存到本机，请保留当前内容并检查浏览器存储空间。" : "Could not save on this device. Keep this form and check browser storage.", amountInput);
       return;
     } finally { savingExpense = false; }
+    if (!editingId) rememberCurrency(nextRecord.currency);
     const recordDate = parseIso(nextRecord.date);
     viewYear = recordDate.getFullYear();
     viewMonth = recordDate.getMonth() + 1;
@@ -1581,6 +1642,9 @@
   const quickAmount = $("tally-quick-amount");
   const quickCategory = $("tally-quick-category");
   const quickError = $("tally-quick-error");
+  $("tally-quick-options").addEventListener("toggle", syncQuickCurrency);
+  quickCurrency.addEventListener("change", syncQuickCurrency);
+  quickRate.addEventListener("input", () => quickRateRequest?.abort());
   if (quickForm && quickAmount && quickCategory) {
     quickForm.addEventListener("input", () => { quickError.hidden = true; quickError.textContent = ""; });
     quickForm.addEventListener("submit", (event) => {
@@ -1588,13 +1652,15 @@
       const amount = Number(quickAmount.value);
       const category = quickCategory.value.trim() || (isZh() ? "其他" : "Other");
       if (!(amount > 0) || !category) return;
+      syncQuickCurrency();
+      if (!quickForm.reportValidity()) return;
       const nextRecord = Core.normalizeRecord(
         {
           id: Core.uid("expense"),
           date: captureDate(),
           amount,
-          currency: state.baseCurrency,
-          fxRate: 1,
+          currency: quickCurrency.value,
+          fxRate: Number(quickRate.value),
           category,
           note: "",
           ...filteredTripLink(),
@@ -1616,6 +1682,7 @@
         return;
       }
       quickError.hidden = true; quickError.textContent = "";
+      rememberCurrency(nextRecord.currency);
       const date = parseIso(nextRecord.date);
       viewYear = date.getFullYear(); viewMonth = date.getMonth() + 1; selectedDay = nextRecord.date;
       quickAmount.value = "";

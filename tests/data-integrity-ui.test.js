@@ -50,12 +50,12 @@ test('data integrity and recovery workflows', { timeout: 120000 }, async t => {
   await t.test('ledger preserves currency history, inherits trip scope and supports consecutive capture with one history entry',async()=>{
     const page=await pageFor({isMobile:true,hasTouch:true});
     await page.goto(`${base}/tally.html?tripFilter=trip-a`,{waitUntil:'load'});
-    assert.equal(await page.locator('#tally-month-total').textContent(),'CN¥140.00');
+    assert.equal(await page.locator('#tally-month-total').textContent(),'CN¥140.00 CNY');
     const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('tally-book-v1')).records);
     await page.locator('#tally-tools > summary').click();await page.locator('#tally-settings-toggle').click();
     assert.equal(await page.locator('#tally-currency').isEditable(),false);
     await page.locator('#tally-currency').evaluate(input=>{input.value='USD';input.dispatchEvent(new Event('change',{bubbles:true}));});
-    assert.equal(await page.locator('#tally-month-total').textContent(),'CN¥140.00');
+    assert.equal(await page.locator('#tally-month-total').textContent(),'CN¥140.00 CNY');
     assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem('tally-book-v1')).records),before);
     await page.evaluate(()=>window.DailySpaceI18n.setLocale('zh'));
     await page.locator('#tally-add-open').click();
@@ -69,7 +69,7 @@ test('data integrity and recovery workflows', { timeout: 120000 }, async t => {
     assert.equal(await page.locator('#tally-date').inputValue(),date);
     assert.equal(await page.locator('#tally-trip').inputValue(),'trip-a');
     assert.equal(await page.evaluate(()=>history.length),historyLength);
-    assert.equal(await page.locator('#tally-month-total').textContent(),'CN¥165.00');
+    assert.equal(await page.locator('#tally-month-total').textContent(),'CN¥165.00 CNY');
     for(const width of [390,320]){
       await page.setViewportSize({width,height:420});
       await page.evaluate(()=>window.DailySpaceI18n.setLocale('zh'));
@@ -84,8 +84,88 @@ test('data integrity and recovery workflows', { timeout: 120000 }, async t => {
     assert.deepEqual(linked.map(record=>record.amount),[30,25]);assert.ok(linked.every(record=>record.tripId==='trip-a'));
     await page.setViewportSize({width:390,height:844});
     await page.locator('#tally-quick-options > summary').click();await page.locator('#tally-quick-amount').fill('5');await page.locator('#tally-quick-form button').click();
-    assert.equal(await page.locator('#tally-month-total').textContent(),'CN¥200.00');
+    assert.equal(await page.locator('#tally-month-total').textContent(),'CN¥200.00 CNY');
     await page.locator('.tally-record').first().click();assert.equal(await page.locator('#tally-save-another').isVisible(),false);
+  });
+
+  await t.test('review both ledger versions on a 320px phone, back up and merge only selected entries', async () => {
+    const page = await pageFor({viewport:{width:320,height:700}});
+    const user = {provider:"Google",label:"Test",email:"test@example.com"};
+    const item = {date:"2026-11-13",amount:54,category:"Lunch",currency:"CNY"};
+    const device = {baseCurrency:"JPY",records:[{...item,id:"device",fxRate:20},{...item,id:"both",note:"Device",fxRate:20}]};
+    const remote = {baseCurrency:"CNY",records:[{...item,id:"cloud"},{...item,id:"both",amount:77,note:"Cloud"}]};
+    const key = "tally-book-v1";
+    let cloud = {revision:7,updatedAt:"2026-11-13",payload:{[key]:JSON.stringify(remote),"todo-app-v2":"cloud tasks"}};
+    let writes = 0;
+    await page.addInitScript(({device,user}) => {
+      localStorage.setItem("tally-book-v1",JSON.stringify(device));
+      localStorage.setItem("daily-space-language-v1","en");
+      localStorage.setItem("daily-space-auth-v1",JSON.stringify(user));
+      localStorage.setItem("daily-space-workspace-owner-v1",JSON.stringify({owner:user.email}));
+      localStorage.setItem("daily-space-user-baseline-v1:"+user.email,"prior revision");
+    },{device,user});
+    await page.route("**/api/auth/me",route=>json(route,{user:{...user,userId:user.email}}));
+    await page.route("**/api/user/snapshot",route=>{
+      if(route.request().method()==="PUT"){
+        const sent=route.request().postDataJSON();
+        if(sent.baseRevision!==cloud.revision)return json(route,{code:"SNAPSHOT_CONFLICT"},409);
+        writes++; cloud={...cloud,revision:cloud.revision+1,payload:sent.payload};
+      }
+      return json(route,cloud);
+    });
+    await page.goto(base + "/tally.html#merge-expenses");
+    const dialog = page.locator("#tally-merge-dialog");
+    await dialog.locator("select").first().waitFor();
+    assert.equal(writes,0);
+    const original = await page.evaluate(key=>JSON.parse(localStorage.getItem(key)),key);
+    assert.match(await dialog.innerText(),/Device · 54/);
+    assert.match(await dialog.innerText(),/Cloud · 77/);
+    assert.ok(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth && el.getBoundingClientRect().right<=innerWidth));
+    await page.locator("#tally-merge-apply").click();
+    assert.match(await page.locator("#tally-merge-status").textContent(),/Choose a version/);
+    await dialog.locator("details[open] select").selectOption("local");
+    const localOnly = dialog.locator("details").filter({has:page.getByText("Only on this device (1)",{exact:true})});
+    await localOnly.locator("summary").click();
+    await localOnly.locator("select").selectOption("omit");
+    const downloading = page.waitForEvent("download");
+    await page.locator("#tally-merge-apply").click();
+    const file = await downloading;
+    const backup = JSON.parse(fs.readFileSync(await file.path(),"utf8"));
+    assert.deepEqual(backup.local,original); assert.deepEqual(backup.cloud,remote);
+    await dialog.waitFor({state:"hidden"});
+    assert.equal(writes,1);
+    assert.equal(cloud.payload["todo-app-v2"],"cloud tasks");
+    const merged = JSON.parse(cloud.payload[key]);
+    assert.deepEqual(merged.records.map(r=>[r.id,r.amount,r.fxRate]),[["cloud",54,1],["both",54,1]]);
+    assert.match(await page.locator("#tally-merge-result").textContent(),/Other workspace conflicts/);
+    assert.deepEqual(await page.evaluate(key=>JSON.parse(localStorage.getItem(key)),key),merged);
+  });
+
+  await t.test('currency is beside the amount on desktop and phone and persists across standard and quick entry', async () => {
+    const page = await pageFor();
+    await page.route("**/api/fx/rate?**",route=>json(route,{rate:7}));
+    await page.goto(base+"/tally.html");
+    for(const width of [1280,320]){
+      await page.setViewportSize({width,height:844});
+      await page.locator("#tally-add-open").click();
+      const [amount,currency] = await page.evaluate(()=>["tally-amount","tally-record-currency"].map(id=>document.getElementById(id).getBoundingClientRect().toJSON()));
+      assert.ok(currency.left>=amount.right && currency.top<amount.bottom && amount.top<currency.bottom && currency.right<=width, JSON.stringify({width,amount,currency}));
+      await page.locator("#tally-record-currency").selectOption("USD");
+      await page.waitForFunction(()=>document.querySelector("#tally-fx-rate").value==="7");
+      await page.locator("#tally-amount").fill("10");
+      await page.locator("#tally-submit").click(); await page.locator("#tally-add-sheet").waitFor({state:"hidden"});
+    }
+    await page.reload(); await page.locator("#tally-quick-options > summary").click();
+    assert.equal(await page.locator("#tally-quick-currency").inputValue(),"USD");
+    await page.locator("#tally-quick-currency").selectOption("MYR");
+    await page.waitForFunction(()=>document.querySelector("#tally-quick-rate").value==="7");
+    await page.locator("#tally-quick-rate").fill("1.6");
+    await page.locator("#tally-quick-amount").fill("5");
+    await page.locator("#tally-quick-form button").click();
+    const record=await page.evaluate(()=>JSON.parse(localStorage.getItem("tally-book-v1")).records[0]);
+    assert.deepEqual([record.amount,record.currency,record.fxRate],[5,"MYR",1.6]);
+    await page.locator("#tally-add-open").click();
+    assert.equal(await page.locator("#tally-record-currency").inputValue(),"MYR");
   });
 
   await t.test('late team board replies and signout never expose a previously selected board',async()=>{
