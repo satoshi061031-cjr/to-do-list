@@ -8,6 +8,7 @@
     "dev": "node --experimental-sqlite --disable-warning=ExperimentalWarning --watch server/index.js",
     "test": "node --experimental-sqlite --disable-warning=ExperimentalWarning --test tests/critical-path-smoke.test.js tests/e2e-critical-path.test.js tests/global-agent.test.js tests/i18n-dictionary.test.js tests/mail-booking.test.js tests/tally-core.test.js tests/travel-collaboration.test.js tests/user-snapshot-store.test.js tests/workspace-loop.test.js tests/workspace-oauth.test.js tests/agent-limiter.test.js tests/db-backup.test.js tests/snapshot-client.test.js tests/reminder-store.test.js tests/reminder-api.test.js tests/workspace-tools.test.js tests/native-widget.test.js tests/experience-core.test.js tests/workbench-preferences.test.js tests/task-planning-core.test.js tests/focus-core.test.js tests/notes-core.test.js tests/workbench-extensions.test.js tests/tally-planning.test.js tests/record-history.test.js tests/workbench-expansion.test.js tests/mobile-hierarchy.test.js tests/workspace-command.test.js tests/quick-add.test.js tests/mail-important.test.js tests/snapshot-values.test.js tests/recurrence.test.js tests/quick-task.test.js tests/calendar-sync.test.js tests/reminder-backup.test.js tests/reminder-native.test.js",
     "test:e2e": "node --experimental-sqlite --disable-warning=ExperimentalWarning --test tests/e2e-critical-path.test.js",
+    "lint": "eslint .",
     "cap:prepare": "node scripts/prepare-widget-assets.js && node scripts/prepare-www.js",
     "cap:sync": "npm run cap:prepare && npx cap sync",
     "cap:android": "npm run cap:sync && npx cap open android",
@@ -36,6 +37,9 @@
     "web-push": "^3.6.7"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.15.0",
+    "globals": "^17.14.0",
     "playwright-core": "1.64.0"
   }
 }
