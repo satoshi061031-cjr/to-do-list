@@ -107,6 +107,165 @@
   function confirmRecurringBill(state, id, expectedDate, asOf) { return handleRecurringBill(state, id, expectedDate, asOf, true); }
   function skipRecurringBill(state, id, expectedDate, asOf) { return handleRecurringBill(state, id, expectedDate, asOf, false); }
 
+  // Spending insights read the personal ledger only, in the base currency at each
+  // record's saved exchange rate. "Other" (and its Chinese forms) always folds into
+  // the remainder bucket, so the chart never shows two "Other" rows.
+  const OTHER_CATEGORIES = new Set(["other", "其他", "其它"]);
+
+  function monthPrefix(year, month) {
+    return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}`;
+  }
+
+  function validMonth(year, month) {
+    return Number.isInteger(year) && year >= 1900 && year <= 9999 && Number.isInteger(month) && month >= 1 && month <= 12;
+  }
+
+  function categoryBreakdown(state, year, month, limit = 6) {
+    const y = Number(year), m = Number(month);
+    const result = { year: y, month: m, total: 0, count: 0, items: [] };
+    if (!validMonth(y, m)) return result;
+    const prefix = `${monthPrefix(y, m)}-`, groups = new Map();
+    personalRecords(state?.records).forEach(record => {
+      const amount = baseAmount(record);
+      if (typeof record?.date !== "string" || !record.date.startsWith(prefix) || !Number.isFinite(amount) || amount <= 0) return;
+      const category = clean(record.category, 40) || "Other", key = category.toLocaleLowerCase();
+      const group = groups.get(key) || { key, category, amount: 0, count: 0, other: OTHER_CATEGORIES.has(key) };
+      group.amount += amount; group.count += 1; groups.set(key, group);
+      result.total += amount; result.count += 1;
+    });
+    const size = Number.isInteger(Number(limit)) && Number(limit) >= 0 ? Math.min(Number(limit), 50) : 6;
+    const named = [...groups.values()].filter(group => !group.other).sort((a, b) => b.amount - a.amount || a.category.localeCompare(b.category));
+    const rest = [...named.slice(size), ...[...groups.values()].filter(group => group.other)];
+    const items = named.slice(0, size).map(group => ({ ...group, categories: 1 }));
+    if (rest.length) items.push({ key: "", category: "Other", other: true, categories: rest.length,
+      amount: rest.reduce((sum, group) => sum + group.amount, 0), count: rest.reduce((sum, group) => sum + group.count, 0) });
+    result.items = items.map(item => ({ ...item, share: result.total > 0 ? item.amount / result.total : 0 }));
+    return result;
+  }
+
+  /** Oldest first; the last entry is endYear/endMonth. */
+  function monthlyTotals(state, endYear, endMonth, count = 6) {
+    const y = Number(endYear), m = Number(endMonth);
+    if (!validMonth(y, m)) return [];
+    const size = Number.isInteger(Number(count)) && Number(count) >= 1 ? Math.min(Number(count), 120) : 6;
+    const end = y * 12 + m - 1;
+    const months = Array.from({ length: size }, (_, index) => {
+      const value = end - size + 1 + index, year = Math.floor(value / 12), month = value - year * 12 + 1;
+      return { year, month, key: monthPrefix(year, month), total: 0, count: 0 };
+    });
+    const byKey = new Map(months.map(item => [item.key, item]));
+    personalRecords(state?.records).forEach(record => {
+      const entry = byKey.get(typeof record?.date === "string" ? record.date.slice(0, 7) : ""), amount = baseAmount(record);
+      if (!entry || !Number.isFinite(amount) || amount <= 0) return;
+      entry.total += amount; entry.count += 1;
+    });
+    return months;
+  }
+
+  // Likely subscriptions: the same merchant charged about monthly (3+ times) or
+  // yearly (2+ times) at a steady amount, recently enough to still be active.
+  const SUBSCRIPTION_RULES = [
+    { interval: "monthly", minGap: 26, maxGap: 35, minCount: 3, staleAfter: 62 },
+    { interval: "yearly", minGap: 350, maxGap: 380, minCount: 2, staleAfter: 731 },
+  ];
+  const SUBSCRIPTION_KEY_LENGTH = 60; // the longest bill name, so a bill can always cover its key
+  const MAX_DISMISSED_SUBSCRIPTIONS = 200;
+
+  function subscriptionLabel(value) {
+    return typeof value === "string" ? value.replace(/\s+/g, " ").split(" · ")[0].trim().slice(0, SUBSCRIPTION_KEY_LENGTH).trim() : "";
+  }
+
+  /** Merchant key: the note's first " · " segment (or a bill name), trimmed and lowercased. */
+  function subscriptionKey(value) {
+    return subscriptionLabel(value).toLowerCase();
+  }
+
+  function recordMerchant(record) {
+    return subscriptionLabel(record?.note) || subscriptionLabel(record?.category);
+  }
+
+  function normalizeDismissedSubscriptions(value) {
+    const keys = (Array.isArray(value) ? value.slice(-1000) : []).map(subscriptionKey).filter(Boolean);
+    return [...new Set(keys)].slice(-MAX_DISMISSED_SUBSCRIPTIONS);
+  }
+
+  function dismissSubscription(state, key) {
+    const normalized = subscriptionKey(key);
+    if (!normalized) return state;
+    const kept = normalizeDismissedSubscriptions(state?.dismissedSubscriptions).filter(item => item !== normalized);
+    return { ...state, dismissedSubscriptions: [...kept, normalized].slice(-MAX_DISMISSED_SUBSCRIPTIONS) };
+  }
+
+  function restoreSubscription(state, key) {
+    const normalized = subscriptionKey(key);
+    return { ...state, dismissedSubscriptions: normalizeDismissedSubscriptions(state?.dismissedSubscriptions).filter(item => item !== normalized) };
+  }
+
+  function dayNumber(iso) {
+    const [year, month, day] = iso.split("-").map(Number);
+    return Math.round(Date.UTC(year, month - 1, day) / 86400000);
+  }
+
+  // Walk back from the newest charge while each earlier one keeps the rhythm, the
+  // currency and an amount within 15% of the newest. A same-day copy of the same
+  // charge counts once; any other break ends the run.
+  function recentRun(sorted, rule) {
+    const latest = sorted[sorted.length - 1], run = [latest];
+    for (let index = sorted.length - 2; index >= 0; index -= 1) {
+      const record = sorted[index], gap = dayNumber(run[0].date) - dayNumber(record.date);
+      if (gap === 0 && record.currency === run[0].currency && record.amount === run[0].amount) continue;
+      if (gap < rule.minGap || gap > rule.maxGap || record.currency !== latest.currency ||
+        Math.abs(record.amount - latest.amount) > latest.amount * 0.15 + 1e-9) break;
+      run.unshift(record);
+    }
+    return run;
+  }
+
+  function detectSubscriptions(state, todayIso) {
+    const today = validDate(todayIso);
+    if (!today || !state) return [];
+    const dismissed = new Set(normalizeDismissedSubscriptions(state.dismissedSubscriptions));
+    const covered = new Set((Array.isArray(state.recurringBills) ? state.recurringBills : [])
+      .flatMap(bill => [subscriptionKey(bill?.name), subscriptionKey(bill?.note)]).filter(Boolean));
+    const groups = new Map();
+    personalRecords(state.records).forEach(record => {
+      if (!validDate(record?.date) || !(Number(record.amount) > 0)) return;
+      const key = recordMerchant(record).toLowerCase();
+      // "Other" and the unnamed default category say nothing about who was paid.
+      if (!key || OTHER_CATEGORIES.has(key) || key === "expense") return;
+      // Charges a bill already records are covered, whatever their note says.
+      if (record.recurringBillId) { covered.add(key); return; }
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push({ ...record, amount: Number(record.amount), currency: currencyCode(record.currency, state.baseCurrency) });
+    });
+    const suggestions = [];
+    groups.forEach((records, key) => {
+      if (covered.has(key) || dismissed.has(key) || records.length < 2) return;
+      const sorted = records.sort((a, b) => a.date.localeCompare(b.date));
+      for (const rule of SUBSCRIPTION_RULES) {
+        const run = recentRun(sorted, rule), latest = run[run.length - 1];
+        if (run.length < rule.minCount || dayNumber(today) - dayNumber(latest.date) > rule.staleAfter) continue;
+        const [year, month, day] = latest.date.split("-").map(Number);
+        // A charge on the last day of a short month keeps an earlier, later day (Jan 31 -> Feb 28 -> Mar 31).
+        const anchorDay = day === new Date(Date.UTC(year, month, 0)).getUTCDate() ? Math.max(...run.map(record => Number(record.date.slice(8)))) : day;
+        const nextDate = nextBillDate({ interval: rule.interval, anchorDay, anchorMonth: month }, latest.date);
+        if (!nextDate) break;
+        suggestions.push({ key, name: recordMerchant(latest), interval: rule.interval, amount: latest.amount, currency: latest.currency,
+          fxRate: latest.currency === state.baseCurrency ? 1 : Number(latest.fxRate) || 1, category: clean(latest.category, 40) || "Other",
+          count: run.length, firstDate: run[0].date, lastDate: latest.date, nextDate, anchorDay, anchorMonth: month });
+        break;
+      }
+    });
+    return suggestions.sort((a, b) => b.lastDate.localeCompare(a.lastDate) || a.name.localeCompare(b.name));
+  }
+
+  /** The recurring bill a confirmed suggestion becomes: next charge one interval after the last. */
+  function subscriptionBill(suggestion) {
+    return { name: suggestion.name, amount: suggestion.amount, currency: suggestion.currency, fxRate: suggestion.fxRate,
+      category: suggestion.category, note: "", nextDate: suggestion.nextDate, interval: suggestion.interval,
+      anchorDay: suggestion.anchorDay, anchorMonth: suggestion.anchorMonth, enabled: true };
+  }
+
   function currencyCode(value, fallback) {
     const raw = clean(value, 8);
     const upper = raw.toUpperCase();
@@ -194,6 +353,8 @@
       settlements: Array.isArray(state.settlements) ? state.settlements.slice() : [],
       // Identifier of the active quick-add key (never the key itself); clearing it revokes the key.
       quickAddKeyId: /^[A-Za-z0-9_-]{16,64}$/.test(String(state.quickAddKeyId || "")) ? String(state.quickAddKeyId) : null,
+      // Merchant keys the user marked "Not a subscription".
+      dismissedSubscriptions: normalizeDismissedSubscriptions(state.dismissedSubscriptions),
     };
     normalized.records = Array.isArray(state.records)
       ? state.records.map((record) => normalizeRecord(record, normalized)).filter(Boolean)
@@ -337,12 +498,16 @@
   const api = {
     STORAGE_KEY,
     baseAmount,
+    categoryBreakdown,
     categoryBudgetProgress,
     changeBaseCurrency,
     computeBalances,
     currencyCode,
     currencySymbol,
+    detectSubscriptions,
+    dismissSubscription,
     formatAmount,
+    monthlyTotals,
     monthSpending,
     nextBillDate,
     normalizeCategoryBudget,
@@ -351,8 +516,11 @@
     normalizeState,
     personalRecords,
     confirmRecurringBill,
+    restoreSubscription,
     skipRecurringBill,
     saveRecurringBill,
+    subscriptionBill,
+    subscriptionKey,
     validDate,
     readState,
     settlementSuggestions,

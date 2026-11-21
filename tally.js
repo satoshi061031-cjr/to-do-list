@@ -17,7 +17,7 @@
   let composing = false;
   let savingExpense = false;
   let continuingEntry = false;
-  let planningUI = null, quickAddUI = null;
+  let planningUI = null, quickAddUI = null, insightsUI = null, receiptUI = null;
 
   const $ = (id) => document.getElementById(id);
   const monthTitleEl = $("tally-month-title");
@@ -572,7 +572,7 @@
     renderMonth();
     renderRecords();
     renderSettlement();
-    planningUI?.render(); quickAddUI?.render();
+    insightsUI?.render(); planningUI?.render(); quickAddUI?.render();
     document.querySelector(".tally-app")?.classList.add("is-rendered");
   }
 
@@ -694,7 +694,7 @@
     billForm.append(field("Bill name", "账单名称", billName), field("Amount", "金额", billAmount), field("Next due date", "下次到期", billDate), field("Repeats", "重复周期", billInterval), field("Category (optional)", "分类（可选）", billCategory), field("Currency", "币种", billCurrency), fxLabel, field("Note (optional)", "备注（可选）", billNote), field("Enabled", "启用", billEnabled), billSave, billCancel);
     billEditor.append(billEditorSummary, billForm);
     body.append(budgetHeading, budgetHelp, allocation, budgetList, budgetForm, billHeading, billHelp, billList, billEditor, status); root.append(summary, body);
-    $("tally-quick-options").after(root);
+    (document.getElementById("tally-spending-insights") || $("tally-quick-options")).after(root);
     const more = action("Budgets & bills", "分类预算与周期账单", () => { $("tally-tools").open = false; root.open = true; root.scrollIntoView({ block: "start", behavior: "auto" }); summary.focus({ preventScroll: true }); });
     $("tally-tools").querySelector(".workspace-menu-panel").append(more);
     function ready(expectedOwner = editorOwner) {
@@ -800,6 +800,361 @@
         row.append(info, buttons); billList.append(row);
       });
     } };
+  }
+
+  /**
+   * Personal spending insights: the selected month by category, a six-month
+   * trend that navigates the ledger, and likely subscriptions that can become
+   * recurring bills. Bars are plain HTML; their lengths are clip-paths.
+   */
+  function mountInsights() {
+    const tr = (en, zh) => isZh() ? zh : en;
+    const node = (tag, text = "", className = "") => { const el = document.createElement(tag); el.textContent = text; if (className) el.className = className; return el; };
+    const copy = (tag, en, zh, cls) => { const el = node(tag, tr(en, zh), cls); el.dataset.insightEn = en; el.dataset.insightZh = zh; return el; };
+    const section = (id, heading) => { const el = node("section", "", "tally-insight"); heading.id = id; heading.tabIndex = -1; el.setAttribute("aria-labelledby", id); el.append(heading); return el; };
+    const root = node("details", "", "tally-planning tally-spending"); root.id = "tally-spending-insights"; root.dataset.i18nIgnore = "";
+    const summary = node("summary"), body = node("div", "", "tally-planning-body"), scope = node("p", "", "tally-insight-note");
+    const subscriptionList = node("div", "", "tally-subscription-list");
+    const subscriptions = section("tally-subscriptions-heading", copy("h2", "Possible subscriptions", "可能的订阅"));
+    subscriptions.append(subscriptionList);
+    const categoryHeading = node("h2"), categories = section("tally-categories-heading", categoryHeading);
+    const totalLine = node("p", "", "tally-insight-total"), totalValue = node("strong"), totalChange = node("span");
+    totalLine.append(totalValue, totalChange);
+    const categoryList = node("ul", "", "tally-category-bars"), categoryEmpty = node("p", "", "tally-insight-empty");
+    categories.append(totalLine, categoryList, categoryEmpty);
+    const trendSection = section("tally-trend-heading", copy("h2", "Six-month trend", "近六个月趋势"));
+    const trendHint = node("p", "", "tally-insight-note"), trend = node("div", "", "tally-trend"), trendEmpty = node("p", "", "tally-insight-empty");
+    trend.setAttribute("role", "group");
+    const bars = Array.from({ length: 6 }, () => {
+      const button = node("button", "", "tally-trend-bar"); button.type = "button";
+      const value = node("span", "", "tally-trend-value"), track = node("span", "", "tally-trend-track"), fill = node("span", "", "tally-trend-fill"), month = node("span", "", "tally-trend-month");
+      track.setAttribute("aria-hidden", "true"); track.append(fill); button.append(value, track, month);
+      button.addEventListener("click", () => openMonth(button.dataset.month));
+      trend.append(button);
+      return { button, value, fill, month };
+    });
+    trendSection.append(trendHint, trend, trendEmpty);
+    const status = node("p", "", "tally-planning-status"); status.setAttribute("role", "status");
+    body.append(scope, subscriptions, categories, trendSection, status); root.append(summary, body);
+    $("tally-quick-options").after(root);
+    const more = node("button"); more.type = "button";
+    more.addEventListener("click", () => {
+      $("tally-tools").open = false; root.open = true; window.DailySpaceView.write("tally", { insightsOpen: true });
+      root.scrollIntoView({ block: "start", behavior: "auto" }); summary.focus({ preventScroll: true });
+    });
+    $("tally-tools").querySelector(".workspace-menu-panel").append(more);
+    const wide = window.matchMedia("(min-width: 820px)");
+    let ownerAtRender = viewOwner, trendEnd = null, subscriptionSignature = "";
+    // Open on desktop and closed on phone until the person chooses; that choice lasts for the session.
+    const applyOpenPreference = () => { const saved = window.DailySpaceView.read("tally").insightsOpen; root.open = typeof saved === "boolean" ? saved : wide.matches; };
+    applyOpenPreference();
+    summary.addEventListener("click", () => window.DailySpaceView.write("tally", { insightsOpen: !root.open }));
+    root.addEventListener("toggle", () => { if (root.open) renderInsights(); });
+
+    function ready(expectedOwner = viewOwner) {
+      return expectedOwner === window.DailySpaceView.owner() && expectedOwner === viewOwner && document.documentElement.dataset.workspaceReady !== "false" && document.documentElement.dataset.workspaceLocked !== "true" && !localStorage.getItem("daily-space-snapshot-recovery-v1");
+    }
+    function say(text, error = false) { status.textContent = text; status.classList.toggle("is-error", error); }
+    function commit(transform, expectedOwner) {
+      if (!ready(expectedOwner)) { say(tr("Your workspace changed. Reopen this page before saving.", "工作台已变更，请重新打开本页后保存。"), true); return false; }
+      const previous = Core.readState();
+      try { state = transform(previous); saveState(); render(); return true; }
+      catch (error) {
+        state = previous;
+        say(error?.message === "stale" ? tr("This suggestion has changed. Check the list again.", "该建议已变化，请重新查看。")
+          : /100 recurring bills/.test(error?.message || "") ? tr("You already have 100 recurring bills. Remove one first.", "周期账单已达 100 项上限，请先删除一项。")
+          : tr("Could not save on this device. Check browser storage and try again.", "无法保存到本机，请检查浏览器存储空间后重试。"), true);
+        return false;
+      }
+    }
+    function openMonth(key) {
+      const [year, month] = String(key || "").split("-").map(Number);
+      if (!Number.isInteger(year) || !Number.isInteger(month)) return;
+      const offset = year * 12 + month - (viewYear * 12 + viewMonth);
+      if (offset) changeMonth(offset);
+    }
+    trend.addEventListener("keydown", event => {
+      const index = bars.findIndex(bar => bar.button === event.target);
+      if (index < 0 || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      const next = { ArrowLeft: index - 1, ArrowRight: index + 1, Home: 0, End: bars.length - 1 }[event.key];
+      if (next === undefined || next < 0 || next >= bars.length) return;
+      event.preventDefault();
+      openMonth(bars[next].button.dataset.month);
+      bars[next].button.focus();
+    });
+    function focusAfterChange() {
+      (subscriptions.hidden ? categoryHeading : subscriptionList.querySelector("button") || categoryHeading).focus({ preventScroll: true });
+    }
+    function addBill(key, owner) {
+      let added = null;
+      if (!commit(current => {
+        added = Core.detectSubscriptions(current, todayIso()).find(item => item.key === key);
+        if (!added) throw new Error("stale");
+        return Core.saveRecurringBill(current, Core.subscriptionBill(added));
+      }, owner)) return;
+      say(tr(`${added.name} is now a recurring bill, next due ${added.nextDate}. Like other bills, it is recorded only after you confirm it in Budgets & bills.`,
+        `已将 ${added.name} 添加为周期账单，下次到期 ${added.nextDate}。和其他账单一样，需在“分类预算与周期账单”中确认后才会记账。`));
+      focusAfterChange();
+    }
+    function dismiss(key, name, owner) {
+      if (!commit(current => Core.dismissSubscription(current, key), owner)) return;
+      say(tr(`${name} will not be suggested as a subscription again.`, `不会再把 ${name} 提示为订阅。`));
+      window.DailySpaceUndo?.offer(tr("Subscription suggestion hidden", "已隐藏订阅提示"), () => {
+        if (commit(current => Core.restoreSubscription(current, key), owner)) say(tr(`${name} can be suggested again.`, `已恢复 ${name} 的订阅提示。`));
+      });
+      focusAfterChange();
+    }
+    const monthLabel = (year, month, options = { year: "numeric", month: "long" }) => new Date(year, month - 1, 1).toLocaleDateString(uiLocale(), options);
+    const percent = share => share > 0 && share < 0.005 ? "<1%" : `${Math.round(share * 100)}%`;
+    const categoryName = item => !item.other ? item.category : item.categories > 1 ? tr(`Other · ${item.categories} categories`, `其他 · ${item.categories} 类`) : tr("Other", "其他");
+
+    function renderSubscriptions(list) {
+      subscriptions.hidden = !list.length;
+      const signature = JSON.stringify([list, uiLocale(), state.baseCurrency, ownerAtRender]);
+      if (signature === subscriptionSignature) return;
+      subscriptionSignature = signature;
+      const owner = ownerAtRender;
+      subscriptionList.replaceChildren(...list.map((item, index) => {
+        const card = node("article", "", "tally-subscription"); card.dataset.subscriptionKey = item.key;
+        const info = node("div"), title = node("strong", `${item.name} · ${Core.formatAmount(state, item.amount, item.currency)} / ${item.interval === "yearly" ? tr("year", "年") : tr("month", "月")}`);
+        title.id = `tally-subscription-${index}`;
+        // Each fact stays on one line; the line breaks only between them.
+        const detail = node("p", "", "tally-subscription-detail");
+        [tr(`${item.count} charges`, `已扣费 ${item.count} 次`), tr(`last on ${item.lastDate}`, `最近一次 ${item.lastDate}`), tr(`next ${item.nextDate}`, `下次 ${item.nextDate}`),
+          item.currency !== state.baseCurrency ? `≈ ${baseMoney(item.amount * item.fxRate)}` : ""].filter(Boolean)
+          .forEach((text, index) => { if (index) detail.append(" · "); detail.append(node("span", text)); });
+        info.append(node("p", tr("Looks like a subscription", "看起来像订阅"), "tally-subscription-kicker"), title, detail);
+        const actions = node("div", "", "tally-plan-actions");
+        const add = node("button", tr("Add as bill", "添加为账单"), "is-primary"), no = node("button", tr("Not a subscription", "不是订阅"));
+        for (const button of [add, no]) { button.type = "button"; button.setAttribute("aria-describedby", title.id); }
+        add.addEventListener("click", () => addBill(item.key, owner));
+        no.addEventListener("click", () => dismiss(item.key, item.name, owner));
+        actions.append(add, no); card.append(info, actions);
+        return card;
+      }));
+    }
+
+    function renderCategories() {
+      const breakdown = Core.categoryBreakdown(state, viewYear, viewMonth);
+      const now = new Date(), isCurrent = viewYear === now.getFullYear() && viewMonth === now.getMonth() + 1;
+      const label = monthLabel(viewYear, viewMonth), previous = new Date(viewYear, viewMonth - 2, 1);
+      const previousTotal = Core.monthlyTotals(state, previous.getFullYear(), previous.getMonth() + 1, 1)[0]?.total || 0;
+      const previousName = previous.toLocaleDateString(uiLocale(), { month: isZh() ? "short" : "long" });
+      categoryHeading.textContent = isCurrent ? tr("This month by category", "本月支出分类") : tr(`${label} by category`, `${label}支出分类`);
+      totalLine.hidden = !(breakdown.total > 0);
+      totalValue.textContent = baseMoney(breakdown.total);
+      const change = previousTotal > 0 ? (breakdown.total - previousTotal) / previousTotal * 100 : null, rounded = Math.round(Math.abs(change || 0));
+      totalChange.textContent = change === null ? tr(`Nothing recorded in ${previousName}`, `${previousName}没有记录`)
+        : rounded === 0 ? tr(`About the same as ${previousName} (${baseMoney(previousTotal)})`, `与${previousName}基本持平（${baseMoney(previousTotal)}）`)
+        : change > 0 ? tr(`↑ ${rounded}% vs ${previousName} (${baseMoney(previousTotal)})`, `较${previousName} ↑ ${rounded}%（${baseMoney(previousTotal)}）`)
+        : tr(`↓ ${rounded}% vs ${previousName} (${baseMoney(previousTotal)})`, `较${previousName} ↓ ${rounded}%（${baseMoney(previousTotal)}）`);
+      categoryList.hidden = !breakdown.items.length; categoryEmpty.hidden = breakdown.items.length > 0;
+      categoryEmpty.textContent = isCurrent ? tr("No personal expenses this month yet.", "本月还没有个人支出。") : tr(`No personal expenses in ${label}.`, `${label}没有个人支出。`);
+      categoryList.setAttribute("aria-label", `${tr(`Spending by category, ${label}`, `${label}按分类支出`)}${breakdown.items.length ? tr(": ", "：") : ""}${breakdown.items.map(item => `${categoryName(item)} ${percent(item.share)}`).join(tr(", ", "，"))}`);
+      const max = Math.max(0, ...breakdown.items.map(item => item.amount));
+      // Rows are reused so a month change moves each bar instead of rebuilding the list.
+      categoryList.replaceChildren(...breakdown.items.map((item, index) => {
+        let row = categoryList.children[index];
+        if (!row) {
+          row = node("li", "", "tally-category-row");
+          const track = node("span", "", "tally-category-track"); track.setAttribute("aria-hidden", "true"); track.append(node("span", "", "tally-category-fill"));
+          row.append(node("span", "", "tally-category-name"), node("span", "", "tally-category-value"), track);
+        }
+        row.classList.toggle("is-other", Boolean(item.other));
+        row.children[0].textContent = categoryName(item);
+        row.children[1].textContent = `${baseMoney(item.amount)} · ${percent(item.share)}`;
+        row.querySelector(".tally-category-fill").style.setProperty("--bar", `${max > 0 ? item.amount / max * 100 : 0}%`);
+        return row;
+      }));
+    }
+
+    function renderTrend() {
+      const now = new Date(), current = now.getFullYear() * 12 + now.getMonth(), selected = viewYear * 12 + viewMonth - 1;
+      // The window stays put while the selected month is inside it, so choosing a bar never shifts the chart.
+      const covers = end => end !== null && selected <= end && selected > end - bars.length;
+      if (!covers(trendEnd)) trendEnd = covers(current) ? current : selected;
+      const months = Core.monthlyTotals(state, Math.floor(trendEnd / 12), trendEnd % 12 + 1, bars.length);
+      if (months.length !== bars.length) { trend.hidden = true; trendHint.hidden = true; trendEmpty.hidden = true; return; }
+      const max = Math.max(0, ...months.map(item => item.total)), first = months[0], last = months[months.length - 1];
+      const start = new Date(first.year, first.month - 1, 1), end = new Date(last.year, last.month - 1, 1);
+      const rangeFormat = new Intl.DateTimeFormat(uiLocale(), { year: "numeric", month: "long" });
+      const range = typeof rangeFormat.formatRange === "function" ? rangeFormat.formatRange(start, end) : `${rangeFormat.format(start)} – ${rangeFormat.format(end)}`;
+      trend.hidden = !(max > 0); trendHint.hidden = !(max > 0); trendEmpty.hidden = max > 0;
+      trendHint.textContent = tr(`${range} · Select a month to show it in Transactions.`, `${range} · 选择月份可在账单中查看。`);
+      trendEmpty.textContent = tr(`No personal expenses in ${range}.`, `${range}没有个人支出。`);
+      const peak = months.reduce((best, item) => item.total > best.total ? item : best, first);
+      trend.setAttribute("aria-label", tr(`Monthly personal spending, ${range}. Highest: ${monthLabel(peak.year, peak.month)}, ${baseMoney(peak.total)}.`,
+        `每月个人支出，${range}。最高：${monthLabel(peak.year, peak.month)}，${baseMoney(peak.total)}。`));
+      const compact = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 });
+      months.forEach((item, index) => {
+        const bar = bars[index], pressed = item.year === viewYear && item.month === viewMonth;
+        const label = `${monthLabel(item.year, item.month)}${item.year * 12 + item.month - 1 === current ? tr(" so far", "（截至今天）") : ""} · ${baseMoney(item.total)} · ${isZh() ? `${item.count} 笔支出` : `${item.count} expense${item.count === 1 ? "" : "s"}`}`;
+        bar.button.dataset.month = item.key;
+        bar.button.setAttribute("aria-pressed", String(pressed));
+        bar.button.tabIndex = pressed ? 0 : -1;
+        bar.button.setAttribute("aria-label", label); bar.button.title = label;
+        bar.button.classList.toggle("is-empty", !(item.total > 0));
+        bar.value.textContent = !(item.total > 0) ? "–" : item.total >= 1000 ? compact.format(item.total).toLowerCase()
+          : new Intl.NumberFormat(uiLocale(), { maximumFractionDigits: item.total < 10 ? 2 : 0 }).format(item.total);
+        bar.month.textContent = monthLabel(item.year, item.month, { month: "short" });
+        bar.fill.style.setProperty("--bar", `${max > 0 ? item.total / max * 100 : 0}%`);
+      });
+    }
+
+    function renderInsights() {
+      const owner = window.DailySpaceView.owner();
+      if (ownerAtRender !== owner) { ownerAtRender = owner; trendEnd = null; subscriptionSignature = ""; say(""); applyOpenPreference(); }
+      root.querySelectorAll("[data-insight-en]").forEach(el => { el.textContent = isZh() ? el.dataset.insightZh : el.dataset.insightEn; });
+      more.textContent = tr("Spending insights", "支出分析");
+      const ok = ready(owner);
+      body.hidden = !ok;
+      const suggestions = ok ? Core.detectSubscriptions(state, todayIso()) : [];
+      summary.textContent = `${tr("Spending insights", "支出分析")}${suggestions.length ? tr(` · ${suggestions.length} possible subscription${suggestions.length === 1 ? "" : "s"}`, ` · ${suggestions.length} 个可能的订阅`) : ""}`;
+      if (!ok || !root.open) return;
+      scope.textContent = tr(`Personal expenses in ${state.baseCurrency}, at each expense's saved exchange rate.`, `个人支出，按每笔保存的汇率折算为 ${state.baseCurrency}。`);
+      renderSubscriptions(suggestions);
+      renderCategories();
+      renderTrend();
+    }
+    return { render: renderInsights };
+  }
+
+  /**
+   * Receipt photos for a new expense: shown only to signed-in people when the
+   * server can read receipts. Fills the open form and never saves on its own.
+   */
+  function mountReceiptScan() {
+    const tr = (en, zh) => isZh() ? zh : en;
+    const wrap = document.createElement("div"); wrap.className = "tally-receipt"; wrap.dataset.i18nIgnore = ""; wrap.hidden = true;
+    const file = document.createElement("input"); file.type = "file"; file.accept = "image/*"; file.setAttribute("capture", "environment"); file.hidden = true; file.tabIndex = -1; file.id = "tally-receipt-file";
+    const button = document.createElement("button"); button.type = "button"; button.id = "tally-receipt-scan"; button.className = "tally-receipt-button";
+    button.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 8h4l2-3h6l2 3h4v12H3Z"/><circle cx="12" cy="13.5" r="3.5"/></svg>';
+    const label = document.createElement("span"); button.append(label);
+    const note = document.createElement("p"); note.id = "tally-receipt-status"; note.className = "tally-receipt-status"; note.setAttribute("role", "status");
+    wrap.append(file, button, note);
+    form.prepend(wrap);
+    let available = false, checkedOwner = null, serial = 0, controller = null, busy = false;
+
+    function say(text, error = false) { note.textContent = text; note.classList.toggle("is-error", error); }
+    function setBusy(next) {
+      // aria-disabled keeps focus on the button while the photo is read.
+      busy = next; button.setAttribute("aria-disabled", String(next)); wrap.setAttribute("aria-busy", String(next));
+      label.textContent = tr("Scan receipt", "扫描小票");
+    }
+    /** Visibility changes only when the sheet opens, so the amount field never jumps under a finger. */
+    function sync() {
+      const owner = window.DailySpaceView.owner();
+      wrap.hidden = !(available && checkedOwner === owner && owner !== "guest" && !editingId);
+      label.textContent = tr("Scan receipt", "扫描小票");
+    }
+    async function refresh() {
+      const owner = window.DailySpaceView.owner();
+      // A repeat confirmation of the same account keeps the answer while it is re-checked.
+      if (checkedOwner !== owner) available = false;
+      checkedOwner = owner;
+      if (owner === "guest") { available = false; return; }
+      try {
+        const response = await fetch("/api/agent/status", { credentials: "same-origin" });
+        const data = await response.json().catch(() => ({}));
+        if (checkedOwner === owner && owner === window.DailySpaceView.owner()) available = response.ok && data?.receiptScan === true;
+      } catch (_) { /* Scanning stays hidden; manual entry is unaffected. */ }
+    }
+    function cancel() { serial += 1; controller?.abort(); controller = null; setBusy(false); }
+    function reset() { cancel(); say(""); sync(); }
+
+    function loadImage(source) {
+      return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(source), image = new Image();
+        image.onload = () => { URL.revokeObjectURL(url); resolve(image); };
+        image.onerror = () => { URL.revokeObjectURL(url); reject(Object.assign(new Error("decode"), { code: "IMAGE_DECODE" })); };
+        image.src = url;
+      });
+    }
+    // At most 1600 px on the long side as JPEG, comfortably under the server's 4 MB limit.
+    async function downscale(source) {
+      if (source.type && !source.type.startsWith("image/")) throw Object.assign(new Error("type"), { code: "IMAGE_DECODE" });
+      let image;
+      try { image = await createImageBitmap(source, { imageOrientation: "from-image" }); }
+      catch (_) { image = await loadImage(source); }
+      const width = image.naturalWidth || image.width, height = image.naturalHeight || image.height;
+      if (!(width > 0 && height > 0)) throw Object.assign(new Error("empty"), { code: "IMAGE_DECODE" });
+      const scale = Math.min(1, 1600 / Math.max(width, height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(width * scale)); canvas.height = Math.max(1, Math.round(height * scale));
+      const context = canvas.getContext("2d");
+      context.fillStyle = "white"; context.fillRect(0, 0, canvas.width, canvas.height); // transparent PNGs become paper, not black
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      image.close?.();
+      for (const quality of [0.8, 0.65, 0.5]) {
+        const url = canvas.toDataURL("image/jpeg", quality);
+        if (url.length <= 3_900_000) return url;
+      }
+      throw Object.assign(new Error("size"), { code: "IMAGE_TOO_LARGE" });
+    }
+
+    function filledMessage(filled) {
+      if (!filled.length) return tr("Nothing could be read from this photo. Enter the expense yourself.", "未能从照片中读出内容，请手动填写。");
+      const names = { amount: ["amount", "金额"], currency: ["currency", "币种"], date: ["date", "日期"], category: ["category", "分类"], note: ["note", "备注"] };
+      const keys = Object.keys(names).filter(key => filled.includes(key)), en = keys.map(key => names[key][0]);
+      const list = en.length > 1 ? `${en.slice(0, -1).join(", ")} and ${en[en.length - 1]}` : en[0], missing = !filled.includes("amount");
+      return tr(`Filled ${list} from the receipt. Check them before saving.${missing ? " No total was found, so enter the amount." : ""}`,
+        `已从小票填入${keys.map(key => names[key][1]).join("、")}，请核对后保存。${missing ? "未识别到总金额，请手动填写。" : ""}`);
+    }
+    function apply(receipt) {
+      const filled = [], date = Core.validDate(receipt.date);
+      if (date) { dateInput.value = date; filled.push("date"); }
+      if (Number(receipt.amount) > 0) { amountInput.value = String(Number(receipt.amount)); filled.push("amount"); }
+      if (typeof receipt.currency === "string" && /^[A-Z]{3}$/.test(receipt.currency)) { selectRecordCurrency(receipt.currency); filled.push("currency"); }
+      if (typeof receipt.category === "string" && receipt.category.trim()) { categoryInput.value = receipt.category.trim().slice(0, 40); syncCategorySuggestions(categoryInput.value); filled.push("category"); }
+      // "Merchant · details" keeps the merchant first, which is how subscriptions are grouped.
+      const text = [receipt.merchant, receipt.note].filter(value => typeof value === "string" && value.trim()).map(value => value.trim()).join(" · ").slice(0, 120);
+      if (text) { noteInput.value = text; filled.push("note"); }
+      if (text || recordCurrencyInput.value !== state.baseCurrency) extraOptions.open = true;
+      clearFormError();
+      if (filled.includes("currency") || (date && recordCurrencyInput.value !== state.baseCurrency)) refreshFxRate();
+      else { syncSharedFields(); saveDraft(); }
+      return filledMessage(filled);
+    }
+    function failure(error) {
+      const status = error?.status, code = error?.code;
+      if (code === "IMAGE_DECODE") return tr("This photo could not be opened. Try a JPEG or PNG photo, or enter the expense yourself.", "无法打开这张照片，请换一张 JPEG 或 PNG 照片，或手动填写。");
+      if (code === "IMAGE_TOO_LARGE" || status === 413) return tr("This photo is too large to send. Try a closer photo of the receipt.", "照片太大，无法发送，请靠近小票重新拍摄。");
+      if (status === 401) return tr("Sign in again to scan receipts. You can still enter this expense yourself.", "请重新登录后再扫描小票；也可以直接手动填写。");
+      if (status === 429) return tr("Too many scans in a short time. Wait a minute, or enter the expense yourself.", "扫描太频繁，请稍等一分钟，或手动填写。");
+      if (status === 422) return tr("No receipt details were found in this photo. Enter the expense yourself.", "照片中没有找到小票信息，请手动填写。");
+      if (status === 503) { available = false; return tr("Receipt scanning is not available right now. Enter the expense yourself.", "小票扫描暂不可用，请手动填写。"); }
+      if (error?.name === "AbortError") return tr("Reading the receipt took too long. Try again, or enter the expense yourself.", "读取小票超时，请重试或手动填写。");
+      return tr("Could not read the receipt. Check your connection, or enter the expense yourself.", "读取小票失败，请检查网络或手动填写。");
+    }
+
+    button.addEventListener("click", () => { if (!busy && !wrap.hidden) file.click(); });
+    file.addEventListener("change", async () => {
+      const chosen = file.files?.[0]; file.value = "";
+      if (!chosen || addSheet.hidden || sheetMotion.closing || editingId) return;
+      cancel();
+      const ticket = serial, owner = window.DailySpaceView.owner(), request = new AbortController();
+      const current = () => ticket === serial && owner === window.DailySpaceView.owner() && !addSheet.hidden && !sheetMotion.closing && !editingId;
+      const timeout = setTimeout(() => request.abort(), 45000);
+      controller = request; setBusy(true); say(tr("Reading the receipt… You can keep typing.", "正在读取小票…可以继续填写。"));
+      try {
+        const image = await downscale(chosen);
+        if (!current()) return;
+        const response = await fetch("/api/tally/receipt", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image, lang: isZh() ? "zh" : "en", today: todayIso() }), signal: request.signal });
+        const data = await response.json().catch(() => ({}));
+        if (!current()) return;
+        if (!response.ok) throw Object.assign(new Error("scan failed"), { status: response.status, code: data?.code });
+        say(apply(data?.receipt && typeof data.receipt === "object" ? data.receipt : {}));
+      } catch (error) {
+        if (current()) say(failure(error), true);
+      } finally {
+        clearTimeout(timeout);
+        if (ticket === serial) { controller = null; setBusy(false); }
+      }
+    });
+    setBusy(false);
+    refresh();
+    return { cancel, reset, refresh };
   }
 
   function knownCategories() {
@@ -965,6 +1320,7 @@
       if (addSheet.hidden || (sheetMotion.closing && !immediate)) return;
       if (preserve) saveDraft();
       cancelFxRequest();
+      receiptUI?.cancel();
       editingId = null;
       continuingEntry = false;
       composing = false;
@@ -996,6 +1352,7 @@
     fxRateInput.value = String(value?.fxRate ?? 1);
     clearFormError();
     syncSheetMode();
+    receiptUI?.reset();
     renderPeople(true);
     paidByInput.value = value?.paidById || state.selfPersonId;
     syncSharedFields();
@@ -1028,6 +1385,7 @@
       viewOwner = window.DailySpaceView.owner();
       restoreView();
     }
+    receiptUI?.refresh();
     render();
   });
 
@@ -1100,6 +1458,7 @@
       amountInput.value = "";
       noteInput.value = "";
       clearFormError();
+      receiptUI?.reset();
       saveDraft();
       entryStatusEl.textContent = isZh() ? "已保存，可以继续记下一笔。" : "Saved. Ready for another expense.";
       entryStatusEl.hidden = false;
@@ -1289,15 +1648,18 @@
     // after the account snapshot is usable, including the first signed-in load.
     if (event.detail?.workspaceReady === true && viewOwner === window.DailySpaceView.owner()) {
       state = Core.readState(); render();
-    } else planningUI?.render(); quickAddUI?.render();
+    } else { insightsUI?.render(); planningUI?.render(); }
+    quickAddUI?.render();
   });
   window.addEventListener("storage", event => {
     if (event.key === Core.STORAGE_KEY && viewOwner === window.DailySpaceView.owner()) { state = Core.readState(); render(); }
   });
 
   restoreView();
+  insightsUI = mountInsights();
   planningUI = mountPlanning();
   quickAddUI = mountQuickAdd();
+  receiptUI = mountReceiptScan();
   setupRecordSwipe();
 
   /**
