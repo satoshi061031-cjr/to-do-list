@@ -73,7 +73,7 @@
     if(typeof entry?.href!=='string')return false;
     if(entry.external){
       try {const url=new URL(entry.href);if(!['http:','https:'].includes(url.protocol)||url.username||url.password)return false;}catch(_){return false;}
-    }else if(!/^(todo(?:-m)?|calendar|planner|mail|tally|travel|teamwork|tools|notes|review)\.html(?:[?#].*)?$/.test(entry.href))return false;
+    }else if(!/^(todo(?:-m)?|calendar|planner|mail|tally|travel|teamwork|tools|notes|review|habits)\.html(?:[?#].*)?$/.test(entry.href))return false;
     const href = !entry.external && /^todo\.html(?:[?#]|$)/.test(entry.href) && window.matchMedia('(max-width: 819px)').matches ? entry.href.replace(/^todo\.html/, 'todo-m.html') : entry.href;
     location.assign(href);return true;
   }

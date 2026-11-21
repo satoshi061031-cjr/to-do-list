@@ -19,6 +19,8 @@
     "Notebook": "笔记",
     "Notes · dayfly": "笔记 · dayfly",
     "Weekly review · dayfly": "每周复盘 · dayfly",
+    "Habits": "习惯",
+    "Habits · dayfly": "习惯 · dayfly",
     "Toolbox · dayfly": "工具箱 · dayfly",
     "Ideas and references, connected to your work.": "记录想法与资料，连接日常工作。",
     "A place for ideas, progress and the tools you need.": "想法、进展和日常工具，都在这里。",

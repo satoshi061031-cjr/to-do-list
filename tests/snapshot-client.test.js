@@ -468,7 +468,7 @@ test('adding personal workspace keys upgrades old baselines without manufacturin
   const c = client(); await c.sync.load();
   const baselineKey = 'daily-space-user-baseline-v1:alice@example.com';
   const signature = c.values.get(baselineKey);
-  const addedKeys = ['daily-space-workbench-v1','dayfly-task-views-v1','dayfly-focus-v1','dayfly-notes-v1','dayfly-history-v1','dayfly-connections-v1'];
+  const addedKeys = ['daily-space-workbench-v1','dayfly-task-views-v1','dayfly-focus-v1','dayfly-notes-v1','dayfly-history-v1','dayfly-connections-v1','dayfly-habits-v1'];
   const suffix = addedKeys.map(key => `|${key}:0:`).join('');
   assert.ok(signature.endsWith(suffix));
   c.values.set(baselineKey, signature.slice(0, -suffix.length));
@@ -485,12 +485,13 @@ test('personal view, focus, note and history stores sync and clear together on s
     'dayfly-task-views-v1':JSON.stringify({views:[{id:'view',name:'My work'}]}),
     'dayfly-focus-v1':JSON.stringify({sessions:[{id:'session'}]}),
     'dayfly-notes-v1':JSON.stringify({notes:[{id:'note',title:'Private'}]}),
-    'dayfly-history-v1':JSON.stringify({entries:[{id:'version'}]})
+    'dayfly-history-v1':JSON.stringify({entries:[{id:'version'}]}),
+    'dayfly-habits-v1':JSON.stringify({version:1,habits:[{id:'habit',name:'Walk',frequency:{type:'daily'}}],checkins:{habit:{'2026-11-20':1}}})
   };
   c.changeCloud(payload);await c.sync.tick();
   for(const [key,value] of Object.entries(payload))assert.equal(c.values.get(key),value);
   const domains=c.events.findLast(event=>event.type==='daily-space-agent-data-updated').detail.domains;
-  for(const domain of ['task-views','focus','notes','history'])assert.ok(domains.includes(domain));
+  for(const domain of ['task-views','focus','notes','history','habits'])assert.ok(domains.includes(domain));
   c.values.delete('daily-space-auth-v1');await c.sync.refresh(true);c.sync.stop();
   for(const key of Object.keys(payload).filter(key=>key.startsWith('dayfly-')))assert.equal(c.values.get(key),undefined);
   const cached=JSON.parse(c.values.get('daily-space-user-cache-v1:alice@example.com'));

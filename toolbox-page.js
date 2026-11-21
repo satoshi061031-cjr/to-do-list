@@ -26,6 +26,7 @@
       notes: 'M5 3h11l3 3v15H5z M8 10h8 M8 14h8 M8 18h5',
       review: 'M4 20V4 M4 20h16 M8 16v-5 M12 16V7 M16 16v-8',
       focus: 'M12 8v4l3 2 M9 2h6 M12 2v3',
+      habits: 'M4 5h16v15H4z M4 9.5h16 M8 3v4 M16 3v4 M9 14.5l2 2 4-4',
       templates: 'M4 4h7v7H4z M14 4h6v7h-6z M4 14h7v6H4z M14 14h6v6h-6z',
       history: 'M3 11a9 9 0 1 1 2 7 M3 4v7h7 M12 7v6l4 2',
       backup: 'M4 15v5h16v-5 M12 16V3 M7 8l5-5 5 5',
@@ -58,6 +59,7 @@
       let notesCount = '';
       if (ready()) { try { notesCount = String(window.DailySpaceNotes?.list().length || 0); } catch (_) {} }
       card(grid, 'notes', t('Notes', '笔记'), notesCount ? t(`${notesCount} saved · Ideas, references and linked tasks`, `已保存 ${notesCount} 篇 · 想法、资料和关联任务`) : t('Ideas, references and linked tasks', '记录想法、资料，关联任务'), 'notes.html');
+      card(grid, 'habits', t('Habits', '习惯'), t('Daily check-ins and streaks', '每日打卡与连续记录'), 'habits.html');
       card(grid, 'review', t('Weekly review', '每周复盘'), t('Completions, focus time and unfinished work', '查看完成事项、专注时间和待安排任务'), 'review.html');
       card(grid, 'focus', t('Focus', '专注'), t('Choose one task and start a timer', '选一件事，开始一段专注时间'), () => command('start-focus'));
       card(grid, 'templates', t('Task templates', '任务模板'), t('Create tasks from a routine you have saved', '从已保存的流程快速新建任务'), () => command('templates'));

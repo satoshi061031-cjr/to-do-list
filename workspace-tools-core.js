@@ -7,9 +7,12 @@
   const Focus = global?.DailySpaceFocusCore || (typeof require === 'function' ? require('./focus-core') : null);
   const Notes = global?.DailySpaceNotesCore || (typeof require === 'function' ? require('./notes-core') : null);
   const History = global?.DailySpaceHistoryCore || (typeof require === 'function' ? require('./record-history-core') : null);
+  // Resolved on use, so a page that loads this file without habits-core.js still works (habit sections are then skipped).
+  const Habits = () => global?.DailySpaceHabits || (typeof require === 'function' ? require('./habits-core') : null);
+  const HABITS_KEY = 'dayfly-habits-v1';
   const WORKBENCH_KEY = 'daily-space-workbench-v1';
   const TEMPLATE_KEY = 'task-templates-v1';
-  const KEYS = ['todo-app-v2', 'calendar-app-v1', 'planner-app-v1', 'tally-book-v1', 'travel-book-v1', TEMPLATE_KEY, WORKBENCH_KEY, Views.KEY, Focus.KEY, Notes.KEY, History.KEY];
+  const KEYS = ['todo-app-v2', 'calendar-app-v1', 'planner-app-v1', 'tally-book-v1', 'travel-book-v1', TEMPLATE_KEY, WORKBENCH_KEY, Views.KEY, Focus.KEY, Notes.KEY, History.KEY, HABITS_KEY];
   const SNAPSHOT_KEYS = [...KEYS, 'teamwork-page-v1', 'travel-shared-v1', 'daily-space-mail-accounts-v1', 'todo-theme'];
   const uid = () => Tally.uid('workspace');
   const text = (value, max = 500) => typeof value === 'string' ? value.trim().slice(0, max) : '';
@@ -128,6 +131,10 @@
       if (normalized.entries.length !== records.length) fail('Invalid or oversized record history.');
       return normalized;
     }
+    if (key === HABITS_KEY) {
+      const core = Habits(); if (!core) fail('Unsupported data type.');
+      return core.strict(raw);
+    }
     if (key === TEMPLATE_KEY) return { templates: unique(array(raw.templates,50).map(template)) };
     if (key === 'calendar-app-v1') return { selectedDate: date(raw.selectedDate), reminders: unique(array(raw.reminders,1000).map(item => { if (!date(item?.date) || !text(item.text)) fail('Invalid reminder.'); if ((item.startTime && !time(item.startTime)) || (item.endTime && (!time(item.endTime) || (item.startTime && item.endTime < item.startTime)))) fail('Invalid time.'); return { id:identity(item.id),date:item.date,text:text(item.text,200),startTime:time(item.startTime),endTime:time(item.endTime),priority:['high','low'].includes(item.priority)?item.priority:'medium',linkedTodoId:text(item.linkedTodoId,120)||null,remindAt:null }; })) };
     if (key === 'tally-book-v1') {
@@ -169,7 +176,7 @@
     let incoming, ignored = 0;
     if (format === 'json') { let parsed; try{parsed=JSON.parse(source);}catch(_){fail('Invalid JSON file.');}
       const payload=parsed?.payload||(parsed?.source==='daily-space'&&parsed.local&&typeof parsed.local==='object'?parsed.local:parsed);
-      if (!payload || typeof payload!=='object'||Array.isArray(payload))fail('Use a dayfly JSON backup.'); incoming={}; for(const [key,value] of Object.entries(payload)){if(!KEYS.includes(key)){ignored++;continue;} try{incoming[key]=typeof value==='string'?JSON.parse(value):value;}catch(_){fail('Invalid JSON data section.');}} if(!Object.keys(incoming).length)fail('No supported workspace data found.');
+      if (!payload || typeof payload!=='object'||Array.isArray(payload))fail('Use a dayfly JSON backup.'); incoming={}; for(const [key,value] of Object.entries(payload)){if(!KEYS.includes(key)||(key===HABITS_KEY&&!Habits())){ignored++;continue;} try{incoming[key]=typeof value==='string'?JSON.parse(value):value;}catch(_){fail('Invalid JSON data section.');}} if(!Object.keys(incoming).length)fail('No supported workspace data found.');
     } else incoming=csvPayload(source,format, Tally.normalizeState(read('tally-book-v1')||{}));
     const payload={}, summary=[]; const merge=(oldItems,newItems)=>{const oldIds=new Set(oldItems.map(item=>item.id));return{items:[...oldItems,...newItems.filter(item=>!oldIds.has(item.id))],added:newItems.filter(item=>!oldIds.has(item.id)).length,skipped:newItems.filter(item=>oldIds.has(item.id)).length};};
     // Saved view sections may precede tasks in a JSON file. Resolve imported
@@ -220,6 +227,11 @@
           // A backup never switches the quick-add key on, off or back to an older one.
           quickAddKeyId:old.quickAddKeyId});
         summary.push({key,added:records.added+budgets.added+bills.added,skipped:records.skipped+budgets.skipped+bills.skipped});
+      }
+      else if (key === HABITS_KEY) {
+        // Existing habits keep their settings; check-ins from the file are added to them.
+        const merged = Habits().merge(original, imported);
+        result = merged.state; summary.push({ key, added: merged.added, skipped: merged.skipped });
       }
       else if ([Views.KEY, Notes.KEY, Focus.KEY, History.KEY].includes(key)) {
         const core = { [Views.KEY]:Views, [Notes.KEY]:Notes, [Focus.KEY]:Focus, [History.KEY]:History }[key];
