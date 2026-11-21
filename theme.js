@@ -589,8 +589,9 @@
         <div class="auth-account-actions" hidden>
           <div class="auth-conflict-actions" hidden>
             <p>Both this device and cloud changed. Choose which version to keep.</p>
-            <button type="button" class="btn" data-sync-choice="local">Keep this device</button>
-            <button type="button" class="btn" data-sync-choice="cloud">Use cloud</button>
+            <a class="btn" href="tally.html#merge-expenses" data-merge-expenses>Review and merge expenses</a>
+            <button type="button" class="btn" data-sync-choice="local">Keep entire device workspace</button>
+            <button type="button" class="btn" data-sync-choice="cloud">Use entire cloud workspace</button>
           </div>
           <p class="auth-account-hint">Mail and Calendar use your connected account.</p>
           <button type="button" class="auth-export">Download my data</button>
@@ -644,26 +645,7 @@
         authSync.textContent = "Offline — saved on this device";
       } else if (userSnapshotStatus === "conflict") {
         authSync.hidden = false;
-        authSync.innerHTML = (readWorkspaceOwner() ? 'Both this device and cloud changed — ' : 'Guest work and cloud data differ — ') +
-          '<button type="button" class="sidebar-auth-sync-action" id="auth-sync-keep-local">Keep this device</button> or <button type="button" class="sidebar-auth-sync-action" id="auth-sync-use-cloud">Use cloud</button>';
-        const keepLocal = authSync.querySelector("#auth-sync-keep-local");
-        const useCloud = authSync.querySelector("#auth-sync-use-cloud");
-        if (keepLocal) {
-          keepLocal.addEventListener("click", function (event) {
-            event.preventDefault();
-            event.stopPropagation();
-            keepLocalSnapshotOverCloud().catch(function (error) {
-              handleSnapshotFailure(error);
-            });
-          });
-        }
-        if (useCloud) {
-          useCloud.addEventListener("click", function (event) {
-            event.preventDefault();
-            event.stopPropagation();
-            applyCloudSnapshotPreferringRemote().catch(handleSnapshotFailure);
-          });
-        }
+        authSync.textContent = t("Sync conflict · review changes", "同步冲突 · 查看差异");
       } else if (userSnapshotStatus === "syncing") {
         authSync.hidden = false;
         authSync.textContent = "Syncing…";
@@ -717,9 +699,8 @@
       modal.hidden = false;
       document.body.classList.add("auth-modal-open");
       const state = readAuthState();
-      const focusTarget = state
-        ? modal.querySelector(".auth-export") || logoutButton
-        : modal.querySelector(".auth-provider");
+      const focusTarget = userSnapshotStatus === "conflict" ? modal.querySelector("[data-merge-expenses]")
+        : state ? modal.querySelector(".auth-export") || logoutButton : modal.querySelector(".auth-provider");
       if (focusTarget) focusTarget.focus();
     }
 
@@ -779,6 +760,7 @@
         closeModal();
         return;
       }
+      if (target.closest('[data-merge-expenses]')) closeModal();
       const choice = target.closest('[data-sync-choice]');
       if (choice) {
         if (choice.disabled) return;
@@ -1078,7 +1060,7 @@
     return decoded;
   }
 
-  async function requestUserSnapshot(method, payload, keepalive = false) {
+  async function requestUserSnapshot(method, payload, keepalive = false, baseRevision = userSnapshotRevision) {
     const generation = snapshotGeneration, owner = currentUserId();
     const assertCurrent = () => {
       if (generation !== snapshotGeneration || owner !== currentUserId()) throw Object.assign(new Error("Stale sync request"), { code: "SYNC_STALE" });
@@ -1103,7 +1085,7 @@
       const response = await fetch("/api/user/snapshot", {
         method,
         headers: { "Content-Type": "application/json" },
-        body: sent ? JSON.stringify({ ...sent, baseRevision: userSnapshotRevision }) : undefined,
+        body: sent ? JSON.stringify({ ...sent, baseRevision }) : undefined,
         signal: controller.signal,
         keepalive,
         cache: "no-store",
@@ -1396,6 +1378,53 @@
     snapshotSucceeded();
     notifySnapshotApplied(payload, collectUserSnapshotPayload(), beforeOwner !== userId);
   }
+
+  const LEDGER_KEY = "tally-book-v1";
+  const staleLedger = () => new Error(t("Data changed. Open a fresh preview.", "数据已变化，请重新预览。"));
+
+  window.DailySpaceLedgerSync = {
+    available: () => userSnapshotStatus === "conflict" && Boolean(currentUserId()) &&
+      (!readWorkspaceOwner() || readWorkspaceOwner() === currentUserId()),
+    async preview() {
+      if (!this.available() || snapshotStorageFault || readSnapshotRecovery()) throw staleLedger();
+      const owner = currentUserId(), materialized = readWorkspaceOwner(), generation = snapshotGeneration;
+      const remote = await requestUserSnapshot("GET");
+      const current = () => this.available() && currentUserId() === owner && readWorkspaceOwner() === materialized &&
+        snapshotGeneration === generation && !snapshotStorageFault && !readSnapshotRecovery();
+      if (!current()) throw staleLedger();
+      const local = localStorage.getItem(LEDGER_KEY), cloud = remote.payload?.[LEDGER_KEY] ?? null;
+      return {
+        local, cloud, guest: !materialized, owner,
+        async apply(ledger) {
+          if (!current() || userSnapshotWriteInFlight || localStorage.getItem(LEDGER_KEY) !== local) throw staleLedger();
+          const before = collectUserSnapshotPayload();
+          const merged = JSON.stringify(ledger);
+          const payload = { ...remote.payload, [LEDGER_KEY]: merged };
+          if (!materialized) cacheMaterializedWorkspace();
+          // A lost acknowledgement or reload must never turn remaining differences
+          // into a one-sided change eligible for automatic upload/download.
+          const pending = "unresolved-ledger-merge";
+          writePersistedBaseline(owner, pending);
+          userSnapshotBaseline = pending;
+          const saved = await requestUserSnapshot("PUT", { payload }, false, remote.revision);
+          if (!current() || localStorage.getItem(LEDGER_KEY) !== local ||
+              (!materialized && userSnapshotSignature(before) !== userSnapshotSignature(collectUserSnapshotPayload()))) throw staleLedger();
+          if (materialized) writeStorageChecked(LEDGER_KEY, merged);
+          else applyUserSnapshotPayload(payload, { clearMissing: true, owner });
+          const after = collectUserSnapshotPayload();
+          const remaining = userSnapshotSignature(after) !== userSnapshotSignature(payload);
+          writeUserLocalCache(owner, after);
+          userSnapshotUserId = owner;
+          writeLastUserId(owner);
+          userSnapshotLastSyncedAt = saved.updatedAt || new Date().toISOString();
+          if (remaining) { userSnapshotStatus = "conflict"; emitUserSnapshotUpdate(); }
+          else { setSyncedBaseline(owner, payload); snapshotSucceeded(); }
+          notifySnapshotApplied(before, after, !materialized);
+          return { remaining };
+        }
+      };
+    }
+  };
 
   async function downloadUserDataExport() {
     const owner = currentUserId(), generation = snapshotGeneration;

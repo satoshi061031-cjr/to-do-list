@@ -2103,7 +2103,7 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
     }
   });
 
-  await t.test("Tally explains invalid amounts, hidden rates and missing split participants beside Save", async () => {
+  await t.test("Tally explains invalid amounts, inline rates and missing split participants beside Save", async () => {
     const page=await pageFor({viewport:{width:390,height:420},isMobile:true,hasTouch:true}); await seedWorkspace(page);
     const nextFx=await holdFxRequests(page);
     await page.goto(`${base}/tally.html`,{waitUntil:'load'}); await page.locator('#tally-add-open').click();
@@ -2113,18 +2113,19 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
     assert.equal(await page.evaluate(()=>document.activeElement.id),'tally-amount');
     await page.locator('#tally-amount').fill('12');
     assert.equal(await page.locator('#tally-form-error').isVisible(),false);
-    await page.locator('#tally-extra-options > summary').click(); await page.locator('#tally-record-currency').selectOption('USD');
+    await page.locator('#tally-record-currency').selectOption('USD');
     const request=await nextFx(); assert.equal(await page.locator('#tally-submit').isDisabled(),true);
     assert.equal(await page.locator('#tally-submit').textContent(),'Fetching rate…');
     await request.reply(null,503); await page.waitForFunction(()=>!document.getElementById('tally-submit').disabled);
-    await page.evaluate(()=>document.getElementById('tally-extra-options').open=false);
     await page.locator('#tally-submit').click();
-    assert.equal(await page.locator('#tally-extra-options').evaluate(node=>node.open),true);
+    assert.equal(await page.locator('#tally-extra-options').evaluate(node=>node.open),false);
+    assert.equal(await page.locator('#tally-fx-rate').isVisible(),true);
     assert.equal(await page.evaluate(()=>document.activeElement.id),'tally-fx-rate');
     assert.ok((await page.locator('#tally-form-error').textContent()).includes('exchange rate'));
     const save=await page.locator('#tally-submit').boundingBox();assert.ok(save.y>=0 && save.y+save.height<=420);
     await captureMail(page,'tally-rate-error-390-420.png');
-    await page.locator('#tally-record-currency').selectOption('CNY'); await page.locator('#tally-scope').selectOption('shared');
+    await page.locator('#tally-record-currency').selectOption('CNY');
+    await page.locator('#tally-extra-options > summary').click(); await page.locator('#tally-scope').selectOption('shared');
     for(const checkbox of await page.locator('#tally-split-people input').all()) await checkbox.uncheck();
     await page.evaluate(()=>document.getElementById('tally-extra-options').open=false); await page.locator('#tally-submit').click();
     assert.ok((await page.locator('#tally-form-error').textContent()).includes('at least one person'));

@@ -183,3 +183,40 @@ test("foreign amounts never borrow the base currency's symbol", () => {
   assert.equal(Core.formatAmount(state, 5, "IDR"), "IDR 5.00");
   assert.equal(Core.formatAmount(Core.normalizeState({ baseCurrency: "JPY", currency: "¥" }), 100, "JPY"), "¥100.00");
 });
+
+test("per-entry merge uses stable IDs, preserves original amounts and converts into the target base", () => {
+  const { compareLedgers, mergeLedgerRecords } = require("../tally-core");
+  const entry = { date: "2026-11-13", amount: 77, category: "Lunch" };
+  const local = JSON.stringify({ currency: "¥", records: [
+    { ...entry, id: "device", currency: "CNY", fxRate: 21 }, { ...entry, id: "changed", currency: "USD", fxRate: 160 },
+    { ...entry, id: "skip" }
+  ] });
+  const cloud = JSON.stringify({ baseCurrency: "CNY", budget: 1200, records: [
+    { ...entry, id: "remote" }, { ...entry, id: "changed", currency: "USD", fxRate: 7, note: "Cloud note" }
+  ] });
+  const p = compareLedgers(local, cloud);
+  assert.deepEqual(p.rows.map(r => r.kind), ["cloud", "changed", "local", "local"]);
+  const choice = new Map([["remote","cloud"], ["device","local"], ["skip","omit"]]);
+  assert.throws(() => mergeLedgerRecords(p, choice, new Map()), /missing-choice/);
+  choice.set("changed","local");
+  assert.throws(() => mergeLedgerRecords(p, choice, new Map()), /missing-rate/);
+  const merged = mergeLedgerRecords(p, choice, new Map([["changed", 7.1]]));
+  assert.equal(merged.baseCurrency, "CNY"); assert.equal(merged.budget, 1200);
+  assert.deepEqual(merged.records.map(r=>[r.id,r.amount,r.fxRate]), [["remote",77,1],["changed",77,7.1],["device",77,1]]);
+  assert.throws(() => compareLedgers(JSON.stringify({ records:[{...entry,id:"x"},{...entry,id:"x"}] }), cloud), /invalid-ledger/);
+});
+
+test("shared local entries retain their participants and ledger versions with identical IDs deduplicate", () => {
+  const {compareLedgers, mergeLedgerRecords} = require("../tally-core");
+  const entry = { id:"same", date:"2026-11-10", amount:14, category:"Food" };
+  const people = [{id:"a",name:"Me"}, {id:"b",name:"Friend"}];
+  const local = { people, selfPersonId:"a", records:[{...entry,id:"shared",scope:"shared",paidById:"b",splitAmongIds:["a","b"]}] };
+  const cloud = {records:[entry]};
+  const p = compareLedgers(JSON.stringify(local),JSON.stringify(cloud));
+  const merged = mergeLedgerRecords(p,new Map([["shared","local"],["same","cloud"]]),new Map());
+  assert.deepEqual(merged.records[1].splitAmongIds, ["tally-self","b"]);
+  assert.equal(merged.people[1].name,"Friend");
+  const again = compareLedgers(JSON.stringify(merged),JSON.stringify(merged));
+  assert.ok(again.rows.every(row=>row.kind==="same"));
+  assert.equal(mergeLedgerRecords(again,new Map(),new Map()).records.length,2);
+});

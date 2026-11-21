@@ -141,6 +141,8 @@
             <div class="tally-settlement-list" id="tally-settlement-list"></div>
           </section>
 
+          <button type="button" class="btn" id="tally-merge-open" hidden>Review and merge expenses</button>
+          <p id="tally-merge-result" role="status" hidden></p>
           <section class="tally-today-strip" id="tally-today-strip" aria-label="Spent today">
             <p class="tally-overview-label">Spent today</p>
             <strong class="tally-today-total" id="tally-today-total">¥0.00</strong>
@@ -187,6 +189,7 @@
               placeholder="0.00"
               aria-label="Amount"
             />
+            <select id="tally-quick-currency" aria-label="Currency"></select>
             <input
               type="text"
               id="tally-quick-category"
@@ -196,6 +199,7 @@
               aria-label="Category"
             />
             <button type="submit" class="btn btn-primary tally-quick-submit">Add</button>
+            <label id="tally-quick-fx" hidden><span></span><input type="number" id="tally-quick-rate" step="any" min="0.000001" /></label>
           </form>
           <p class="tally-form-error" id="tally-quick-error" role="alert" data-i18n-ignore hidden></p>
 
@@ -226,7 +230,28 @@
                 <button type="button" class="tally-sheet-close" data-dialog-close id="tally-add-close" aria-label="Close expense sheet">×</button>
               </div>
               <form class="tally-form" id="tally-form" autocomplete="off" novalidate>
-                <label class="tally-amount-field">Amount<input type="number" min="0.01" step="0.01" inputmode="decimal" id="tally-amount" placeholder="0.00" required /></label>
+                <div class="tally-amount-row">
+                  <label class="tally-amount-field">Amount<input type="number" min="0.01" step="0.01" inputmode="decimal" id="tally-amount" placeholder="0.00" required /></label>
+                  <label>
+                    Currency
+                    <select id="tally-record-currency" required>
+                      <option value="JPY">JPY</option>
+                      <option value="CNY">CNY</option>
+                      <option value="USD">USD</option>
+                      <option value="EUR">EUR</option>
+                      <option value="GBP">GBP</option>
+                      <option value="KRW">KRW</option>
+                      <option value="HKD">HKD</option>
+                      <option value="MYR">MYR</option>
+                      <option value="SGD">SGD</option>
+                    </select>
+                  </label>
+                </div>
+                <label class="tally-fx-field" id="tally-fx-field" hidden>
+                  Rate to base currency
+                  <input type="number" min="0.000001" step="any" id="tally-fx-rate" value="1" />
+                  <span class="tally-field-help" id="tally-fx-help"></span>
+                </label>
                 <label class="tally-category-field">
                   Category (optional)
                   <input type="text" id="tally-category" list="tally-category-options" placeholder="Optional, defaults to Other" maxlength="40" autocomplete="off" />
@@ -245,24 +270,6 @@
                         <option value="personal">Personal</option>
                         <option value="shared">Shared expenses</option>
                       </select>
-                    </label>
-                    <label>
-                      Currency
-                      <select id="tally-record-currency" required>
-                        <option value="JPY">JPY</option>
-                        <option value="CNY">CNY</option>
-                        <option value="USD">USD</option>
-                        <option value="EUR">EUR</option>
-                        <option value="GBP">GBP</option>
-                        <option value="KRW">KRW</option>
-                        <option value="HKD">HKD</option>
-                        <option value="SGD">SGD</option>
-                      </select>
-                    </label>
-                    <label class="tally-fx-field" id="tally-fx-field" hidden>
-                      Rate to base currency
-                      <input type="number" min="0.000001" step="any" id="tally-fx-rate" value="1" />
-                      <span class="tally-field-help" id="tally-fx-help"></span>
                     </label>
                     <div class="tally-shared-fields" id="tally-shared-fields" hidden>
                       <label>
@@ -290,7 +297,14 @@
     </button>
 
     <script src="undo-bar.js"></script>
+    <dialog id="tally-merge-dialog" aria-labelledby="tally-merge-title" data-i18n-ignore>
+      <header><h2 id="tally-merge-title"></h2><button type="button" class="btn" id="tally-merge-close"></button></header>
+      <div id="tally-merge-body"></div>
+      <p role="status" id="tally-merge-status"></p>
+      <footer><button type="button" class="btn" id="tally-merge-refresh"></button><button type="button" class="btn btn-primary" id="tally-merge-apply" hidden></button></footer>
+    </dialog>
     <script src="tally.js"></script>
+    <script src="tally-merge.js"></script>
     <script src="agent-data.js"></script>
     <script src="agent-sources.js"></script>
     <script src="agent-ui.js"></script>

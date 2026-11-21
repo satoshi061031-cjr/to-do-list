@@ -1278,3 +1278,35 @@ body.tally-sheet-open {
   .tally-category-fill,
   .tally-trend-fill { transition: none; }
 }
+
+body.tally-page .tally-amount-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(5.5rem, 0.45fr);
+  grid-column: 1 / -1;
+  gap: var(--space-sm);
+}
+body.tally-page .tally-amount-row .tally-amount-field { grid-column: auto; }
+body.tally-page .tally-quick { flex-wrap: wrap; }
+#tally-quick-currency, #tally-quick-rate, #tally-merge-dialog :is(input, select) {
+  min-height: 44px; max-width: 100%; padding-inline: var(--space-sm);
+  color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); font: inherit;
+}
+#tally-quick-fx { display: flex; align-items: center; flex-basis: 100%; gap: var(--space-sm); }
+#tally-quick-rate { min-width: 0; width: 8rem; }
+#tally-merge-dialog {
+  box-sizing: border-box; width: min(40rem, calc(100% - 2 * var(--space-md))); max-height: 85dvh;
+  overflow: auto; overscroll-behavior: contain; padding: var(--space-md);
+  border: 1px solid var(--border); border-radius: var(--radius-md); color: var(--text); background: var(--panel-bg, var(--surface));
+}
+#tally-merge-dialog::backdrop { background: var(--overlay-bg, color-mix(in srgb, var(--text) 35%, transparent)); }
+#tally-merge-dialog :is(header, footer) { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); flex-wrap: wrap; }
+#tally-merge-dialog h2 { margin: 0; font-size: var(--type-title-size); }
+#tally-merge-dialog details { border-top: 1px solid var(--border); }
+#tally-merge-dialog summary { padding-block: var(--space-sm); min-height: 44px; cursor: pointer; }
+#tally-merge-dialog ul { list-style: none; padding: 0; margin: 0; }
+#tally-merge-dialog li { display: grid; gap: var(--space-sm); padding-block: var(--space-md); border-top: 1px solid var(--border); overflow-wrap: anywhere; }
+#tally-merge-dialog dl { margin: 0; }
+#tally-merge-dialog dt { font-weight: 600; }
+#tally-merge-dialog dd { margin-inline-start: var(--space-md); }
+#tally-merge-dialog label { display: grid; gap: var(--space-xs); }
+#tally-merge-dialog [hidden], #tally-quick-fx[hidden], #tally-merge-open[hidden] { display: none; }

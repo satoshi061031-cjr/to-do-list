@@ -497,3 +497,43 @@ test('personal view, focus, note and history stores sync and clear together on s
   const cached=JSON.parse(c.values.get('daily-space-user-cache-v1:alice@example.com'));
   assert.equal(cached['dayfly-notes-v1'],payload['dayfly-notes-v1']);
 });
+
+test("expense merge writes only the reviewed ledger revision and leaves other workspace conflicts pending across reload", async () => {
+  const c = client(), key = "tally-book-v1";
+  await c.sync.load();
+  c.values.set(key, JSON.stringify({records:[]}));
+  c.values.set("todo-app-v2", "local task");
+  c.changeCloud({ [key]: "{}", "todo-app-v2": "cloud task" });
+  await c.sync.tick();
+  const bridge = c.context.window.DailySpaceLedgerSync;
+  const first = await bridge.preview();
+  assert.equal(c.requests.at(-1).method, "GET");
+  c.changeCloud({ [key]: "{}", "todo-app-v2": "newer cloud task" });
+  await assert.rejects(first.apply({records:[]}), e => e.status === 409);
+  const next = await bridge.preview();
+  c.values.set(key, '{"records":[],"budget":10}');
+  await assert.rejects(next.apply({records:[]}), /fresh preview/);
+  const last = await bridge.preview(), merged = {records:[],budget:20};
+  assert.equal((await last.apply(merged)).remaining,true);
+  assert.deepEqual(JSON.parse(c.requests.at(-1).body).payload, {[key]: JSON.stringify(merged),"todo-app-v2":"newer cloud task"});
+  assert.equal(c.values.get("todo-app-v2"), "local task");
+  await c.sync.load();
+  assert.equal(c.sync.state().status,"conflict");
+  assert.equal(c.values.get(key),JSON.stringify(merged));
+});
+
+test("merging from a guest conflict keeps the guest originals separate from the signed-in ledger", async () => {
+  const guest = JSON.stringify({records:[{id:"guest"}]});
+  const c = guestClient("guest task");
+  c.values.set("tally-book-v1",guest);
+  await c.sync.load();
+  const preview = await c.context.window.DailySpaceLedgerSync.preview();
+  assert.equal(preview.guest,true);
+  await preview.apply({records:[{id:"merged"}]});
+  assert.equal(c.sync.state().owner,"alice@example.com");
+  assert.equal(c.sync.state().status,"ok");
+  assert.equal(c.values.get("todo-app-v2"),"original");
+  c.sync.stop();
+  assert.equal(c.values.get("tally-book-v1"),guest);
+  assert.equal(c.values.get("todo-app-v2"),"guest task");
+});
