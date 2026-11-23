@@ -143,3 +143,7 @@ body.phone-widget-home .workbench-sections .m-task-controls { margin-bottom: var
 @media (max-width: 819px) {
   body.planner-page .planner-card-avatar { display: inline-flex; align-items: center; justify-content: center; width: auto; min-width: var(--space-lg); height: var(--space-lg); padding-inline: var(--space-xs); box-sizing: border-box; border-radius: var(--radius-pill); white-space: nowrap; }
 }
+body.todo-mobile .phone-overview-summary:has(.focus-card-start:not([hidden])) { grid-template-columns: minmax(0,1fr) minmax(0,1.5fr) auto 44px; }
+  body.todo-mobile .phone-overview-summary .focus-card-start { font-size: 0; width: auto; min-width: 44px; margin: 0; padding-inline: var(--space-xs); }
+  body.todo-mobile .phone-overview-summary .focus-card-start::before { content: attr(data-clock); font-size: var(--phone-meta-size); }
+body.todo-mobile .phone-overview-summary.has-no-agenda:has(.focus-card-start:not([hidden])) { grid-template-columns: minmax(0,1fr) auto 44px; }

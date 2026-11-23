@@ -172,12 +172,14 @@
       if (Number.isFinite(endMin)) end = Math.max(end, Math.ceil(endMin / 60));
     });
     todos.forEach((todo) => {
-      if (!todo || todo.completed || !todo.dueTime || !todo.dueDate) return;
+      if (!todo || todo.completed) return;
+      if (todo.plannedDate) todo = { ...todo, dueDate: todo.plannedDate, dueTime: todo.plannedTime };
+      if (!todo.dueTime || !todo.dueDate) return;
       if (!isoInRange(todo.dueDate, startIso, endIso)) return;
       const startMin = minutesFromMidnight(todo.dueTime);
       if (Number.isFinite(startMin)) {
         start = Math.min(start, Math.floor(startMin / 60));
-        end = Math.max(end, Math.ceil((startMin + 60) / 60));
+        end = Math.max(end, Math.ceil((startMin + (todo.estimateMinutes || 60)) / 60));
       }
     });
     googleEvents.forEach((event) => {
@@ -502,8 +504,15 @@
     return (todo.sourceReminderId && reminders.some(reminder => reminder.id === todo.sourceReminderId && reminder.date === todo.dueDate)) ||
       (todo.externalEventId && googleEvents.some(event => event.id === todo.externalEventId && event.date === todo.dueDate));
   }
+  function tasksOnDate(iso, covered) {
+    return todos.flatMap(task => {
+      if (task.plannedDate === iso) return [{ ...task, dueTime: task.plannedTime, text: t('Plan · ', '计划 · ') + task.text }];
+      if (task.dueDate !== iso || covered(task)) return [];
+      return [task.plannedDate ? { ...task, dueTime: null, text: t('Due · ', '截止 · ') + task.text + (task.dueTime ? ' · ' + task.dueTime : '') } : task];
+    });
+  }
   function todosDueOn(iso) {
-    return todos.filter(todo => todo.dueDate === iso && !taskCoveredBySchedule(todo));
+    return tasksOnDate(iso, taskCoveredBySchedule);
   }
 
   function remindersForDate(iso) {
@@ -727,9 +736,9 @@
       loadTodoState();
       const task = todos.find((item) => item.id === itemId);
       if (!task || task.completed) return false;
-      if (task.dueDate === iso && task.dueTime === time) return false;
-      const before = { dueDate: task.dueDate, dueTime: task.dueTime, remindAt: task.remindAt };
-      Object.assign(task, { dueDate: iso, dueTime: time, remindAt: null });
+      if (task.plannedDate === iso && task.plannedTime === time) return false;
+      const before = { plannedDate: task.plannedDate, plannedTime: task.plannedTime };
+      Object.assign(task, { plannedDate: iso, plannedTime: time });
       saveTodoState();
       window.DailySpaceTasks?.syncLinkedWork({ from: "todo", silent: true });
       loadTodoState();
@@ -737,7 +746,7 @@
       window.DailySpaceUndo?.offer(t(`Moved to ${formatClockTime(time)}`, `已移到 ${formatClockTime(time)}`), () => {
         loadTodoState();
         const current = todos.find((item) => item.id === itemId);
-        if (!current) return;
+        if (!workspaceWritable() || current?.plannedDate !== iso || current.plannedTime !== time) return;
         Object.assign(current, before);
         saveTodoState();
         window.DailySpaceTasks?.syncLinkedWork({ from: "todo", silent: true });
@@ -910,9 +919,7 @@
     if (calendarRangeLabel) calendarRangeLabel.textContent = formatWeekRangeLabel();
     const dueThisWeek = todos.filter(
       (todo) =>
-        todo.dueDate &&
-        isoInRange(todo.dueDate, startIso, endIso) &&
-        !taskCoveredBySchedule(todo) &&
+        ((todo.plannedDate && isoInRange(todo.plannedDate, startIso, endIso)) || (todo.dueDate && isoInRange(todo.dueDate, startIso, endIso) && !taskCoveredBySchedule(todo))) &&
         matchesSearch(todo.text) &&
         calFilter !== "reminders"
     ).length;
@@ -998,8 +1005,8 @@
       });
 
       // A task dayfly pushed to Google stays a draggable task here, not a read-only Google link.
-      const dayTasks = todos.filter(
-        (task) => task.dueDate === iso && !task.completed && !taskCoveredByReminder(task) && matchesSearch(task.text) && calFilter !== "reminders"
+      const dayTasks = tasksOnDate(iso,taskCoveredByReminder).filter(
+        (task) => !task.completed && matchesSearch(task.text) && calFilter !== "reminders"
       );
       dayTasks.forEach((task) => { if (task.externalEventId) shownTaskEvents.add(task.externalEventId); });
       const timedTasks = dayTasks.filter((task) => task.dueTime);
@@ -1020,7 +1027,7 @@
           if (consumeDragClick()) return;
           selectDate(iso);
         });
-        attachScheduleDrag(chip, { kind: "task", id: task.id, iso, startMin: null, duration: 60, range: { rangeStart, rangeEnd, rangeSpan } });
+        attachScheduleDrag(chip, { kind: "task", id: task.id, iso, startMin: null, duration: task.estimateMinutes || 60, range: { rangeStart, rangeEnd, rangeSpan } });
         col.appendChild(chip);
       });
       if (untimedTasks.length > chipLimit) {
@@ -1037,7 +1044,7 @@
 
       timedTasks.forEach((task) => {
         const startMin = minutesFromMidnight(task.dueTime);
-        const endMin = Math.min(startMin + 60, 24 * 60);
+        const endMin = Math.min(startMin + (task.estimateMinutes || 60), 24 * 60);
         const clampedStart = Math.max(startMin, rangeStart);
         const clampedEnd = Math.min(endMin, rangeEnd);
         if (clampedEnd <= rangeStart || clampedStart >= rangeEnd) return;
@@ -1048,7 +1055,7 @@
         markSpan(block, clampedStart, clampedEnd);
         if (task.priority === "high") block.dataset.priority = "high";
         block.style.top = `${((clampedStart - rangeStart) / rangeSpan) * 100}%`;
-        block.style.height = `${Math.max(((clampedEnd - clampedStart) / rangeSpan) * 100, 4.5)}%`;
+        block.style.height = `${((clampedEnd - clampedStart) / rangeSpan) * 100}%`;
         block.innerHTML = `<span class="cal-event-title"></span><span class="cal-event-time"></span>`;
         block.querySelector(".cal-event-title").textContent = task.text;
         block.querySelector(".cal-event-time").textContent = formatClockTime(task.dueTime);
@@ -1059,7 +1066,7 @@
           if (consumeDragClick()) return;
           selectDate(iso);
         });
-        attachScheduleDrag(block, { kind: "task", id: task.id, iso, startMin, duration: 60, range: { rangeStart, rangeEnd, rangeSpan } });
+        attachScheduleDrag(block, { kind: "task", id: task.id, iso, startMin, duration: task.estimateMinutes || 60, range: { rangeStart, rangeEnd, rangeSpan } });
         col.appendChild(block);
       });
 

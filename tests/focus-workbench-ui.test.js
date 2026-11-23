@@ -85,8 +85,8 @@ test('task focus and recorded weekly review on phone and desktop', { timeout: 12
     assert.equal(await sheet.locator('[data-review-metric=completed]').textContent(), '1');
     assert.ok((await sheet.locator('[data-review-completed]').textContent()).includes('Recorded completion'));
     assert.equal((await sheet.locator('[data-review-completed]').textContent()).includes('Legacy completion'), false);
-    await sheet.locator('[data-review-overdue] button').click();
-    assert.equal(await sheet.locator('[data-review-metric=overdue]').textContent(), '0');
+    await sheet.locator('[data-review-overdue] [data-review-today]').click();
+    assert.equal(await sheet.locator('[data-review-metric=overdue]').textContent(), '1');
     const first = await sheet.locator('[data-review-range]').textContent(); await sheet.locator('[data-review-previous]').click();
     assert.notEqual(await sheet.locator('[data-review-range]').textContent(), first);
     await sheet.locator('[data-review-current]').click(); assert.equal(await sheet.locator('[data-review-range]').textContent(), first);
@@ -120,6 +120,7 @@ test('task focus and recorded weekly review on phone and desktop', { timeout: 12
   await t.test('desktop card starts focus and a narrow phone sheet retains touch targets and focus isolation', async () => {
     const desktop = await pageFor({ width: 1280, height: 900 }); assert.ok(await desktop.locator('[data-focus-card-start]').isVisible());
     await desktop.locator('[data-focus-card-start]').click(); assert.ok(await desktop.locator('#focus-sheet').isVisible());
+    assert.ok((await raw(desktop)).active?.resumedAt, 'One click starts the timer');
     const page = await pageFor({ width: 320, height: 568 }); const sheet = await open(page);
     await sheet.evaluate(async element => { await Promise.all(element.getAnimations({ subtree: true }).map(animation => animation.finished.catch(() => {}))); });
     for (let index = 0; index < 12; index++) { await page.keyboard.press(index % 3 ? 'Tab' : 'Shift+Tab'); assert.ok(await sheet.evaluate(root => root.contains(document.activeElement))); }

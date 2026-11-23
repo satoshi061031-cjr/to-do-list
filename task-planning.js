@@ -181,7 +181,7 @@
       root.hidden = !isReady;
       if (!isReady) { captureText.value = ''; name.value = ''; status.textContent = ''; filtersClose(); return; }
       const current = api.getPlanningView(), tasks = api.getTasks(), values = read().views;
-      const assigned = api.getView().source === 'assigned', effectiveDay = current.filter === 'today' ? day() : current.day;
+      const assigned = api.getView().source !== 'personal', effectiveDay = current.filter === 'today' ? day() : current.day;
       const inboxCount = tasks.filter(task => task.inbox && !task.completed).length;
       const pinnedCount = tasks.filter(task => !task.completed && task.todayPinDate === day()).length;
       const taskLabel = !assigned && current.mode === 'tasks' ? current.range === 'week' ? t('7 days', '近期 7 天') : effectiveDay === day() ? t('Today', '今天') : effectiveDay ? t('Selected day', '已选日期') : t('Tasks', '任务') : t('Today', '今天');
@@ -195,7 +195,7 @@
       personal.disabled = assigned; personal.hidden = assigned;
       statusControls?.closest('.task-filter-group')?.toggleAttribute('hidden', current.mode !== 'tasks' || assigned);
       dateControls.closest('.task-filter-group').hidden = current.mode !== 'tasks' || assigned;
-      if (sourceSelect) { sourceSelect.replaceChildren(new Option(t('Personal', '个人任务'), 'personal'), new Option(t('Assigned to me', '分配给我'), 'assigned')); sourceSelect.value = assigned ? 'assigned' : 'personal'; }
+      if (sourceSelect) { sourceSelect.replaceChildren(new Option(t('Personal', '个人任务'), 'personal'), new Option(t('Assigned to me', '分配给我'), 'assigned'), new Option(t('Related to me','与我有关'),'related')); sourceSelect.value = current.source; }
       category.replaceChildren(new Option(t('All categories', '全部分类'), ''), ...api.getCategories().map(value => new Option(value.name, value.id))); category.value = current.categoryId || '';
       if (document.activeElement !== dateInput) dateInput.value = effectiveDay || '';
       allDates.setAttribute('aria-pressed', String(!effectiveDay && current.range !== 'week'));
@@ -209,7 +209,7 @@
       capture.hidden = current.mode !== 'inbox'; captureText.placeholder = t('An idea, task or link…', '记录想法、待办或链接…'); captureText.setAttribute('aria-label', t('Capture to Inbox', '记录到收集箱')); captureSubmit.textContent = t('Capture', '记录'); captureHelp.textContent = t('No date or category needed. Organize below when you are ready.', '无需选择日期或分类，之后在下方整理。');
       const chipItems = [];
       const update = patch => { selectedViewId = ''; api.setPlanningView({ ...api.getPlanningView(), ...patch }); };
-      if (assigned) chipItems.push({ key:'source', text:t('Assigned to me', '分配给我'), clear:()=>update({source:'personal'}) });
+      if (assigned) chipItems.push({ key:'source', text:current.source === 'related' ? t('Related to me','与我有关') : t('Assigned to me', '分配给我'), clear:()=>update({source:'personal'}) });
       if (current.range === 'week' && current.mode === 'tasks' && !assigned) chipItems.push({key:'range',text:t('Next 7 days','近期 7 天'),clear:()=>update({range:'day'})});
       else if (current.mode === 'tasks' && !assigned && effectiveDay && effectiveDay !== day()) chipItems.push({key:'date',text:effectiveDay,clear:()=>update({day:null})});
       else if (current.mode === 'tasks' && !assigned && !effectiveDay) chipItems.push({key:'date',text:t('All dates','全部日期'),clear:()=>update({day:day()})});

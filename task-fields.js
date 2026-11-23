@@ -39,6 +39,10 @@
     const seen = new Set();
     const every = integer(value.repeatEvery);
     return {
+      planDeferred: !validDate(value.plannedDate) && value.planDeferred === true,
+      plannedDate: validDate(value.plannedDate),
+      plannedTime: validDate(value.plannedDate) && /^([01]\d|2[0-3]):[0-5]\d$/.test(value.plannedTime || '') ? value.plannedTime : null,
+      estimateMinutes: integer(value.estimateMinutes) >= 1 && integer(value.estimateMinutes) <= 1440 && Number.isInteger(integer(value.estimateMinutes)) ? integer(value.estimateMinutes) : null,
       inbox: value.inbox === true,
       priority: ['low', 'high'].includes(value.priority) ? value.priority : 'normal',
       todayPinDate: validDate(value.todayPinDate),
@@ -152,7 +156,7 @@
     const current = fields(value);
     const unit = normalizeRepeat(value.repeat);
     return { notes: current.notes, subtasks: current.subtasks.map(item => ({ ...item, id: crypto.randomUUID(), completed: false })), priority: current.priority, inbox: false, todayPinDate: null, todayPinOrder: 0, createdAt: Date.now(), completedAt: null, sourceUrl: current.sourceUrl, remindAt: null,
-      tags: current.tags,
+      tags: current.tags, estimateMinutes: current.estimateMinutes, plannedDate: null, plannedTime: null,
       repeatDay: unit === 'monthly' || unit === 'yearly' ? repeatAnchorDay(value.dueDate, value.repeatDay) : null,
       repeatEvery: current.repeatEvery, repeatDays: current.repeatDays, repeatUntil: current.repeatUntil, repeatFrom: current.repeatFrom };
   }
@@ -163,7 +167,7 @@
       repeat: normalizeRepeat(value.repeat) };
   }
   function mergeDraft(current, draft = {}) {
-    const keys = ['text', 'dueDate', 'dueTime', 'categoryId', 'repeat', 'repeatEvery', 'repeatDays', 'repeatUntil', 'repeatFrom', 'notes', 'subtasks', 'tags', 'inbox', 'priority', 'sourceUrl'];
+    const keys = ['plannedDate', 'plannedTime', 'estimateMinutes', 'text', 'dueDate', 'dueTime', 'categoryId', 'repeat', 'repeatEvery', 'repeatDays', 'repeatUntil', 'repeatFrom', 'notes', 'subtasks', 'tags', 'inbox', 'priority', 'sourceUrl'];
     const candidate = editable(draft), latest = editable(current || {});
     const base = draft._baseTask && draft._baseTask.id === current?.id ? editable(draft._baseTask) : null;
     const patch = {}, conflicts = [];

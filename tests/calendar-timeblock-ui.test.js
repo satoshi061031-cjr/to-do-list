@@ -54,16 +54,17 @@ test('calendar week grid: drag tasks and reminders into time slots, with keyboar
   await page.mouse.move(col.x + col.width / 2, col.y + (14 - firstHour) * hourPx + 2, { steps: 6 });
   assert.match(await page.locator('.cal-drop-preview').textContent(), /2 PM/);
   await page.mouse.up();
-  assert.equal((await stored('u1')).dueTime, '14:00');
+  assert.equal((await stored('u1')).plannedTime, '14:00');
   assert.equal(await page.locator('.cal-drop-preview').count(), 0);
   await page.locator('#undo-bar button').click();
-  assert.equal((await stored('u1')).dueTime, null, 'Undo puts the task back');
+  assert.equal((await stored('u1')).plannedTime, null, 'Undo puts the task back');
 
   const block = await page.locator('.cal-event-task[data-task-id="t1"]').boundingBox();
   await page.mouse.move(block.x + 10, block.y + 5); await page.mouse.down();
   await page.mouse.move(block.x + 10, block.y + 5 + hourPx, { steps: 8 }); await page.mouse.up();
-  assert.equal((await stored('t1')).dueTime, '11:00');
+  assert.equal((await stored('t1')).plannedTime, '11:00');
 
+  assert.equal((await stored('t1')).dueTime, '10:00', 'Moving a plan preserves its deadline');
   const reminder = await page.locator('.cal-col [data-grid-reminder-id="r1"]').boundingBox();
   await page.mouse.move(reminder.x + 10, reminder.y + 3); await page.mouse.down();
   await page.mouse.move(reminder.x + 10, reminder.y + 3 + 2 * hourPx, { steps: 8 }); await page.mouse.up();
@@ -77,12 +78,22 @@ test('calendar week grid: drag tasks and reminders into time slots, with keyboar
   }
 
   await page.locator('.cal-event-task[data-task-id="t1"]').focus(); await page.keyboard.press('Alt+ArrowUp');
-  assert.equal((await stored('t1')).dueTime, '10:45');
+  assert.equal((await stored('t1')).plannedTime, '10:45');
   assert.equal(await page.evaluate(() => document.activeElement?.dataset.taskId), 't1', 'focus follows the moved task');
   await page.locator('.cal-allday[data-task-id="u1"]').focus(); await page.keyboard.press('Alt+ArrowDown');
-  assert.equal((await stored('u1')).dueTime, '09:00');
+  assert.equal((await stored('u1')).plannedTime, '09:00');
 
   await page.locator('.cal-col [data-grid-reminder-id="r1"]').click();
   assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('calendar-app-v1')).reminders.length), 0, 'a plain click still deletes a reminder');
+  await page.evaluate(()=>window.DailySpaceTaskDetails.open('t1'));
+  const editor = page.locator('.task-desktop-editor');
+  await editor.locator('[data-plan-field=estimateMinutes]').fill('30');
+  await editor.locator('[data-plan-field=plannedTime]').fill('14:30');
+  await editor.locator('.task-desktop-save').click();
+  await page.reload();
+  const saved = await stored('t1');
+  assert.deepEqual([saved.dueTime,saved.plannedTime,saved.estimateMinutes],['10:00','14:30',30]);
+  const slot = await page.locator('.cal-event-task[data-task-id=t1]').boundingBox();
+  assert.ok(Math.abs(slot.height - hourPx / 2) < 4,'The planned block occupies half an hour');
   assert.deepEqual(errors, []);
 });

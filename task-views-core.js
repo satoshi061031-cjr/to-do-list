@@ -20,7 +20,7 @@
       categoryId: clean(value.categoryId, 120) || null,
       mode: ['inbox', 'top'].includes(value.mode) ? value.mode : 'tasks',
       priority: ['high', 'normal', 'low'].includes(value.priority) ? value.priority : 'all',
-      ...(value.source === 'assigned' ? { source: 'assigned' } : {}),
+      ...(['assigned','related'].includes(value.source) ? { source: value.source } : {}),
     }));
     return { version: 1, views };
   }
