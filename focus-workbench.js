@@ -180,7 +180,7 @@
       }
       quickStart.title = quickStart.textContent;
       quickStart.setAttribute('aria-label',quickStart.textContent);
-      quickStart.dataset.clock = active ? formatClock(active.targetMs ? active.targetMs - elapsed : elapsed) : '▶';
+      quickStart.dataset.clock = active ? formatClock(active.targetMs ? active.targetMs - elapsed : elapsed) : t('Focus','专注');
       opener.textContent = active ? t('Current focus', '当前专注') : t('Focus', '专注'); reviewOpener.textContent = t('Weekly review', '每周复盘');
       opener.disabled = reviewOpener.disabled = !available;
       dismiss.setAttribute('aria-label', t('Close focus', '关闭专注面板')); backdrop.setAttribute('aria-label', t('Close focus', '关闭专注面板'));
@@ -240,12 +240,7 @@
     quickStart.dataset.focusCardStart = '';
     if (focusCard?.classList.contains('phone-workbench-overview')) {
       const summary = focusCard.querySelector('.phone-overview-summary');
-      const short = matchMedia('(max-height: 700px)');
-      const place = () => {
-        if (short.matches) summary.insertBefore(quickStart, summary.lastElementChild);
-        else focusCard.append(quickStart);
-      };
-      short.addEventListener('change',place); place();
+      summary.insertBefore(quickStart,summary.lastElementChild);
     } else focusCard?.append(quickStart);
     for (const event of ['daily-space-agent-data-updated', 'daily-space-focus-updated', 'daily-space-user-sync-updated', 'daily-space-todo-view-updated', 'daily-space-locale-changed', 'storage']) window.addEventListener(event, render);
     window.addEventListener('daily-space-auth-updated', () => { clearInterval(ticker); ticker = null; sheetOwner = ''; selectedTask = ''; tasksSignature = ''; complete.checked = false; close(true, true); render(); });
