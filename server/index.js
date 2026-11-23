@@ -102,6 +102,8 @@ const runReminderTick = () => remindersReady.then(() => reminderStore.tick());
 const reminderTimer = setInterval(() => runReminderTick().catch(() => console.error("Reminder scheduler failed.")), 15000);
 reminderTimer.unref();
 runReminderTick().catch(() => console.error("Reminder scheduler failed."));
+// On a host that sleeps when idle, the scheduler above only runs while the server is awake.
+require("./keep-awake").createKeepAwake({ enabled: reminderStore.configured }).start();
 for (const signal of ["SIGTERM", "SIGINT"]) {
   process.once(signal, () => { reminderBackup.flush().finally(() => process.exit(0)); setTimeout(() => process.exit(0), 3000).unref(); });
 }

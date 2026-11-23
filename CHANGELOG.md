@@ -29,6 +29,7 @@ yet, so each merged pull request is an entry, newest first, dated by its merge.
 - Background reminders no longer switch themselves off after a redeploy on a host that wipes its disk: push subscriptions and schedules are mirrored to Supabase (migration `007_reminder_backups.sql`) and restored before any reminder request is answered.
 - Reminders on a host that sleeps can be sent on time: `POST /api/reminders/tick` with `REMINDER_TICK_SECRET`, called every 10 minutes by `.github/workflows/reminder-tick.yml` once `DAYFLY_URL` and the secret are configured.
 - The Capacitor app schedules reminders on the phone with local notifications, so they fire with the app closed and no server.
+- Background reminders arrive on time on Render's free plan: with push configured, the server requests its own public address every 10 minutes, so it is never put to sleep. The GitHub "Reminder tick" schedule turned out to run only every few hours and is now a backup.
 
 ## [PR #8] - 2026-11-19
 
