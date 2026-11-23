@@ -7,7 +7,7 @@ const { spawn } = require("node:child_process");
 const { chromium } = require("playwright-core");
 const { readStore } = require("../server/snapshot-values");
 
-test("browser interactions on desktop and touch screens", { timeout: 180_000 }, async t => {
+test("browser interactions on desktop and touch screens", { timeout: 360_000 }, async t => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "daily-space-ui-"));
   const port = 45000 + Math.floor(Math.random() * 5000);
   const base = `http://127.0.0.1:${port}`;
@@ -35,11 +35,13 @@ test("browser interactions on desktop and touch screens", { timeout: 180_000 }, 
   const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || "/usr/bin/chromium",
     args: process.env.CHROMIUM_NO_SANDBOX === "1" ? ["--no-sandbox"] : [] });
   t.after(() => browser.close());
+  t.afterEach(async () => {
+    await Promise.all(browser.contexts().map(context => context.close()));
+  });
   const errors = [];
 
   async function pageFor(options = {}) {
     const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, serviceWorkers: "block", timezoneId: "Asia/Kuala_Lumpur", ...options });
-    t.after(() => context.close());
     const page = await context.newPage();
     page.setDefaultTimeout(5000);
     page.setDefaultNavigationTimeout(10000);

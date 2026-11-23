@@ -956,7 +956,7 @@
       }
       newNote.textContent = "";
       newNote.classList.remove("is-error");
-      window.requestAnimationFrame(() => newName.focus());
+      newName.focus({ preventScroll: true });
     }
   }
 
