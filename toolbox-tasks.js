@@ -39,12 +39,42 @@
         state.todos.unshift(task); return task;
       });
     },
-    moveToToday(id) {
-      return change(state => {
-        const task = state.todos.find(item => item.id === id);
-        if (!task || task.completed) return false;
-        task.dueDate = window.DailySpaceFocusCore.localDate(); task.inbox = false; return task;
+    reviewControls(task, report, changed) {
+      const who = owner(), wrap = document.createElement('div');
+      wrap.className = 'review-plan-actions';
+      const date = document.createElement('input'); date.type = 'date'; date.value = task.plannedDate || '';
+      date.setAttribute('aria-label', t('Plan date', '计划日期') + ' · ' + task.text);
+      const button = (label, run) => {
+        const el = document.createElement('button'); el.type = 'button'; el.textContent = label;
+        el.addEventListener('click',run); return el;
+      };
+      const schedule = value => {
+        if (!ready() || who !== owner()) return;
+        try {
+          change(state => {
+            const current = state.todos.find(item => item.id === task.id);
+            if (!current || current.completed || (current.plannedDate || null) !== (task.plannedDate || null)) {
+              throw new Error(t('Task changed. Refresh to review it.', '任务已变化，请刷新后重新查看。'));
+            }
+            current.plannedDate = value;
+            if (!value) current.plannedTime = null;
+            current.planDeferred = !value;
+            return current;
+          });
+          changed();
+        } catch (error) { report(error); }
+      };
+      const today = button(t('Today', '今天'), () => schedule(window.DailySpaceFocusCore.localDate()));
+      today.dataset.reviewToday = task.id;
+      const apply = button(t('Schedule', '安排到所选日'), () => {
+        if (window.DailySpaceTaskFields.validDate(date.value)) schedule(date.value);
+        else date.focus();
       });
+      const skip = button(t('Leave unscheduled', '暂不安排'), () => schedule(null));
+      const state = document.createElement('small');
+      state.textContent = [t('Due', '截止') + ' ' + task.dueDate, task.plannedDate || (task.planDeferred ? t('Unscheduled', '暂不安排') : '')].filter(Boolean).join(' · ');
+      wrap.append(state,date,apply,today,skip);
+      return wrap;
     },
   };
 })();

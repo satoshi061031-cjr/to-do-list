@@ -155,13 +155,10 @@
         const row = node('li'); row.append(taskLink(task)); return row;
       }));
       if (!doneList.childElementCount) doneList.append(node('li', 'focus-review-empty', t('No recorded completions in this week.', '本周还没有已记录的完成事项。')));
-      const nowOwner = owner();
-      pendingList.replaceChildren(...summary.overdueTasks.sort((a, b) => a.dueDate.localeCompare(b.dueDate)).slice(0, 20).map(task => {
-        const row = node('li'), move = action('', () => {
-          if (nowOwner !== owner() || !ready()) return;
-          try { Tasks.batchTasks([task.id], 'date', Core.localDate()); renderReview(); } catch (failure) { reportError(failure); }
-        });
-        move.textContent = t('Today', '移到今天'); move.setAttribute('aria-label', `${t('Move to today', '移到今天')} · ${task.text}`); row.append(taskLink(task), move); return row;
+      pendingList.replaceChildren(...summary.overdueTasks.sort((a,b) => a.dueDate.localeCompare(b.dueDate)).slice(0,20).map(task => {
+        const row = node('li');
+        row.append(taskLink(task), window.DailySpacePageTasks.reviewControls(task,reportError,renderReview));
+        return row;
       }));
       if (!pendingList.childElementCount) pendingList.append(node('li', 'focus-review-empty', t('No unfinished overdue tasks.', '没有尚未完成的逾期任务。')));
       reviewHelp.textContent = t('Completion dates are recorded from this version onward. Older completed tasks are not assigned a guessed date. Inbox and overdue counts show the current state; focus totals use recorded days.', '完成日期从此版本起记录，旧任务不会推测历史日期。待整理和逾期数量显示当前状态；专注时间按实际记录日期统计。');
@@ -174,6 +171,16 @@
       }
       renderedOwner = currentOwner;
       const available = ready(), state = read(), active = state.active;
+      quickStart.hidden = !available || (!active && !pickCandidate(Tasks.getTasks()));
+      const elapsed = Core.elapsed(active);
+      const suggested = available && !active ? pickCandidate(Tasks.getTasks()) : null;
+      quickStart.textContent = active ? t('Continue focus','继续专注') + ' · ' + formatClock(active.targetMs ? active.targetMs - elapsed : elapsed) : t('Start focus','开始专注');
+      if (focusCard?.classList.contains('phone-workbench-overview') && (active || suggested)) {
+        quickStart.textContent += ' · ' + (active?.taskTitle || suggested.text);
+      }
+      quickStart.title = quickStart.textContent;
+      quickStart.setAttribute('aria-label',quickStart.textContent);
+      quickStart.dataset.clock = active ? formatClock(active.targetMs ? active.targetMs - elapsed : elapsed) : '▶';
       opener.textContent = active ? t('Current focus', '当前专注') : t('Focus', '专注'); reviewOpener.textContent = t('Weekly review', '每周复盘');
       opener.disabled = reviewOpener.disabled = !available;
       dismiss.setAttribute('aria-label', t('Close focus', '关闭专注面板')); backdrop.setAttribute('aria-label', t('Close focus', '关闭专注面板'));
@@ -205,7 +212,7 @@
       const amount = Core.elapsed(active);
       clock.textContent = formatClock(active ? (active.targetMs ? Math.max(0, active.targetMs - amount) : amount) : Number(mode.value) * 60000);
       timerState.textContent = active ? `${active.taskTitle} · ${active.resumedAt ? t('Focusing', '专注中') : t('Paused', '已暂停')}` : t('Choose one task and give it your attention.', '选一件事，留一段专注的时间。');
-      if (!root.hidden) renderReview();
+      if (!root.hidden && !pendingList.contains(document.activeElement)) renderReview();
       clearInterval(ticker); ticker = null;
       if (active?.resumedAt && !document.hidden) {
         ticker = setInterval(() => {
@@ -219,13 +226,27 @@
     }
     select.addEventListener('change', () => { selectedTask = select.value; start.disabled = !select.value; });
     mode.addEventListener('change', render);
-    // The original card keeps its task-detail action; focus is an explicit second action.
-    const focusCard = document.querySelector('.overview-focus-card');
-    if (focusCard) {
-      const quickStart = action('focus-card-start', () => open('timer', true, pickCandidate(Tasks.getTasks())?.id));
-      quickStart.textContent = t('Start focus', '开始专注'); quickStart.dataset.focusCardStart = ''; focusCard.append(quickStart);
-      window.addEventListener('daily-space-locale-changed', () => { quickStart.textContent = t('Start focus', '开始专注'); });
-    }
+    const focusCard = document.querySelector('.overview-focus-card, .phone-workbench-overview');
+    const quickStart = action('focus-card-start', () => {
+      if (!ready() || renderedOwner !== owner()) return;
+      const active = read().active;
+      const taskId = active?.taskId || focusCard?.dataset.candidate || pickCandidate(Tasks.getTasks())?.id;
+      if (!taskId) return;
+      open('timer',true,taskId);
+      if (root.hidden || sheetOwner !== owner()) return;
+      if (!active) startSession();
+      else if (!active.resumedAt) resumeSession();
+    });
+    quickStart.dataset.focusCardStart = '';
+    if (focusCard?.classList.contains('phone-workbench-overview')) {
+      const summary = focusCard.querySelector('.phone-overview-summary');
+      const short = matchMedia('(max-height: 700px)');
+      const place = () => {
+        if (short.matches) summary.insertBefore(quickStart, summary.lastElementChild);
+        else focusCard.append(quickStart);
+      };
+      short.addEventListener('change',place); place();
+    } else focusCard?.append(quickStart);
     for (const event of ['daily-space-agent-data-updated', 'daily-space-focus-updated', 'daily-space-user-sync-updated', 'daily-space-todo-view-updated', 'daily-space-locale-changed', 'storage']) window.addEventListener(event, render);
     window.addEventListener('daily-space-auth-updated', () => { clearInterval(ticker); ticker = null; sheetOwner = ''; selectedTask = ''; tasksSignature = ''; complete.checked = false; close(true, true); render(); });
     document.addEventListener('visibilitychange', render);

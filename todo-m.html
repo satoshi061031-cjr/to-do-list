@@ -233,6 +233,7 @@
               <button type="button" class="todo-source-btn" data-todo-source="assigned" role="tab" aria-selected="false">
                 Assigned
               </button>
+                  <button type="button" class="todo-source-btn" data-todo-source="related" role="tab" aria-selected="false">Related to me</button>
             </div>
 
             <ul class="todo-list m-todo-list" id="todo-list" aria-live="polite"></ul>
@@ -328,7 +329,7 @@
             <details class="m-task-details" id="m-task-details">
               <summary>More options</summary>
               <div class="m-task-fields">
-                <label>Time<input type="time" id="m-task-time" /></label>
+                <label>Due time<input type="time" id="m-task-time" /></label>
                 <label>Category<select id="m-task-category"></select></label>
                 <label>Repeat<select id="m-task-repeat">
                   <option value="">Once</option><option value="daily">Daily</option><option value="weekdays">Weekdays</option>
@@ -366,6 +367,7 @@
     <script src="workbench.js"></script>
     <script src="phone-workbench.js"></script>
     <script src="task-planning.js"></script>
+    <script src="toolbox-tasks.js"></script>
     <script src="focus-workbench.js"></script>
     <script src="notes-workbench.js"></script>
     <script src="record-history.js"></script>

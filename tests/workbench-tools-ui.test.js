@@ -74,10 +74,35 @@ test('toolbox routes expose real tools and preserve the original records', { tim
     await page.getByRole('button', { name: 'Previous week', exact: true }).click(); assert.equal(await page.locator('[data-review-metric=completed]').textContent(), '0');
     await page.getByRole('button', { name: 'This week', exact: true }).click();
     const before = await page.evaluate(() => JSON.parse(localStorage.getItem('todo-app-v2')));
-    await page.locator('[data-review-today=unfinished]').click(); assert.equal(await page.locator('[data-review-metric=overdue]').textContent(), '0');
+    await page.locator('[data-review-today=unfinished]').click(); assert.equal(await page.locator('[data-review-metric=overdue]').textContent(), '1');
+    const controls = page.locator('.review-plan-actions');
+    await controls.locator('input').fill('2030-01-08'); await controls.getByRole('button',{name:'Schedule',exact:true}).click();
+    const planned = await page.evaluate(()=>JSON.parse(localStorage.getItem('todo-app-v2')).todos[0]);
+    assert.equal(planned.plannedDate,'2030-01-08'); assert.equal(planned.dueDate,before.todos[0].dueDate);
+    await controls.getByRole('button',{name:'Leave unscheduled'}).click();
     const after = await page.evaluate(() => JSON.parse(localStorage.getItem('todo-app-v2')));
     assert.equal(after.todos[0].notes, before.todos[0].notes); assert.equal(after.todos[0].sourceMailId, before.todos[0].sourceMailId); assert.deepEqual(after.todos[1], before.todos[1]); assert.deepEqual(after.categories, before.categories); assert.equal(after.custom, 'keep');
     assert.equal(await page.locator('#focus-sheet').count(), 0, 'Review does not start a second focus timer');
+  });
+  await t.test('personal and assigned open work share a date-sorted view with distinct source links', async () => {
+    const page = await pageFor(1280,'todo.html');
+    const user = { provider:'Google',label:'Tester',email:'fixture@example.com' };
+    const payload = await page.evaluate(user => {
+      localStorage.setItem('daily-space-auth-v1',JSON.stringify(user));
+      localStorage.setItem('daily-space-workspace-owner-v1',JSON.stringify({owner:user.email}));
+      return {'todo-app-v2':localStorage.getItem('todo-app-v2')};
+    },user);
+    await page.route('**/api/auth/me',route=>route.fulfill({json:{user}}));
+    await page.route('**/api/user/snapshot',route=>route.fulfill({json:{revision:1,updatedAt:'2026-01-01',payload}}));
+    await page.route('**/api/me/tasks',route=>route.fulfill({json:{tasks:[{id:'unfinished',title:'Group presentation',dueDate:'2001-01-01',workspaceId:'study',boardId:'group',boardName:'Seminar'}]}}));
+    await page.goto(base+'/todo.html?fixture=related#related');
+    const rows=page.locator('.related-task-list li');
+    await rows.nth(1).waitFor();
+    assert.match(await rows.nth(0).innerText(),/Group presentation.*Seminar/s);
+    assert.match(await rows.nth(0).locator('a').getAttribute('href'),/teamBoard=group/);
+    assert.match(await rows.nth(1).innerText(),/Prepare project update.*Personal/s);
+    await rows.nth(1).locator('a').click();
+    await page.waitForURL(/focus=todo/);
   });
   await t.test('toolbox opens focus, templates, data tools and mobile appearance/account controls', async () => {
     const page = await pageFor();

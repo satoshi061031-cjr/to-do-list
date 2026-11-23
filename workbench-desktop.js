@@ -50,14 +50,14 @@
       });
       taskTitle.textContent = t('Today','今日');
       taskCount.textContent = String(stats.dueTodayOpen);
-      taskCaption.textContent = t('tasks left today','项今日待办');
+      taskCaption.textContent = t('tasks left today','项今日待办') + (stats.plannedMinutes ? t(` · ${stats.plannedMinutes} min planned`,` · 计划 ${stats.plannedMinutes} 分钟`) : '');
       const labels = compact.matches ? [t('Done','已完成'),t('Due','到期'),t('Overdue','逾期')] : [t('Completed','已完成'),t('Due today','今日到期'),t('Overdue','逾期')];
       [stats.dueTodayDone,stats.dueTodayTotal,stats.overdueOpen].forEach((value,index) => { metrics[index].value.textContent = String(value); metrics[index].label.textContent = labels[index]; });
       const percentage = stats.dueTodayTotal ? Math.round(stats.dueTodayDone / stats.dueTodayTotal * 100) : 0;
       fill.style.width = `${percentage}%`; progress.setAttribute('aria-valuenow',String(percentage)); progress.setAttribute('aria-label',t('Today’s task progress','今日任务进度')); progress.setAttribute('aria-valuetext',`${stats.dueTodayDone} / ${stats.dueTodayTotal}`);
       const now = new Date(), hm = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
       const appointments = stats.remindersToday.filter(item => item.startTime && !tasks.some(task => task.sourceReminderId === item.id && task.completed)).map(item => ({text:item.text,time:item.startTime,end:item.endTime,href:`calendar.html?focus=reminder&id=${encodeURIComponent(item.id)}`}));
-      tasks.filter(task => !task.completed && !task.sourceReminderId && task.dueDate === stats.today && task.dueTime).forEach(task => appointments.push({text:task.text,time:task.dueTime,href:`todo.html?focus=todo&id=${encodeURIComponent(task.id)}`}));
+      tasks.filter(task => !task.completed && !task.sourceReminderId && (task.plannedDate || task.dueDate) === stats.today && (task.plannedDate ? task.plannedTime : task.dueTime)).forEach(task => appointments.push({text:task.text,time:task.plannedDate ? task.plannedTime : task.dueTime,href:`todo.html?focus=todo&id=${encodeURIComponent(task.id)}`}));
       const next = appointments.filter(item => (item.end || item.time) >= hm).sort((a,b) => a.time.localeCompare(b.time))[0];
       agendaTitle.textContent = t('Next today','接下来的安排'); agendaTime.hidden = !next;
       agendaTime.textContent = next?.time || ''; if (next) agendaTime.dateTime = `${stats.today}T${next.time}`;
@@ -68,15 +68,17 @@
       if (!next) agendaCard.insertBefore(agendaNote, agendaLink); else agendaCard.append(agendaNote);
       agendaNote.textContent = next ? new Date().toLocaleDateString(window.DailySpaceI18n?.localeTag() || 'en-US',{weekday:'long',month:'short',day:'numeric'}) : t('Nothing else scheduled today 🎉','今天没有其他安排了 🎉');
       const priority = {high:0,normal:1,low:2};
-      const candidate = tasks.filter(task => !task.completed && !task.inbox && (task.todayPinDate === stats.today || !task.dueDate || task.dueDate <= stats.today)).sort((a,b) =>
+      const activeId = window.DailySpaceFocus?.read().active?.taskId;
+      const candidate = tasks.find(task => task.id === activeId) || tasks.filter(task => !task.completed && !task.inbox && (task.todayPinDate === stats.today || task.plannedDate === stats.today || !task.dueDate || task.dueDate <= stats.today)).sort((a,b) =>
         Number(b.todayPinDate === stats.today) - Number(a.todayPinDate === stats.today) ||
         (a.todayPinDate === stats.today && b.todayPinDate === stats.today ? (a.todayPinOrder || 0) - (b.todayPinOrder || 0) : 0) ||
         (priority[a.priority] ?? 1) - (priority[b.priority] ?? 1) || (a.dueDate || stats.today).localeCompare(b.dueDate || stats.today) || (a.dueTime || '99:99').localeCompare(b.dueTime || '99:99'))[0];
-      focusId = candidate?.id || null; focusKicker.hidden = true;
-      focusTitle.textContent = candidate?.text || t('No tasks','暂无待办');
+      focusId = candidate?.id || null;
+      focusCard.dataset.candidate = focusId || ''; focusKicker.hidden = true;
+      if (focusOpen.parentElement !== focusTitle) focusTitle.replaceChildren(focusOpen);
       focusMeta.textContent = candidate ? [candidate.dueDate && candidate.dueDate < stats.today ? t('Overdue','逾期') : '',candidate.dueTime].filter(Boolean).join(' · ') : '';
       focusMeta.hidden = !focusMeta.textContent;
-      focusOpen.textContent = candidate ? t('Open task','打开任务') : t('New task','新建任务');
+      focusOpen.textContent = candidate?.text || t('New task','新建任务');
       const state = window.DailySpaceTallyCore.readState();
       const amount = state.records.filter(record => record.date === stats.today && record.scope !== 'shared').reduce((sum,record) => sum + window.DailySpaceTallyCore.baseAmount(record),0);
       spendLabel.textContent = t('Today’s spending','今日支出'); spendAmount.textContent = window.DailySpaceTallyCore.formatAmount(state,amount,state.baseCurrency);

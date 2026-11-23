@@ -68,7 +68,7 @@
       today.setAttribute('aria-label',stats.dueTodayOpen?t(`${stats.dueTodayOpen} tasks left today. Open today.`, `今天剩余 ${stats.dueTodayOpen} 项待办，打开今天。`):t('No unfinished tasks today. Open today.','今天暂无未完成任务，打开今天。'));
       const now = new Date(), hm = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
       const arrangements = stats.remindersToday.filter(item => item.startTime && !tasks.some(task => task.sourceReminderId === item.id && task.completed)).map(item => ({ text:item.text,time:item.startTime,end:item.endTime,href:`calendar.html?focus=reminder&id=${encodeURIComponent(item.id)}` }));
-      tasks.filter(task => !task.completed && !task.inbox && !task.sourceReminderId && task.dueDate === stats.today && task.dueTime).forEach(task => arrangements.push({text:task.text,time:task.dueTime,href:`todo.html?focus=todo&id=${encodeURIComponent(task.id)}`}));
+      tasks.filter(task => !task.completed && !task.inbox && !task.sourceReminderId && (task.plannedDate || task.dueDate) === stats.today && (task.plannedDate ? task.plannedTime : task.dueTime)).forEach(task => arrangements.push({text:task.text,time:task.plannedDate ? task.plannedTime : task.dueTime,href:`todo.html?focus=todo&id=${encodeURIComponent(task.id)}`}));
       const upcoming = arrangements.filter(item => (item.end || item.time) >= hm).sort((a,b) => a.time.localeCompare(b.time))[0];
       next.hidden = config.hidden.includes('agenda'); summary.classList.toggle('has-no-agenda',next.hidden);
       nextLabel.textContent = upcoming ? `${t('Next','接下来')} · ${upcoming.time}` : t('Calendar','日历');
@@ -76,6 +76,7 @@
       next.href = upcoming?.href || 'calendar.html#today'; next.title = [nextLabel.textContent,nextValue.textContent].join(' · '); next.setAttribute('aria-label',next.title);
       for (const [id,label] of Object.entries(labels)) tiles[id].label.textContent = t(...label);
       tiles.tasks.value.textContent = String(stats.dueTodayOpen);
+      if (stats.plannedMinutes) tiles.tasks.label.textContent += t(` · ${stats.plannedMinutes} min planned`,` · 计划 ${stats.plannedMinutes} 分钟`);
       tiles.schedule.value.textContent = String(stats.remindersToday.filter(reminder => !tasks.some(task => task.sourceReminderId === reminder.id && task.completed)).length);
       let planners = [];
       try { const state = JSON.parse(localStorage.getItem('planner-app-v1') || '{}'); planners = Array.isArray(state.planners) ? state.planners : []; } catch (_) {}

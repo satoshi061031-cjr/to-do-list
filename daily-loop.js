@@ -86,6 +86,8 @@
     const tripsToday = readTodayTrips();
     return {
       today,
+      plannedMinutes: todos.filter(task => !task.completed && task.plannedDate === today)
+        .reduce((sum,task) => sum + (Number(task.estimateMinutes) || 0),0),
       dueTodayTotal: dueToday.length,
       dueTodayOpen: dueTodayOpen.length,
       dueTodayDone: dueTodayDone.length,
