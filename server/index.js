@@ -89,6 +89,7 @@ setMailAccountsChangeListener(mailBackup.scheduleSave);
 const staticAssets = require("./static-assets").createStaticAssets({ rootDir: ROOT_DIR, publicAssets: PUBLIC_ASSETS, contentType });
 const quickAdd = require("./quick-add").createQuickAdd({ getSecret: getSessionSecret, getSnapshotStore: getUserSnapshotStore });
 const receiptScanner = require("./receipt-scan").createReceiptScanner();
+const attachments = require("./attachments").createAttachments({ getSnapshotStore: getUserSnapshotStore });
 const { createMcp, serverOrigins } = require("./mcp");
 const mcp = createMcp({ getSecret: getSessionSecret, getSnapshotStore: getUserSnapshotStore });
 const mcpOrigins = request => serverOrigins(request, process.env.MAIL_OAUTH_BASE_URL || process.env.RENDER_EXTERNAL_URL || "");
@@ -674,6 +675,8 @@ async function handleApi(request, response, url) {
       throw Object.assign(new Error("baseRevision is required. Refresh the app before syncing."), { statusCode: 428 });
     }
     const saved = await getUserSnapshotStore().upsertSnapshot(session.userId, payload, body.baseRevision);
+    // Files no task, note or history entry mentions any more are deleted a few days later.
+    attachments.scheduleSweep(session.userId);
     sendJson(response, {
       ok: true,
       userId: saved.userId,
@@ -1575,6 +1578,36 @@ async function handleApi(request, response, url) {
     const created = await createWorkspaceCalendarEvent(session, request, body);
     sendJson(response, created, created.event ? 201 : 200);
     return;
+  }
+
+  if (url.pathname === "/api/attachments" || url.pathname.startsWith("/api/attachments/")) {
+    enforceUserSession(session);
+    if (method !== "GET") {
+      // Same-origin only: a page elsewhere must not upload into a signed-in account.
+      const origin = request.headers.origin;
+      const forwardedProtocol = String(request.headers["x-forwarded-proto"] || "").split(",")[0].trim();
+      const expectedOrigin = `${forwardedProtocol === "https" || request.socket.encrypted ? "https" : "http"}://${request.headers.host}`;
+      if ((origin && origin !== expectedOrigin) || request.headers["sec-fetch-site"] === "cross-site") {
+        throw Object.assign(new Error("Cross-origin attachment request denied."), { statusCode: 403 });
+      }
+    }
+    if (method === "POST" && url.pathname === "/api/attachments") {
+      const result = await attachments.upload(session.userId, request, { name: url.searchParams.get("name"), type: request.headers["content-type"] });
+      sendJson(response, { ok: true, ...result }, 201);
+      return;
+    }
+    if (method === "GET" && url.pathname === "/api/attachments/usage") {
+      sendJson(response, { ok: true, ...(await attachments.usage(session.userId)) });
+      return;
+    }
+    const fileMatch = url.pathname.match(/^\/api\/attachments\/([A-Za-z0-9_-]{1,64})$/);
+    if (method === "GET" && fileMatch) {
+      const file = await attachments.download(session.userId, fileMatch[1], url.searchParams.get("name"));
+      response.writeHead(200, file.headers);
+      response.end(file.body);
+      return;
+    }
+    throw Object.assign(new Error("Attachment route not found."), { statusCode: 404 });
   }
 
   const calendarEventMatch = url.pathname.match(/^\/api\/calendar\/events\/([^/]{1,1024})$/);

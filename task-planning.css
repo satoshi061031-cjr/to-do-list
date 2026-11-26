@@ -94,6 +94,29 @@ body.todo-mobile:not(.m-show-completed) .task-filter-content #clear-completed { 
 /* Tags on task rows. */
 .todo-item .todo-tag { color: var(--primary); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); white-space: nowrap; }
 
+.todo-item .todo-attachments { display: inline-flex; align-items: center; gap: 2px; color: var(--text-muted); font: var(--phone-meta-weight) var(--phone-meta-size)/var(--phone-meta-lh) var(--font-ui); white-space: nowrap; }
+
+/* Task attachments in the editor: a compact list with image thumbnails, then an add button. */
+.task-attachments { display: grid; gap: var(--space-xs); margin-block: var(--space-sm); min-width: 0; }
+.task-attachments-title { color: var(--text-muted); font-size: var(--phone-meta-size, 0.8rem); font-weight: 600; }
+.task-attachments.is-empty .task-attachment-list { display: none; }
+.task-attachment-list { display: grid; gap: var(--space-xs); margin: 0; padding: 0; list-style: none; min-width: 0; }
+.task-attachment { display: flex; align-items: center; gap: var(--space-xs); min-width: 0; padding: var(--space-xs); border: 1px solid var(--quiet-line, var(--border)); border-radius: var(--radius-sm); background: var(--surface); }
+.task-attachment.is-uploading { color: var(--text-muted); justify-content: space-between; }
+.task-attachment-open { display: flex; flex: 1; align-items: center; gap: var(--space-sm); min-width: 0; min-height: 44px; color: var(--text); text-decoration: none; }
+.task-attachment-open:focus-visible, .task-attachment-remove:focus-visible, .task-attachment-add:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.task-attachment-thumb, .task-attachment-kind { flex: none; width: 40px; height: 40px; border-radius: var(--radius-sm); object-fit: cover; background: var(--surface-muted); }
+.task-attachment-kind { display: grid; place-items: center; color: var(--primary); font: 700 0.62rem/1 var(--font-ui); letter-spacing: 0.02em; }
+.task-attachment-text { display: grid; min-width: 0; }
+.task-attachment-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--type-body-size); }
+.task-attachment-size { color: var(--text-muted); font-size: var(--phone-meta-size, 0.8rem); }
+.task-attachment-remove { flex: none; min-width: 44px; min-height: 44px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-muted); font-size: 1.2rem; cursor: pointer; }
+.task-attachment-remove:hover { color: var(--danger); background: var(--surface-hover); }
+.task-attachment-add { justify-self: start; min-height: 44px; padding-inline: var(--space-sm); border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--primary); font: 600 var(--type-body-size)/1.2 var(--font-ui); cursor: pointer; }
+.task-attachment-add:disabled { color: var(--text-muted); cursor: not-allowed; }
+.task-attachment-status { margin: 0; color: var(--text-muted); font-size: var(--phone-meta-size, 0.8rem); }
+.task-attachment-status:empty { display: none; }
+
 /* Priority matrix: four quadrants, 2×2 on wide screens and stacked on phone. */
 .todo-matrix { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-md); margin-top: var(--space-sm); }
 .todo-matrix[hidden] { display: none; }

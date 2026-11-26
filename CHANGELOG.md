@@ -8,6 +8,7 @@ yet, so each merged pull request is an entry, newest first, dated by its merge.
 
 ### Added
 
+- **Task attachments:** add photos and files to a task in task details, with image thumbnails and a paperclip count on the task row. Files are stored in a private Supabase Storage bucket (or beside the database without Supabase), up to 10 MB each and 200 MB per account, and unused files are cleaned up a few days after removal.
 - **Recurrence rules:** repeat on weekdays or yearly, every N days/weeks/months, on chosen weekdays, until a date, or counted from completion ("every 2 weeks · Mon, Thu"). The task editor, the app, the calendar and the MCP server share one rule (`nextOccurrenceDate` in `task-fields.js`).
 - **Tags** on tasks (up to 10), edited in task details and shown as chips.
 - **Natural-language quick add** in English and Chinese: relative days, weekdays, dates, times ("下午3点一刻", "7pm"), repeats, `#tag` or category, and `!!` / `!3` priority, previewed as an Apply chip.

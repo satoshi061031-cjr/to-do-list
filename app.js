@@ -1275,9 +1275,21 @@
       main.appendChild(tag);
     });
 
+    if (Array.isArray(todo.attachments) && todo.attachments.length) {
+      const files = document.createElement("span");
+      files.className = "todo-attachments";
+      const count = todo.attachments.length;
+      files.innerHTML = '<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" focusable="false"><path d="M10.5 4.5 5.8 9.2a1.4 1.4 0 0 0 2 2l5-5a2.8 2.8 0 0 0-4-4l-5.2 5.2a4.2 4.2 0 0 0 6 6L13 9" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      files.append(document.createTextNode(String(count)));
+      const label = window.DailySpaceI18n?.locale?.() === "zh" ? `${count} 个附件` : `${count} attachment${count === 1 ? "" : "s"}`;
+      files.setAttribute("aria-label", label);
+      files.title = label;
+      main.appendChild(files);
+    }
+
     {
       // One compact metadata line on phone and desktop: priority, category, due, travel, notes, tags.
-      const metadata = [...main.querySelectorAll(":scope > :is(.task-planning-badge, .todo-category-pill, .todo-due, .todo-travel-tag, .task-detail-meta, .todo-board-meta, .todo-tag)")];
+      const metadata = [...main.querySelectorAll(":scope > :is(.task-planning-badge, .todo-category-pill, .todo-due, .todo-travel-tag, .task-detail-meta, .todo-board-meta, .todo-tag, .todo-attachments)")];
       if (metadata.length) {
         const meta = document.createElement("span");
         meta.className = isMobileTodoPage() ? "m-task-meta todo-meta-line" : "todo-meta-line";
