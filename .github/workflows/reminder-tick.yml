@@ -4,8 +4,9 @@
 # Setup: in the repository's Settings → Secrets and variables → Actions, add
 #   DAYFLY_URL            e.g. https://your-app.onrender.com
 #   REMINDER_TICK_SECRET  the same value as the server's REMINDER_TICK_SECRET
-# Without both secrets the job does nothing. GitHub may start scheduled runs a
-# few minutes late, so reminders can arrive up to ~10 minutes after their time.
+# Without both secrets the job does nothing. GitHub often delays free scheduled
+# runs by hours, so this is a backup: the server keeps itself awake on Render
+# (see server/keep-awake.js), and its own scheduler sends reminders on time.
 name: Reminder tick
 
 on:
