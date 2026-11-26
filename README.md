@@ -203,6 +203,15 @@ CSV uses UTF-8, an optional BOM, a header row, standard quoted values and ISO `Y
 
 Travel’s **Trip expenses** disclosure shows all linked expenses in your own Tally ledger, a selected-day total, category totals, saved-rate currency conversion and an optional trip budget. **Add trip expense** opens Tally with the trip and selected day prefilled, and record links open the matching expense month/editor. The expense Trip selector can relink/unlink an entry; deleted trips retain their saved label and existing expenses. A personal trip promoted to a shared trip still includes its previously linked expenses through the existing mapping. Budget amounts retain their currency and are not reinterpreted when the ledger base currency changes. Other trip members cannot read your ledger. Shared expense splits continue to be handled by Tally’s local ledger, independently of trip collaboration.
 
+## Task attachments
+
+Signed-in users can add photos and files to a task in task details (**＋ Add file**). Images show a thumbnail; PDFs and images open in the browser, and other files download. Up to 20 files per task, 10 MB each (large photos are resized before upload) and 200 MB per account; `ATTACHMENT_MAX_MB` and `ATTACHMENT_QUOTA_MB` change the limits.
+
+- **Storage:** with `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` set, files go to a private Supabase Storage bucket, `task-attachments`, which the server creates on first use. Supabase's free plan includes 1 GB of file storage. Without Supabase, files are kept beside the SQLite file (`ATTACHMENTS_DIR` overrides), which suits local and Docker use; a host that wipes its disk loses them.
+- **Privacy:** files are stored under a hash of the account, never the email, and are served only to that signed-in account. Anything other than images and PDFs is sent as a download, so an uploaded page can never run inside dayfly.
+- **Removal:** the task keeps only a small reference that syncs with the rest of your data. Removing a file from a task (or deleting the task) frees its storage a few days later, once no task, note or history entry mentions it, so Undo and record history keep working.
+- Guests cannot attach files, and data exports contain the references but not the files themselves.
+
 ## Reminders and background push
 
 The **Reminders** disclosure below Todo, or beside Calendar's reminder control, shows the actual device status. Google users can opt in to Web Push. Reminders are stored in SQLite and sent by the running server every 15 seconds, independent of an open browser page. Timed tasks/reminders use their time; untimed dated tasks use 19:00 in the device's time zone. Completing/deleting a task removes its pending job after account sync. A linked calendar reminder appears once and stops notifying when its task is completed.

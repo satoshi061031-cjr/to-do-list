@@ -94,7 +94,96 @@
     for (const [minutes, en, zh] of [[10, 'Remind in 10 min', '10 分钟后提醒'], ['tomorrow', 'Remind tomorrow', '明天提醒']]) {
       postpone.append(button(t(en, zh), async () => { if (currentId) await window.DailySpaceReminders?.defer('todo', currentId, minutes); }));
     }
-    section.append(noteLabel, list, add); anchor.after(planning, section, source, postpone);
+    // Attachments: files are uploaded at once; the task keeps references, saved with the rest of the editor.
+    const files = element('div', '', 'task-attachments'); files.dataset.i18nIgnore = ''; files.setAttribute('role', 'group');
+    const filesTitle = element('span', '', 'task-attachments-title');
+    const fileList = element('ul', '', 'task-attachment-list'); fileList.dataset.attachmentList = '';
+    const fileInput = element('input'); fileInput.type = 'file'; fileInput.multiple = true; fileInput.hidden = true; fileInput.dataset.attachmentInput = '';
+    const addFile = button('', () => fileInput.click(), 'task-attachment-add'); addFile.dataset.attachmentAdd = '';
+    const fileStatus = element('p', '', 'task-attachment-status'); fileStatus.setAttribute('role', 'status');
+    files.append(filesTitle, fileList, addFile, fileInput, fileStatus);
+    let attachments = [], uploading = 0;
+    const MAX_ATTACHMENTS = 20, MAX_FILE_BYTES = 10 * 1024 * 1024;
+    const signedIn = () => (window.DailySpaceView?.owner?.() || 'guest') !== 'guest';
+    const fileSize = bytes => bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+    const fileUrl = item => `/api/attachments/${encodeURIComponent(item.id)}?name=${encodeURIComponent(item.name)}`;
+    const PREVIEW = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
+    function refreshFiles() {
+      filesTitle.textContent = localized('Attachments', '附件');
+      files.setAttribute('aria-label', localized('Attachments', '附件'));
+      addFile.textContent = localized('＋ Add file', '＋ 添加文件');
+      addFile.disabled = !signedIn() || attachments.length + uploading >= MAX_ATTACHMENTS;
+      addFile.title = signedIn() ? '' : localized('Sign in to attach files', '登录后可添加附件');
+      const pending = [...fileList.querySelectorAll('.is-uploading')];
+      fileList.replaceChildren(...attachments.map(item => {
+        const row = element('li', '', 'task-attachment'); row.dataset.attachmentId = item.id;
+        const link = element('a', '', 'task-attachment-open'); link.href = fileUrl(item); link.target = '_blank'; link.rel = 'noopener';
+        if (PREVIEW.has(item.type)) { const thumb = element('img', '', 'task-attachment-thumb'); thumb.src = link.href; thumb.alt = ''; thumb.loading = 'lazy'; thumb.decoding = 'async'; link.append(thumb); }
+        else link.append(element('span', (item.name.split('.').pop() || 'file').slice(0, 4).toUpperCase(), 'task-attachment-kind'));
+        const text = element('span', '', 'task-attachment-text');
+        text.append(element('span', item.name, 'task-attachment-name'), element('span', fileSize(item.size), 'task-attachment-size'));
+        link.append(text);
+        const remove = button('×', () => {
+          attachments = attachments.filter(entry => entry.id !== item.id); refreshFiles();
+          fileStatus.textContent = localized('Removed. Save to keep this change.', '已移除，保存后生效。');
+          form.dispatchEvent(new Event('input', { bubbles: true }));
+        }, 'task-attachment-remove');
+        remove.setAttribute('aria-label', localized(`Remove ${item.name}`, `移除 ${item.name}`));
+        row.append(link, remove);
+        return row;
+      }), ...pending);
+      files.classList.toggle('is-empty', !attachments.length && !uploading);
+    }
+    /** Large photos are resized before upload; other files go up as they are. */
+    async function prepare(file) {
+      if (!['image/jpeg', 'image/webp'].includes(file.type) || file.size < 1.5 * 1024 * 1024 || typeof createImageBitmap !== 'function') return file;
+      try {
+        const bitmap = await createImageBitmap(file);
+        const scale = Math.min(1, 2560 / Math.max(bitmap.width, bitmap.height));
+        const canvas = document.createElement('canvas'); canvas.width = Math.round(bitmap.width * scale); canvas.height = Math.round(bitmap.height * scale);
+        canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height); bitmap.close?.();
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+        return blob && blob.size < file.size ? blob : file;
+      } catch (_) { return file; }
+    }
+    async function uploadFiles(list) {
+      const chosen = [...list].slice(0, Math.max(0, MAX_ATTACHMENTS - attachments.length - uploading));
+      if (!chosen.length) { fileStatus.textContent = localized('A task can have up to 20 files.', '每个任务最多 20 个附件。'); return; }
+      const ownerAtStart = window.DailySpaceView?.owner?.();
+      await Promise.all(chosen.map(async file => {
+        const placeholder = element('li', '', 'task-attachment is-uploading');
+        placeholder.append(element('span', file.name, 'task-attachment-name'), element('span', localized('Uploading…', '上传中…'), 'task-attachment-size'));
+        uploading += 1; fileList.append(placeholder); refreshFiles();
+        try {
+          const body = await prepare(file);
+          if (body.size > MAX_FILE_BYTES) throw new Error(localized(`${file.name} is larger than 10 MB.`, `${file.name} 超过 10 MB。`));
+          const response = await fetch(`/api/attachments?name=${encodeURIComponent(file.name)}`, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': body.type || 'application/octet-stream' }, body });
+          const payload = await response.json().catch(() => ({}));
+          if (response.status === 401) throw new Error(localized('Sign in again to attach files.', '请重新登录后再添加附件。'));
+          if (!response.ok || !payload.attachment) throw new Error(payload.error || localized('Upload failed. Try again.', '上传失败，请重试。'));
+          // A different account signed in meanwhile: this file is not theirs to keep.
+          if (window.DailySpaceView?.owner?.() !== ownerAtStart) return;
+          attachments.push(payload.attachment);
+          fileStatus.textContent = localized('Added. Save to keep it with the task.', '已添加，保存后随任务保留。');
+          form.dispatchEvent(new Event('input', { bubbles: true }));
+        } catch (error) {
+          fileStatus.textContent = error.message || localized('Upload failed. Try again.', '上传失败，请重试。');
+        } finally {
+          uploading -= 1; placeholder.remove(); refreshFiles();
+        }
+      }));
+    }
+    fileInput.addEventListener('change', () => { const chosen = fileInput.files; if (chosen?.length) uploadFiles(chosen); fileInput.value = ''; });
+    // Saving while a file is still uploading would leave it out of the task.
+    form.addEventListener('submit', event => {
+      if (!uploading) return;
+      event.preventDefault(); event.stopImmediatePropagation();
+      fileStatus.textContent = localized('Wait for the upload to finish, then save.', '请等上传完成后再保存。');
+    }, true);
+    window.addEventListener('daily-space-locale-changed', refreshFiles);
+    window.addEventListener('daily-space-auth-updated', refreshFiles);
+    refreshFiles();
+    section.append(noteLabel, list, add); anchor.after(planning, section, files, source, postpone);
     function refreshPlanning() {
       caption.textContent = localized('Plan time', '安排时间');
       planFields.forEach(field => { field.title.textContent = localized(field.en,field.zh); });
@@ -125,6 +214,7 @@
     return {
       value: () => ({ ...Object.fromEntries(planFields.map(({key,input}) => [key,input.value || null])), priority: priority.value, inbox: inbox.checked, sourceUrl: sourceInput.value, notes: notes.value,
         tags: tagsInput.value.split(/[,，、#]+/).map(tag => tag.trim()).filter(Boolean),
+        attachments: attachments.map(item => ({ ...item })),
         repeatEvery: repeatSelect?.value && repeatSelect.value !== 'weekdays' && Number(everyInput.value) > 1 ? Number(everyInput.value) : null,
         repeatDays: repeatSelect?.value === 'weekly' ? dayBoxes.filter(item => item.box.checked).map(item => item.day) : null,
         repeatUntil: repeatSelect?.value ? untilInput.value || null : null,
@@ -136,6 +226,7 @@
         section.open = Boolean(fields.notes || fields.subtasks.length); currentId = task?.id || null; postpone.hidden = !currentId || task?.completed;
         priority.value = fields.priority; inbox.checked = fields.inbox; sourceInput.value = fields.sourceUrl || ''; pinStatus.textContent = ''; refreshPlanning();
         tagsInput.value = fields.tags.join(', ');
+        attachments = fields.attachments.map(item => ({ ...item })); fileStatus.textContent = ''; refreshFiles();
         everyInput.value = String(fields.repeatEvery || 1); untilInput.value = fields.repeatUntil || ''; fromInput.checked = fields.repeatFrom === 'completion';
         dayBoxes.forEach(item => { item.box.checked = Boolean(fields.repeatDays?.includes(item.day)); });
         // The editor sets its Repeat select right after filling these fields.

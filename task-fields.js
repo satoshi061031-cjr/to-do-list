@@ -23,6 +23,20 @@
     return days.length && days.length < 7 ? days : null;
   }
   /** Up to 10 short labels; a leading "#" is dropped and duplicates are ignored regardless of case. */
+  const ATTACHMENT_ID = /^[A-Za-z0-9_-]{22}$/;
+  const ATTACHMENT_TYPE = /^[a-z0-9][a-z0-9!#$&^_.+-]{0,63}\/[a-z0-9][a-z0-9!#$&^_.+-]{0,63}$/;
+  /** References to files stored on the server: at most 20 per task, each once. */
+  function normalizeAttachments(value) {
+    const seen = new Set();
+    return (Array.isArray(value) ? value : []).filter(item => item && ATTACHMENT_ID.test(item.id) && !seen.has(item.id) && seen.add(item.id)).slice(0, 20).map(item => ({
+      id: item.id,
+      // eslint-disable-next-line no-control-regex -- control characters are exactly what is removed
+      name: String(item.name || 'attachment').replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, 200) || 'attachment',
+      type: ATTACHMENT_TYPE.test(String(item.type || '')) ? item.type : 'application/octet-stream',
+      size: Number.isSafeInteger(item.size) && item.size >= 0 ? item.size : 0,
+      createdAt: Number.isSafeInteger(item.createdAt) && item.createdAt > 0 ? item.createdAt : null,
+    }));
+  }
   function normalizeTags(value) {
     const seen = new Set(), tags = [];
     for (const raw of Array.isArray(value) ? value : []) {
@@ -55,6 +69,7 @@
         item && typeof item.id === 'string' && !seen.has(item.id) && seen.add(item.id)
       ).map(item => ({ id: item.id.slice(0, 120), text: String(item.text || '').slice(0, 500), completed: Boolean(item.completed) })),
       tags: normalizeTags(value.tags),
+      attachments: normalizeAttachments(value.attachments),
       remindAt: Number.isFinite(value.remindAt) && value.remindAt > 0 ? value.remindAt : null,
       sourceReminderId: typeof value.sourceReminderId === 'string' ? value.sourceReminderId : null,
       sourcePlannerId: typeof value.sourcePlannerId === 'string' ? value.sourcePlannerId : null,
@@ -156,7 +171,7 @@
     const current = fields(value);
     const unit = normalizeRepeat(value.repeat);
     return { notes: current.notes, subtasks: current.subtasks.map(item => ({ ...item, id: crypto.randomUUID(), completed: false })), priority: current.priority, inbox: false, todayPinDate: null, todayPinOrder: 0, createdAt: Date.now(), completedAt: null, sourceUrl: current.sourceUrl, remindAt: null,
-      tags: current.tags, estimateMinutes: current.estimateMinutes, plannedDate: null, plannedTime: null,
+      tags: current.tags, attachments: current.attachments, estimateMinutes: current.estimateMinutes, plannedDate: null, plannedTime: null,
       repeatDay: unit === 'monthly' || unit === 'yearly' ? repeatAnchorDay(value.dueDate, value.repeatDay) : null,
       repeatEvery: current.repeatEvery, repeatDays: current.repeatDays, repeatUntil: current.repeatUntil, repeatFrom: current.repeatFrom };
   }
@@ -167,7 +182,7 @@
       repeat: normalizeRepeat(value.repeat) };
   }
   function mergeDraft(current, draft = {}) {
-    const keys = ['plannedDate', 'plannedTime', 'estimateMinutes', 'text', 'dueDate', 'dueTime', 'categoryId', 'repeat', 'repeatEvery', 'repeatDays', 'repeatUntil', 'repeatFrom', 'notes', 'subtasks', 'tags', 'inbox', 'priority', 'sourceUrl'];
+    const keys = ['plannedDate', 'plannedTime', 'estimateMinutes', 'text', 'dueDate', 'dueTime', 'categoryId', 'repeat', 'repeatEvery', 'repeatDays', 'repeatUntil', 'repeatFrom', 'notes', 'subtasks', 'tags', 'attachments', 'inbox', 'priority', 'sourceUrl'];
     const candidate = editable(draft), latest = editable(current || {});
     const base = draft._baseTask && draft._baseTask.id === current?.id ? editable(draft._baseTask) : null;
     const patch = {}, conflicts = [];
@@ -194,7 +209,7 @@
     if (fields(value).sourceUrl) return { href: fields(value).sourceUrl, label: 'Original link', zh: '原始链接' };
     return null;
   }
-  const api = { fields, recurrence, source, validDate, sourceUrl, mergeDraft, nextRepeatDate, nextOccurrenceDate, repeatAnchorDay, normalizeRepeat, normalizeTags, describeRepeat, REPEAT_UNITS };
+  const api = { fields, recurrence, source, validDate, sourceUrl, mergeDraft, nextRepeatDate, nextOccurrenceDate, repeatAnchorDay, normalizeRepeat, normalizeTags, normalizeAttachments, describeRepeat, REPEAT_UNITS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.DailySpaceTaskFields = api;
 })();
