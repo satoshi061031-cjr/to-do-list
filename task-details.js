@@ -35,6 +35,20 @@
     }); pin.dataset.taskPin = '';
     const pinStatus = element('p', '', 'task-planning-status'); pinStatus.setAttribute('role', 'status');
     const tagsLabel = element('label'), tagsInput = element('input'); tagsInput.type = 'text'; tagsInput.maxLength = 200; tagsInput.dataset.taskTags = ''; tagsInput.setAttribute('data-i18n-ignore', '');
+    const schedule = element('details', '', 'task-plan-options');
+    const caption = element('summary');
+    schedule.append(caption);
+    const planFields = [['plannedDate','date','Plan date','计划日期'], ['plannedTime','time','Start time','计划开始时间'], ['estimateMinutes','number','Estimate (minutes)','预计耗时（分钟）']].map(([key,type,en,zh]) => {
+      const label = element('label'), title = element('span'), input = element('input');
+      input.type = type; input.dataset.planField = key;
+      if (type === 'number') { input.min = '1'; input.max = '1440'; input.step = '1'; }
+      label.append(title,input); schedule.append(label);
+      return { key, input, title, en, zh };
+    });
+    const [planDate, planTime] = planFields.map(field => field.input);
+    const syncPlanTime = () => { planTime.disabled = !planDate.value; if (planTime.disabled) planTime.value = ''; };
+    planDate.addEventListener('input',syncPlanTime);
+    planning.append(schedule);
     planning.append(priorityLabel, tagsLabel, inboxLabel, sourceLabel, pin, pinStatus);
     // Repeat details beside the editor's own Repeat select: every N, weekdays to use, an end date, count from completion.
     const repeatSelect = form.querySelector('select[name="repeat"], #m-task-repeat');
@@ -82,6 +96,8 @@
     }
     section.append(noteLabel, list, add); anchor.after(planning, section, source, postpone);
     function refreshPlanning() {
+      caption.textContent = localized('Plan time', '安排时间');
+      planFields.forEach(field => { field.title.textContent = localized(field.en,field.zh); });
       const selected = priority.value;
       priorityLabel.replaceChildren(document.createTextNode(localized('Priority', '优先级')), priority);
       priority.replaceChildren(...[['normal','Normal','普通'],['high','Important','重要'],['low','Low','低']].map(([value,en,zh]) => new Option(localized(en,zh),value)));
@@ -107,7 +123,7 @@
       node.append(label, input, remove); list.append(node);
     }
     return {
-      value: () => ({ priority: priority.value, inbox: inbox.checked, sourceUrl: sourceInput.value, notes: notes.value,
+      value: () => ({ ...Object.fromEntries(planFields.map(({key,input}) => [key,input.value || null])), priority: priority.value, inbox: inbox.checked, sourceUrl: sourceInput.value, notes: notes.value,
         tags: tagsInput.value.split(/[,，、#]+/).map(tag => tag.trim()).filter(Boolean),
         repeatEvery: repeatSelect?.value && repeatSelect.value !== 'weekdays' && Number(everyInput.value) > 1 ? Number(everyInput.value) : null,
         repeatDays: repeatSelect?.value === 'weekly' ? dayBoxes.filter(item => item.box.checked).map(item => item.day) : null,
@@ -115,6 +131,8 @@
         repeatFrom: repeatSelect?.value && fromInput.checked ? 'completion' : null, subtasks: [...list.children].map(node => ({ id: node.dataset.subtaskId, text: node.querySelector('[data-subtask-text]').value.trim(), completed: node.querySelector('[type=checkbox]').checked })).filter(item => item.text) }),
       fill(value, task = value) {
         const fields = window.DailySpaceTaskFields.fields(value || {}); notes.value = fields.notes; list.replaceChildren(); fields.subtasks.forEach(row);
+        for (const {key,input} of planFields) input.value = fields[key] ?? '';
+        syncPlanTime(); schedule.open = Boolean(fields.plannedDate || fields.estimateMinutes);
         section.open = Boolean(fields.notes || fields.subtasks.length); currentId = task?.id || null; postpone.hidden = !currentId || task?.completed;
         priority.value = fields.priority; inbox.checked = fields.inbox; sourceInput.value = fields.sourceUrl || ''; pinStatus.textContent = ''; refreshPlanning();
         tagsInput.value = fields.tags.join(', ');
@@ -138,7 +156,7 @@
           <header><h2 id="task-desktop-title">${t('Task details', '任务详情')}</h2><button type="button" data-dialog-close aria-label="${t('Close', '关闭')}">×</button></header>
           <form class="task-desktop-form"><div class="task-desktop-body">
             <label>${t('Task', '任务')}<input name="text" maxlength="500" required data-i18n-ignore></label>
-            <div class="task-desktop-dates"><label>${t('Date', '日期')}<input name="dueDate" type="date"></label><label>${t('Time', '时间')}<input name="dueTime" type="time"></label></div>
+            <div class="task-desktop-dates"><label>${t('Due date', '截止日期')}<input name="dueDate" type="date"></label><label>${t('Due time', '截止时间')}<input name="dueTime" type="time"></label></div>
             <div class="task-desktop-options"><label>${t('Category', '分类')}<select name="categoryId"></select></label><label>${t('Repeat', '重复')}<select name="repeat"><option value="">${t('Once', '一次')}</option><option value="daily">${t('Daily', '每天')}</option><option value="weekdays">${t('Weekdays', '工作日')}</option><option value="weekly">${t('Weekly', '每周')}</option><option value="monthly">${t('Monthly', '每月')}</option><option value="yearly">${t('Yearly', '每年')}</option></select></label></div>
             <p class="task-draft-status" role="status"></p></div><button class="btn btn-primary task-desktop-save" type="submit">${t('Save changes', '保存更改')}</button></form>
         </section>`;

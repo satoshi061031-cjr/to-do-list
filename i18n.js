@@ -496,6 +496,8 @@
     "Ledger view": "账本视图",
     "Who owes whom": "谁该付给谁",
     "Expense type": "支出类型",
+    "Due time": "截止时间",
+    "Related to me": "与我有关",
     Currency: "币种",
     "Keep entire device workspace": "保留整个本机工作区",
     "Use entire cloud workspace": "采用整个云端工作区",

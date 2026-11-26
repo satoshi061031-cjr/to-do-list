@@ -93,12 +93,11 @@
         const wrap = node('div'), valueEl = node('dd', String(value)); valueEl.dataset.reviewMetric = key; wrap.append(node('dt', label), valueEl); metrics.append(wrap);
       }
       host.append(metrics); const columns = node('div', '', 'review-columns'); host.append(columns);
-      const who = owner();
       for (const [key, title, tasks, empty] of [['completed', t('Completed', '已完成'), data.completedTasks.sort((a,b) => b.completedAt-a.completedAt), t('No recorded completions this week.', '本周还没有已记录的完成事项。')], ['overdue', t('Arrange unfinished tasks', '安排未完成任务'), data.overdueTasks.sort((a,b) => a.dueDate.localeCompare(b.dueDate)), t('No unfinished overdue tasks.', '没有尚未完成的逾期任务。')]]) {
         const block = node('section', '', 'toolbox-section'), list = node('ul', '', 'review-list'); list.dataset.reviewList = key; block.append(node('h2', title), list); columns.append(block);
         for (const task of tasks) {
           const row = node('li'), link = node('a', task.text); link.href = `${window.matchMedia('(max-width: 819px)').matches ? 'todo-m.html' : 'todo.html'}?focus=todo&id=${encodeURIComponent(task.id)}`; row.append(link);
-          if (key === 'overdue') { const move = button(t('Today', '移到今天'), () => { if (!ready() || owner() !== who) return; try { Tasks.moveToToday(task.id); render(); const next = host.querySelector('[data-review-today]') || host.querySelector('[data-review-list=overdue]'); if (next) { next.tabIndex = -1; next.focus({ preventScroll: true }); } } catch (error) { report(error); } }); move.dataset.reviewToday = task.id; move.setAttribute('aria-label', `${t('Move to today', '移到今天')} · ${task.text}`); row.append(move); }
+          if (key === 'overdue') row.append(Tasks.reviewControls(task,report,render));
           list.append(row);
         }
         if (!tasks.length) list.append(node('li', empty, 'review-empty'));

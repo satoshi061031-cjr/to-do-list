@@ -4861,3 +4861,14 @@ body.has-bento-rail .sidebar-trigger {
 
 .agent-source-links { margin: var(--space-sm) 0 0; padding: 0; list-style: none; }
 .agent-source-links a { display: flex; align-items: center; min-height: 44px; padding-block: var(--space-xs); color: var(--primary); overflow-wrap: anywhere; font: inherit; }
+
+.related-task-list { list-style: none; padding: 0; }
+.related-task-list li { display: grid; gap: var(--space-xs); padding-block: var(--space-sm); border-bottom: 1px solid var(--quiet-line); }
+.related-task-list a { color: var(--text); overflow-wrap: anywhere; }
+.related-task-list small { color: var(--text-muted); }
+.review-plan-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); min-width: 0; }
+.review-plan-actions small { flex-basis: 100%; color: var(--text-muted); }
+.review-plan-actions :is(input,button), .phone-workbench-overview .focus-card-start { min-height: 44px; max-width: 100%; }
+.task-plan-options { grid-column: 1 / -1; }
+.task-plan-options summary { cursor: pointer; padding-block: var(--space-sm); }
+.task-plan-options input { min-width: 0; max-width: 100%; }

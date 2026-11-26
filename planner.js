@@ -740,6 +740,8 @@
     return true;
   }
 
+  const teamParams = new URLSearchParams(location.search);
+  let linkedBoard = teamParams.get('teamBoard');
   async function loadTeamBoards() {
     teamRequests.forEach(request => { if (request.context.list !== null && request.method === "GET") request.controller.abort(); });
     listGeneration++;
@@ -785,6 +787,7 @@
       } catch (_) {
         workspaceId = "";
       }
+      if (linkedBoard) workspaceId = teamParams.get('workspace');
       const activeWorkspace = workspaces.find((w) => w.id === workspaceId) || workspaces[0];
       workspaceId = activeWorkspace.id;
       if (isTeamMode() && selectedWorkspaceId && selectedWorkspaceId !== workspaceId) {
@@ -808,7 +811,7 @@
       }
       const boardsPayload = await apiRequest(`/api/workspaces/${encodeURIComponent(workspaceId)}/boards`, undefined, context);
       let boardsList = Array.isArray(boardsPayload.boards) ? boardsPayload.boards : [];
-      if (!boardsList.length && canManageTeamBoards) {
+      if (!boardsList.length && canManageTeamBoards && !linkedBoard) {
         const created = await apiRequest(`/api/workspaces/${encodeURIComponent(workspaceId)}/boards`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -836,6 +839,16 @@
         }
       }
       setTeamStatus("");
+      if (linkedBoard) {
+        const id = linkedBoard; linkedBoard = null;
+        if (teamBoards.some(board => board.id === id)) {
+          await selectTeamBoard(id);
+          if (selectedTeamBoardId === id) {
+            const card = plannerBoardEl?.querySelector('[data-entry-id="' + CSS.escape(teamParams.get('card') || '') + '"]');
+            if (card) window.DailySpaceSearch?.highlight(card);
+          }
+        }
+      }
       return true;
     } catch (error) {
       if (!currentTeamContext(context) || error?.code === "PLANNER_STALE") return false;
