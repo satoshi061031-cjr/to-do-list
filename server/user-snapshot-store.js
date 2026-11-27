@@ -1,4 +1,5 @@
 const { createClient } = require("@supabase/supabase-js");
+const { EventEmitter } = require("node:events");
 const {
   getUserSnapshot: getSqliteSnapshot,
   upsertUserSnapshot: upsertSqliteSnapshot,
@@ -65,6 +66,7 @@ function supabaseConfig() {
 }
 
 function createSnapshotStore(options = {}) {
+  const commits = new EventEmitter();
   const config = options.config || supabaseConfig();
   const configured = Boolean(config.url && config.serviceRoleKey);
   const supabase =
@@ -123,7 +125,7 @@ function createSnapshotStore(options = {}) {
     return migrate ? migrateLegacySnapshot(id) : null;
   }
 
-  async function upsertSnapshot(userId, rawPayload, baseRevision = 0) {
+  async function saveSnapshot(userId, rawPayload, baseRevision = 0) {
     const id = normalizeUserId(userId);
     if (!id) throw snapshotError("userId is required.", 400);
     if (!Number.isSafeInteger(baseRevision) || baseRevision < 0) {
@@ -164,8 +166,26 @@ function createSnapshotStore(options = {}) {
   return {
     configured: Boolean(supabase),
     getSnapshot,
-    upsertSnapshot,
-    deleteSnapshot,
+    async upsertSnapshot(userId, payload, revision) {
+      const saved = await saveSnapshot(userId, payload, revision);
+      commits.emit("snapshot:" + normalizeUserId(userId));
+      commits.emit("saved", normalizeUserId(userId), payload);
+      return saved;
+    },
+    async deleteSnapshot(userId) {
+      const result = await deleteSnapshot(userId);
+      commits.emit("snapshot:" + normalizeUserId(userId));
+      return result;
+    },
+    onCommit(userId, listener) {
+      const key = "snapshot:" + normalizeUserId(userId);
+      commits.on(key, listener);
+      return () => commits.off(key, listener);
+    },
+    onSaved(listener) {
+      commits.on("saved", listener);
+      return () => commits.off("saved", listener);
+    },
   };
 }
 

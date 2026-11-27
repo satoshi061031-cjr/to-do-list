@@ -116,6 +116,13 @@
             </datalist>
             <div class="tally-progress"><span id="tally-progress-bar"></span></div>
             <p class="tally-card-note" id="tally-budget-note"></p>
+            <details id="watch-pairing">
+              <summary>Apple Watch</summary>
+              <p class="tally-card-note">Pair your watch to see today's personal spending on its face.</p>
+              <button type="button" class="btn" id="watch-pair">Generate pairing code</button>
+              <button type="button" class="btn" id="watch-revoke">Disconnect watch</button>
+              <p class="tally-card-note" id="watch-status" role="status" data-i18n-ignore></p>
+            </details>
             <div class="tally-people-settings">
               <div>
                 <strong>People</strong>
@@ -304,6 +311,7 @@
       <footer><button type="button" class="btn" id="tally-merge-refresh"></button><button type="button" class="btn btn-primary" id="tally-merge-apply" hidden></button></footer>
     </dialog>
     <script src="tally.js"></script>
+    <script src="tally-watch.js"></script>
     <script src="tally-merge.js"></script>
     <script src="agent-data.js"></script>
     <script src="agent-sources.js"></script>

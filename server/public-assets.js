@@ -66,6 +66,7 @@ module.exports = [
   "calendar.js",
   "tally-core.js",
   "tally.js",
+  "tally-watch.js",
   "tally-merge.js",
   "travel.js",
   "travel-bookings.js",
