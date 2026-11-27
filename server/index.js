@@ -88,6 +88,8 @@ const mailBackup = require("./mail-account-backup").createMailAccountBackup({ ex
 setMailAccountsChangeListener(mailBackup.scheduleSave);
 const staticAssets = require("./static-assets").createStaticAssets({ rootDir: ROOT_DIR, publicAssets: PUBLIC_ASSETS, contentType });
 const quickAdd = require("./quick-add").createQuickAdd({ getSecret: getSessionSecret, getSnapshotStore: getUserSnapshotStore });
+const watchSpending = require("./watch-spending").createWatchSpending(getDb(), getUserSnapshotStore, Date.now,
+  require("./watch-push").createAppleSender());
 const receiptScanner = require("./receipt-scan").createReceiptScanner();
 const attachments = require("./attachments").createAttachments({ getSnapshotStore: getUserSnapshotStore });
 const { createMcp, serverOrigins } = require("./mcp");
@@ -125,7 +127,7 @@ const server = http.createServer((request, response) => {
   });
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, process.env.DAYFLY_BIND_HOST || undefined, () => {
   console.log(`dayfly server running at http://localhost:${PORT}`);
 });
 
@@ -179,6 +181,39 @@ async function handleApi(request, response, url) {
       sendJson(response, { ok: true, count: reminderStore.sync(session.userId, body?.jobs) }); return;
     }
     throw Object.assign(new Error("Reminder route not found."), { statusCode: 404 });
+  }
+
+  if (url.pathname === "/api/watch/pairing" && (method === "POST" || method === "DELETE")) {
+    enforceUserSession(session);
+    if (request.headers.origin !== mcpOrigins(request).hostOrigin || request.headers["sec-fetch-site"] === "cross-site") {
+      throw Object.assign(new Error("Same-origin request required."), { statusCode: 403 });
+    }
+    if (method === "DELETE") {
+      watchSpending.revoke(session.userId);
+      sendJson(response, { ok: true });
+    } else sendJson(response, watchSpending.issue(session.userId));
+    return;
+  }
+  if (method === "POST" && url.pathname === "/api/watch/redeem") {
+    const body = await readJson(request, 512);
+    sendJson(response, watchSpending.redeem(body?.code, request.socket.remoteAddress));
+    return;
+  }
+  if (method === "GET" && url.pathname === "/api/watch/today") {
+    const controller = new AbortController();
+    response.once("close", () => controller.abort());
+    const value = await watchSpending.read(request.headers.authorization, url.searchParams.get("timeZone"),
+      request.headers["x-dayfly-watch-since"], controller.signal);
+    if (controller.signal.aborted) return;
+    response.setHeader("X-Dayfly-Watch-Tag", watchSpending.changeTag(value));
+    sendJson(response, value);
+    return;
+  }
+  if (url.pathname === "/api/watch/widget-push" && (method === "PUT" || method === "DELETE")) {
+    const body = method === "PUT" ? await readJson(request, 1024) : null;
+    watchSpending.configurePush(request.headers.authorization, method === "DELETE" ? null : body?.deviceToken ?? "");
+    sendJson(response, { ok: true });
+    return;
   }
 
   // Quick add: an expense sent from outside the app (e.g. an iOS Shortcut) with a personal key.
@@ -710,6 +745,7 @@ async function handleApi(request, response, url) {
   if (method === "DELETE" && url.pathname === "/api/user/account") {
     enforceUserSession(session);
     const userId = session.userId;
+    watchSpending.revoke(userId);
     reminderStore.revokeOwner(userId);
     const mail = removeAllMailAccountsForUser(userId);
     const snapshot = await getUserSnapshotStore().deleteSnapshot(userId);

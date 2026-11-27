@@ -64,6 +64,26 @@ async function guestPage(browser, t, options, book = ledger()) {
 
 const stored = page => page.evaluate(() => JSON.parse(localStorage.getItem('tally-book-v1')));
 
+test('watch pairing opens in ledger settings on desktop and mobile and clears the code on disconnect', async t => {
+  const base = await startServer(t), browser = await launch(t);
+  for (const width of [1280, 390]) {
+    const { page, errors } = await guestPage(browser, t, { viewport: { width, height: 850 } });
+    await page.goto(base + '/tally.html');
+    await page.locator('#tally-tools > summary').click();
+    await page.locator('#tally-settings-toggle').click();
+    await page.locator('#watch-pairing > summary').click();
+    await page.locator('#watch-pair').click();
+    await page.getByText('Sign in to your dayfly account first.').waitFor();
+    await page.route('**/api/watch/pairing', route => route.fulfill({ json: route.request().method() === 'POST'
+      ? { code: 'ABCDE-ABCDE', expiresAt: Date.now() + 600000 } : { ok: true } }));
+    await page.locator('#watch-pair').click();
+    await page.locator('#watch-status').filter({ hasText: 'ABCDE-ABCDE' }).waitFor();
+    await page.locator('#watch-revoke').click();
+    await page.locator('#watch-status').filter({ hasText: 'Watch access and pending codes removed.' }).waitFor();
+    assert.deepEqual(errors, []);
+  }
+});
+
 test('spending insights chart the personal ledger, navigate months and turn subscriptions into bills', { timeout: 90_000 }, async t => {
   const base = await startServer(t), browser = await launch(t);
   const { page, errors } = await guestPage(browser, t, { viewport: { width: 1280, height: 900 } });

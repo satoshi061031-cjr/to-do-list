@@ -121,9 +121,22 @@ test("HTTP routes: key creation needs a same-origin session, quick add needs the
 
   const put = await fetch(`${base}/api/user/snapshot`, { method: "PUT", headers: { "Content-Type": "application/json", cookie }, body: JSON.stringify({ baseRevision: 0, payload: { "tally-book-v1": JSON.stringify({ baseCurrency: "CNY", records: [], quickAddKeyId: issued.keyId }) } }) });
   assert.equal(put.status, 200);
+  const pairing = await post("/api/watch/pairing", {}, { cookie, origin: base });
+  assert.equal(pairing.status, 200);
+  const redeem = await post("/api/watch/redeem", { code: (await pairing.json()).code });
+  const authorization = "Bearer " + (await redeem.json()).token;
+  const today = base + "/api/watch/today?timeZone=Asia%2FShanghai";
+  const first = await fetch(today, { headers: { authorization } });
+  assert.equal((await first.json()).amount, "0.00");
+  const tag = first.headers.get("X-Dayfly-Watch-Tag");
+  assert.match(tag, /^[0-9a-f]{64}$/);
+  const onChange = fetch(today, { headers: { authorization, "X-Dayfly-Watch-Since": tag }, signal: AbortSignal.timeout(5000) });
   const added = await post("/api/tally/quick-add", { amount: "32.5", category: "Lunch" }, auth);
   assert.equal(added.status, 200); const result = await added.json();
   assert.equal(result.record.amount, 32.5); assert.match(result.message, /Recorded CNY 32\.5 · Lunch/);
+  const updated = await onChange;
+  assert.notEqual(updated.headers.get("X-Dayfly-Watch-Tag"), tag);
+  assert.equal((await updated.json()).amount, "32.50");
   assert.equal((await post("/api/tally/quick-add", { amount: "nope" }, auth)).status, 400);
   const snapshot = await (await fetch(`${base}/api/user/snapshot`, { headers: { cookie } })).json();
   assert.equal(snapshot.revision, 2); assert.equal(JSON.parse(snapshot.payload["tally-book-v1"]).records[0].category, "Lunch");

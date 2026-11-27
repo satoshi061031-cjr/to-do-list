@@ -1,0 +1,417 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		49CE030AA5B74116BED27DF1 /* SpendingTimeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9121425D3104483A9FE31AA /* SpendingTimeline.swift */; };
+		AB21062261DB7CB9FFD1472E /* DayflyWatch/DayflyWatch.swift in DayflyWatch */ = {
+			isa = PBXBuildFile;
+			fileRef = DD4DDF93F8B6E8C5192D2264 /* DayflyWatch/DayflyWatch.swift */;
+		};
+		20C454257EEFCC9874BEDA0E /* Shared/Spending.swift in DayflyWatch */ = {
+			isa = PBXBuildFile;
+			fileRef = F2DA6783D3D7BF9C1E40C7B8 /* Shared/Spending.swift */;
+		};
+		14A399933CCAE2AAB966CABC /* DayflyWatch/Assets.xcassets in DayflyWatch */ = {
+			isa = PBXBuildFile;
+			fileRef = 7CBE5C637687F15A507E9786 /* DayflyWatch/Assets.xcassets */;
+		};
+		8BA0C86DBFE38877EB5B8CC0 /* SpendingWidget/SpendingWidget.swift in SpendingWidget */ = {
+			isa = PBXBuildFile;
+			fileRef = FBFB7F85299F08641471FEC7 /* SpendingWidget/SpendingWidget.swift */;
+		};
+		863BF2107B98CE5EBB1D82F3 /* Shared/Spending.swift in SpendingWidget */ = {
+			isa = PBXBuildFile;
+			fileRef = F2DA6783D3D7BF9C1E40C7B8 /* Shared/Spending.swift */;
+		};
+		43E2C3DAC6B24D001DD69BB7 /* Embedded widget */ = {
+			isa = PBXBuildFile;
+			fileRef = 63B1C48590D27C94023E0B19 /* SpendingWidget.appex */;
+			settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); };
+		};
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		1B6B8427E8ECF17C6C6C9820 /* Widget proxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 985959785319747668373CC6 /* Project */;
+			proxyType = 1;
+			remoteGlobalIDString = 1DDB915F730C309B6863B71F;
+			remoteInfo = SpendingWidget;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		C4C44C6103173953F6C21BBD /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				43E2C3DAC6B24D001DD69BB7 /* Embedded widget */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		A9121425D3104483A9FE31AA /* SpendingTimeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpendingTimeline.swift; sourceTree = "<group>"; };
+		DD4DDF93F8B6E8C5192D2264 /* DayflyWatch/DayflyWatch.swift */ = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = "DayflyWatch.swift";
+			sourceTree = "<group>";
+		};
+		7CBE5C637687F15A507E9786 /* DayflyWatch/Assets.xcassets */ = {
+			isa = PBXFileReference;
+			lastKnownFileType = folder.assetcatalog;
+			path = "Assets.xcassets";
+			sourceTree = "<group>";
+		};
+		1824A229387596EA660D78C4 /* DayflyWatch/Info.plist */ = {
+			isa = PBXFileReference;
+			lastKnownFileType = text.plist.xml;
+			path = "Info.plist";
+			sourceTree = "<group>";
+		};
+		FBFB7F85299F08641471FEC7 /* SpendingWidget/SpendingWidget.swift */ = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = "SpendingWidget.swift";
+			sourceTree = "<group>";
+		};
+		7257EE151892C5F968B02BB3 /* SpendingWidget/Info.plist */ = {
+			isa = PBXFileReference;
+			lastKnownFileType = text.plist.xml;
+			path = "Info.plist";
+			sourceTree = "<group>";
+		};
+		F2DA6783D3D7BF9C1E40C7B8 /* Shared/Spending.swift */ = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = "Spending.swift";
+			sourceTree = "<group>";
+		};
+		EA9B631B0D5E460D2371D94C /* Shared/Watch.entitlements */ = {
+			isa = PBXFileReference;
+			lastKnownFileType = text.plist.entitlements;
+			path = "Watch.entitlements";
+			sourceTree = "<group>";
+		};
+		0AA7B32D0724A627D238C68E /* DayflyWatch.app */ = {
+			isa = PBXFileReference;
+			explicitFileType = wrapper.application;
+			includeInIndex = 0;
+			path = DayflyWatch.app;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		63B1C48590D27C94023E0B19 /* SpendingWidget.appex */ = {
+			isa = PBXFileReference;
+			explicitFileType = wrapper.app-extension;
+			includeInIndex = 0;
+			path = SpendingWidget.appex;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		7DE9DC9C185532B3244155D2 /* DayflyWatch Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		48313D7FDA6FA080CC2221A4 /* SpendingWidget Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		057F53F7FC2E9E721CE3B687 /* DayflyWatch group */ = {
+			isa = PBXGroup;
+			children = (
+				DD4DDF93F8B6E8C5192D2264 /* DayflyWatch/DayflyWatch.swift */,
+				7CBE5C637687F15A507E9786 /* DayflyWatch/Assets.xcassets */,
+				1824A229387596EA660D78C4 /* DayflyWatch/Info.plist */,
+			);
+			path = DayflyWatch;
+			sourceTree = "<group>";
+		};
+		F0ACD5FF88C2F4A18DFB529A /* SpendingWidget group */ = {
+			isa = PBXGroup;
+			children = (
+				FBFB7F85299F08641471FEC7 /* SpendingWidget/SpendingWidget.swift */,
+				A9121425D3104483A9FE31AA /* SpendingTimeline.swift */,
+				7257EE151892C5F968B02BB3 /* SpendingWidget/Info.plist */,
+			);
+			path = SpendingWidget;
+			sourceTree = "<group>";
+		};
+		188D6B1E6B81588BACB5CBEA /* Shared group */ = {
+			isa = PBXGroup;
+			children = (
+				F2DA6783D3D7BF9C1E40C7B8 /* Shared/Spending.swift */,
+				EA9B631B0D5E460D2371D94C /* Shared/Watch.entitlements */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		4EDC8BFAFC6BD936B849F38C /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				0AA7B32D0724A627D238C68E /* DayflyWatch.app */,
+				63B1C48590D27C94023E0B19 /* SpendingWidget.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		40330AC15B9B4360CF36A5DF /* Main group */ = {
+			isa = PBXGroup;
+			children = (
+				057F53F7FC2E9E721CE3B687 /* DayflyWatch group */,
+				F0ACD5FF88C2F4A18DFB529A /* SpendingWidget group */,
+				188D6B1E6B81588BACB5CBEA /* Shared group */,
+				4EDC8BFAFC6BD936B849F38C /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		2B42E41CAC3728498E8989CF /* DayflyWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1DEEAE2AE56A393DD7F9DF87 /* DayflyWatch configurations */;
+			buildPhases = (
+				75AEB0E10F5F2F7E7EC33595 /* DayflyWatch Sources */,
+				7DE9DC9C185532B3244155D2 /* DayflyWatch Frameworks */,
+				4C1837BC1191510C0F15DFA5 /* DayflyWatch Resources */,
+				C4C44C6103173953F6C21BBD /* Embed App Extensions */,
+			);
+			buildRules = ();
+			dependencies = (
+				07050FAB779AB5DF4733AAFE /* Widget dependency */,
+			);
+			name = DayflyWatch;
+			productName = DayflyWatch;
+			productReference = 0AA7B32D0724A627D238C68E /* DayflyWatch.app */;
+			productType = "com.apple.product-type.application";
+		};
+		1DDB915F730C309B6863B71F /* SpendingWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A690B1819A2C3CC4E54E1D5D /* SpendingWidget configurations */;
+			buildPhases = (
+				B98E41AEE78AE6FBD49259AE /* SpendingWidget Sources */,
+				48313D7FDA6FA080CC2221A4 /* SpendingWidget Frameworks */,
+				831B32ABFC061F1844A49E59 /* SpendingWidget Resources */,
+			);
+			buildRules = ();
+			dependencies = ();
+			name = SpendingWidget;
+			productName = SpendingWidget;
+			productReference = 63B1C48590D27C94023E0B19 /* SpendingWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		985959785319747668373CC6 /* Project */ = {
+			isa = PBXProject;
+			attributes = { BuildIndependentTargetsInParallel = YES; LastUpgradeCheck = 1600; };
+			buildConfigurationList = 9CFF64D8AE28E83EB00193AA /* Project configurations */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (en, Base, "zh-Hans", );
+			mainGroup = 40330AC15B9B4360CF36A5DF /* Main group */;
+			productRefGroup = 4EDC8BFAFC6BD936B849F38C /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				2B42E41CAC3728498E8989CF /* DayflyWatch */,
+				1DDB915F730C309B6863B71F /* SpendingWidget */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		4C1837BC1191510C0F15DFA5 /* DayflyWatch Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				14A399933CCAE2AAB966CABC /* DayflyWatch/Assets.xcassets in DayflyWatch */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		831B32ABFC061F1844A49E59 /* SpendingWidget Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		75AEB0E10F5F2F7E7EC33595 /* DayflyWatch Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AB21062261DB7CB9FFD1472E /* DayflyWatch/DayflyWatch.swift in DayflyWatch */,
+				20C454257EEFCC9874BEDA0E /* Shared/Spending.swift in DayflyWatch */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B98E41AEE78AE6FBD49259AE /* SpendingWidget Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8BA0C86DBFE38877EB5B8CC0 /* SpendingWidget/SpendingWidget.swift in SpendingWidget */,
+				49CE030AA5B74116BED27DF1 /* SpendingTimeline.swift in Sources */,
+				863BF2107B98CE5EBB1D82F3 /* Shared/Spending.swift in SpendingWidget */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		07050FAB779AB5DF4733AAFE /* Widget dependency */ = {
+			isa = PBXTargetDependency;
+			target = 1DDB915F730C309B6863B71F /* SpendingWidget */;
+			targetProxy = 1B6B8427E8ECF17C6C6C9820 /* Widget proxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		E20609128BE34B268B1C1700 /* Project Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				SDKROOT = watchos;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				SWIFT_VERSION = 5.0;
+				CLANG_ENABLE_MODULES = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 3HJ7572ND8;
+				MARKETING_VERSION = 1.0;
+				CURRENT_PROJECT_VERSION = 1;
+				DAYFLY_SERVER_URL = "http://localhost:3000";
+			};
+			name = Debug;
+		};
+		06D9FAC4492C016BD6137653 /* Project Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				SDKROOT = watchos;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				SWIFT_VERSION = 5.0;
+				CLANG_ENABLE_MODULES = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 3HJ7572ND8;
+				MARKETING_VERSION = 1.0;
+				CURRENT_PROJECT_VERSION = 1;
+				DAYFLY_SERVER_URL = "https://junrongchensz.uk";
+			};
+			name = Release;
+		};
+		C297E8D5846A0E9D95EC7746 /* DayflyWatch Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = DayflyWatch/Info.plist;
+				CODE_SIGN_ENTITLEMENTS = Shared/Watch.entitlements;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = app.dailyspace.watch;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+			};
+			name = Debug;
+		};
+		CFDFF9590E3B16334EDE22BA /* DayflyWatch Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = DayflyWatch/Info.plist;
+				CODE_SIGN_ENTITLEMENTS = Shared/Watch.entitlements;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = app.dailyspace.watch;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+			};
+			name = Release;
+		};
+		F8D65E87685A5FCCFB12BD43 /* SpendingWidget Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SpendingWidget/Info.plist;
+				CODE_SIGN_ENTITLEMENTS = Shared/Watch.entitlements;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = app.dailyspace.watch.spending;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				SKIP_INSTALL = YES;
+			};
+			name = Debug;
+		};
+		B2DF0DAC0DB7383C37772CBD /* SpendingWidget Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SpendingWidget/Info.plist;
+				CODE_SIGN_ENTITLEMENTS = Shared/Watch.entitlements;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = app.dailyspace.watch.spending;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				SKIP_INSTALL = YES;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		9CFF64D8AE28E83EB00193AA /* Project configurations */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E20609128BE34B268B1C1700 /* Project Debug */,
+				06D9FAC4492C016BD6137653 /* Project Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1DEEAE2AE56A393DD7F9DF87 /* DayflyWatch configurations */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C297E8D5846A0E9D95EC7746 /* DayflyWatch Debug */,
+				CFDFF9590E3B16334EDE22BA /* DayflyWatch Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A690B1819A2C3CC4E54E1D5D /* SpendingWidget configurations */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F8D65E87685A5FCCFB12BD43 /* SpendingWidget Debug */,
+				B2DF0DAC0DB7383C37772CBD /* SpendingWidget Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 985959785319747668373CC6 /* Project */;
+}
